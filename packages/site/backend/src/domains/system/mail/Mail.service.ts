@@ -61,8 +61,8 @@ export class MailService {
     }
     if (config.NODE_ENV === EnviromentEnum.production) {
       await httpsPost({
-        hostname: 'wb.serginho.ru',
-        path: `/tqrsm`,
+        hostname: process.env.EMAIL_PROXY_HOST,
+        path: process.env.EMAIL_PROXY_PATH,
         headers: {
           'Content-Type': 'application/x-www-form-urlencoded',
         },
