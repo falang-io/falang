@@ -67,8 +67,8 @@ const run = () => {
         continue;
       }
       let version = package.dependencies[dep];
-      version = version.replace('.*', '.0').replace('^', '')
-      version = '>'.concat(version);
+      version = version.replace('.*', '.0').replace('.x', '.0').replace('^', '')
+      version = '>='.concat(version);
       package.dependencies[dep] = version;
     }
     fs.writeFileSync(path.join(outPath, 'package.json'), JSON.stringify(package, undefined, 2));
