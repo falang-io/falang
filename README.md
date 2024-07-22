@@ -41,4 +41,4 @@ pnpm i
 
 ## License
 
-Licensed under [Server Side Public License](./packages/LICENSE).
+Licensed under [Server Side Public License](./LICENSE).
