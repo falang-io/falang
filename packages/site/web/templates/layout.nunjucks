@@ -39,6 +39,9 @@
         <a class='bp5-button bp5-minimal' href='https://app.falang.io/documents/shared'>
           {{ i18n.translation.library }}
         </a>
+        <a class='bp5-button bp5-minimal' href='https://github.com/falang-io/falang'>
+          Source
+        </a>
         {#
         <a class='bp5-button bp5-minimal{% if menuTab === "video" %} bp5-active{%endif%}' href='/{{ lang }}/video/'>
           {{ i18n.translation.video }}
