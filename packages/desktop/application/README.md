@@ -1,1 +1,10 @@
-# Bootstrapped with @electron-esbuild/create-app
+# Desktop application
+
+## Run application
+```bash
+npm run dev
+```
+On windows:
+```bash
+npm run dev-win
+```
