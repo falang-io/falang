@@ -1,0 +1,78 @@
+{
+  "id": "ez6oGO9AKVvBnF6tX97qC",
+  "schemeVersion": 2,
+  "name": "PrintNumberArray",
+  "type": "function",
+  "description": "",
+  "root": {
+    "id": "IcuthIiJQ_r3xMWs5My6i",
+    "alias": "function",
+    "header": {
+      "text": "",
+      "width": 160,
+      "color": "#ffffff"
+    },
+    "block": {
+      "parameters": [
+        {
+          "name": "arr",
+          "type": {
+            "type": "array",
+            "elementType": {
+              "type": "number",
+              "numberType": "integer",
+              "integerType": "int32"
+            },
+            "dimensions": 1
+          }
+        }
+      ],
+      "returnValue": {
+        "type": "void"
+      },
+      "width": 192,
+      "name": "PrintNumberArray"
+    },
+    "children": [
+      {
+        "id": "ID4ompxDsSTrSqKXCgQDq",
+        "alias": "log",
+        "block": {
+          "width": 128,
+          "color": "#ffffff",
+          "expression": "\"PrintNumberArray\"",
+          "type": "string",
+          "variableType": null
+        }
+      },
+      {
+        "id": "pn6Ktc5qyYDRzWmRRFfgc",
+        "alias": "foreach",
+        "block": {
+          "arr": "arr",
+          "index": "",
+          "item": "x",
+          "width": 128
+        },
+        "children": [
+          {
+            "id": "Lsiq8hpGXxCLr-BiTokSz",
+            "alias": "log",
+            "block": {
+              "width": 128,
+              "color": "#ffffff",
+              "expression": "\"{x}\"",
+              "type": "string",
+              "variableType": null
+            }
+          }
+        ]
+      }
+    ],
+    "footer": {
+      "text": "",
+      "width": 160,
+      "color": "#ffffff"
+    }
+  }
+}

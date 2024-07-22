@@ -1,0 +1,52 @@
+import { Test, TestingModule } from '@nestjs/testing';
+import { INestApplication } from '@nestjs/common';
+import '../../../../config';
+import { UserHttpApiModule } from '../UserHttpApi.module';
+import { createUserAndLogin } from '../../../../../test/maker';
+import { httpServerBootstrap } from '../../../../bootstrap/httpServer.bootstrap';
+import { LoggerModule } from 'nestjs-pino';
+import { getTypeormModule } from '../../../system/database/getTypeormModule';
+
+describe('SessionController', () => {
+  let app: INestApplication;
+
+  beforeEach(async () => {
+    const moduleFixture: TestingModule = await Test.createTestingModule({
+      imports: [
+        UserHttpApiModule,
+        getTypeormModule(),
+        LoggerModule.forRoot({
+          pinoHttp: {
+            level: 'trace',
+            customLogLevel: () => 'trace',
+            transport: {
+              target: 'pino-pretty',
+            },
+          },
+        }),
+      ],
+    }).compile();
+    app = moduleFixture.createNestApplication();
+    await httpServerBootstrap(app);
+    await app.init();
+  });
+
+  afterEach(async () => {
+    app && (await app.close());
+  });
+
+  it('login / getUserInfo / logout', async () => {
+    const { agent, user } = await createUserAndLogin(app);
+    const { username, email } = user;
+
+    await agent
+      .get('/user/session/info')
+      .send()
+      .expect(200)
+      .then(({ body }) => {
+        expect(body.username).toEqual(username);
+        expect(body.email).toEqual(email);
+        expect(body.loggedIn).toEqual(true);
+      });
+  });
+});

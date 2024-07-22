@@ -1,0 +1,81 @@
+<!doctype html>
+<html lang="{{ lang }}">
+  <head>
+    <title>{{ title }}: {{ titlePostfix }}</title>
+    {% if description %}<meta name="description" content="{{description}}" />{% endif %}
+    {% if keywords %}<meta name="keywords" content="{{keywords}}" />{% endif %}
+    <link rel="icon" href="/favicon.ico" />
+    <link rel="stylesheet" href="/normalize.css"/>
+    <link rel="stylesheet" href="/style.css"/>
+    <link rel="stylesheet" href="/blueprint.css"/>
+    <link rel="stylesheet" href="/blueprint-icons/blueprint-icons.css"/>
+    {% if menuTab == 'docs' %}<link rel="stylesheet" href="/docs.css"/>{% endif %}
+    <!-- Yandex.Metrika counter -->
+    <script type="text/javascript" >
+      (function(m,e,t,r,i,k,a){m[i]=m[i]||function(){(m[i].a=m[i].a||[]).push(arguments)};
+      m[i].l=1*new Date();
+      for (var j = 0; j < document.scripts.length; j++) {if (document.scripts[j].src === r) { return; }}
+      k=e.createElement(t),a=e.getElementsByTagName(t)[0],k.async=1,k.src=r,a.parentNode.insertBefore(k,a)})
+      (window, document, "script", "https://mc.yandex.ru/metrika/tag.js", "ym");
+
+      ym(91071305, "init", {
+            clickmap:true,
+            trackLinks:true,
+            accurateTrackBounce:true
+      });
+    </script>
+    <!-- /Yandex.Metrika counter -->
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+  </head>
+  <body class='body-{{ menuTab }}'>
+    <nav class="bp5-navbar bp5-dark">
+      <div class="bp5-navbar-group bp5-align-left">
+        <a class='bp5-button bp5-minimal{% if menuTab === "index" %} bp5-active{%endif%}' href='/{{ lang }}/'>
+          {{ i18n.translation.home }}
+        </a>
+        <a class='bp5-button bp5-minimal{% if menuTab === "docs" %} bp5-active{%endif%}' href='/{{ lang }}/docs/'>
+          {{ i18n.translation.docs }}
+        </a>
+        <a class='bp5-button bp5-minimal' href='https://app.falang.io/documents/shared'>
+          {{ i18n.translation.library }}
+        </a>
+        {#
+        <a class='bp5-button bp5-minimal{% if menuTab === "video" %} bp5-active{%endif%}' href='/{{ lang }}/video/'>
+          {{ i18n.translation.video }}
+        </a>
+        <a class='bp5-button bp5-minimal{% if menuTab === "articles" %} bp5-active{%endif%}' href='/{{ lang }}/articles/'>
+          {{ i18n.translation.articles }}
+        </a>
+        #}
+      </div>
+      <div class="bp5-navbar-group bp5-align-right">
+        <a id='lang-switch' href="{{ nextLangUrl }}" title="Change language">
+          {% if lang == 'en' %}
+            <img src='/gb.svg' />
+            <img src='/ru.svg' />
+          {% else %}
+            <img src='/ru.svg' />
+            <img src='/gb.svg' />
+          {% endif %}
+        </a>
+        <a class='bp5-button bp5-minimal' href='https://app.falang.io'>
+          {{ i18n.translation.application }}
+        </a>
+        {#<Button
+        minimal
+        icon="user"
+        onClick={() => runInAction(() => modals.login.show())}
+      >
+        {t('login')}
+      </Button>#}
+      </div>
+    </nav>
+    <div id="layout-content">
+      {% block content %}{% endblock %}
+    </div>
+    <div id="footer">
+      <a href='mailto:sachik-sergey@yandex.ru' style='color:white'>sachik-sergey@yandex.ru</a>
+    </div>
+    <noscript><div><img src="https://mc.yandex.ru/watch/91071305" style="position:absolute; left:-9999px;" alt="" /></div></noscript>
+  </body>
+</html>

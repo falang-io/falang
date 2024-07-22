@@ -1,0 +1,26 @@
+{
+  "name": "@falang/frontend-core",
+  "version": "0.0.1",
+  "description": "",
+  "main": "./src/index.ts",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "SSPL",
+  "dependencies": {
+    "@blueprintjs/core": "5.x",
+    "@falang/i18n": "workspace:^",
+    "@falang/project": "workspace:^",
+    "@types/node": "^18.15.5",
+    "@types/styled-components": "^5.1.26",
+    "flag-icons": "^6.6.6",
+    "mobx": "^6.7.0",
+    "mobx-react": "^7.6.0",
+    "moment": "^2.29.4",
+    "moment-timezone": "^0.5.41",
+    "react": "^18.2.0",
+    "styled-components": "^5.3.6"
+  }
+}

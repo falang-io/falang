@@ -1,0 +1,4 @@
+{% extends "./layout.nunjucks" %}
+{% block content %}
+video
+{% endblock %}

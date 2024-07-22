@@ -1,0 +1,32 @@
+{
+  "exports": [
+    {
+      "language": "ts",
+      "path": "./code/ts/src/falang"
+    },
+    {
+      "language": "rust",
+      "path": "./code/rust/src/falang"
+    },
+    {
+      "language": "cpp",
+      "path": "./code/cpp/src/falang"
+    },
+    {
+      "language": "sharp",
+      "path": "./code/sharp/src/Falang"
+    },
+    {
+      "language": "golang",
+      "path": "./code/go/falang"
+    },
+    {
+      "language": "js",
+      "path": "./code/js/src/falang"
+    },
+    {
+      "language": "js-file",
+      "path": "./code/js-file/src/falang"
+    }
+  ]
+}

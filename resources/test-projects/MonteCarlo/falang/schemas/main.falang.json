@@ -1,0 +1,64 @@
+{
+  "id": "m7pVTfZRXeP0bT6BWlmQf",
+  "schemeVersion": 2,
+  "name": "main",
+  "type": "function",
+  "description": "",
+  "root": {
+    "id": "lB5upikdDh_HbhKEy2jH0",
+    "alias": "function",
+    "header": {
+      "text": "",
+      "width": 176,
+      "color": "#ffffff"
+    },
+    "block": {
+      "parameters": [],
+      "returnValue": {
+        "type": "void"
+      },
+      "width": 160,
+      "name": "main"
+    },
+    "children": [
+      {
+        "id": "72bv8itACnGBBHxW8Q1E6",
+        "alias": "log",
+        "block": {
+          "width": 128,
+          "color": "#ffffff",
+          "expression": "\"!!test started\"",
+          "type": "string",
+          "variableType": null
+        }
+      },
+      {
+        "id": "iGMBrrPKjLLS7NpmbDlr9",
+        "alias": "call_function",
+        "block": {
+          "parameters": [],
+          "returnVariable": "resultPi",
+          "schemeId": "TJbaB9vPj399tVyisxU6U",
+          "width": 160,
+          "iconId": null
+        }
+      },
+      {
+        "id": "QuqmJIOr3EYvJNL9FKuZk",
+        "alias": "log",
+        "block": {
+          "width": 256,
+          "color": "#ffffff",
+          "expression": "'Calculation result: {resultPi}'",
+          "type": "string",
+          "variableType": null
+        }
+      }
+    ],
+    "footer": {
+      "text": "",
+      "width": 160,
+      "color": "#ffffff"
+    }
+  }
+}

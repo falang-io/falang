@@ -1,0 +1,28 @@
+{
+  "name": "@falang/tests-logic-compile-and-run",
+  "version": "1.0.0",
+  "description": "",
+  "main": "src/index.ts",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1",
+    "start": "esr src/index.ts",
+    "clear-code": "esr src/scripts/clear-code.ts",
+    "build-project": "esr src/scripts/build-project.ts",
+    "build-projects": "esr src/scripts/build-projects.ts",
+    "build-api-project": "esr src/scripts/build-api-project.ts",
+    "run-code": "esr src/scripts/run-code.ts"
+  },
+  "dependencies": {
+    "@falang/back-fs": "workspace:^",
+    "@falang/editor-ide": "workspace:^",
+    "@falang/editor-scheme": "workspace:^",
+    "@falang/frontend-core": "workspace:^",
+    "@falang/infrastructure-logic": "workspace:^",
+    "esbuild-runner": "^2.2.2",
+    "reflect-metadata": "^0.1.13",
+    "ts-node": "^10.0.0"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "SSPL"
+}

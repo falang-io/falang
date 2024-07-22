@@ -1,0 +1,7 @@
+{
+  "extends": "./tsconfig.base.json",
+  "references": [],
+  "include": [
+    "src", "src/i18n.json"
+  ],
+}

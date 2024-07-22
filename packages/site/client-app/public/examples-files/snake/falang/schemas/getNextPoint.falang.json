@@ -1,0 +1,238 @@
+{
+  "id": "nOyebu5dibPnEZ5ts2H2M",
+  "schemeVersion": 2,
+  "name": "getNextPoint",
+  "type": "function",
+  "description": "",
+  "root": {
+    "id": "SwH6HqGCKAdnPQFBpMc2L",
+    "alias": "function",
+    "header": {
+      "text": "",
+      "width": 64,
+      "color": "#ffffff"
+    },
+    "block": {
+      "parameters": [
+        {
+          "name": "state",
+          "type": {
+            "type": "struct",
+            "iconId": "yhxyfy9m5HuAFEaJZ_Ob4",
+            "schemeId": "kHyjfyZ38T2JD3yH7pzN3",
+            "name": "GameState"
+          }
+        }
+      ],
+      "returnValue": {
+        "type": "struct",
+        "iconId": "mWThR-uew3FxhF4m2YY5a",
+        "schemeId": "kHyjfyZ38T2JD3yH7pzN3",
+        "name": "Point"
+      },
+      "width": 224,
+      "name": "getNextPoint"
+    },
+    "children": [
+      {
+        "id": "rP9rN4kFsHGfJpGpniSPO",
+        "alias": "assign_var",
+        "block": {
+          "width": 224,
+          "color": "#ffffff",
+          "expression": "returnValue.x = state.snake.x + state.snake.dirX",
+          "type": "assign",
+          "variableType": null
+        }
+      },
+      {
+        "id": "vueysL3Jwfa8zveAFJMx8",
+        "alias": "assign_var",
+        "block": {
+          "width": 224,
+          "color": "#ffffff",
+          "expression": "returnValue.y = state.snake.y + state.snake.dirY",
+          "type": "assign",
+          "variableType": null
+        }
+      },
+      {
+        "id": "MIvkhNpZFOww2JZVcfSQt",
+        "alias": "if",
+        "block": {
+          "width": 160,
+          "color": "#ffffff",
+          "expression": "returnValue.x < 0",
+          "type": "boolean",
+          "variableType": null
+        },
+        "trueOnRight": true,
+        "gaps": [],
+        "children": [
+          {
+            "alias": "system",
+            "id": "M9PorK6VCZTv6F-jr73i5",
+            "block": {
+              "width": 0
+            },
+            "children": []
+          },
+          {
+            "alias": "system",
+            "id": "YPT9FqNsTeEATQaSgTKKw",
+            "block": {
+              "width": 0
+            },
+            "children": [
+              {
+                "id": "kkgTGQ1_zG-zFH2WtY3B7",
+                "alias": "assign_var",
+                "block": {
+                  "width": 320,
+                  "color": "#ffffff",
+                  "expression": "returnValue.x = state.config.gameWidth - 1",
+                  "type": "assign",
+                  "variableType": null
+                }
+              }
+            ]
+          }
+        ]
+      },
+      {
+        "id": "X-eA6y5FWhxhObYVZhawl",
+        "alias": "if",
+        "block": {
+          "width": 320,
+          "color": "#ffffff",
+          "expression": "returnValue.x >= state.config.gameWidth",
+          "type": "boolean",
+          "variableType": null
+        },
+        "trueOnRight": true,
+        "gaps": [],
+        "children": [
+          {
+            "alias": "system",
+            "id": "hhtSlXiMbX3p3EOtwS_nx",
+            "block": {
+              "width": 0
+            },
+            "children": []
+          },
+          {
+            "alias": "system",
+            "id": "-YhOOwIvkgitQworsMwqS",
+            "block": {
+              "width": 0
+            },
+            "children": [
+              {
+                "id": "qhGMOpiAbh5PSSWpyw7LM",
+                "alias": "assign_var",
+                "block": {
+                  "width": 320,
+                  "color": "#ffffff",
+                  "expression": "returnValue.x = 0",
+                  "type": "assign",
+                  "variableType": null
+                }
+              }
+            ]
+          }
+        ]
+      },
+      {
+        "id": "JWJofF7EZoLjDj809MdIj",
+        "alias": "if",
+        "block": {
+          "width": 160,
+          "color": "#ffffff",
+          "expression": "returnValue.y < 0",
+          "type": "boolean",
+          "variableType": null
+        },
+        "trueOnRight": true,
+        "gaps": [],
+        "children": [
+          {
+            "alias": "system",
+            "id": "pfF0Fs_ICV-nz8r-dDYhf",
+            "block": {
+              "width": 0
+            },
+            "children": []
+          },
+          {
+            "alias": "system",
+            "id": "Ql7gMYlJMzz2EDMdBmJcR",
+            "block": {
+              "width": 0
+            },
+            "children": [
+              {
+                "id": "I6JlOjQVEDHriJmb7nm4h",
+                "alias": "assign_var",
+                "block": {
+                  "width": 320,
+                  "color": "#ffffff",
+                  "expression": "returnValue.y = state.config.gameHeight - 1",
+                  "type": "assign",
+                  "variableType": null
+                }
+              }
+            ]
+          }
+        ]
+      },
+      {
+        "id": "5babAoFjRXNlUyLoOc2S-",
+        "alias": "if",
+        "block": {
+          "width": 320,
+          "color": "#ffffff",
+          "expression": "returnValue.y >= state.config.gameHeight",
+          "type": "boolean",
+          "variableType": null
+        },
+        "trueOnRight": true,
+        "gaps": [],
+        "children": [
+          {
+            "alias": "system",
+            "id": "4pwxoIfuNf_HTP_eaQAVK",
+            "block": {
+              "width": 0
+            },
+            "children": []
+          },
+          {
+            "alias": "system",
+            "id": "oEuxFJ3PYYZAjsPt7Pl4_",
+            "block": {
+              "width": 0
+            },
+            "children": [
+              {
+                "id": "tg0yRV4m0fEACjAKzEvQ8",
+                "alias": "assign_var",
+                "block": {
+                  "width": 320,
+                  "color": "#ffffff",
+                  "expression": "returnValue.y = 0",
+                  "type": "assign",
+                  "variableType": null
+                }
+              }
+            ]
+          }
+        ]
+      }
+    ],
+    "footer": {
+      "text": "",
+      "width": 64,
+      "color": "#ffffff"
+    }
+  }
+}

@@ -1,0 +1,110 @@
+
+.falang-editor {
+  overflow: hidden;
+  user-select: none;
+}
+
+.falang-editor .iconBlock {
+  stroke: #666;
+  fill: white;
+  stroke-width: 1px;
+}
+
+.falang-editor .iconBlock.timing-side-icon {
+  fill: #FEFB82;
+}
+
+.falang-editor.dragging * {
+  cursor: grabbing !important;
+}
+
+.falang-editor.busy * {
+  cursor: wait !important;
+}
+
+.falang-editor.busy .dragging-skewer {
+  opacity: 1;
+}
+
+.falang-editor .dragging-skewer {
+  opacity: 0.7;
+}
+
+.falang-editor .base-box {
+  stroke: #333;
+  fill: white;
+}
+
+.falang-editor-edit .iconBlock:hover {
+  stroke: #0d99ff;
+  cursor: pointer;
+}
+
+.falang-editor-edit .iconBlock.selected {
+  stroke: #0d99ff;
+}
+
+.falang-editor-edit .iconBlock.isInSelected {
+  stroke: #0d99ff;
+}
+
+.falang-editor .iconBlock.editing .iconBlock-body {
+  filter: drop-shadow(0px 0px 5px rgba(18, 29, 163, 0.8));
+}
+
+.falang-editor .iconBlock .iconBlock-body-out {
+  stroke-width: 3;
+}
+
+.falang-editor .connection-line {
+  stroke: #555;
+  stroke-width: 1px;
+  fill: #555;
+}
+
+.falang-editor .inblock-line {
+  stroke: #555;
+  stroke-width: 0.5px;
+  fill: #555;
+}
+
+.falang-editor .connection-line.selected {
+  stroke: #0d99ff;
+  fill: #0d99ff;
+}
+
+.falang-editor .connection-line.connection-arrow {
+  fill: transparent;
+}
+
+.falang-editor .iconBlock text {
+  stroke: none;
+  fill: black;
+  font-size: 10px;
+}
+
+.falang-editor-edit .iconBlock text {
+  user-select: none;
+}
+
+.falang-editor .iconBlock.selected text {
+  stroke: none;
+  fill: #0d99ff;
+}
+
+.falang-editor .iconBlock.inInSelected text {
+  stroke: none;
+  fill: #0d99ff;
+}
+
+.falang-editor .text-component text {
+  /*font-size: 12px;*/
+  line-height: 15px;
+  font-weight: 300;
+  fill: #000 !important;
+}
+
+.falang-editor .code-component text {
+  line-height: 15px;
+  font-weight: 300;
+}

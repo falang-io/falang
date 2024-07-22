@@ -1,0 +1,105 @@
+{
+  "name": "application",
+  "version": "0.0.10",
+  "homepage": "https://falang.io/",
+  "author": {
+    "name": "Sergey Sachik",
+    "email": "serega3000@gmail.com"
+  },
+  "description": "Friendly algorithmic language",
+  "scripts": {
+    "dev": "electron-esbuild dev",
+    "build": "electron-esbuild build",
+    "check-ts": "tsc --noEmit",
+    "package": "electron-builder",
+    "repackage": "BUILD=y rm -rf dist && pnpm run build && pnpm run package",
+    "dev-win": "node .\\node_modules\\electron-esbuild\\dist\\index.mjs dev",
+    "build-win": "node .\\node_modules\\electron-esbuild\\dist\\index.mjs build",
+    "package-win": "node .\\node_modules\\electron-builder\\cli"
+  },
+  "devDependencies": {
+    "@blueprintjs/core": "5.x",
+    "@blueprintjs/icons": "5.x",
+    "@falang/back-fs": "workspace:^",
+    "@falang/editor-ide": "workspace:^",
+    "@falang/infrastructures-all": "workspace:^",
+    "@falang/editor-scheme": "workspace:^",
+    "@falang/frontend-core": "workspace:^",
+    "@falang/i18n": "workspace:^",
+    "@falang/project": "workspace:^",
+    "@falang/styles": "workspace:^",
+    "@types/node": "16.x",
+    "@types/react": "18.x",
+    "@types/react-dom": "18.x",
+    "electron": "27.x",
+    "electron-builder": "24.x",
+    "electron-esbuild": "^7.0.0",
+    "electron-squirrel-startup": "^1.0.0",
+    "electron-util": "0.17.x",
+    "esbuild": "0.16.x",
+    "mobx": "^6.7.0",
+    "mobx-react": "^7.6.0",
+    "normalize.css": "^8.0.1",
+    "react": "^18.2.0",
+    "react-dom": "^18.2.0",
+    "typescript": "^4.9.5"
+  },
+  "build": {
+    "appId": "io.comp.falang",
+    "productName": "Falang IDE",
+    "extraMetadata": {
+      "name": "Falang",
+      "main": "main.js"
+    },
+    "files": [
+      {
+        "from": ".",
+        "filter": [
+          "package.json"
+        ]
+      },
+      {
+        "from": "dist/main"
+      },
+      {
+        "from": "dist/renderer"
+      }
+    ],
+    "win": {
+      "target": [
+        "msi"
+      ]
+    },
+    "mac": {
+      "target": [
+        "dmg",
+        "zip",
+        "pkg"
+      ]
+    },
+    "linux": {
+      "target": [
+        "deb",
+        "snap"
+      ],
+      "category": "Development"
+    },
+    "extraResources": [
+      {
+        "from": "../../../resources",
+        "to": "./"
+      }
+    ],
+    "directories": {
+      "buildResources": "resources"
+    },
+    "publish": null
+  },
+  "dependencies": {
+    "@falang/i18n": "workspace:*",
+    "electron-prompt": "^1.7.0",
+    "i18next": "^22.0.6",
+    "reflect-metadata": "^0.1.13",
+    "rimraf": "^4.4.1"
+  }
+}

@@ -1,0 +1,76 @@
+{
+  "id": "JWQudFlU2WMpaPUF9FajM",
+  "schemeVersion": 2,
+  "name": "drawSnakeSquare",
+  "type": "function",
+  "description": "",
+  "root": {
+    "id": "K26d9OrusDeFwiQif8nMs",
+    "alias": "function",
+    "header": {
+      "text": "",
+      "width": 64,
+      "color": "#ffffff"
+    },
+    "block": {
+      "parameters": [
+        {
+          "name": "point",
+          "type": {
+            "type": "struct",
+            "iconId": "mWThR-uew3FxhF4m2YY5a",
+            "schemeId": "kHyjfyZ38T2JD3yH7pzN3",
+            "name": "Point"
+          }
+        },
+        {
+          "name": "color",
+          "type": {
+            "type": "struct",
+            "iconId": "meDT1V2wIp9D9Eb4cOZyH",
+            "schemeId": "kHyjfyZ38T2JD3yH7pzN3",
+            "name": "Color"
+          }
+        },
+        {
+          "name": "config",
+          "type": {
+            "type": "struct",
+            "iconId": "8tR8snUlmrVZE4DDDuo9C",
+            "schemeId": "kHyjfyZ38T2JD3yH7pzN3",
+            "name": "Config"
+          }
+        }
+      ],
+      "returnValue": {
+        "type": "void"
+      },
+      "width": 192,
+      "name": "drawSnakeSquare"
+    },
+    "children": [
+      {
+        "id": "inPlwfqnVyKbuKIARZ0aK",
+        "alias": "call_api",
+        "block": {
+          "parameters": [
+            "point.x * config.cellSize",
+            "point.y * config.cellSize",
+            "config.cellSize - 2",
+            "config.cellSize - 2",
+            "color"
+          ],
+          "returnVariable": "",
+          "schemeId": "IXPTCilqzAuOKyR3fWJRB",
+          "width": 320,
+          "iconId": "tj9MNfCBMgTZH6eqNQFOd"
+        }
+      }
+    ],
+    "footer": {
+      "text": "",
+      "width": 64,
+      "color": "#ffffff"
+    }
+  }
+}

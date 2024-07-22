@@ -1,0 +1,12 @@
+{
+  "extends": "../../../tsconfig.base.json",
+  "compilerOptions": {
+      "jsx": "react-jsx",
+      "experimentalDecorators": true,
+      "noEmit": false,
+      "outDir": "dist",
+      "declaration": true,
+      "isolatedModules": true,
+      "composite": true
+  }
+}

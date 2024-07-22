@@ -1,0 +1,1 @@
+export const variableNameRegexp = /^[a-zA-Z]([a-zA-Z_0-9]+)?$/;

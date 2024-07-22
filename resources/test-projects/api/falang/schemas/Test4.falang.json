@@ -1,0 +1,102 @@
+{
+  "id": "BmNa8uep6NBLIAb_FvPmf",
+  "schemeVersion": 2,
+  "name": "Test4",
+  "type": "function",
+  "description": "",
+  "root": {
+    "id": "YJGre2jYNyld56SIDP1Ov",
+    "alias": "function",
+    "header": {
+      "text": "",
+      "width": 160,
+      "color": "#ffffff"
+    },
+    "block": {
+      "parameters": [],
+      "returnValue": {
+        "type": "void"
+      },
+      "width": 192,
+      "name": "Test4"
+    },
+    "children": [
+      {
+        "id": "_KSkbueSlht1IEeQ6hC9z",
+        "alias": "create_var",
+        "block": {
+          "width": 128,
+          "color": "#ffffff",
+          "expression": "a = \"123\"",
+          "type": "create",
+          "variableType": {
+            "type": "string",
+            "constant": false,
+            "optional": false
+          }
+        }
+      },
+      {
+        "id": "K4B7trevJ_dSv5zqSwIQB",
+        "alias": "create_var",
+        "block": {
+          "width": 128,
+          "color": "#ffffff",
+          "expression": "b = \"123\"",
+          "type": "create",
+          "variableType": {
+            "type": "string",
+            "constant": false,
+            "optional": false
+          }
+        }
+      },
+      {
+        "id": "OPl0Wc2xHLwwj4qBzUBrW",
+        "alias": "create_var",
+        "block": {
+          "width": 128,
+          "color": "#ffffff",
+          "expression": "c = \"123\"",
+          "type": "create",
+          "variableType": {
+            "type": "string",
+            "constant": false,
+            "optional": false
+          }
+        }
+      },
+      {
+        "id": "skf8J-dQ1EUhHvieTtjvx",
+        "alias": "call_api",
+        "block": {
+          "parameters": [
+            "a",
+            "b",
+            "c"
+          ],
+          "returnVariable": "result",
+          "schemeId": "o6ZKgYac1zoILTt3Pkmcu",
+          "width": 160,
+          "iconId": "REBb92WDKktkIBd1Gngmr"
+        }
+      },
+      {
+        "id": "OCdUkHhPnAkJOKqdwPXav",
+        "alias": "log",
+        "block": {
+          "width": 192,
+          "color": "#ffffff",
+          "expression": "\"StringConcat: {result}\"",
+          "type": "string",
+          "variableType": null
+        }
+      }
+    ],
+    "footer": {
+      "text": "",
+      "width": 160,
+      "color": "#ffffff"
+    }
+  }
+}

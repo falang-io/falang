@@ -1,0 +1,6 @@
+ObjectsSumResult: 6
+Sumbers sum is: 60
+Objec2Concat: 12378
+StringConcat: 123123123
+TestBuildObject1Result is: 5
+TestBuildObjec2 is: asdqwe

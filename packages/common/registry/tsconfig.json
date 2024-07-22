@@ -1,0 +1,13 @@
+{
+  "extends": "../../../tsconfig.root.json",
+  "references": [
+    {
+      "path": "../../common/i18n/tsconfig.json"
+    }
+  ],
+  "compilerOptions": {
+    "types": [
+      "./types/svg.d.ts"
+    ]
+  }
+}

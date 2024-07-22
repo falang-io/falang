@@ -1,0 +1,58 @@
+{% extends "./layout.nunjucks" %}
+{% block content %}
+<div class='docs-app'>
+  <div class='docs-nav-wrapper'>
+    <div class='docs-nav'>
+      <div class="docs-nav-title">
+        <a class="docs-logo" href="/" aria-label="docs home">
+          <img src='/icon.png' width='65' height='65' alt='Falang' />
+        </a>
+        <div>
+          <div class="bp5-navbar-heading docs-heading">
+            <span>Falang</span>
+          </div>
+        </div>
+      </div>
+      <div class="docs-nav-divider"></div>
+      <ul class='docs-nav-menu bp5-list-unstyled'>
+        <li>
+          <div class="docs-nav-package depth-0{% if selectedLevel1 == 'index' %} bp5-active{% endif %}" data-route="blueprint">
+            <a class="bp5-menu-item" href="/{{lang}}/{{docsMenu.path}}/">
+              <span>{{docsMenu.translation[lang].title}}</span>
+            </a>
+          </div>
+        </li>
+        {% for item1 in docsMenu.children %}
+        <li>
+          <div class="docs-nav-package depth-0 docs-nav-expanded{% if selectedLevel1 == item1.path and (selectedLevel2 == 'index' or selectedLevel2 == '') %} bp5-active{% endif %}" data-route="blueprint">
+            <a class="bp5-menu-item" href="/{{lang}}/{{docsMenu.path}}/{{item1.path}}/">
+              <span>{{item1.translation[lang].title}}</span>
+            </a>
+          </div>
+          {% if item1.children %}
+            <ul class="docs-nav-menu bp5-list-unstyled">
+              {% for item2 in item1.children %}
+              <li>
+                <a class="bp5-menu-item depth-0{% if selectedLevel1 == item1.path and selectedLevel2 == item2.path %} bp5-active{% endif %}" href="/{{lang}}/{{docsMenu.path}}/{{item1.path}}/{{item2.path}}/">
+                  <span>{{item2.translation[lang].title}}</span>
+                </a>
+              </li>
+              {% endfor %}
+            </ul>
+          {% endif %}
+        </li> 
+        {% endfor %}
+      </ul>
+    </div>
+    
+  </div>
+  <main class='docs-content-wrapper bp5-fill'>
+    <div class='docs-page'>
+      <div class='docs-section'>
+        <h1>{{title}}</h1>
+        {% block docsContent %}{% endblock %}
+      </div>
+    </div>
+  </main>
+</div>
+{% endblock %}

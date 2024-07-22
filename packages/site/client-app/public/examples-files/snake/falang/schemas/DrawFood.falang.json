@@ -1,0 +1,58 @@
+{
+  "id": "gFRB0Owe8fCqXE8tUqgfN",
+  "schemeVersion": 2,
+  "name": "DrawFood",
+  "type": "function",
+  "description": "",
+  "root": {
+    "id": "52uYxdCVKxGQj9iZAv5Iw",
+    "alias": "function",
+    "header": {
+      "text": "",
+      "width": 64,
+      "color": "#ffffff"
+    },
+    "block": {
+      "parameters": [
+        {
+          "name": "state",
+          "type": {
+            "type": "struct",
+            "iconId": "yhxyfy9m5HuAFEaJZ_Ob4",
+            "schemeId": "kHyjfyZ38T2JD3yH7pzN3",
+            "name": "GameState",
+            "properties": {}
+          }
+        }
+      ],
+      "returnValue": {
+        "type": "void"
+      },
+      "width": 192,
+      "name": "DrawFood"
+    },
+    "children": [
+      {
+        "id": "CzavJabM-Qart76uOglVG",
+        "alias": "call_api",
+        "block": {
+          "parameters": [
+            "state.food.x * state.config.cellSize + 1/2 + state.config.cellSize / 2",
+            "state.food.y * state.config.cellSize + state.config.cellSize / 2",
+            "state.config.foodSize",
+            "state.colors.foodColor"
+          ],
+          "returnVariable": "",
+          "schemeId": "IXPTCilqzAuOKyR3fWJRB",
+          "width": 320,
+          "iconId": "mVRSeELOimFdKMeMIKqFo"
+        }
+      }
+    ],
+    "footer": {
+      "text": "",
+      "width": 64,
+      "color": "#ffffff"
+    }
+  }
+}

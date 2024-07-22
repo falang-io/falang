@@ -1,0 +1,160 @@
+{
+  "id": "b9zQ-wh4ddaGHq4EB0f8g",
+  "schemeVersion": 2,
+  "name": "Test3",
+  "type": "function",
+  "description": "",
+  "root": {
+    "id": "ytOUIMfCBOG7bq4Ik1NEA",
+    "alias": "function",
+    "header": {
+      "text": "",
+      "width": 160,
+      "color": "#ffffff"
+    },
+    "block": {
+      "parameters": [],
+      "returnValue": {
+        "type": "void"
+      },
+      "width": 192,
+      "name": "Test3"
+    },
+    "children": [
+      {
+        "id": "RwOB4pdXEMyY8VfaFAFDM",
+        "alias": "create_var",
+        "block": {
+          "width": 128,
+          "color": "#ffffff",
+          "expression": "a",
+          "type": "create",
+          "variableType": {
+            "type": "struct",
+            "constant": false,
+            "optional": false,
+            "iconId": "huk78gHpJJUGPotySpkE0",
+            "schemeId": "eSxMzKgsf7laP9EdZ4GS4",
+            "name": "Object2",
+            "properties": {
+              "a": {
+                "type": "string",
+                "constant": false,
+                "optional": false
+              },
+              "b": {
+                "type": "string",
+                "constant": false,
+                "optional": false
+              }
+            }
+          }
+        }
+      },
+      {
+        "id": "oObPlPOPAzThU0gIL-acJ",
+        "alias": "create_var",
+        "block": {
+          "width": 128,
+          "color": "#ffffff",
+          "expression": "b",
+          "type": "create",
+          "variableType": {
+            "type": "struct",
+            "constant": false,
+            "optional": false,
+            "iconId": "huk78gHpJJUGPotySpkE0",
+            "schemeId": "eSxMzKgsf7laP9EdZ4GS4",
+            "name": "Object2",
+            "properties": {
+              "a": {
+                "type": "string",
+                "constant": false,
+                "optional": false
+              },
+              "b": {
+                "type": "string",
+                "constant": false,
+                "optional": false
+              }
+            }
+          }
+        }
+      },
+      {
+        "id": "69XuIzm8phKb3kh4BLYFA",
+        "alias": "assign_var",
+        "block": {
+          "width": 128,
+          "color": "#ffffff",
+          "expression": "a.a = \"123\"",
+          "type": "assign",
+          "variableType": null
+        }
+      },
+      {
+        "id": "f8UADB6lSVGF9MZ4vq-aH",
+        "alias": "assign_var",
+        "block": {
+          "width": 128,
+          "color": "#ffffff",
+          "expression": "a.b = \"456\"",
+          "type": "assign",
+          "variableType": null
+        }
+      },
+      {
+        "id": "LOYuBRzyWlIkXMnP6FKK0",
+        "alias": "assign_var",
+        "block": {
+          "width": 128,
+          "color": "#ffffff",
+          "expression": "b.a = \"78\"",
+          "type": "assign",
+          "variableType": null
+        }
+      },
+      {
+        "id": "wYdrwRSOSof6F7k8z3iZF",
+        "alias": "assign_var",
+        "block": {
+          "width": 128,
+          "color": "#ffffff",
+          "expression": "b.b = \"90\"",
+          "type": "assign",
+          "variableType": null
+        }
+      },
+      {
+        "id": "krVLaSF4zt-pgGblIx6ZA",
+        "alias": "call_api",
+        "block": {
+          "parameters": [
+            "a",
+            "b"
+          ],
+          "returnVariable": "result",
+          "schemeId": "o6ZKgYac1zoILTt3Pkmcu",
+          "width": 160,
+          "iconId": "8Ji42nVrmIJW53kYF5YeN"
+        }
+      },
+      {
+        "id": "J1xfDSG3oVYNc1U-vhNsu",
+        "alias": "log",
+        "block": {
+          "width": 192,
+          "color": "#ffffff",
+          "expression": "\"Objec2Concat: {result}\"",
+          "type": "string",
+          "variableType": null
+        }
+      }
+    ],
+    "footer": {
+      "text": "",
+      "width": 160,
+      "color": "#ffffff"
+    }
+  }
+}

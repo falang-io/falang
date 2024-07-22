@@ -1,0 +1,204 @@
+{
+  "id": "jor8HKYfFabucKcfk6zEy",
+  "schemeVersion": 2,
+  "name": "Test1",
+  "type": "function",
+  "description": "",
+  "root": {
+    "id": "ayYa71Y9nxSllsDVxl5a2",
+    "alias": "function",
+    "header": {
+      "text": "",
+      "width": 160,
+      "color": "#ffffff"
+    },
+    "block": {
+      "parameters": [],
+      "returnValue": {
+        "type": "void"
+      },
+      "width": 192,
+      "name": "Test1"
+    },
+    "children": [
+      {
+        "id": "LDQh34ETJwtJzNF1EQll_",
+        "alias": "create_var",
+        "block": {
+          "width": 128,
+          "color": "#ffffff",
+          "expression": "a",
+          "type": "create",
+          "variableType": {
+            "type": "struct",
+            "constant": false,
+            "optional": false,
+            "iconId": "JydYxOeZX2pJehjEPfwng",
+            "schemeId": "eSxMzKgsf7laP9EdZ4GS4",
+            "name": "Object1",
+            "properties": {
+              "x": {
+                "constant": false,
+                "type": "number",
+                "numberType": "integer",
+                "integerType": "int32",
+                "optional": false
+              },
+              "y": {
+                "constant": false,
+                "type": "number",
+                "numberType": "integer",
+                "integerType": "int32",
+                "optional": false
+              },
+              "z": {
+                "constant": false,
+                "type": "number",
+                "numberType": "integer",
+                "integerType": "int32",
+                "optional": false
+              }
+            }
+          }
+        }
+      },
+      {
+        "id": "jW00nmuid3WdXcnbgYvRw",
+        "alias": "create_var",
+        "block": {
+          "width": 128,
+          "color": "#ffffff",
+          "expression": "b",
+          "type": "create",
+          "variableType": {
+            "type": "struct",
+            "constant": false,
+            "optional": false,
+            "iconId": "JydYxOeZX2pJehjEPfwng",
+            "schemeId": "eSxMzKgsf7laP9EdZ4GS4",
+            "name": "Object1",
+            "properties": {
+              "x": {
+                "constant": false,
+                "type": "number",
+                "numberType": "integer",
+                "integerType": "int32",
+                "optional": false
+              },
+              "y": {
+                "constant": false,
+                "type": "number",
+                "numberType": "integer",
+                "integerType": "int32",
+                "optional": false
+              },
+              "z": {
+                "constant": false,
+                "type": "number",
+                "numberType": "integer",
+                "integerType": "int32",
+                "optional": false
+              }
+            }
+          }
+        }
+      },
+      {
+        "id": "an6yRp4uIzOhB-O-3oZfp",
+        "alias": "assign_var",
+        "block": {
+          "width": 128,
+          "color": "#ffffff",
+          "expression": "a.x = 1",
+          "type": "assign",
+          "variableType": null
+        }
+      },
+      {
+        "id": "1-nNhnLa5AA0vwts2dg_t",
+        "alias": "assign_var",
+        "block": {
+          "width": 128,
+          "color": "#ffffff",
+          "expression": "a.y = 2",
+          "type": "assign",
+          "variableType": null
+        }
+      },
+      {
+        "id": "Nzi0aqIDL8eb27ygDj4S9",
+        "alias": "assign_var",
+        "block": {
+          "width": 128,
+          "color": "#ffffff",
+          "expression": "a.z = 3",
+          "type": "assign",
+          "variableType": null
+        }
+      },
+      {
+        "id": "20sNpq1V19e0PJmOtmEjp",
+        "alias": "assign_var",
+        "block": {
+          "width": 128,
+          "color": "#ffffff",
+          "expression": "b.x = 4",
+          "type": "assign",
+          "variableType": null
+        }
+      },
+      {
+        "id": "FIWBVAq8CLRNSHLYztnab",
+        "alias": "assign_var",
+        "block": {
+          "width": 128,
+          "color": "#ffffff",
+          "expression": "b.y = 5",
+          "type": "assign",
+          "variableType": null
+        }
+      },
+      {
+        "id": "xB7jjArorOqmtZQN2eVa3",
+        "alias": "assign_var",
+        "block": {
+          "width": 128,
+          "color": "#ffffff",
+          "expression": "b.z = 6",
+          "type": "assign",
+          "variableType": null
+        }
+      },
+      {
+        "id": "vlapkQ2YRk6ygol_gasm1",
+        "alias": "call_api",
+        "block": {
+          "parameters": [
+            "a",
+            "b"
+          ],
+          "returnVariable": "result",
+          "schemeId": "o6ZKgYac1zoILTt3Pkmcu",
+          "width": 160,
+          "iconId": "P-LaSzygZmYzEEj6I8zlQ"
+        }
+      },
+      {
+        "id": "NH-7AgT9l1wmZq9LVa3ab",
+        "alias": "log",
+        "block": {
+          "width": 192,
+          "color": "#ffffff",
+          "expression": "\"ObjectsSumResult: {result}\"",
+          "type": "string",
+          "variableType": null
+        }
+      }
+    ],
+    "footer": {
+      "text": "",
+      "width": 160,
+      "color": "#ffffff"
+    }
+  }
+}

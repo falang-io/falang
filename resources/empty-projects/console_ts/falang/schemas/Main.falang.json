@@ -1,0 +1,43 @@
+{
+  "description": "",
+  "id": "cu5gItawk8LVK58Rn-MmF",
+  "name": "Main",
+  "root": {
+    "id": "ceb9a7IC-7bvZL0Vc5IgW",
+    "alias": "function",
+    "block": {
+      "width": 160,
+      "code": "export function main()"
+    },
+    "children": [
+      {
+        "id": "Lm4Wjio7s58WGaALn5Oap",
+        "alias": "foreach",
+        "block": {
+          "width": 192,
+          "code": "for(let i = 1; i <= 10; i++)"
+        },
+        "children": [
+          {
+            "alias": "action",
+            "block": {
+              "width": 128,
+              "code": "helloWorld(i);"
+            },
+            "id": "JbWQqoBXQ4lBA7snfPnz6"
+          }
+        ]
+      }
+    ],
+    "footer": {
+      "width": 160,
+      "code": "return;"
+    },
+    "header": {
+      "width": 272,
+      "code": "import { helloWorld } from './helloWorld';"
+    }
+  },
+  "schemeVersion": 2,
+  "type": "function"
+}

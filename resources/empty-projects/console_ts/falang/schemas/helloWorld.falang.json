@@ -1,0 +1,33 @@
+{
+  "description": "",
+  "id": "tw2hJMHOvh1mxW6hX6af_",
+  "name": "helloWorld",
+  "root": {
+    "id": "wpDdjso5oWgAUR8wY7_0Q",
+    "alias": "function",
+    "block": {
+      "width": 272,
+      "code": "export function helloWorld(iteration: number)"
+    },
+    "children": [
+      {
+        "alias": "action",
+        "block": {
+          "width": 256,
+          "code": "console.log('Hello, world!', iteration);"
+        },
+        "id": "QaXUWCuC7TDyMrrrOVBVa"
+      }
+    ],
+    "footer": {
+      "width": 160,
+      "code": "return;"
+    },
+    "header": {
+      "width": 64,
+      "code": ""
+    }
+  },
+  "schemeVersion": 2,
+  "type": "function"
+}

@@ -1,0 +1,17 @@
+{
+  "outDir": "./dist",
+  "compilerOptions": {
+    "jsx": "react-jsx",
+    "target": "esnext",
+    "module": "CommonJS",
+    "moduleResolution": "Node",
+    "esModuleInterop": true,
+    "isolatedModules": true,
+    "experimentalDecorators": true,
+    "noEmitOnError": true,
+    "resolveJsonModule": true,
+    "strict": true,
+    "stripInternal": true,
+    "outDir": "./dist",
+  }
+}

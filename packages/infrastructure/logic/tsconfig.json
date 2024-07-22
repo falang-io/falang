@@ -1,0 +1,20 @@
+{
+  "extends": "./tsconfig.base.json",
+  "include": [
+    "src"
+  ],
+  "references": [
+    {
+      "path": "../../editor/scheme/tsconfig.json"
+    },
+    {
+      "path": "../../common/frontend-core/tsconfig.json"
+    },
+    {
+      "path": "../code/tsconfig.json"
+    },
+    {
+      "path": "../text/tsconfig.json"
+    }
+  ]
+}

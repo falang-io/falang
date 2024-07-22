@@ -1,0 +1,117 @@
+{% extends "../docs-layout.nunjucks" %}
+{% block docsContent %}
+<div class='bp5-running-text bp5-text-large'>
+  <h4>Основные понятия</h4>
+  <p>Базовая терминология перекочевала в Falang из визуального языка <a href='https://drakon.su/' target='_blank'>Дракон <span class="bp5-icon-standard bp5-icon-duplicate"></span></a></p>
+  <div class='docs-img-wrapper'>
+    <div class='docs-img-content'>
+      <ol>
+        <li><b>Шампур</b>: вертикальная линия, на которую "насаживаются" иконы.</li>
+        <li><b>Икона "действие"</b>: атомарная часть схемы, задающая определенное действие.</li>
+        <li><b>Макро-иконы</b>: составные иконы, которые внутри себя могут содержать ответвления, дочерние иконы и шампуры.</li>
+        <li><b>Валентная точка</b>: место в алгоритме, куда могут быть вставлены другие иконы.</li>
+      </ol>
+    </div>
+    <div class='docs-img'><img src='/img/docs/basics.png' /></div>
+  </div>
+  <h4>Простые иконы</h4>
+  <div class='docs-img-wrapper'>
+    <div class='docs-img-content'>
+      <ol>
+        <li><b>Действие</b></li>
+        <li><b>Ссылка</b>: если действие ссылается на другую схему, в углу появляется значек ссылки, нажав на который можно перейти к соответствующей схеме.</li>
+        <li><b>Вывод</b>: вывод данных.</li>
+        <li><b>Ввод</b>: применяется для ввода данных.</li>
+        <li><b>Полка</b>: аналог иконы "действие", с двумя полями для ввода текста.</li>
+      </ol>
+    </div>
+    <div class='docs-img'><img src='/img/docs/simple-icons.png' /></div>
+  </div>
+  <h4>Функция</h4>
+  <div class='docs-img-wrapper'>
+    <div class='docs-img-content'>
+      Функция - макро-икона, которая является единственной и главной на схеме соответствующего типа.
+      В ее состав входит три блока:
+      <ul>
+        <li><b>Заголовок</b>, или комментарий: может использоваться для расширенного описания</li>
+        <li><b>Название</b></li>
+        <li><b>Завершающий блок</b></li>
+      </ul>
+    </div>
+    <div class='docs-img'><img src='/img/docs/icon-function.png' /></div>
+  </div>
+  <h4>Жизнеритм</h4>
+  <div class='docs-img-wrapper'>
+    <div class='docs-img-content'>
+      Функция - макро-икона, которая является единственной и главной на схеме соответствующего типа.
+      Аналог иконы "Силуэт" в Драконе. Позволяет удобно описывать продолжительные жизненные алгоритмы.
+    </div>
+    <div class='docs-img'><img src='/img/docs/icon-liferythm.png' /></div>
+  </div>
+  <h4>Дерево</h4>
+  <div class='docs-img-wrapper'>
+    <div class='docs-img-content'>
+      Функция - макро-икона, которая является единственной и главной на схеме соответствующего типа.
+      Позволяет описывать древовидные структуры данных.
+    </div>
+    <div class='docs-img'><img src='/img/docs/icon-tree.png' /></div>
+  </div>
+  <h4>"Если"</h4>
+  <div class='docs-img-wrapper'>
+    <div class='docs-img-content'>
+      Макро-икона условного оператора, которая направляет действие алгоритма в зависимости от выполнения условия, описанного в основном блоке.
+      Аналог "if - else" в программировании.
+    </div>
+    <div class='docs-img'><img src='/img/docs/icon-if.png' /></div>
+  </div>
+  <h4>Переключатель</h4>
+  <div class='docs-img-wrapper'>
+    <div class='docs-img-content'>
+      Макро-икона переключателя, которая направляет действие алгоритма на определенный дочерний шампур, если значение в основном блоке совпадает со значением в блоке варианта.
+      Аналог "Switch" в программировании.
+    </div>
+    <div class='docs-img'><img src='/img/docs/icon-switch.png' /></div>
+  </div>
+  <h4>Параллельное исполнение</h4>
+  <div class='docs-img-wrapper'>
+    <div class='docs-img-content'>
+      Макро-икона, которая выполняет дочерние шампуры в параллельно. Действие идет дальше только после завршения всех параллельных процессов.
+    </div>
+    <div class='docs-img'><img src='/img/docs/icon-parallel.png' /></div>
+  </div>
+  <h4>Цикл для каждого</h4>
+  <div class='docs-img-wrapper'>
+    <div class='docs-img-content'>
+      Макро икона, проходящая по массиву данных, либо для переменной от минимального значение для максимального. Аналог for each.
+    </div>
+    <div class='docs-img'><img src='/img/docs/icon-foreach.png' /></div>
+  </div>
+  <h4>Цикл с условием</h4>
+  <div class='docs-img-wrapper'>
+    <div class='docs-img-content'>
+      Макро икона, которая повторяет выполнение процесса, пока выполняется некоторое-условие. Аналог while.
+    </div>
+    <div class='docs-img'><img src='/img/docs/icon-while.png' /></div>
+  </div>
+
+  <h4>Псевдо цикл</h4>
+  <div class='docs-img-wrapper'>
+    <div class='docs-img-content'>
+      Цикл, по факту выполняющийся один раз. Используется для применения в нем икон выхода либо продолжения (continue, break).
+    </div>
+    <div class='docs-img'><img src='/img/docs/icon-pseudocycle.png' /></div>
+  </div>
+  <h4>"Выходы"</h4>
+  <p>
+    "Выходы" - обобщенное название группы икон, которы меняют прямой ход алгоритма.
+  </p>
+  <ol>
+    <li><b>Выход</b> - выход из цикла (аналог break в программировании)</li>
+    <li><b>Продолжить</b> - продолжить цикл сначала (аналог continue)</li>
+    <li><b>Возврат</b> - возврат из функции (аналог return)</li>
+    <li><b>Ошибка</b> - прерывание алгоритма в результате ошибки (аналог throw)</li>
+  </ol>
+  <div class='one-image'><img src='/img/docs/outs-types.png' /></div>
+  <p>В случае вложенных циклов, иконы "Выход" и "Продолжить" в конце имеют индексы 1,2,... Индекс означает уровень внешнего цикла, к которому выход применяется.</p>
+</div>
+{% endblock %}

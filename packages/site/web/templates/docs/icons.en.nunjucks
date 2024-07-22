@@ -1,0 +1,116 @@
+{% extends "../docs-layout.nunjucks" %}
+{% block docsContent %}
+<div class='bp5-running-text bp5-text-large'>
+  <h4>Basic concepts</h4>
+   <p>Basic terminology migrated to Falang from the visual language <a href='https://drakon.su/' target='_blank'>Dragon <span class="bp5-icon-standard bp5-icon-duplicate"></span></a></p>
+   <div class='docs-img-wrapper'>
+     <div class='docs-img-content'>
+       <ol>
+         <li><b>Skewer</b>: a vertical line on which icons are “skewered.”</li>
+         <li><b>Action icon</b>: an atomic part of the circuit that specifies a specific action.</li>
+         <li><b>Macro icons</b>: composite icons that can contain branches, child icons and skewers within themselves.</li>
+         <li><b>Valence point</b>: a place in the algorithm where other icons can be inserted.</li>
+       </ol>
+     </div>
+     <div class='docs-img'><img src='/img/docs/basics.png' /></div>
+   </div>
+   <h4>Simple icons</h4>
+   <div class='docs-img-wrapper'>
+     <div class='docs-img-content'>
+       <ol>
+         <li><b>Action</b></li>
+         <li><b>Link</b>: If an action links to another diagram, a link icon appears in the corner, clicking on which will take you to the corresponding diagram.</li>
+         <li><b>Output</b>: output data.</li>
+         <li><b>Input</b>: Used to enter data.</li>
+         <li><b>Shelf</b>: similar to the “action” icon, with two fields for entering text.</li>
+       </ol>
+     </div>
+     <div class='docs-img'><img src='/img/docs/simple-icons.png' /></div>
+   </div>
+   <h4>Function</h4>
+   <div class='docs-img-wrapper'>
+     <div class='docs-img-content'>
+       A function is a macro-icon, which is the only and main one on a diagram of the corresponding type.
+       It consists of three blocks:
+       <ul>
+         <li><b>Title</b>, or comment: can be used for extended description</li>
+         <li><b>Name</b></li>
+         <li><b>Final block</b></li>
+       </ul>
+     </div>
+     <div class='docs-img'><img src='/img/docs/icon-function.png' /></div>
+   </div>
+   <h4>Life rhythm</h4>
+   <div class='docs-img-wrapper'>
+     <div class='docs-img-content'>
+       A function is a macro-icon, which is the only and main one on a diagram of the corresponding type.
+       An analogue of the “Silhouette” icon in the Dragon. Allows you to conveniently describe long-term life algorithms.
+     </div>
+     <div class='docs-img'><img src='/img/docs/icon-liferythm.png' /></div>
+   </div>
+  <h4>Tree</h4>
+   <div class='docs-img-wrapper'>
+     <div class='docs-img-content'>
+       A function is a macro-icon, which is the only and main one on a diagram of the corresponding type.
+       Allows you to describe tree-like data structures.
+     </div>
+     <div class='docs-img'><img src='/img/docs/icon-tree.png' /></div>
+   </div>
+   <h4>"If"</h4>
+   <div class='docs-img-wrapper'>
+     <div class='docs-img-content'>
+       A macro icon of a conditional operator that directs the action of the algorithm depending on the fulfillment of the condition described in the main block.
+       Analogous to "if - else" in programming.
+     </div>
+     <div class='docs-img'><img src='/img/docs/icon-if.png' /></div>
+   </div>
+   <h4>Switch</h4>
+   <div class='docs-img-wrapper'>
+     <div class='docs-img-content'>
+       A switch macro icon that directs the action of the algorithm to a specific child skewer if the value in the main block matches the value in the variant block.
+       Analogous to "Switch" in programming.
+     </div>
+     <div class='docs-img'><img src='/img/docs/icon-switch.png' /></div>
+   </div>
+   <h4>Parallel execution</h4>
+   <div class='docs-img-wrapper'>
+     <div class='docs-img-content'>
+       Macro icon that executes child skewers in parallel. The action moves on only after all parallel processes have completed.
+     </div>
+     <div class='docs-img'><img src='/img/docs/icon-parallel.png' /></div>
+   </div>
+   <h4>A cycle for everyone</h4>
+   <div class='docs-img-wrapper'>
+     <div class='docs-img-content'>
+       Macro icon passing through a data array, or for a variable from the minimum value to the maximum. Similar to for each.
+     </div>
+     <div class='docs-img'><img src='/img/docs/icon-foreach.png' /></div>
+   </div>
+   <h4>Loop with condition</h4>
+   <div class='docs-img-wrapper'>
+     <div class='docs-img-content'>
+       A macro icon that repeats the execution of a process while some condition is met. Analogous to while.
+     </div>
+     <div class='docs-img'><img src='/img/docs/icon-while.png' /></div>
+   </div>
+
+   <h4>Pseudo loop</h4>
+   <div class='docs-img-wrapper'>
+     <div class='docs-img-content'>
+       A loop that actually executes once. Used to use exit or continuation icons (continue, break).
+     </div>
+     <div class='docs-img'><img src='/img/docs/icon-pseudocycle.png' /></div>
+   </div>
+   <h4>"Outputs"</h4>
+   <p>
+     “Outputs” is a generalized name for a group of icons that change the forward flow of the algorithm.
+   </p>
+   <ol>
+     <li><b>Exit</b> - exit from the loop (analogous to break in programming)</li>
+     <li><b>Continue</b> - continue the cycle from the beginning (analogous to continue)</li>
+     <li><b>Return</b> - return from a function (analogous to return)</li>
+     <li><b>Error</b> - interruption of the algorithm as a result of an error (analogous to throw)</li>
+   </ol>
+   <div class='one-image'><img src='/img/docs/outs-types.png' /></div>
+   <p>In the case of nested loops, the "Exit" and "Continue" icons at the end have indexes 1,2,... The index indicates the level of the outer loop to which the exit applies.</p></div>
+{% endblock %}

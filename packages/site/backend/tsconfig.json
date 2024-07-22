@@ -1,0 +1,38 @@
+{
+  "compilerOptions": {
+    "target": "esnext",
+    "module": "commonjs",
+    "declaration": true,
+    "removeComments": true,
+    "emitDecoratorMetadata": true,
+    "experimentalDecorators": true,
+    "allowSyntheticDefaultImports": true,
+    "sourceMap": true,
+    "outDir": "./dist",
+    "baseUrl": "./",
+    "incremental": true,
+    "strict": true,
+    "forceConsistentCasingInFileNames": true,
+    "noFallthroughCasesInSwitch": false,
+    "jsx": "react",
+    "esModuleInterop": true
+  },
+  "include": [
+    "src",
+    "src/domains/system/database/Database.datasource.ts"
+  ],
+  "exclude": [
+    "node_modules",
+    "test",
+    "dist",
+    "**/*spec.ts",
+    "**/spec/*.ts",
+    "src/domains/user/http-api/spec/*.ts",
+    "src/test/*.ts"
+  ],
+  "references": [
+    {
+      "path": "../../common/project/tsconfig.json"
+    }
+  ]
+}

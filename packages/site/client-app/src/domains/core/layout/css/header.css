@@ -1,0 +1,30 @@
+.navbar {
+  border-bottom: 1px solid #aaa;
+}
+
+.navbar-section > button, .navbar-section > .dropdown > button {
+  border-top: 0px;
+  border-bottom: 0px;
+  border-radius: 0px;
+  border-left: 0px;
+  border-color: #aaa;
+  color: #555;
+}
+
+.navbar-section > button:hover, .navbar-section > .dropdown > button:hover {
+  color: #555;
+  border-color: #aaa;
+}
+
+.navbar-section > button:focus, .navbar-section > .dropdown > button:focus {
+  box-shadow: none;
+  border-color: #aaa;
+}
+
+.navbar-section:last-child button:nth-child(1) {
+  border-left: 1px solid #aaa;
+}
+
+.navbar-section button.btn-doc-link {
+  border-right: none!important;
+}

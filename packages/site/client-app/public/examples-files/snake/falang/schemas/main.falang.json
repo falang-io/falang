@@ -1,0 +1,1117 @@
+{
+  "id": "m7pVTfZRXeP0bT6BWlmQf",
+  "schemeVersion": 2,
+  "name": "main",
+  "type": "function",
+  "description": "",
+  "root": {
+    "id": "lB5upikdDh_HbhKEy2jH0",
+    "alias": "function",
+    "header": {
+      "text": "",
+      "width": 64,
+      "color": "#ffffff"
+    },
+    "block": {
+      "parameters": [
+        {
+          "name": "config",
+          "type": {
+            "type": "struct",
+            "iconId": "8tR8snUlmrVZE4DDDuo9C",
+            "schemeId": "kHyjfyZ38T2JD3yH7pzN3",
+            "name": "Config",
+            "properties": {}
+          }
+        }
+      ],
+      "returnValue": {
+        "type": "void"
+      },
+      "width": 192,
+      "name": "main"
+    },
+    "children": [
+      {
+        "id": "PL1ygW9jTUqSOjf0qD5cf",
+        "alias": "create_var",
+        "block": {
+          "width": 160,
+          "color": "#ffffff",
+          "expression": "state",
+          "type": "create",
+          "variableType": {
+            "type": "struct",
+            "constant": false,
+            "optional": false,
+            "iconId": "yhxyfy9m5HuAFEaJZ_Ob4",
+            "schemeId": "kHyjfyZ38T2JD3yH7pzN3",
+            "name": "GameState",
+            "properties": {
+              "snake": {
+                "type": "struct",
+                "constant": false,
+                "optional": false,
+                "iconId": "PltGH3SuO2kd-EgPPir0F",
+                "schemeId": "kHyjfyZ38T2JD3yH7pzN3",
+                "name": "Snake",
+                "properties": {
+                  "x": {
+                    "constant": false,
+                    "type": "number",
+                    "numberType": "integer",
+                    "integerType": "int32",
+                    "optional": false
+                  },
+                  "y": {
+                    "constant": false,
+                    "type": "number",
+                    "numberType": "integer",
+                    "integerType": "int32",
+                    "optional": false
+                  },
+                  "dirX": {
+                    "constant": false,
+                    "type": "number",
+                    "numberType": "integer",
+                    "integerType": "int32",
+                    "optional": false
+                  },
+                  "dirY": {
+                    "constant": false,
+                    "type": "number",
+                    "numberType": "integer",
+                    "integerType": "int32",
+                    "optional": false
+                  },
+                  "body": {
+                    "type": "array",
+                    "elementType": {
+                      "type": "struct",
+                      "iconId": "mWThR-uew3FxhF4m2YY5a",
+                      "schemeId": "kHyjfyZ38T2JD3yH7pzN3",
+                      "name": "Point",
+                      "properties": {
+                        "x": {
+                          "constant": false,
+                          "type": "number",
+                          "numberType": "integer",
+                          "integerType": "int32",
+                          "optional": false
+                        },
+                        "y": {
+                          "constant": false,
+                          "type": "number",
+                          "numberType": "integer",
+                          "integerType": "int32",
+                          "optional": false
+                        }
+                      }
+                    },
+                    "constant": false,
+                    "optional": false,
+                    "dimensions": 1
+                  }
+                }
+              },
+              "food": {
+                "type": "struct",
+                "constant": false,
+                "optional": false,
+                "iconId": "mWThR-uew3FxhF4m2YY5a",
+                "schemeId": "kHyjfyZ38T2JD3yH7pzN3",
+                "name": "Point",
+                "properties": {
+                  "x": {
+                    "constant": false,
+                    "type": "number",
+                    "numberType": "integer",
+                    "integerType": "int32",
+                    "optional": false
+                  },
+                  "y": {
+                    "constant": false,
+                    "type": "number",
+                    "numberType": "integer",
+                    "integerType": "int32",
+                    "optional": false
+                  }
+                }
+              },
+              "config": {
+                "type": "struct",
+                "constant": false,
+                "optional": false,
+                "iconId": "8tR8snUlmrVZE4DDDuo9C",
+                "schemeId": "kHyjfyZ38T2JD3yH7pzN3",
+                "name": "Config",
+                "properties": {
+                  "cellSize": {
+                    "constant": false,
+                    "type": "number",
+                    "numberType": "integer",
+                    "integerType": "int32",
+                    "optional": false
+                  },
+                  "cellColor": {
+                    "type": "struct",
+                    "constant": false,
+                    "optional": false,
+                    "iconId": "",
+                    "schemeId": "",
+                    "name": "",
+                    "properties": {}
+                  },
+                  "foodColor": {
+                    "type": "struct",
+                    "constant": false,
+                    "optional": false,
+                    "iconId": "meDT1V2wIp9D9Eb4cOZyH",
+                    "schemeId": "kHyjfyZ38T2JD3yH7pzN3",
+                    "name": "Color",
+                    "properties": {
+                      "r": {
+                        "constant": false,
+                        "type": "number",
+                        "numberType": "integer",
+                        "integerType": "int32",
+                        "optional": false
+                      },
+                      "g": {
+                        "constant": false,
+                        "type": "number",
+                        "numberType": "integer",
+                        "integerType": "int32",
+                        "optional": false
+                      },
+                      "b": {
+                        "constant": false,
+                        "type": "number",
+                        "numberType": "integer",
+                        "integerType": "int32",
+                        "optional": false
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      },
+      {
+        "id": "Th_Mpjao_oLzpEoRTVOJV",
+        "alias": "assign_var",
+        "block": {
+          "width": 160,
+          "color": "#ffffff",
+          "expression": "state.config = config",
+          "type": "assign",
+          "variableType": null
+        }
+      },
+      {
+        "id": "coMU79dt42juxXxaI9V0v",
+        "alias": "call_function",
+        "block": {
+          "parameters": [],
+          "returnVariable": "newColors",
+          "schemeId": "b0DLl_wFtqSjCFgZlOo64",
+          "width": 160,
+          "iconId": null
+        }
+      },
+      {
+        "id": "fda4Yx38op-Pn320kZ_6v",
+        "alias": "assign_var",
+        "block": {
+          "width": 192,
+          "color": "#ffffff",
+          "expression": "state.colors = newColors",
+          "type": "assign",
+          "variableType": null
+        }
+      },
+      {
+        "id": "nOIj_tm-8R6736W1G7rjN",
+        "alias": "call_function",
+        "block": {
+          "parameters": [
+            "state"
+          ],
+          "returnVariable": "snakePoint",
+          "schemeId": "p1oTmW4T5DPD-s9IIoGwU",
+          "width": 192,
+          "iconId": null
+        }
+      },
+      {
+        "id": "xHRB4msL6yFfuxGSolU3G",
+        "alias": "assign_var",
+        "block": {
+          "width": 224,
+          "color": "#ffffff",
+          "expression": "state.snake.x = snakePoint.x",
+          "type": "assign",
+          "variableType": null
+        }
+      },
+      {
+        "id": "_oMa_qBHodtiQ4yEPqpa9",
+        "alias": "assign_var",
+        "block": {
+          "width": 224,
+          "color": "#ffffff",
+          "expression": "state.snake.y = snakePoint.y",
+          "type": "assign",
+          "variableType": null
+        }
+      },
+      {
+        "id": "EhpuZbl6e0pnIeusCa_5M",
+        "alias": "call_function",
+        "block": {
+          "parameters": [
+            "state"
+          ],
+          "returnVariable": "foodPoint",
+          "schemeId": "UTXeesjId4EdZOMA35YW1",
+          "width": 160,
+          "iconId": null
+        }
+      },
+      {
+        "id": "_DlmnAOHP64qjn_EByQNh",
+        "alias": "assign_var",
+        "block": {
+          "width": 192,
+          "color": "#ffffff",
+          "expression": "state.food = foodPoint",
+          "type": "assign",
+          "variableType": null
+        }
+      },
+      {
+        "id": "OBURwlMvvVzKS56ghPw54",
+        "alias": "arr_push",
+        "block": {
+          "arr": "state.snake.body",
+          "variable": "snakePoint",
+          "width": 224
+        }
+      },
+      {
+        "id": "eBkdfxI8XgcEG6gW_bbKD",
+        "alias": "call_function",
+        "block": {
+          "parameters": [
+            "state"
+          ],
+          "returnVariable": "",
+          "schemeId": "XhClfyJF7x2w7pFQxy4O_",
+          "width": 160,
+          "iconId": null
+        }
+      },
+      {
+        "id": "Wnjqt6u201-28OxXrjqIF",
+        "alias": "call_function",
+        "block": {
+          "parameters": [
+            "state"
+          ],
+          "returnVariable": "",
+          "schemeId": "52uYxdCVKxGQj9iZAv5Iw",
+          "width": 160,
+          "iconId": null
+        }
+      },
+      {
+        "id": "n7geuiwQBL18fzr6wSd7E",
+        "alias": "call_function",
+        "block": {
+          "parameters": [
+            "snakePoint",
+            "state.colors.cellColor",
+            "state.config"
+          ],
+          "returnVariable": "",
+          "schemeId": "K26d9OrusDeFwiQif8nMs",
+          "width": 256,
+          "iconId": null
+        }
+      },
+      {
+        "id": "LVIjyQVeO9DbTqBLWS4QN",
+        "alias": "while",
+        "block": {
+          "width": 128,
+          "color": "#ffffff",
+          "expression": "true",
+          "type": "boolean",
+          "variableType": null
+        },
+        "trueIsMain": false,
+        "children": [
+          {
+            "id": "OTH3M7nL6TwI2m6UqC_uq",
+            "alias": "call_api",
+            "block": {
+              "parameters": [],
+              "returnVariable": "",
+              "schemeId": "IXPTCilqzAuOKyR3fWJRB",
+              "width": 160,
+              "iconId": "HOZ9AUAjOP8sLZL-whOAS"
+            }
+          },
+          {
+            "id": "73HZd8WnmnnaowYkSyW2Y",
+            "alias": "call_api",
+            "block": {
+              "parameters": [],
+              "returnVariable": "buttons",
+              "schemeId": "IXPTCilqzAuOKyR3fWJRB",
+              "width": 160,
+              "iconId": "YptE5uPQevBqu9s246hGo"
+            }
+          },
+          {
+            "id": "N3P--yhZiBDqmqpPO9ZaL",
+            "alias": "if",
+            "block": {
+              "width": 128,
+              "color": "#ffffff",
+              "expression": "buttons.left",
+              "type": "boolean",
+              "variableType": null
+            },
+            "trueOnRight": false,
+            "gaps": [],
+            "children": [
+              {
+                "alias": "system",
+                "id": "9_x-ej9fMmjQEtnf_soHF",
+                "block": {
+                  "width": 0
+                },
+                "children": [
+                  {
+                    "id": "20ZJL1qnLFgtA471QN1nm",
+                    "alias": "if",
+                    "block": {
+                      "width": 160,
+                      "color": "#ffffff",
+                      "expression": "state.snake.dirX == 1",
+                      "type": "boolean",
+                      "variableType": null
+                    },
+                    "trueOnRight": true,
+                    "gaps": [],
+                    "children": [
+                      {
+                        "alias": "system",
+                        "id": "aiyecqH76fdCoNPCUnzZq",
+                        "block": {
+                          "width": 0
+                        },
+                        "children": [
+                          {
+                            "id": "lsKFPHiFUnvBV8xZQYqRs",
+                            "alias": "assign_var",
+                            "block": {
+                              "width": 192,
+                              "color": "#ffffff",
+                              "expression": "state.snake.dirX = -1",
+                              "type": "assign",
+                              "variableType": null
+                            }
+                          },
+                          {
+                            "id": "g02JFtOlwKkKeDKyb8iH2",
+                            "alias": "assign_var",
+                            "block": {
+                              "width": 192,
+                              "color": "#ffffff",
+                              "expression": "state.snake.dirY = 0",
+                              "type": "assign",
+                              "variableType": null
+                            }
+                          }
+                        ]
+                      },
+                      {
+                        "alias": "system",
+                        "id": "8-fHxlI9P-W39_S91X0AP",
+                        "block": {
+                          "width": 0
+                        },
+                        "children": []
+                      }
+                    ]
+                  }
+                ]
+              },
+              {
+                "alias": "system",
+                "id": "8GCd-lNOO11mYSkLf7OmU",
+                "block": {
+                  "width": 0
+                },
+                "children": [
+                  {
+                    "id": "kUtdEpABwwB3FknbIIlYi",
+                    "alias": "if",
+                    "block": {
+                      "width": 128,
+                      "color": "#ffffff",
+                      "expression": "buttons.right",
+                      "type": "boolean",
+                      "variableType": null
+                    },
+                    "trueOnRight": false,
+                    "gaps": [],
+                    "children": [
+                      {
+                        "alias": "system",
+                        "id": "iaJsfrNJWMbE-uAiqsyHk",
+                        "block": {
+                          "width": 0
+                        },
+                        "children": [
+                          {
+                            "id": "xPkvSV53hUz6pJxFRFeG9",
+                            "alias": "if",
+                            "block": {
+                              "width": 192,
+                              "color": "#ffffff",
+                              "expression": "state.snake.dirX == -1",
+                              "type": "boolean",
+                              "variableType": null
+                            },
+                            "trueOnRight": true,
+                            "gaps": [],
+                            "children": [
+                              {
+                                "alias": "system",
+                                "id": "PbOimnbqNE2FVVnq33ImI",
+                                "block": {
+                                  "width": 0
+                                },
+                                "children": [
+                                  {
+                                    "id": "xiWo2aSAyaSAAeXILMzIE",
+                                    "alias": "assign_var",
+                                    "block": {
+                                      "width": 192,
+                                      "color": "#ffffff",
+                                      "expression": "state.snake.dirX = 1",
+                                      "type": "assign",
+                                      "variableType": null
+                                    }
+                                  },
+                                  {
+                                    "id": "guBRV_MOEO6dbL-ZOlhk9",
+                                    "alias": "assign_var",
+                                    "block": {
+                                      "width": 192,
+                                      "color": "#ffffff",
+                                      "expression": "state.snake.dirY = 0",
+                                      "type": "assign",
+                                      "variableType": null
+                                    }
+                                  }
+                                ]
+                              },
+                              {
+                                "alias": "system",
+                                "id": "1KcoENUswbiThT3YmrdTC",
+                                "block": {
+                                  "width": 0
+                                },
+                                "children": []
+                              }
+                            ]
+                          }
+                        ]
+                      },
+                      {
+                        "alias": "system",
+                        "id": "_J6w9Hl7TEzbvnZuZLbVS",
+                        "block": {
+                          "width": 0
+                        },
+                        "children": [
+                          {
+                            "id": "Ah1YgblPJpw6h5fKYsYa1",
+                            "alias": "if",
+                            "block": {
+                              "width": 128,
+                              "color": "#ffffff",
+                              "expression": "buttons.top",
+                              "type": "boolean",
+                              "variableType": null
+                            },
+                            "trueOnRight": false,
+                            "gaps": [],
+                            "children": [
+                              {
+                                "alias": "system",
+                                "id": "l8WAKO9TY3TkmINqWpy1u",
+                                "block": {
+                                  "width": 0
+                                },
+                                "children": [
+                                  {
+                                    "id": "4JFaZJSrvfDVbhDRaarp6",
+                                    "alias": "if",
+                                    "block": {
+                                      "width": 160,
+                                      "color": "#ffffff",
+                                      "expression": "state.snake.dirY == 1",
+                                      "type": "boolean",
+                                      "variableType": null
+                                    },
+                                    "trueOnRight": true,
+                                    "gaps": [],
+                                    "children": [
+                                      {
+                                        "alias": "system",
+                                        "id": "WFFz2NVgSX_5WUwY0_gt_",
+                                        "block": {
+                                          "width": 0
+                                        },
+                                        "children": [
+                                          {
+                                            "id": "S8dQHEOvfnZXgXNaYJQC_",
+                                            "alias": "assign_var",
+                                            "block": {
+                                              "width": 192,
+                                              "color": "#ffffff",
+                                              "expression": "state.snake.dirX = 0",
+                                              "type": "assign",
+                                              "variableType": null
+                                            }
+                                          },
+                                          {
+                                            "id": "Ox3hhZRJfg5FMflfFY1fF",
+                                            "alias": "assign_var",
+                                            "block": {
+                                              "width": 192,
+                                              "color": "#ffffff",
+                                              "expression": "state.snake.dirY = -1",
+                                              "type": "assign",
+                                              "variableType": null
+                                            }
+                                          }
+                                        ]
+                                      },
+                                      {
+                                        "alias": "system",
+                                        "id": "tPckT-c4CE5nYnYl8mKx8",
+                                        "block": {
+                                          "width": 0
+                                        },
+                                        "children": []
+                                      }
+                                    ]
+                                  }
+                                ]
+                              },
+                              {
+                                "alias": "system",
+                                "id": "7973yGSwOWE96ByEtbyB0",
+                                "block": {
+                                  "width": 0
+                                },
+                                "children": [
+                                  {
+                                    "id": "z4HPvsk14oGd6gHgAjt7P",
+                                    "alias": "if",
+                                    "block": {
+                                      "width": 128,
+                                      "color": "#ffffff",
+                                      "expression": "buttons.bottom",
+                                      "type": "boolean",
+                                      "variableType": null
+                                    },
+                                    "trueOnRight": false,
+                                    "gaps": [],
+                                    "children": [
+                                      {
+                                        "alias": "system",
+                                        "id": "0u0MP1VuIoxBDXPTkxIlC",
+                                        "block": {
+                                          "width": 0
+                                        },
+                                        "children": [
+                                          {
+                                            "id": "csOMo5j2PD6An5PwEohKm",
+                                            "alias": "if",
+                                            "block": {
+                                              "width": 192,
+                                              "color": "#ffffff",
+                                              "expression": "state.snake.dirY == -1",
+                                              "type": "boolean",
+                                              "variableType": null
+                                            },
+                                            "trueOnRight": true,
+                                            "gaps": [],
+                                            "children": [
+                                              {
+                                                "alias": "system",
+                                                "id": "8EGZSF77waNmg7w-lZXXw",
+                                                "block": {
+                                                  "width": 0
+                                                },
+                                                "children": [
+                                                  {
+                                                    "id": "71w6gNOkzKiPSYNUWLWjT",
+                                                    "alias": "assign_var",
+                                                    "block": {
+                                                      "width": 192,
+                                                      "color": "#ffffff",
+                                                      "expression": "state.snake.dirX = 0",
+                                                      "type": "assign",
+                                                      "variableType": null
+                                                    }
+                                                  },
+                                                  {
+                                                    "id": "_7GjktgNfrD9E5efh77tA",
+                                                    "alias": "assign_var",
+                                                    "block": {
+                                                      "width": 192,
+                                                      "color": "#ffffff",
+                                                      "expression": "state.snake.dirY = 1",
+                                                      "type": "assign",
+                                                      "variableType": null
+                                                    }
+                                                  }
+                                                ]
+                                              },
+                                              {
+                                                "alias": "system",
+                                                "id": "QwxCl6Ld3inm_oRII0pqi",
+                                                "block": {
+                                                  "width": 0
+                                                },
+                                                "children": []
+                                              }
+                                            ]
+                                          }
+                                        ]
+                                      },
+                                      {
+                                        "alias": "system",
+                                        "id": "9wKlIkG625sviGMhGBxte",
+                                        "block": {
+                                          "width": 0
+                                        },
+                                        "children": []
+                                      }
+                                    ]
+                                  }
+                                ]
+                              }
+                            ]
+                          }
+                        ]
+                      }
+                    ]
+                  }
+                ]
+              }
+            ]
+          },
+          {
+            "id": "BjtdWWmhwWBdMi4lJa4EW",
+            "alias": "if",
+            "block": {
+              "width": 192,
+              "color": "#ffffff",
+              "expression": "state.snake.dirX == 0 and state.snake.dirY == 0",
+              "type": "boolean",
+              "variableType": null
+            },
+            "trueOnRight": true,
+            "gaps": [],
+            "children": [
+              {
+                "alias": "system",
+                "id": "LvJldwXxXokDHXZSS0L3W",
+                "block": {
+                  "width": 0
+                },
+                "children": []
+              },
+              {
+                "alias": "system",
+                "id": "mouo4Bbpg2MtF4cV3ZAd7",
+                "block": {
+                  "width": 0
+                },
+                "children": [],
+                "out": {
+                  "type": "continue",
+                  "level": 1,
+                  "alias": "system",
+                  "block": {
+                    "width": 64
+                  },
+                  "id": "JcvvD8MSQBqMhy9Pq4ikc"
+                }
+              }
+            ]
+          },
+          {
+            "id": "y-82umpcjj0E7E0aBNTDm",
+            "alias": "call_function",
+            "block": {
+              "parameters": [
+                "state"
+              ],
+              "returnVariable": "nextPoint",
+              "schemeId": "SwH6HqGCKAdnPQFBpMc2L",
+              "width": 160,
+              "iconId": null
+            }
+          },
+          {
+            "id": "pXy2D1myY3LaVRIJSAupb",
+            "alias": "assign_var",
+            "block": {
+              "width": 224,
+              "color": "#ffffff",
+              "expression": "state.snake.x =nextPoint.x",
+              "type": "assign",
+              "variableType": null
+            }
+          },
+          {
+            "id": "IlIanWUjpVergZAeeiZm2",
+            "alias": "assign_var",
+            "block": {
+              "width": 224,
+              "color": "#ffffff",
+              "expression": "state.snake.y = nextPoint.y",
+              "type": "assign",
+              "variableType": null
+            }
+          },
+          {
+            "id": "f9UwUDTP1olgYfu5K74hm",
+            "alias": "call_function",
+            "block": {
+              "parameters": [
+                "state"
+              ],
+              "returnVariable": "isOver",
+              "schemeId": "yjmYQyyF_Ix6ogr8CT6Ua",
+              "width": 160,
+              "iconId": null
+            }
+          },
+          {
+            "id": "7_4sZYSpK5CzmHEIvLWLg",
+            "alias": "if",
+            "block": {
+              "width": 128,
+              "color": "#ffffff",
+              "expression": "isOver",
+              "type": "boolean",
+              "variableType": null
+            },
+            "trueOnRight": false,
+            "gaps": [],
+            "children": [
+              {
+                "alias": "system",
+                "id": "xe8aQglFErO43sFBjJ8Kl",
+                "block": {
+                  "width": 0
+                },
+                "children": [
+                  {
+                    "id": "dPjGRiBJLvEeDTX5xbzHu",
+                    "alias": "assign_var",
+                    "block": {
+                      "width": 160,
+                      "color": "#ffffff",
+                      "expression": "state.snake.dirX = 0",
+                      "type": "assign",
+                      "variableType": null
+                    }
+                  },
+                  {
+                    "id": "9mwS3yc9mrNMP2M-P2sAS",
+                    "alias": "assign_var",
+                    "block": {
+                      "width": 160,
+                      "color": "#ffffff",
+                      "expression": "state.snake.dirY = 0",
+                      "type": "assign",
+                      "variableType": null
+                    }
+                  },
+                  {
+                    "id": "c65HhdmoFu1GpnNNWLWkB",
+                    "alias": "call_function",
+                    "block": {
+                      "parameters": [
+                        "state"
+                      ],
+                      "returnVariable": "newSnakePoint",
+                      "schemeId": "p1oTmW4T5DPD-s9IIoGwU",
+                      "width": 192,
+                      "iconId": null
+                    }
+                  },
+                  {
+                    "id": "leLkEbFVQW87YHakHfFAX",
+                    "alias": "assign_var",
+                    "block": {
+                      "width": 256,
+                      "color": "#ffffff",
+                      "expression": "state.snake.body = [newSnakePoint]",
+                      "type": "assign",
+                      "variableType": null
+                    }
+                  },
+                  {
+                    "id": "NM0MNlvryEsXtu58IKDgs",
+                    "alias": "call_function",
+                    "block": {
+                      "parameters": [
+                        "state"
+                      ],
+                      "returnVariable": "newFoodPoint",
+                      "schemeId": "UTXeesjId4EdZOMA35YW1",
+                      "width": 160,
+                      "iconId": null
+                    }
+                  },
+                  {
+                    "id": "578E6v0c9I0hRO6o1PDP-",
+                    "alias": "assign_var",
+                    "block": {
+                      "width": 224,
+                      "color": "#ffffff",
+                      "expression": "state.food = newFoodPoint",
+                      "type": "assign",
+                      "variableType": null
+                    }
+                  },
+                  {
+                    "id": "gMinsGFaFQQkv-SiXdT-6",
+                    "alias": "call_api",
+                    "block": {
+                      "parameters": [
+                        "0",
+                        "0",
+                        "state.config.cellSize * state.config.gameWidth",
+                        "state.config.cellSize * state.config.gameHeight",
+                        "state.colors.foodColor"
+                      ],
+                      "returnVariable": "",
+                      "schemeId": "IXPTCilqzAuOKyR3fWJRB",
+                      "width": 288,
+                      "iconId": "tj9MNfCBMgTZH6eqNQFOd"
+                    }
+                  },
+                  {
+                    "id": "vAg5y8j3yLm0eRIQollqL",
+                    "alias": "call_function",
+                    "block": {
+                      "parameters": [
+                        "state"
+                      ],
+                      "returnVariable": "",
+                      "schemeId": "XhClfyJF7x2w7pFQxy4O_",
+                      "width": 160,
+                      "iconId": null
+                    }
+                  },
+                  {
+                    "id": "oejSVBSOo4shgFcVcvqE4",
+                    "alias": "call_function",
+                    "block": {
+                      "parameters": [
+                        "state"
+                      ],
+                      "returnVariable": "",
+                      "schemeId": "52uYxdCVKxGQj9iZAv5Iw",
+                      "width": 160,
+                      "iconId": null
+                    }
+                  },
+                  {
+                    "id": "LnM4pGU1fzaM7VEO8SQXD",
+                    "alias": "call_function",
+                    "block": {
+                      "parameters": [
+                        "newSnakePoint",
+                        "state.colors.cellColor",
+                        "state.config"
+                      ],
+                      "returnVariable": "",
+                      "schemeId": "K26d9OrusDeFwiQif8nMs",
+                      "width": 256,
+                      "iconId": null
+                    }
+                  }
+                ]
+              },
+              {
+                "alias": "system",
+                "id": "hcULrQlClvsvQsjxJtV5p",
+                "block": {
+                  "width": 0
+                },
+                "children": [
+                  {
+                    "id": "GG75qN8xmI5WV4ATpE8Db",
+                    "alias": "arr_unshift",
+                    "block": {
+                      "arr": "state.snake.body",
+                      "variable": "nextPoint",
+                      "width": 224
+                    }
+                  },
+                  {
+                    "id": "d9Xp7CDH4kEYpSWrcd6S2",
+                    "alias": "call_function",
+                    "block": {
+                      "parameters": [
+                        "nextPoint",
+                        "state.colors.cellColor",
+                        "state.config"
+                      ],
+                      "returnVariable": "",
+                      "schemeId": "K26d9OrusDeFwiQif8nMs",
+                      "width": 288,
+                      "iconId": null
+                    }
+                  },
+                  {
+                    "id": "J8FssgibapviRe1t0KXfw",
+                    "alias": "if",
+                    "block": {
+                      "width": 288,
+                      "color": "#ffffff",
+                      "expression": "state.snake.x == state.food.x and state.snake.y == state.food.y",
+                      "type": "boolean",
+                      "variableType": null
+                    },
+                    "trueOnRight": true,
+                    "gaps": [],
+                    "children": [
+                      {
+                        "alias": "system",
+                        "id": "LU9WQX4AC35HGrFuv7kWD",
+                        "block": {
+                          "width": 0
+                        },
+                        "children": [
+                          {
+                            "id": "GzFhOMMQf-nGEF0KwIHUZ",
+                            "alias": "arr_pop",
+                            "block": {
+                              "arr": "state.snake.body",
+                              "variable": "oldPoint",
+                              "width": 224
+                            }
+                          },
+                          {
+                            "id": "w49QyhSyqKkNDpzGmoRjy",
+                            "alias": "call_function",
+                            "block": {
+                              "parameters": [
+                                "oldPoint",
+                                "state.colors.backgroundColor",
+                                "state.config"
+                              ],
+                              "returnVariable": "",
+                              "schemeId": "K26d9OrusDeFwiQif8nMs",
+                              "width": 288,
+                              "iconId": null
+                            }
+                          },
+                          {
+                            "id": "SrriDRS3uorPptX9WCEhs",
+                            "alias": "call_api",
+                            "block": {
+                              "parameters": [
+                                "oldPoint.x * state.config.cellSize + state.config.cellSize / 2",
+                                "oldPoint.y * state.config.cellSize + state.config.cellSize / 2",
+                                "state.config.pointRadius",
+                                "state.colors.pointColor"
+                              ],
+                              "returnVariable": "",
+                              "schemeId": "IXPTCilqzAuOKyR3fWJRB",
+                              "width": 320,
+                              "iconId": "mVRSeELOimFdKMeMIKqFo"
+                            }
+                          }
+                        ]
+                      },
+                      {
+                        "alias": "system",
+                        "id": "XltMytdWcPJmfPXKKoKgx",
+                        "block": {
+                          "width": 0
+                        },
+                        "children": [
+                          {
+                            "id": "Naa9RR5i-Vl_AfGCf0jqz",
+                            "alias": "call_function",
+                            "block": {
+                              "parameters": [
+                                "state"
+                              ],
+                              "returnVariable": "newFoodPoint",
+                              "schemeId": "UTXeesjId4EdZOMA35YW1",
+                              "width": 160,
+                              "iconId": null
+                            }
+                          },
+                          {
+                            "id": "pjozbbcGA5eFaGMIRd4tZ",
+                            "alias": "assign_var",
+                            "block": {
+                              "width": 192,
+                              "color": "#ffffff",
+                              "expression": "state.food = newFoodPoint",
+                              "type": "assign",
+                              "variableType": null
+                            }
+                          },
+                          {
+                            "id": "_kbNGeEvINMqUxodF4N6Z",
+                            "alias": "call_function",
+                            "block": {
+                              "parameters": [
+                                "state"
+                              ],
+                              "returnVariable": "",
+                              "schemeId": "52uYxdCVKxGQj9iZAv5Iw",
+                              "width": 160,
+                              "iconId": null
+                            }
+                          }
+                        ]
+                      }
+                    ]
+                  }
+                ]
+              }
+            ]
+          }
+        ]
+      }
+    ],
+    "footer": {
+      "text": "",
+      "width": 160,
+      "color": "#ffffff"
+    }
+  }
+}

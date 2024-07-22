@@ -1,0 +1,71 @@
+{
+  "id": "MfN5AOPHfZqUJ2ngOu3-Z",
+  "schemeVersion": 2,
+  "name": "clearScreen",
+  "type": "function",
+  "description": "",
+  "root": {
+    "id": "XhClfyJF7x2w7pFQxy4O_",
+    "alias": "function",
+    "header": {
+      "text": "",
+      "width": 64,
+      "color": "#ffffff"
+    },
+    "block": {
+      "parameters": [
+        {
+          "name": "state",
+          "type": {
+            "type": "struct",
+            "iconId": "yhxyfy9m5HuAFEaJZ_Ob4",
+            "schemeId": "kHyjfyZ38T2JD3yH7pzN3",
+            "name": "GameState"
+          }
+        }
+      ],
+      "returnValue": {
+        "type": "void"
+      },
+      "width": 192,
+      "name": "clearScreen"
+    },
+    "children": [
+      {
+        "id": "bXiI5Jw1fSTQY0GMDdYVH",
+        "alias": "call_api",
+        "block": {
+          "parameters": [
+            "0",
+            "0",
+            "state.config.cellSize * state.config.gameWidth",
+            "state.config.cellSize * state.config.gameHeight",
+            "state.colors.backgroundColor"
+          ],
+          "returnVariable": "",
+          "schemeId": "IXPTCilqzAuOKyR3fWJRB",
+          "width": 288,
+          "iconId": "tj9MNfCBMgTZH6eqNQFOd"
+        }
+      },
+      {
+        "id": "o8jolrJTPtrTu0_tgxsYc",
+        "alias": "call_function",
+        "block": {
+          "parameters": [
+            "state"
+          ],
+          "returnVariable": "",
+          "schemeId": "qIMuqdtmy4VhfBtzzn_Y6",
+          "width": 160,
+          "iconId": null
+        }
+      }
+    ],
+    "footer": {
+      "text": "",
+      "width": 64,
+      "color": "#ffffff"
+    }
+  }
+}

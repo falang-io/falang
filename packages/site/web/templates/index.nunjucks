@@ -1,0 +1,108 @@
+{% extends "./layout.nunjucks" %}
+{% block content %}
+<div class='content-layout'>
+  <div class='pink-layout'>
+    <div class='fixed-width'>
+      <div class='left-layout-item'>
+        <h1>{{ i18n.intro.title }}</h1>
+        <p>{{ i18n.intro.subtitle }}</p>
+        {{ i18n.translation['for-news-check-out'] }} <a href='https://t.me/falang_io' style=" color: #6390cf ">{{ i18n.translation['telegran-channel'] }}</a>.
+        <p>
+          <br />
+          <a class='bp5-button bp5-large bp5-intent-success' target='_blank' href='https://download.falang.io/releases/stable/default'>
+            <span class="bp5-icon-standard bp5-icon-download"></span>
+            &nbsp;
+            {{ i18n.common.download }}
+          </a>
+          <a class='bp5-button bp5-large bp5-intent-success' href='./docs/'>
+            {{ i18n.translation.docs }}
+          </a>
+          
+          <a class='bp5-button bp5-large bp5-intent-success' href='https://app.falang.io/try'>
+            <span class="bp5-icon-standard bp5-icon-application"></span>
+            &nbsp;
+            {{ i18n.intro.try_online }}
+          </a>
+        </p>
+        <div><a href="https://snapcraft.io/falang">
+          <img alt="Get it from the Snap Store" src="https://snapcraft.io/static/images/badges/{{lang}}/snap-store-black.svg" />
+        </a></div>
+
+      </div>
+      <div class='right-layout-item'>
+        <img class='intro-img' src='/img/index/intro-pc.jpg' />
+      </div>
+      <div style=" clear: both "></div>
+    </div>
+  </div>
+  <div class='fixed-width'>
+    <div class='left-layout-item'>
+      <img class='intro-img' src='/img/index/pc1.jpg' />
+    </div>
+    <div class='right-layout-item'>
+      <h1>{{ i18n.intro.available_for_everyone }}</h1>
+      <div style='font-size:1.4em;margin-top:40px'>
+        {{ i18n.intro.available_for_everyone_descr }}
+      </div>
+
+    </div>
+    <div style=" clear: both "></div>
+  </div>
+  <div class='pink-layout'>
+    <div class='fixed-width'>
+      <div class='left-layout-item'>
+        <h1>{{ i18n.intro.big_theory }}</h1>
+        <p>{{ i18n.intro.big_theory_description }}</p>
+        <p>
+          <br />
+          <a class='bp5-button bp5-large bp5-intent-success' href='https://app.falang.io/try'>
+            <span class="bp5-icon-standard bp5-icon-rocket"></span>
+            &nbsp;
+            {{ i18n.intro.drakon_more }}
+          </a>
+        </p>
+      </div>
+      <div class='right-layout-item'>
+        <img class='intro-img' src='/img/index/buran.jpg' />
+      </div>
+      <div style=" clear: both "></div>
+    </div>
+  </div>
+  <!--<div class='fixed-width'>
+    <div class='left-layout-item'>
+      <h2 style=" font-size: 2.5em; font-weight: normal; margin-bottom: 20px ">
+        {{ i18n.intro.falang_model }}
+      </h2>
+      <div class='intro-bottom-line'></div>
+    </div>
+    <div class='right-layout-item'>
+      <div style='font-size:1.4em;margin-top:40px'>
+        <p>"<i>{{ i18n.intro.falang_model_comment }}.</i>"</p>
+        <p>{{ i18n.intro.falang_model_comment_sign }}</p>
+        <p>&nbsp;</p>
+      </div>
+    </div>
+    <div style=" clear: both "></div>
+  </div>
+  <div class='pink-layout'>
+    <div class='fixed-width'>
+      <h2 style=" font-size: 2.5em; font-weight: normal; text-align: center ">{{ i18n.docs.create_new }}</h2>
+      {templateNames.map(template => <div className="column col-4 col-sm-6 col-xs-12" key={template}>
+        <TemplateCard>
+          <div className="card-image">
+            <img className="img-responsive" src={`/schemas-images/${template}.webp`} width={516} height={293} alt={t(`templates:template_${template}`).toString()} />
+          </div>
+          <div className="card-header">
+            <div className="card-title h5">{t(`templates:template_${template}`)}</div>
+          </div>
+          <p>
+            <br />
+            {reg.loaded ? <reg.bp.Button className="btn btn-primary" onClick={() => root.createNew(template)}>{{ i18n.docs.create }}</reg.bp.Button> : null}
+          </p>
+        </div>
+      </div>)}
+      <div style='clear:both'></div>
+    </div>
+  </div>-->
+</div>
+{% endblock %}

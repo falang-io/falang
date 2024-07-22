@@ -1,0 +1,44 @@
+body {
+  margin: 0;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+code {
+  font-family: "Courier New", monospace;
+}
+
+
+.form-input-hint {
+  margin-bottom: 0px!important;
+}
+
+a.app-title {
+  color: #555!important;
+  font-size: 1.em;
+  font-weight: bold;
+}
+a.app-title:hover{
+  text-decoration: underline;
+}
+a.app-title:focus {
+  outline: none;
+}
+
+.navbar-section button > svg {
+  vertical-align: middle;
+  margin-bottom: 3px;
+  height: 1.2em;
+  width: 1.2em;
+}
+
+.table {
+  border: 1px solid;
+}
+table td {
+  padding: 10px;
+}
+
+.token.operator {
+  background: transparent !important;
+}

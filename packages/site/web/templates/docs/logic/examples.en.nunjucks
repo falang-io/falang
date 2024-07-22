@@ -1,0 +1,14 @@
+{% extends "../../docs-layout.nunjucks" %}
+{% block docsContent %}
+<div class='bp5-running-text bp5-text-large'>
+  <h4>"Snake" game</h4>
+  <p>Running on STM32 microcontroller (Rust), and in browser (TypeScript)</p>
+  <div class='one-image'><img style='' src='/img/docs/snake.png' /></div>
+  <p>
+    <a href='https://app.falang.io/examples/snake' target='_blank'>Schemes</a> 
+    | <a href='https://www.youtube.com/watch?v=-OPhNlZsEWo' target='_blank'>Video</a> 
+    | <a href='https://falang-io.github.io/example-snake/code/ts/public/index.html' target='_blank'>Play</a> 
+    | <a href='https://github.com/falang-io/example-snake/' target='_blank'>Sources</a>
+  </p>
+</div>
+{% endblock %}

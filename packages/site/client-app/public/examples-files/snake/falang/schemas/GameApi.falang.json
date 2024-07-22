@@ -1,0 +1,212 @@
+{
+  "id": "ucuAXFssAyGB1IV3QV_Nh",
+  "schemeVersion": 2,
+  "name": "GameApi",
+  "type": "logic_external_apis",
+  "description": "",
+  "root": {
+    "id": "IXPTCilqzAuOKyR3fWJRB",
+    "alias": "logic_external_apis",
+    "block": {
+      "width": 160
+    },
+    "children": [
+      {
+        "id": "N0471EOFCfLSLlXHZsUzM",
+        "alias": "system",
+        "block": {
+          "name": "Application",
+          "width": 128
+        },
+        "children": [
+          {
+            "id": "YptE5uPQevBqu9s246hGo",
+            "alias": "system",
+            "block": {
+              "parameters": [],
+              "returnValue": {
+                "type": "struct",
+                "iconId": "EMD2v8KQQbp3hg1Nr8312",
+                "schemeId": "kHyjfyZ38T2JD3yH7pzN3",
+                "name": "ButtonsState",
+                "properties": {}
+              },
+              "width": 224,
+              "name": "GetButtonsState"
+            },
+            "children": []
+          },
+          {
+            "id": "HOZ9AUAjOP8sLZL-whOAS",
+            "alias": "system",
+            "block": {
+              "parameters": [],
+              "returnValue": {
+                "type": "void"
+              },
+              "width": 192,
+              "name": "Sleep"
+            },
+            "children": []
+          },
+          {
+            "id": "MjCAc3qOsvQTxgvn0YUJR",
+            "alias": "system",
+            "block": {
+              "parameters": [
+                {
+                  "name": "min",
+                  "type": {
+                    "type": "number",
+                    "numberType": "integer",
+                    "integerType": "int32"
+                  }
+                },
+                {
+                  "name": "max",
+                  "type": {
+                    "type": "number",
+                    "numberType": "integer",
+                    "integerType": "int32"
+                  }
+                }
+              ],
+              "returnValue": {
+                "type": "number",
+                "numberType": "integer",
+                "integerType": "int32"
+              },
+              "width": 192,
+              "name": "GetRandom"
+            },
+            "children": []
+          }
+        ]
+      },
+      {
+        "id": "c5NQKyPWa-R2TjHWG-zB-",
+        "alias": "system",
+        "block": {
+          "name": "Drawing",
+          "width": 128
+        },
+        "children": [
+          {
+            "id": "tj9MNfCBMgTZH6eqNQFOd",
+            "alias": "system",
+            "block": {
+              "parameters": [
+                {
+                  "name": "x",
+                  "type": {
+                    "type": "number",
+                    "numberType": "integer",
+                    "integerType": "int32"
+                  }
+                },
+                {
+                  "name": "y",
+                  "type": {
+                    "type": "number",
+                    "numberType": "integer",
+                    "integerType": "int32"
+                  }
+                },
+                {
+                  "name": "w",
+                  "type": {
+                    "type": "number",
+                    "numberType": "integer",
+                    "integerType": "int32"
+                  }
+                },
+                {
+                  "name": "h",
+                  "type": {
+                    "type": "number",
+                    "numberType": "integer",
+                    "integerType": "int32"
+                  }
+                },
+                {
+                  "name": "color",
+                  "type": {
+                    "type": "struct",
+                    "iconId": "meDT1V2wIp9D9Eb4cOZyH",
+                    "schemeId": "kHyjfyZ38T2JD3yH7pzN3",
+                    "name": "Color",
+                    "properties": {}
+                  }
+                }
+              ],
+              "returnValue": {
+                "type": "void"
+              },
+              "width": 192,
+              "name": "DrawRect"
+            },
+            "children": []
+          },
+          {
+            "id": "mVRSeELOimFdKMeMIKqFo",
+            "alias": "system",
+            "block": {
+              "parameters": [
+                {
+                  "name": "x",
+                  "type": {
+                    "type": "number",
+                    "numberType": "integer",
+                    "integerType": "int32"
+                  }
+                },
+                {
+                  "name": "y",
+                  "type": {
+                    "type": "number",
+                    "numberType": "integer",
+                    "integerType": "int32"
+                  }
+                },
+                {
+                  "name": "r",
+                  "type": {
+                    "type": "number",
+                    "numberType": "integer",
+                    "integerType": "int32"
+                  }
+                },
+                {
+                  "name": "color",
+                  "type": {
+                    "type": "struct",
+                    "iconId": "meDT1V2wIp9D9Eb4cOZyH",
+                    "schemeId": "kHyjfyZ38T2JD3yH7pzN3",
+                    "name": "Color",
+                    "properties": {}
+                  }
+                }
+              ],
+              "returnValue": {
+                "type": "void"
+              },
+              "width": 192,
+              "name": "DrawCircle"
+            },
+            "children": []
+          }
+        ]
+      }
+    ],
+    "gaps": [],
+    "header": {
+      "alias": "system",
+      "block": {
+        "text": "",
+        "width": 64,
+        "color": "#ffffff"
+      },
+      "id": "3RWKh2tj8qS32iKQGOtPh"
+    }
+  }
+}

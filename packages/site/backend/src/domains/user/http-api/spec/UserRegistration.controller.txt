@@ -1,0 +1,185 @@
+import { Test, TestingModule } from '@nestjs/testing';
+import { INestApplication } from '@nestjs/common';
+import * as request from 'supertest';
+import '../../../../config';
+import { UserHttpApiModule } from '../UserHttpApi.module';
+import { UserPreregisteredDal } from '../../registration/dal/UserPreregistered.dal';
+import { MailService } from '../../../system/mail';
+import { LoggerModule } from 'nestjs-pino';
+import { UserDal } from '../../user/dal/User.dal';
+import { httpServerBootstrap } from '../../../../bootstrap/httpServer.bootstrap';
+import { getTypeormModule } from '../../../system/database/getTypeormModule';
+import { randomEmail, randomUsername } from '../../../../../test/maker';
+
+const START_URL = '/user/registration/start';
+
+const registrationStart = () => {
+  let app: INestApplication;
+
+  beforeEach(async () => {
+    const moduleFixture: TestingModule = await Test.createTestingModule({
+      imports: [
+        UserHttpApiModule,
+        getTypeormModule(),
+        LoggerModule.forRoot({
+          pinoHttp: {
+            level: 'trace',
+            customLogLevel: () => 'trace',
+            transport: {
+              target: 'pino-pretty',
+            },
+          },
+        }),
+      ],
+    }).compile();
+    app = moduleFixture.createNestApplication();
+    await httpServerBootstrap(app);
+    await app.init();
+  });
+
+  afterEach(async () => {
+    await app.close();
+  });
+
+  [
+    {},
+    { a: 1 },
+    { username: '' },
+    { email: '' },
+    { username: 'asdqwerty' },
+    { email: 'a@mail.ru' },
+    { username: 'asdqwerty', email: 'mail.ru' },
+    { username: 'asdq qwery', email: 'a@mail.ru' },
+  ].forEach((data) => {
+    it(`Should return error for data: ${JSON.stringify(data)}`, () => {
+      return request(app.getHttpServer())
+        .post('/user/registration/start')
+        .send(data)
+        .expect(400);
+    });
+  });
+
+  it('Should create preregisterd user', async () => {
+    const username = 'username1';
+    const email = 'mail1@mail.ru';
+    await request(app.getHttpServer())
+      .post('/user/registration/start')
+      .send({ username, email })
+      .expect(201);
+    const preregistered = await app.resolve(UserPreregisteredDal);
+    const mailService = await app.resolve(MailService);
+    const mail = mailService
+      .getTestSentMails()
+      .filter((mail) => mail.to === email)[0];
+    expect(mail).toBeTruthy();
+    const result = mail.body.match(/activate\/([^'"]*)/);
+    if (!result)
+      throw new Error(`Activate link not found in body: ${mail.body}`);
+    const code = result[1];
+    const preregisteredItem = await preregistered.findByCode(code);
+    if (!preregisteredItem) {
+      throw new Error(`Preregistered item not found by code: ${code}`);
+    }
+    expect(preregisteredItem.email).toEqual(email);
+    expect(preregisteredItem.username).toEqual(username);
+  });
+};
+
+const registrationActivate = () => {
+  let app: INestApplication;
+
+  beforeEach(async () => {
+    const moduleFixture: TestingModule = await Test.createTestingModule({
+      imports: [
+        UserHttpApiModule,
+        getTypeormModule(),
+        LoggerModule.forRoot({
+          pinoHttp: {
+            level: 'trace',
+            customLogLevel: () => 'trace',
+            transport: {
+              target: 'pino-pretty',
+            },
+          },
+        }),
+      ],
+    }).compile();
+    app = moduleFixture.createNestApplication();
+    await httpServerBootstrap(app);
+    await app.init();
+  });
+
+  afterEach(async () => {
+    app && (await app.close());
+  });
+
+  it(`Should return error for bad code`, async () => {
+    await request(app.getHttpServer())
+      .get('/user/registration/activate/code')
+      .send()
+      .expect(200)
+      .then((response) => {
+        expect(response.text).toContain('failed');
+      });
+  });
+
+  it(`Should activate and register new user`, async () => {
+    const username = randomUsername();
+    const email = randomEmail();
+    await request(app.getHttpServer())
+      .post('/user/registration/start')
+      .send({ username, email })
+      .expect(201);
+    const mailService = await app.resolve(MailService);
+    let mail = mailService
+      .getTestSentMails()
+      .filter((mail) => mail.to === email)[0];
+    expect(mail).toBeTruthy();
+    const result = mail.body.match(/activate\/([^'"]*)/);
+    if (!result)
+      throw new Error(`Activate link not found in body: ${mail.body}`);
+    const code = result[1];
+
+    await request(app.getHttpServer())
+      .get(`/user/registration/activate/${code}`)
+      .send()
+      .expect(200)
+      .then((response) => {
+        expect(response.text).toContain('activated');
+      });
+
+    mail = mailService.getLastSentTestMail(email);
+
+    const passResult = mail.body.match(/password: \<b\>(.*)<\/b\>/i);
+    const usernameResult = mail.body.match(
+      /Username: \<b\>([a-zA-Z_\-0-9]{6,32})<\/b\>/,
+    );
+
+    if (!passResult) {
+      throw new Error(`password not found in: ${mail.body}`);
+    }
+    if (!usernameResult) {
+      throw new Error(`username not found in: ${mail.body}`);
+    }
+
+    const password1 = passResult[1];
+    const username1 = usernameResult[1];
+    const userDal = await app.resolve(UserDal);
+
+    const user = await userDal.findByLoginCridentials({
+      identity: username1,
+      password: password1,
+    });
+    expect(user).toBeTruthy();
+  });
+};
+
+describe('UserRegistrationController', () => {
+  describe(`POST ${START_URL}`, () => {
+    registrationStart();
+  });
+
+  describe('GET /user/registration/activate/:code', () => {
+    registrationActivate();
+  });
+});

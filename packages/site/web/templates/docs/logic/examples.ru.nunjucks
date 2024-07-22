@@ -1,0 +1,14 @@
+{% extends "../../docs-layout.nunjucks" %}
+{% block docsContent %}
+<div class='bp5-running-text bp5-text-large'>
+  <h4>Игра "Змейка"</h4>
+  <p>Запускается на Микроконтроллере STM32, и в браузере</p>
+  <div class='one-image'><img style='' src='/img/docs/snake.png' /></div>
+  <p>
+    <a href='https://app.falang.io/examples/snake' target='_blank'>Схемы</a> 
+    | <a href='https://www.youtube.com/watch?v=-OPhNlZsEWo' target='_blank'>Видео</a> 
+    | <a href='https://falang-io.github.io/example-snake/code/ts/public/index.html' target='_blank'>Играть</a> 
+    | <a href='https://github.com/falang-io/example-snake/' target='_blank'>Исходники</a>
+  </p>
+</div>
+{% endblock %}

@@ -1,0 +1,12 @@
+{
+  "extends": "./tsconfig.base.json",
+  "include": [
+    "src"
+  ],
+  "exclude": ["./**/specs/*"],
+  "references": [
+    {
+      "path": "../../common/frontend-core/tsconfig.json"
+    }
+  ]
+}

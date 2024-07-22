@@ -1,0 +1,31 @@
+PrintNumberArray
+1
+2
+3
+TestPush
+PrintNumberArray
+1
+2
+3
+5
+TestPop
+Pop from array: 3
+PrintNumberArray
+1
+2
+TestShift
+Shifted var: 1
+PrintNumberArray
+2
+3
+TestUnshift
+PrintNumberArray
+123
+1
+2
+3
+Sum is: 6
+Second item: 2
+PrintStringArray
+hello
+Sum is: 10

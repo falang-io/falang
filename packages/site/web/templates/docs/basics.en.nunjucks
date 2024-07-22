@@ -1,0 +1,93 @@
+{% extends "../docs-layout.nunjucks" %}
+{% block docsContent %}
+<div class='bp5-running-text bp5-text-large'>
+   <h4>Directory tree</h4>
+   <div class='docs-img-wrapper'>
+     <div class='docs-img-content'>
+       On the left side of the application there is a directory tree. To create a folder or outline, right-click on an empty space.
+     </div>
+     <div class='docs-img'><img src='/img/docs/directories-tree.png' /></div>
+   </div>
+   <h4>Insert / delete</h4>
+   <div class='docs-img-wrapper'>
+     <div class='docs-img-content'>
+       <p>
+         To insert an icon, right-click on the valence point and click on the menu item with the corresponding icon.
+         To delete - right-click on the icon and select "delete".
+       </p>
+       <p>
+         If you need to copy an icon to another location, select the “copy” item on the icon, and select “paste” at another valence point.
+       </p>
+       <p>
+         Depending on the location of the valence point, the program can offer various options for insertion.
+       </p>
+     </div>
+     <div class='docs-img'>
+       <video loop autoplay>
+         <source src="/img/docs/insert-delete.webm" type="video/webm" />
+       </video>
+     </div>
+   </div>
+   <h4>Transfer</h4>
+   <div class='docs-img-wrapper'>
+     <div class='docs-img-content'>
+       <p>
+         To transfer an icon, hold down the mouse button over it and drag it to the valence point to which you want to transfer this icon.
+       </p>
+       <p>
+         To transfer a group of icons, first click on one icon, then, with the Shift key pressed, click on another icon located on the same skewer.
+         Then transfer this group of icons to the desired valence point.
+       </p>
+     </div>
+     <div class='docs-img'>
+       <video loop autoplay>
+         <source src="/img/docs/move.webm" type="video/webm" />
+       </video>
+     </div>
+   </div>
+   <h4>Resizing</h4>
+   <div class='docs-img-wrapper'>
+     <div class='docs-img-content'>
+       <p>
+         To change the width of an icon, click on it, and then drag the round slider on the right edge.
+       </p>
+     </div>
+     <div class='docs-img'>
+       <video loop autoplay>
+         <source src="/img/docs/size.webm" type="video/webm" />
+       </video>
+     </div>
+   </div>
+   <h4>Edit icon</h4>
+   <div class='docs-img-wrapper'>
+     <div class='docs-img-content'>
+       <p>
+         To edit, double-click on the icon. Depending on the type of diagram and icon, different editing methods will be possible.
+       </p>
+     </div>
+     <div class='docs-img'>
+       <video loop autoplay>
+         <source src="/img/docs/edit.webm" type="video/webm" />
+       </video>
+     </div>
+   </div>
+   <h4>"Outputs"</h4>
+
+   <div class='docs-img-wrapper docs-img-wrapper-big-img'>
+     <div class='docs-img-content'>
+       <p>Exit icons (break, continue, return, throw) appear in the menu if the valence point satisfies the following conditions:</p>
+       <ul>
+         <li>The valence point is the last one in this skewer</li>
+         <li>The skewer is not on the main axis of the algorithm or this macro icon</li>
+       </ul>
+     </div>
+     <div class='docs-img'>
+       <video loop autoplay>
+         <source src="/img/docs/outs.webm" type="video/webm" />
+       </video>
+     </div>
+   </div>
+   <p>In the image below, the valence points where the “Exit” icon can be used are marked in red</p>
+   <div class='one-image'><img style='' src='/img/docs/outs-vp.png' /></div>
+</div>
+{% endblock %}

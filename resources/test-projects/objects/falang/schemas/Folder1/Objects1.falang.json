@@ -1,0 +1,154 @@
+{
+  "id": "WlwcPb7wDq7Lo0zWJHXoi",
+  "schemeVersion": 2,
+  "name": "Objects1",
+  "type": "object_definition",
+  "description": "",
+  "root": {
+    "id": "qaOcoVxhl0Z1AAi3fU118",
+    "alias": "tree",
+    "block": {
+      "text": "Objects1",
+      "width": 128,
+      "color": "#ffffff"
+    },
+    "children": [
+      {
+        "id": "JJESuMMF-s7cdVOyL_vKQ",
+        "alias": "system",
+        "block": {
+          "text": "ObjA",
+          "width": 96,
+          "color": "#ffffff"
+        },
+        "children": [
+          {
+            "id": "6ZTHoOXdlwewXZ2vb8TzW",
+            "alias": "system",
+            "block": {
+              "width": 128,
+              "color": "#ffffff",
+              "name": "x",
+              "variableType": {
+                "constant": false,
+                "type": "number",
+                "numberType": "integer",
+                "integerType": "int32",
+                "optional": false
+              }
+            },
+            "children": []
+          },
+          {
+            "id": "kJymyDbsqSuKq1J9QbEon",
+            "alias": "system",
+            "block": {
+              "width": 128,
+              "color": "#ffffff",
+              "name": "y",
+              "variableType": {
+                "constant": false,
+                "type": "number",
+                "numberType": "integer",
+                "integerType": "int32",
+                "optional": false
+              }
+            },
+            "children": []
+          },
+          {
+            "id": "HTgibZA33bgxedkLz70tu",
+            "alias": "system",
+            "block": {
+              "width": 128,
+              "color": "#ffffff",
+              "name": "z",
+              "variableType": {
+                "constant": false,
+                "type": "number",
+                "numberType": "integer",
+                "integerType": "int32",
+                "optional": false
+              }
+            },
+            "children": []
+          }
+        ]
+      },
+      {
+        "id": "b7Lwh3WDpzqz1e0omfCda",
+        "alias": "system",
+        "block": {
+          "text": "ObjB",
+          "width": 160,
+          "color": "#ffffff"
+        },
+        "children": [
+          {
+            "id": "qcSZ2IzynYGN_QxTk-LBp",
+            "alias": "system",
+            "block": {
+              "width": 128,
+              "color": "#ffffff",
+              "name": "a123",
+              "variableType": {
+                "constant": false,
+                "type": "number",
+                "numberType": "integer",
+                "integerType": "int32",
+                "optional": false
+              }
+            },
+            "children": []
+          },
+          {
+            "id": "EMNrl7szC1a7tq-JofsYd",
+            "alias": "system",
+            "block": {
+              "width": 128,
+              "color": "#ffffff",
+              "name": "b123",
+              "variableType": {
+                "type": "string",
+                "constant": false,
+                "optional": false
+              }
+            },
+            "children": []
+          },
+          {
+            "id": "Gy-yRxWqcw7bGb6jzeJcB",
+            "alias": "system",
+            "block": {
+              "width": 128,
+              "color": "#ffffff",
+              "name": "c123",
+              "variableType": {
+                "type": "array",
+                "elementType": {
+                  "type": "number",
+                  "numberType": "integer",
+                  "integerType": "int32"
+                },
+                "constant": false,
+                "optional": false,
+                "dimensions": 1
+              }
+            },
+            "children": []
+          }
+        ]
+      }
+    ],
+    "gaps": [],
+    "header": {
+      "alias": "system",
+      "block": {
+        "text": "",
+        "width": 128,
+        "color": "#ffffff"
+      },
+      "id": "BuXXkhPbN5NzpkurNIAZA"
+    }
+  }
+}

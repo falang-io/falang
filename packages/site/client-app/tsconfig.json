@@ -1,0 +1,8 @@
+{
+  "extends": "./tsconfig.base.json",
+  "references": [
+    {
+      "path": "../../editor/infrastructures-all/tsconfig.json"
+    }
+  ]
+}

@@ -1,0 +1,134 @@
+{
+  "id": "JbavT5L-ND9k3-_dgts8y",
+  "schemeVersion": 2,
+  "name": "RunTestObjects",
+  "type": "function",
+  "description": "",
+  "root": {
+    "id": "7hT3XxZLjDowLsgnBkD1t",
+    "alias": "function",
+    "header": {
+      "text": "",
+      "width": 160,
+      "color": "#ffffff"
+    },
+    "block": {
+      "parameters": [],
+      "returnValue": {
+        "type": "void"
+      },
+      "width": 192,
+      "name": "RunTestObjects"
+    },
+    "children": [
+      {
+        "id": "PEzrRMKO8SJoXYIntv0Gm",
+        "alias": "create_var",
+        "block": {
+          "width": 128,
+          "color": "#ffffff",
+          "expression": "arr",
+          "type": "create",
+          "variableType": {
+            "type": "array",
+            "elementType": {
+              "type": "struct",
+              "iconId": "dbzcJW6jtURsvnZGgYOFB",
+              "schemeId": "9A2sv14TNpIfsj6Fdg9GW",
+              "name": "Object1",
+              "properties": {
+                "x": {
+                  "constant": false,
+                  "type": "number",
+                  "numberType": "integer",
+                  "integerType": "int32",
+                  "optional": false
+                }
+              }
+            },
+            "constant": false,
+            "optional": false,
+            "dimensions": 1
+          }
+        }
+      },
+      {
+        "id": "BtEp21YTZHOCEuPEz59Yz",
+        "alias": "from_to_cycle",
+        "block": {
+          "from": "0",
+          "to": "5",
+          "item": "index",
+          "width": 128
+        },
+        "children": [
+          {
+            "id": "6tBcNY2vK7Xfhm4raiqWA",
+            "alias": "create_var",
+            "block": {
+              "width": 128,
+              "color": "#ffffff",
+              "expression": "obj",
+              "type": "create",
+              "variableType": {
+                "type": "struct",
+                "constant": false,
+                "optional": false,
+                "iconId": "dbzcJW6jtURsvnZGgYOFB",
+                "schemeId": "9A2sv14TNpIfsj6Fdg9GW",
+                "name": "Object1",
+                "properties": {
+                  "x": {
+                    "constant": false,
+                    "type": "number",
+                    "numberType": "integer",
+                    "integerType": "int32",
+                    "optional": false
+                  }
+                }
+              }
+            }
+          },
+          {
+            "id": "1LHFV-AzkPhwy6-bwuSxp",
+            "alias": "assign_var",
+            "block": {
+              "width": 128,
+              "color": "#ffffff",
+              "expression": "obj.x = index",
+              "type": "assign",
+              "variableType": null
+            }
+          },
+          {
+            "id": "VN_cWlCzJiO_ZIj_-zQ84",
+            "alias": "arr_push",
+            "block": {
+              "arr": "arr",
+              "variable": "obj",
+              "width": 128
+            }
+          }
+        ]
+      },
+      {
+        "id": "9UshzMTQSMQh30e3u7m5v",
+        "alias": "call_function",
+        "block": {
+          "parameters": [
+            "arr"
+          ],
+          "returnVariable": "",
+          "schemeId": "kYx7rAYvwR2ulbsLYzhpr",
+          "width": 160,
+          "iconId": null
+        }
+      }
+    ],
+    "footer": {
+      "text": "",
+      "width": 160,
+      "color": "#ffffff"
+    }
+  }
+}

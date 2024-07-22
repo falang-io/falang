@@ -1,0 +1,33 @@
+{
+  "compilerOptions": {
+    "jsx": "react-jsx",
+    "target": "es2015",
+    "module": "esnext",
+    "moduleResolution": "node",
+    "sourceMap": true,
+    "allowSyntheticDefaultImports": true,
+    "skipLibCheck": true,
+    "baseUrl": "./",
+    "experimentalDecorators": true,
+    "noEmit": false,
+    "outDir": "dist",
+    "declaration": true,
+    "isolatedModules": true,
+    "strict": true
+  },
+  "references": [
+    {
+      "path": "../../common/i18n/tsconfig.json"
+    }
+  ],
+  "include": [
+    "src"
+  ],
+  "exclude": [
+    "node_modules",
+    "test",
+    "dist",
+    "**/*spec.ts",
+    "../../../node_modules"
+  ]
+}

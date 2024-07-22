@@ -1,0 +1,93 @@
+{% extends "../docs-layout.nunjucks" %}
+{% block docsContent %}
+<div class='bp5-running-text bp5-text-large'>
+  <h4>Дерево каталогов</h4>
+  <div class='docs-img-wrapper'>
+    <div class='docs-img-content'>
+      В левой части приложения находится дерево каталогов. Для создания папки или схемы нажмите правой кнопкой на пустое пространство.
+    </div>
+    <div class='docs-img'><img src='/img/docs/directories-tree.png' /></div>
+  </div>
+  <h4>Вставка / удаление</h4>
+  <div class='docs-img-wrapper'>
+    <div class='docs-img-content'>
+      <p>
+        Для вставки иконы нажмите правой кнопкой на валентную точку и нажмите на пункт меню с соответствующей иконой. 
+        Для удаления - нажмите на икону правой кнопкой и выберите пункт "удалить".
+      </p>
+      <p>
+        Если нужно скопировать икону в другое место, выберите на иконе пункт "скопировать", и в другой валентной точке выберите пункт "вставить".
+      </p>
+      <p>
+        В зависимости от расположения валентной точки, программой могут быть предложены различные варианты для вставки.
+      </p>
+    </div>
+    <div class='docs-img'>
+      <video loop autoplay>
+        <source src="/img/docs/insert-delete.webm" type="video/webm" />
+      </video>
+    </div>
+  </div>
+  <h4>Перенос</h4>
+  <div class='docs-img-wrapper'>
+    <div class='docs-img-content'>
+      <p>
+        Для переноса иконы зажмите над ней клавишу мыши, и перенесите на ту валентную точку, в которую хотите эту икону перенести.
+      </p>
+      <p>
+        Для переноса группы икон, нажмите сначала одну икону, потом, с нажатой клавишей Shift, нажмите на другую икону, находящуюся на том же шампуре.
+        После перенесите эту группу икон на нужную валентную точку.
+      </p>
+    </div>
+    <div class='docs-img'>
+      <video loop autoplay>
+        <source src="/img/docs/move.webm" type="video/webm" />
+      </video>
+    </div>
+  </div>
+  <h4>Изменение размера</h4>
+  <div class='docs-img-wrapper'>
+    <div class='docs-img-content'>
+      <p>
+        Для изменения ширины иконы нажмите на нее, а затем потяните круглый ползунок на правой грани.
+      </p>
+    </div>
+    <div class='docs-img'>
+      <video loop autoplay>
+        <source src="/img/docs/size.webm" type="video/webm" />
+      </video>
+    </div>
+  </div>
+  <h4>Редактировани иконы</h4>
+  <div class='docs-img-wrapper'>
+    <div class='docs-img-content'>
+      <p>
+        Для редактирования нужно нажать на икону двойным щелчком мыши. В зависимости от типа диаграмы и иконы будут возможны разые способы редактирования.
+      </p>
+    </div>
+    <div class='docs-img'>
+      <video loop autoplay>
+        <source src="/img/docs/edit.webm" type="video/webm" />
+      </video>
+    </div>
+  </div>
+  <h4>"Выходы"</h4>
+
+  <div class='docs-img-wrapper docs-img-wrapper-big-img'>
+    <div class='docs-img-content'>
+      <p>Иконы "выхода" (break, continue, return, throw) появляются в меню, если валентная точка удовлетворяет следующим условиям:</p>
+      <ul>
+        <li>Валентная точка является последней в данном шампуре</li>
+        <li>Шампур не находится на главной оси алгоритма либо данной макро иконы</li>
+      </ul>
+    </div>
+    <div class='docs-img'>
+      <video loop autoplay>
+        <source src="/img/docs/outs.webm" type="video/webm" />
+      </video>
+    </div>
+  </div>
+  <p>На изображении ниже красным помечены валентные точки, в которых возможно применение иконы "Выход"</p>
+  <div class='one-image'><img style='' src='/img/docs/outs-vp.png' /></div>
+</div>
+{% endblock %}

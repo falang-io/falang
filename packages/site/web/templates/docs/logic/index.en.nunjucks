@@ -1,0 +1,31 @@
+{% extends "../../docs-layout.nunjucks" %}
+{% block docsContent %}
+<div class='bp5-running-text bp5-text-large'>
+   <p>
+     The logic constructor allows you to create the business logic of the application.
+     Then it can be exported to one of the programming languages.
+   </p>
+   <p>
+     At the moment, export to the following languages is implemented: C#, C++, Rust, Go, TypeScript (JavaScript).
+     It is possible to configure export to any folder at your discretion.
+     When you create an empty project, templates are automatically created to run in all supported languages.
+     To learn how to run the code, read the README.txt file in the root folder of the generated project.
+     You can configure export by selecting from the menu: File -&gt; Project settings.
+   </p>
+   <p>Currently there are three types of schemes:</p>
+   <ul>
+     <li>
+       <b>Function</b>. Can accept parameters as input and call other functions.
+     </li>
+     <li>
+       <b>Object structure</b>: description of data structures. They can be used as data types in a function.
+     </li>
+     <li>
+       <b>External API</b>. Description of the external API. In the code, depending on the language, objects or interfaces are generated.
+       When calling any function, client code must pass the implementation of this API as a parameter.
+        In the function diagram it is possible to call the API by adding the corresponding icon.
+     </li>
+   </ul>
+   <div class='one-image'><img style='' src='/img/docs/logic-base.jpg' /></div>
+</div>
+{% endblock %}

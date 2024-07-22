@@ -1,0 +1,9 @@
+{% extends "../../../system/mail/templates/layout.nunjucks" %}
+{% block content %}
+    <p>
+        Thank you for registration!<br/> 
+        To login please use:<br/>
+        Email: <b>{{ email }}</b> or Username: <b>{{ username }}</b><br/>
+        and password: <b>{{ password }}</b>
+    </p>
+{% endblock %}

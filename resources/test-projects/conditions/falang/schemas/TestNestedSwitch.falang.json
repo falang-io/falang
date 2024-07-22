@@ -1,0 +1,300 @@
+{
+  "id": "PEyAUfP0-runcz4OlfBKf",
+  "schemeVersion": 2,
+  "name": "TestNestedSwitch",
+  "type": "function",
+  "description": "",
+  "root": {
+    "id": "H9jYIuKJD5Bguw3RklqN-",
+    "alias": "function",
+    "header": {
+      "text": "",
+      "width": 160,
+      "color": "#ffffff"
+    },
+    "block": {
+      "parameters": [],
+      "returnValue": {
+        "type": "void"
+      },
+      "width": 192,
+      "name": "TestNestedSwitch"
+    },
+    "children": [
+      {
+        "id": "T8X3nv2lAnBnAgKkxtQPc",
+        "alias": "log",
+        "block": {
+          "width": 128,
+          "color": "#ffffff",
+          "expression": "\"TestNestedSwitch\"",
+          "type": "string",
+          "variableType": null
+        }
+      },
+      {
+        "id": "xLFT1qLGEtIzNVR7i9Vmb",
+        "alias": "from_to_cycle",
+        "block": {
+          "from": "0",
+          "to": "10",
+          "item": "x",
+          "width": 128
+        },
+        "children": [
+          {
+            "id": "xmCBefMzIrK5NqVr8VlwJ",
+            "alias": "switch",
+            "block": {
+              "width": 96,
+              "color": "#ffffff",
+              "expression": "x",
+              "type": "scalar",
+              "variableType": null
+            },
+            "gaps": [],
+            "children": [
+              {
+                "alias": "system",
+                "block": {
+                  "width": 64,
+                  "color": "#ffffff",
+                  "expression": "default",
+                  "variableType": null
+                },
+                "children": [
+                  {
+                    "id": "qVkX_nRoCx4lFOfsyesVF",
+                    "alias": "log",
+                    "block": {
+                      "width": 128,
+                      "color": "#ffffff",
+                      "expression": "\"Should not be here\"",
+                      "type": "string",
+                      "variableType": null
+                    }
+                  }
+                ],
+                "id": "cfloNWd_RQjdmfcPIGwMF"
+              },
+              {
+                "alias": "system",
+                "block": {
+                  "width": 64,
+                  "color": "#ffffff",
+                  "expression": "0",
+                  "variableType": null
+                },
+                "children": [
+                  {
+                    "id": "j1k9fNF4qXPkwiF51Q53f",
+                    "alias": "from_to_cycle",
+                    "block": {
+                      "from": "0",
+                      "to": "10",
+                      "item": "y",
+                      "width": 128
+                    },
+                    "children": [
+                      {
+                        "id": "C6DLDiIAt2mFLF5hKfuJG",
+                        "alias": "if",
+                        "block": {
+                          "width": 128,
+                          "color": "#ffffff",
+                          "expression": "y==0",
+                          "type": "boolean",
+                          "variableType": null
+                        },
+                        "trueOnRight": true,
+                        "gaps": [],
+                        "children": [
+                          {
+                            "alias": "system",
+                            "id": "5gYNyFVfiMT5lw8ZTmr8f",
+                            "block": {
+                              "width": 0
+                            },
+                            "children": []
+                          },
+                          {
+                            "alias": "system",
+                            "id": "HRd1lBP2_N3uRXCzyhLNQ",
+                            "block": {
+                              "width": 0
+                            },
+                            "children": [],
+                            "out": {
+                              "type": "break",
+                              "level": 1,
+                              "alias": "system",
+                              "block": {
+                                "width": 64
+                              },
+                              "id": "hq4o_7TS72o1iwhvOYAHQ"
+                            }
+                          }
+                        ]
+                      }
+                    ]
+                  }
+                ],
+                "id": "3VDTFir0cqXwttm8aJMXa"
+              },
+              {
+                "alias": "system",
+                "block": {
+                  "width": 64,
+                  "color": "#ffffff",
+                  "expression": "1",
+                  "variableType": null
+                },
+                "children": [
+                  {
+                    "id": "-W1zeitCn2cmrp8OY6j3k",
+                    "alias": "from_to_cycle",
+                    "block": {
+                      "from": "0",
+                      "to": "10",
+                      "item": "y",
+                      "width": 128
+                    },
+                    "children": [
+                      {
+                        "id": "q_TauGSVQA2040oi8fU8v",
+                        "alias": "if",
+                        "block": {
+                          "width": 128,
+                          "color": "#ffffff",
+                          "expression": "y==0",
+                          "type": "boolean",
+                          "variableType": null
+                        },
+                        "trueOnRight": true,
+                        "gaps": [],
+                        "children": [
+                          {
+                            "alias": "system",
+                            "id": "OOAqgz-keUMJWYt0Qolaa",
+                            "block": {
+                              "width": 0
+                            },
+                            "children": []
+                          },
+                          {
+                            "alias": "system",
+                            "id": "eQaYpu2L77mIqo35VWbI0",
+                            "block": {
+                              "width": 0
+                            },
+                            "children": [],
+                            "out": {
+                              "type": "break",
+                              "level": 2,
+                              "alias": "system",
+                              "block": {
+                                "width": 64
+                              },
+                              "id": "FZQS3Ef4TQhFYtaCIkoKD"
+                            }
+                          }
+                        ]
+                      }
+                    ]
+                  }
+                ],
+                "id": "xWiB5iMFxO_23yzQVTFok"
+              }
+            ]
+          },
+          {
+            "id": "ZxllC3vZMMMmelBB6AtPD",
+            "alias": "log",
+            "block": {
+              "width": 128,
+              "color": "#ffffff",
+              "expression": "\"Should be here1\"",
+              "type": "string",
+              "variableType": null
+            }
+          },
+          {
+            "id": "LNvOmkYlPNjb50ln7oL14",
+            "alias": "switch",
+            "block": {
+              "width": 96,
+              "color": "#ffffff",
+              "expression": "x",
+              "type": "scalar",
+              "variableType": null
+            },
+            "gaps": [],
+            "children": [
+              {
+                "alias": "system",
+                "block": {
+                  "width": 64,
+                  "color": "#ffffff",
+                  "expression": "0",
+                  "variableType": null
+                },
+                "children": [],
+                "id": "_VJay7-8kuUEhY6sLYYrN"
+              },
+              {
+                "alias": "system",
+                "block": {
+                  "width": 64,
+                  "color": "#ffffff",
+                  "expression": "1",
+                  "variableType": null
+                },
+                "children": [
+                  {
+                    "id": "ccOjM6bJi8qAMbbgdr5R4",
+                    "alias": "log",
+                    "block": {
+                      "width": 192,
+                      "color": "#ffffff",
+                      "expression": "\"Should not be here x = 1\"",
+                      "type": "string",
+                      "variableType": null
+                    }
+                  }
+                ],
+                "id": "ihSpSyiNw1hoMeSKyiaI7"
+              }
+            ]
+          },
+          {
+            "id": "rmHu3tBeB6PnDYh4CewXq",
+            "alias": "log",
+            "block": {
+              "width": 128,
+              "color": "#ffffff",
+              "expression": "\"Should be here2\"",
+              "type": "string",
+              "variableType": null
+            }
+          }
+        ]
+      },
+      {
+        "id": "_Ku2XHn6DHOY5zEFAVNxh",
+        "alias": "log",
+        "block": {
+          "width": 192,
+          "color": "#ffffff",
+          "expression": "\"TestNestedSwitch finished\"",
+          "type": "string",
+          "variableType": null
+        }
+      }
+    ],
+    "footer": {
+      "text": "",
+      "width": 160,
+      "color": "#ffffff"
+    }
+  }
+}

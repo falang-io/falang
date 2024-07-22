@@ -1,0 +1,4 @@
+x.y is: 10
+objA sum is: 60
+result is: 150
+result2 is: 150

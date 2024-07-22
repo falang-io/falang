@@ -1,0 +1,79 @@
+TestNestedSwitch
+Should be here1
+Should be here2
+TestNestedSwitch finished
+TestBreak
+Not break when x=0
+Not break when x=1
+Break when x=2
+TestBreak2
+Cycle start, x: 0
+Not break2 when x=0, y=0
+Not break2 when x=0, y=1
+Not break2 when x=0, y=2
+Not break2 when x=0, y=3
+Cycle start, x: 1
+Not break2 when x=1, y=0
+Not break2 when x=1, y=1
+Not break2 when x=1, y=2
+Not break2 when x=1, y=3
+Cycle start, x: 2
+Break2 when x=2, y=0
+TestContinue
+Not continue when x=0
+Some code
+Not continue when x=1
+Some code
+Continue when x=2
+Continue when x=3
+TestContinue2
+Cycle start, x: 0
+x=0, y=0
+Not continue when x=0, y=0
+x=0, y=1
+Not continue when x=0, y=1
+x=0, y=2
+Not continue when x=0, y=2
+x=0, y=3
+Continue2 when x=0, y=3
+Cycle start, x: 1
+x=1, y=0
+Not continue when x=1, y=0
+x=1, y=1
+Not continue when x=1, y=1
+x=1, y=2
+Not continue when x=1, y=2
+x=1, y=3
+Continue2 when x=1, y=3
+Cycle start, x: 2
+x=2, y=0
+Not continue when x=2, y=0
+x=2, y=1
+Not continue when x=2, y=1
+x=2, y=2
+Not continue when x=2, y=2
+x=2, y=3
+Continue2 when x=2, y=3
+Test in switch
+x=0, y=0
+Zero thread
+x=0, y=1
+Zero thread
+x=0, y=2
+Zero thread
+x=0, y=3
+Zero thread
+x=0, y=4
+Zero thread
+x=1, y=0
+Default thread
+x=1, y=1
+Default thread
+x=1, y=2
+Default thread
+x=1, y=3
+Y is 3, break
+x=2, y=0
+Break2 thread
+TestReturnVoid x:6,y:5
+testReturnResult=11

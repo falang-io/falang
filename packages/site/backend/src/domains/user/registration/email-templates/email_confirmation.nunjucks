@@ -1,0 +1,6 @@
+{% extends "../../../system/mail/templates/layout.nunjucks" %}
+{% block content %}
+    <p>{{ info }}</p>
+    <p>Please click to link below:</p>
+    <p><a href="{{ link }}" class="btn btn-primary">{{ link }}</a></p>
+{% endblock %}

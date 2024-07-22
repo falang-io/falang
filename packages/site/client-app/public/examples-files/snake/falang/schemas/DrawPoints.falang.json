@@ -1,0 +1,82 @@
+{
+  "id": "3LZtjpTblw_H7rDb6RJA8",
+  "schemeVersion": 2,
+  "name": "DrawPoints",
+  "type": "function",
+  "description": "",
+  "root": {
+    "id": "qIMuqdtmy4VhfBtzzn_Y6",
+    "alias": "function",
+    "header": {
+      "text": "",
+      "width": 64,
+      "color": "#ffffff"
+    },
+    "block": {
+      "parameters": [
+        {
+          "name": "state",
+          "type": {
+            "type": "struct",
+            "iconId": "yhxyfy9m5HuAFEaJZ_Ob4",
+            "schemeId": "kHyjfyZ38T2JD3yH7pzN3",
+            "name": "GameState",
+            "properties": {}
+          }
+        }
+      ],
+      "returnValue": {
+        "type": "void"
+      },
+      "width": 224,
+      "name": "DrawPoints"
+    },
+    "children": [
+      {
+        "id": "NMAD8IjxsiYIZ26tQkduC",
+        "alias": "from_to_cycle",
+        "block": {
+          "from": "0",
+          "to": "state.config.gameWidth",
+          "item": "x",
+          "width": 256
+        },
+        "children": [
+          {
+            "id": "CjO68yBYiYPdk9yF7TuLA",
+            "alias": "from_to_cycle",
+            "block": {
+              "from": "0",
+              "to": "state.config.gameHeight",
+              "item": "y",
+              "width": 256
+            },
+            "children": [
+              {
+                "id": "cklvoGUX8mIQ7e9igqENi",
+                "alias": "call_api",
+                "block": {
+                  "parameters": [
+                    "x * state.config.cellSize + state.config.cellSize / 2",
+                    "y * state.config.cellSize + state.config.cellSize / 2",
+                    "state.config.pointRadius",
+                    "state.colors.pointColor"
+                  ],
+                  "returnVariable": "",
+                  "schemeId": "IXPTCilqzAuOKyR3fWJRB",
+                  "width": 320,
+                  "iconId": "mVRSeELOimFdKMeMIKqFo"
+                }
+              }
+            ]
+          }
+        ]
+      }
+    ],
+    "footer": {
+      "text": "",
+      "width": 64,
+      "color": "#ffffff"
+    }
+  }
+}

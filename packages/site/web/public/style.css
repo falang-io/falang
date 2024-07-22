@@ -1,0 +1,147 @@
+body, html {
+  margin: 0
+}
+.navbar-section button > svg {
+  vertical-align: middle;
+  margin-bottom: 3px;
+  height: 1.2em;
+  width: 1.2em;
+}
+#lang-switch {
+  display: inline-box;
+  position: relative;
+  width: 33px;
+  height: 26px;
+}
+#lang-switch img:first-child {
+  position: absolute;
+  left: 4px;
+  top: 4px;
+  width: 20px;
+  height: 15px;
+  border: 1px solid #aaa;
+  z-index: 1;
+}
+#lang-switch img:last-child {
+  position: absolute;
+  right: 4px;
+  bottom: 4px;
+  width: 20px;
+  height: 15px;
+  border: 1px solid #aaa;
+  z-index: 0;
+  opacity: 0.3;
+}
+.pink-layout {
+  background: #3c065e;
+  font-size: 1.3em;
+  color: #ddd;
+  box-sizing: border-box;
+}
+.fixed-width {
+  padding: 40px 20px;
+  max-width: 1140px;
+  margin: 0 auto;
+  box-sizing: border-box;
+}
+.left-layout-item {
+  box-sizing: border-box;
+  float: left;
+}
+@media (min-width:801px) {
+  .left-layout-item {
+    width: 46%;
+    margin-right: 8%;
+  }
+
+}
+@media (max-width:800px) {
+  .left-layout-item {
+    width: 100%;
+  }
+}
+.intro-bottom-line {
+  width: 100px;
+  height: 0px;
+  border-top: 6px solid #29b7dd;
+  margin: 10px auto 0 0;
+}
+.right-layout-item {
+  box-sizing: border-box;
+  float: left;
+}
+@media (min-width:801px) {
+  .right-layout-item {
+    width: 46%;
+  }
+
+}
+@media (max-width:800px) {
+  .right-layout-item {
+    width: 100%;
+  }
+}
+.intro-img {
+  width: 100%;
+}
+.template-card {
+  float: left;
+  margin-right: 3%;
+}
+.template-card img {
+  width: 100%;
+  border: 1px solid #ddd;
+}
+@media (min-width:801px) {
+  .template-card {
+    width: 30%;
+  }
+
+}
+@media (max-width:800px) {
+  .template-card {
+    width: 100%;
+  }
+}
+#footer {
+  text-align: center;
+  color: #ddd;
+  background: #333333;
+  padding: 40px 0;
+}
+#layout-content {
+  min-height: calc(100vh - 148px);
+}
+@media (min-width:801px) {
+  .triple-images {
+    display: flex;
+    flex-direction: row;
+    gap: 10px;
+  }
+  .triple-images > div {
+    flex: 1;
+  }
+  .triple-images > div > img {
+    width: 100%;
+  }
+}
+@media (max-width: 800px) {
+  .triple-images {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+  }
+}
+
+.one-image {
+  margin: 10px 0px;
+}
+.one-image img {
+  width: 100%;
+  max-width: 500px;
+}
+.one-image video {
+  width: 100%;
+  max-width: 500px;
+}
+

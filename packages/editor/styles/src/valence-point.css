@@ -1,0 +1,9 @@
+.valence-point {
+  cursor: pointer;
+  fill: orange;
+  stroke: #555;  
+}
+
+.valence-point-inserting {
+  cursor: pointer;
+}

@@ -1,0 +1,27 @@
+{
+  "scripts": {
+    "prepare-babel": "node scripts/prepare_babel.js",
+    "desktop": "cd packages/desktop/application && npm run dev",
+    "add_unused_langs": "node scripts/add_unused_langs",
+    "clear": "sh ./scripts/clear.sh",
+    "test": "cd packages/tests/logic-compile-and-run && npm start",
+    "dev": "cd packages/desktop/application && npm run dev",
+    "web": "cd packages/site/web && npm start",
+    "publish": "node scripts/publish.js",
+    "update-ts-refs": "node scripts/update-tsconfig-references.js"
+  },
+  "devDependencies": {
+    "@types/jest": "^29.5.1",
+    "@types/node": "^18.15.2",
+    "copyfiles": "^2.4.1",
+    "jest": "28.1.3",
+    "pnpm": "^7.29.1",
+    "rimraf": "^6.0.1",
+    "shx": "^0.3.4",
+    "ts-jest": "28.0.8",
+    "ts-node": "^10.0.0",
+    "typescript": "^4.9.5"
+  },
+  "license": "SSPL",
+  "packageManager": "pnpm@9.2.0+sha512.98a80fd11c2e7096747762304106432b3ddc67dcf54b5a8c01c93f68a2cd5e05e6821849522a06fb76284d41a2660d5e334f2ee3bbf29183bf2e739b1dafa771"
+}

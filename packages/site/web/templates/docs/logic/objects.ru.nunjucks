@@ -1,0 +1,4 @@
+{% extends "../../docs-layout.nunjucks" %}
+{% block docsContent %}
+objuects ru
+{% endblock %}

@@ -1,0 +1,27 @@
+{% extends "../docs-layout.nunjucks" %}
+{% block docsContent %}
+<div class='bp5-running-text bp5-text-large'>
+   <p>Text algorithms allow you to visualize algorithms in human language.</p>
+   <p>Currently, three types of schemes are available in text algorithms:</p>
+   <ul>
+     <li><b>Function</b>: algorithm as a function</li>
+     <li><b>Silhouette</b>: diagram of long-term processes. Analogue of the “silhouette” icon in the Dragon.</li>
+     <li><b>Tree</b>: for describing tree structures</li>
+   </ul>
+   <div class='triple-images'>
+     <div><img src='/img/docs/icon-function.png' /></div>
+     <div><img src='/img/docs/icon-liferythm.png' /></div>
+     <div><img src='/img/docs/icon-tree.png' /></div>
+   </div>
+   <h4>Links between diagrams</h4>
+   <div class='docs-img-wrapper'>
+     <div class='docs-img-content'>
+       It is possible to create links between diagrams. In this case, when you click on the link icon in the right corner of the icon, the diagram to which the link leads will be opened.
+     </div>
+     <div class='docs-img'><img src='/img/docs/icon-link.png' /></div>
+   </div>
+   <h4>Changing icon and background color</h4>
+   <p>Text algorithms implement the ability to edit the color of the icon or background</p>
+   <p><img src='/img/docs/bg.webp' /></p>
+</div>
+{% endblock %}

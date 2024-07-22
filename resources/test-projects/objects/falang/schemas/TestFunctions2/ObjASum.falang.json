@@ -1,0 +1,77 @@
+{
+  "id": "RGcEWSruz8__N2aBl6kIK",
+  "schemeVersion": 2,
+  "name": "ObjASum",
+  "type": "function",
+  "description": "",
+  "root": {
+    "id": "nn9VE0OQYK8swaoC4_166",
+    "alias": "function",
+    "header": {
+      "text": "",
+      "width": 160,
+      "color": "#ffffff"
+    },
+    "block": {
+      "parameters": [
+        {
+          "name": "objA",
+          "type": {
+            "type": "struct",
+            "iconId": "JJESuMMF-s7cdVOyL_vKQ",
+            "schemeId": "WlwcPb7wDq7Lo0zWJHXoi",
+            "name": "ObjA",
+            "properties": {
+              "x": {
+                "constant": false,
+                "type": "number",
+                "numberType": "integer",
+                "integerType": "int32",
+                "optional": false
+              },
+              "y": {
+                "constant": false,
+                "type": "number",
+                "numberType": "integer",
+                "integerType": "int32",
+                "optional": false
+              },
+              "z": {
+                "constant": false,
+                "type": "number",
+                "numberType": "integer",
+                "integerType": "int32",
+                "optional": false
+              }
+            }
+          }
+        }
+      ],
+      "returnValue": {
+        "type": "number",
+        "numberType": "integer",
+        "integerType": "int32"
+      },
+      "width": 192,
+      "name": "ObjASum"
+    },
+    "children": [
+      {
+        "id": "geHlwmExaBnkWI49HJeI7",
+        "alias": "assign_var",
+        "block": {
+          "width": 256,
+          "color": "#ffffff",
+          "expression": "returnValue = objA.x + objA.y + objA.z",
+          "type": "assign",
+          "variableType": null
+        }
+      }
+    ],
+    "footer": {
+      "text": "",
+      "width": 160,
+      "color": "#ffffff"
+    }
+  }
+}

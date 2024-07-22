@@ -1,0 +1,89 @@
+{
+  "id": "LHTslQF9bzoqB6XSC1quV",
+  "schemeVersion": 2,
+  "name": "getColors",
+  "type": "function",
+  "description": "",
+  "root": {
+    "id": "b0DLl_wFtqSjCFgZlOo64",
+    "alias": "function",
+    "header": {
+      "text": "",
+      "width": 64,
+      "color": "#ffffff"
+    },
+    "block": {
+      "parameters": [],
+      "returnValue": {
+        "type": "struct",
+        "iconId": "Gprl18EKht0l_OIgo25VK",
+        "schemeId": "kHyjfyZ38T2JD3yH7pzN3",
+        "name": "Colors"
+      },
+      "width": 192,
+      "name": "getColors"
+    },
+    "children": [
+      {
+        "id": "CcfLFSMw7P_XUpMqTcSAp",
+        "alias": "assign_var",
+        "block": {
+          "width": 224,
+          "color": "#ffffff",
+          "expression": "returnValue.foodColor.r = 255",
+          "type": "assign",
+          "variableType": null
+        }
+      },
+      {
+        "id": "ZW9bxgwEIwlNZ-ukPcnni",
+        "alias": "assign_var",
+        "block": {
+          "width": 224,
+          "color": "#ffffff",
+          "expression": "returnValue.cellColor.g = 255",
+          "type": "assign",
+          "variableType": null
+        }
+      },
+      {
+        "id": "VzhtTbeVFVh4ZvXcSdsj5",
+        "alias": "assign_var",
+        "block": {
+          "width": 224,
+          "color": "#ffffff",
+          "expression": "returnValue.pointColor.r = 50",
+          "type": "assign",
+          "variableType": null
+        }
+      },
+      {
+        "id": "4QfZ0-hyon6tYQ6xsAnQR",
+        "alias": "assign_var",
+        "block": {
+          "width": 224,
+          "color": "#ffffff",
+          "expression": "returnValue.pointColor.g = 50",
+          "type": "assign",
+          "variableType": null
+        }
+      },
+      {
+        "id": "BICP6FBwsBZOGOlYz-HCE",
+        "alias": "assign_var",
+        "block": {
+          "width": 224,
+          "color": "#ffffff",
+          "expression": "returnValue.pointColor.b = 50",
+          "type": "assign",
+          "variableType": null
+        }
+      }
+    ],
+    "footer": {
+      "text": "",
+      "width": 64,
+      "color": "#ffffff"
+    }
+  }
+}
