@@ -1,4 +1,4 @@
-import { computed, makeObservable } from 'mobx';
+import { computed, makeObservable, observable } from 'mobx';
 import { BlockStore, IBlockStoreParams } from '@falang/editor-scheme';
 import { checkerLogic } from '../../../checker-logic';
 import { IUnionTypeInfo, TContext, TEnumTypeVariant } from '../../constants';
@@ -7,6 +7,7 @@ import { AutocompleteOption } from '@falang/infrastructure-code';
 import { LogicProjectStore } from '../../LogicProject.store';
 
 export class LogicBaseBlockStore extends BlockStore {
+  @observable private _fullTsCode = '';
   readonly isLogicBaseBlockStore = true;
   constructor(params: IBlockStoreParams) {
     super(params);
@@ -96,10 +97,13 @@ export class LogicBaseBlockStore extends BlockStore {
     return [];
   }
 
-
   get projectStore(): LogicProjectStore {
     const store = this.scheme.projectStore;
     if(!checkerLogic.isLogicProjectStore(store)) throw new Error('Should be logic store');
     return store;
+  }
+
+  protected getInnerTsCode() {
+    return `ERROR_NO_INNER_CODE:${this.id}`;
   }
 }

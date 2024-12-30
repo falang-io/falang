@@ -83,4 +83,7 @@ export class CodeBuilder {
     cb.p(' **/');
     if (b2) b2.bigComment(comment);
   }
+  get linesCount() {
+    return this.data.length
+  }
 }

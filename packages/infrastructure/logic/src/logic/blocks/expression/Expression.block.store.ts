@@ -10,6 +10,7 @@ import { IBlockWithVariableType } from '../../util/IBlockWithVariableType';
 import { getAccessorNodeType, getVariableNodeType, validateNode, validateScalarNode } from '../../util/validateNode';
 import { AutocompleteOption } from '@falang/editor-scheme';
 import { match } from 'assert';
+import { getFullTypeName } from '../../code-generation/ts/getFullTypeName';
 
 
 export interface IExpressionBlockStoreParams extends IBlockStoreParams, ExpressionBlockDto {
@@ -231,5 +232,35 @@ export class ExpressionBlockStore extends LogicBaseBlockStore implements IBlockW
 
   getAutoComplete(code: string, index: number): AutocompleteOption[] {
     return super.getAutoComplete(code, index, this.enumContext)
+  }
+
+  protected getInnerTsCode(): string {
+    const expression = this.expression;
+    switch (this.type) {
+      case 'assign':
+        return expression;
+      case 'boolean':
+        return `const tempVar: boolean = ${expression}`;
+      case 'create':
+        if(expression.includes('=')) {
+          const arr = expression.split('=');
+          const leftOperand = arr.shift();
+          const rightOperand = arr.join('=');
+          const logicProjectStore = this.projectStore;
+          const typeName = getFullTypeName({
+            type: this.variableType,
+            project: logicProjectStore,
+            importEnum: async () => {},
+            importStruct: async () => {},
+          });
+          const varPrefix = this.variableType?.constant ? 'const' : 'let';
+          return `${varPrefix} ${leftOperand}=${rightOperand}`;
+        } else {
+
+        }
+      default:
+        return `ERROR_type_not_supported_yet_${this.type}`
+    }
+    return '';
   }
 }

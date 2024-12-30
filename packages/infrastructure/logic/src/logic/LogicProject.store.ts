@@ -20,6 +20,7 @@ import { loadAvailableApis } from './util/loadAvailableApis';
 import { IAvailableEnumItem, loadAvailableEnums } from './util/loadAvailableEnums';
 import { IAvailableFunctionItem, loadAvailableFunctions } from './util/loadAvailableFunctions';
 import { loadAvailableStructures } from './util/loadAvailableStructures';
+import { LogicTsCodeStore } from './LogicTsCode.store';
 
 const EXPORT_CONFIG_FILENAME = 'export';
 
@@ -29,6 +30,7 @@ export class LogicProjectStore extends ProjectStore {
   readonly availableStructures = observable<IStructureTypeItem>([], { deep: false });
   readonly availableEnums = observable<IAvailableEnumItem>([], { deep: false });
   readonly exportConfiguration = new LogicExportConfigurationStore();
+  readonly codeStore = new LogicTsCodeStore(this);
   @observable private _rootPath = ''
 
   constructor(readonly frontRoot: FrontRootStore) {
@@ -92,6 +94,7 @@ export class LogicProjectStore extends ProjectStore {
     this.availableEnums.clear();
     this.availableStructures.clear();
     this.availableFunctions.clear();
+    this.codeStore.dispose();
   }
 
   validateSchemeName(name: string): void {

@@ -12,6 +12,7 @@ import { getParentFunctionIconBlock } from '../util/getParentFunctionIconBlock';
 import { hasParentSwitchWithoutCycle } from '../util/hasParentSwitchWithoutCycle';
 import { generateExpression } from "./generateExpression";
 import { getFullTypeName } from "./getFullTypeName";
+import { generateEmptyValue } from './generateEmptyValue';
 
 export class TypescriptLogicSchemeBuilder extends LogicSchemeBuilder {
   private readonly imports = new Set<string>();
@@ -72,26 +73,7 @@ export class TypescriptLogicSchemeBuilder extends LogicSchemeBuilder {
     return await this.generateExpressionFromMathNode(node, resultType, context);
   }
   async generateEmptyValue(type: TTypeInfo): Promise<string> {
-    switch (type.type) {
-      case 'number':
-        return '0';
-      case 'string':
-        return '\'\'';
-      case 'boolean':
-        return 'false';
-      case 'struct': {
-        const returnArr: string[] = [];
-        const structType = this.project.getStructByType(type);
-        if(!structType) return '';
-        for(const propertyName in structType.properties) {
-          returnArr.push(`${propertyName}:${await this.generateEmptyValue(structType.properties[propertyName])}`)
-        }
-        return `{${returnArr.join(',')}}`;
-      }
-      case 'array': return '[]';
-      default:
-        throw new Error(`Wrong type for generateEmptyValue: ${type.type}`);
-    }
+    return await generateEmptyValue(type, this.project);
   }
 
   async importFunction(item: IAvailableFunctionItem) {
