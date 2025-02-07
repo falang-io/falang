@@ -23,8 +23,7 @@ export class UserRegistrationController {
 
   @Post('start')
   async start(@Body() data: RegisterDto) {
-    await this.registrations.start(data);
-    return { success: true };
+    return await this.registrations.start(data);
   }
 
   @Post('activate')
