@@ -1,0 +1,7 @@
+{
+  "vendorPrefix": "moysklad",
+  "constantPrefix": "MOYSKLAD",
+  "specs": ["/home/serginho/moysklad-openapi.json"],
+  "skipParamNames": [],
+  "outFile": "packages/workflow-integrations/moysklad/src/moysklad.generated.ts"
+}

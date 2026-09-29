@@ -1,0 +1,105 @@
+---
+title: Tasks for people
+description: The human-task node — pausing a scenario for a person to decide, with a typed answer per option, a timeout branch, and a Tasks page
+head:
+  - tag: meta
+    attrs:
+      name: keywords
+      content: 'human task, approval, human in the loop, manual review, tasks, workflow'
+---
+
+<p>
+  A <b>Human task</b> node pauses a scenario and waits for a person to decide — approve or reject an invoice, confirm a
+  refund, pick one of several options — then continues down the branch matching whatever was chosen, with the resolver's
+  own answer available as a typed value inside that branch. It's the same shape as a Telegram question (send, wait,
+  branch on the pressed button) with no messenger involved: the "message" is a row on a page inside the product itself.
+</p>
+
+#### Fields
+
+<ul>
+  <li>
+    <b>Title</b> and <b>Description</b> — the one-line summary shown in the task list, and a longer, Markdown-formatted
+    explanation (what to decide, links, amounts) shown on the task itself.
+  </li>
+  <li>
+    <b>Context</b> — an optional expression evaluating to any structured value (the order being approved, the record
+    under review), shown as a read-only block on the task — never editable by the person resolving it.
+  </li>
+  <li>
+    <b>Attachments</b> — an optional list of <a href="./files/">files</a>, shown as download links.
+  </li>
+  <li>
+    <b>Timeout</b> — an optional duration (<code>48h</code>, <code>3d</code>). Leave it blank and the scenario waits
+    forever; set it and the node takes a fixed, automatic <b>Timeout</b> branch if nobody resolves the task in time (see
+    below).
+  </li>
+</ul>
+
+#### Options and typed answers
+
+<p>
+  Each option is a button the person sees on the task — <b>Approve</b>/<b>Reject</b> by default, freely renamed or added
+  to, exactly like a Telegram question's own buttons. What makes a human task's options different from a plain branch is
+  that each one can also collect a typed value from the person resolving it:
+</p>
+
+<ul>
+  <li>
+    <b>Void</b> — a bare button, nothing else to fill in.
+  </li>
+  <li>
+    <b>Text</b> — a text box (a rejection reason, a corrected value).
+  </li>
+  <li>
+    <b>Number</b> — a numeric input.
+  </li>
+  <li>
+    <b>Boolean</b> — a checkbox/switch.
+  </li>
+</ul>
+
+<p>
+  There's no separate "comment" field: a <b>Reject</b> option with a <b>Text</b> answer and a prompt of "Reason"{' '}
+  <i>is</i> the comment field. Inside each option's branch, two variables are in scope: <code>task</code> (who resolved
+  it and when) and, for any option that isn't <b>Void</b>, <code>data</code> — typed exactly as that option's chosen
+  answer type.
+</p>
+
+#### The Timeout branch
+
+<p>
+  Setting a <b>Timeout</b> adds one more branch to the node automatically — fixed, always last, not deletable or
+  renamable. If nobody resolves the task within the configured duration, the scenario takes that branch instead (the
+  task itself is marked <b>Expired</b> on the Tasks page) and continues from there — useful for "escalate if nobody
+  responds in a day" flows. A scenario that's stopped or rebuilt while a task is still open closes it too (as{' '}
+  <b>Cancelled</b>), so a task never sits open forever pointing at a run that no longer exists.
+</p>
+
+#### The Tasks page
+
+<p>
+  Every open (and past) task lives on a <b>Tasks</b> page — a sibling of the Runs page, reached from the project list
+  or, filtered to just that scenario, from a <b>Tasks</b> tab inside the editor. A task is visible only to the{' '}
+  <b>owner of the project</b> that created it — there is no assignee list, no external link and no administrator
+  override in this version; the project owner is who builds and tests the flow, so it's also who resolves what it's
+  waiting on. Opening a task shows its description, context, attachments, and one button per option — with the typed
+  input next to it when the option collects a value.
+</p>
+
+#### Dev and production
+
+<p>
+  A task created while developing a scenario (a "dev" run) is a real row too, resolved from the same Tasks page — this
+  is how you test an approval flow: build it, run it, and approve/reject it yourself from the workspace's Tasks tab. A
+  production task survives a redeploy, since a published run keeps executing on its own pinned version regardless of
+  what gets published next; resolving it reaches that exact run.
+</p>
+
+#### Telegram questions can time out too
+
+<p>
+  A <a href="./integrations/">Telegram</a> question node gained the same <b>Timeout</b> field in the same pass — set it
+  and an unanswered inline-keyboard question takes its own automatic timeout branch, removing the buttons and sending a
+  short "this question has expired" message instead of waiting forever.
+</p>

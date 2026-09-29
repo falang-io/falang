@@ -1,0 +1,227 @@
+{
+  "id": "R9SNI2wtqQObRvGWzUi3K",
+  "schemeVersion": 2,
+  "name": "TestInSwitch",
+  "type": "function",
+  "description": "",
+  "root": {
+    "id": "SZutpGd-HT7FG4FF7yKV6",
+    "alias": "function",
+    "header": {
+      "text": "",
+      "width": 160,
+      "color": "#ffffff"
+    },
+    "block": {
+      "parameters": [],
+      "returnValue": {
+        "type": "void"
+      },
+      "width": 192,
+      "name": "TestInSwitch"
+    },
+    "children": [
+      {
+        "id": "5fffTmKxgLeGmz7Nl0xkH",
+        "alias": "log",
+        "block": {
+          "width": 128,
+          "color": "#ffffff",
+          "expression": "\"Test in switch\"",
+          "type": "string",
+          "variableType": null
+        }
+      },
+      {
+        "id": "4pAHaYoifLlRFt-LsEXcX",
+        "alias": "from_to_cycle",
+        "block": {
+          "from": "0",
+          "to": "5",
+          "item": "x",
+          "width": 128
+        },
+        "children": [
+          {
+            "id": "-aiZ-j8d4GjYYzV5vwqII",
+            "alias": "from_to_cycle",
+            "block": {
+              "from": "0",
+              "to": "5",
+              "item": "y",
+              "width": 128
+            },
+            "children": [
+              {
+                "id": "aMO_vh-KX9Lsk7MMTtJMa",
+                "alias": "log",
+                "block": {
+                  "width": 128,
+                  "color": "#ffffff",
+                  "expression": "\"x={x}, y={y}\"",
+                  "type": "string",
+                  "variableType": null
+                }
+              },
+              {
+                "id": "spEvGdsIR_moAaVdmtaGR",
+                "alias": "switch",
+                "block": {
+                  "width": 96,
+                  "color": "#ffffff",
+                  "expression": "x",
+                  "type": "scalar",
+                  "variableType": null
+                },
+                "gaps": [],
+                "children": [
+                  {
+                    "alias": "system",
+                    "block": {
+                      "width": 64,
+                      "color": "#ffffff",
+                      "expression": "0",
+                      "variableType": null
+                    },
+                    "children": [
+                      {
+                        "id": "W04_ME2F7nizVsFTOBc3O",
+                        "alias": "log",
+                        "block": {
+                          "width": 128,
+                          "color": "#ffffff",
+                          "expression": "\"Zero thread\"",
+                          "type": "string",
+                          "variableType": null
+                        }
+                      }
+                    ],
+                    "id": "kHVCEA5Lxf6rhdddtyXuM"
+                  },
+                  {
+                    "alias": "system",
+                    "block": {
+                      "width": 64,
+                      "color": "#ffffff",
+                      "expression": "default",
+                      "variableType": null
+                    },
+                    "children": [
+                      {
+                        "id": "_cXdS9_PdS81ZUoPBSBkf",
+                        "alias": "switch",
+                        "block": {
+                          "width": 96,
+                          "color": "#ffffff",
+                          "expression": "y",
+                          "type": "scalar",
+                          "variableType": null
+                        },
+                        "gaps": [],
+                        "children": [
+                          {
+                            "alias": "system",
+                            "block": {
+                              "width": 64,
+                              "color": "#ffffff",
+                              "expression": "default",
+                              "variableType": null
+                            },
+                            "children": [
+                              {
+                                "id": "VoiVZzqcAYDtNXGQ7eDmO",
+                                "alias": "log",
+                                "block": {
+                                  "width": 128,
+                                  "color": "#ffffff",
+                                  "expression": "\"Default thread\"",
+                                  "type": "string",
+                                  "variableType": null
+                                }
+                              }
+                            ],
+                            "id": "fmk6QM-ol2WNPHdJ6JzPi"
+                          },
+                          {
+                            "alias": "system",
+                            "block": {
+                              "width": 64,
+                              "color": "#ffffff",
+                              "expression": "3",
+                              "variableType": null
+                            },
+                            "children": [
+                              {
+                                "id": "t_tRNg82B1i42nnlMISTd",
+                                "alias": "log",
+                                "block": {
+                                  "width": 128,
+                                  "color": "#ffffff",
+                                  "expression": "\"Y is 3, break\"",
+                                  "type": "string",
+                                  "variableType": null
+                                }
+                              }
+                            ],
+                            "id": "NoYwDV9Yg3z8jhh0SeZbG",
+                            "out": {
+                              "type": "break",
+                              "level": 1,
+                              "alias": "system",
+                              "block": {
+                                "width": 64
+                              },
+                              "id": "08QjRQXtZq3EEp9A7tIG1"
+                            }
+                          }
+                        ]
+                      }
+                    ],
+                    "id": "WcXpfX4oNRYWhsV6TR342"
+                  },
+                  {
+                    "alias": "system",
+                    "block": {
+                      "width": 64,
+                      "color": "#ffffff",
+                      "expression": "2",
+                      "variableType": null
+                    },
+                    "children": [
+                      {
+                        "id": "UPjARW0zR9lJn2VjgSRjA",
+                        "alias": "log",
+                        "block": {
+                          "width": 128,
+                          "color": "#ffffff",
+                          "expression": "\"Break2 thread\"",
+                          "type": "string",
+                          "variableType": null
+                        }
+                      }
+                    ],
+                    "id": "ABL6Kb--laCE7MsBQkEFS",
+                    "out": {
+                      "type": "break",
+                      "level": 2,
+                      "alias": "system",
+                      "block": {
+                        "width": 64
+                      },
+                      "id": "7xEvL1NrYFxmtG_vg_1V8"
+                    }
+                  }
+                ]
+              }
+            ]
+          }
+        ]
+      }
+    ],
+    "footer": {
+      "text": "",
+      "width": 160,
+      "color": "#ffffff"
+    }
+  }
+}

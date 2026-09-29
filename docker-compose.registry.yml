@@ -1,0 +1,16 @@
+# Local Verdaccio registry for @falang/* snapshots. See scripts/README-registry.md.
+#   docker compose -f docker-compose.registry.yml up -d
+services:
+  registry:
+    image: verdaccio/verdaccio:6
+    container_name: falang-registry
+    ports:
+      - '4873:4873'
+    volumes:
+      - ./docker/verdaccio/config.yaml:/verdaccio/conf/config.yaml:ro
+      - falang-registry-storage:/verdaccio/storage
+    restart: unless-stopped
+
+volumes:
+  falang-registry-storage:
+    name: falang-registry-storage

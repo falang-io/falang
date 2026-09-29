@@ -1,0 +1,11 @@
+{
+  "mcpServers": {
+    "falang-workflow": {
+      "type": "http",
+      "url": "${FALANG_MCP_URL}",
+      "headers": {
+        "Authorization": "Bearer ${FALANG_TOKEN}"
+      }
+    }
+  }
+}

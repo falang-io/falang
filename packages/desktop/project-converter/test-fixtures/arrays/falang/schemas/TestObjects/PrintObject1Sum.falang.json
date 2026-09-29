@@ -1,0 +1,105 @@
+{
+  "id": "40jI0enc1DhPF-neNWe_0",
+  "schemeVersion": 2,
+  "name": "PrintObject1Sum",
+  "type": "function",
+  "description": "",
+  "root": {
+    "id": "kYx7rAYvwR2ulbsLYzhpr",
+    "alias": "function",
+    "header": {
+      "text": "",
+      "width": 160,
+      "color": "#ffffff"
+    },
+    "block": {
+      "parameters": [
+        {
+          "name": "arr",
+          "type": {
+            "type": "array",
+            "elementType": {
+              "type": "struct",
+              "iconId": "dbzcJW6jtURsvnZGgYOFB",
+              "schemeId": "9A2sv14TNpIfsj6Fdg9GW",
+              "name": "Object1",
+              "properties": {
+                "x": {
+                  "constant": false,
+                  "type": "number",
+                  "numberType": "integer",
+                  "integerType": "int32",
+                  "optional": false
+                }
+              }
+            },
+            "dimensions": 1
+          }
+        }
+      ],
+      "returnValue": {
+        "type": "void"
+      },
+      "width": 192,
+      "name": "PrintObject1Sum"
+    },
+    "children": [
+      {
+        "id": "RIo7QrIDVLTnQtn00KIZF",
+        "alias": "create_var",
+        "block": {
+          "width": 128,
+          "color": "#ffffff",
+          "expression": "sum = 0",
+          "type": "create",
+          "variableType": {
+            "constant": false,
+            "type": "number",
+            "numberType": "integer",
+            "integerType": "int32",
+            "optional": false
+          }
+        }
+      },
+      {
+        "id": "cXxWwRK5fAAqlTHoe6AVM",
+        "alias": "foreach",
+        "block": {
+          "arr": "arr",
+          "index": "",
+          "item": "item",
+          "width": 128
+        },
+        "children": [
+          {
+            "id": "S8EJxj6LyIyriQ7qYyysu",
+            "alias": "assign_var",
+            "block": {
+              "width": 128,
+              "color": "#ffffff",
+              "expression": "sum = sum + item.x",
+              "type": "assign",
+              "variableType": null
+            }
+          }
+        ]
+      },
+      {
+        "id": "Jq2wqSMsFMFVVE4j85Zv_",
+        "alias": "log",
+        "block": {
+          "width": 128,
+          "color": "#ffffff",
+          "expression": "\"Sum is: {sum}\"",
+          "type": "string",
+          "variableType": null
+        }
+      }
+    ],
+    "footer": {
+      "text": "",
+      "width": 160,
+      "color": "#ffffff"
+    }
+  }
+}

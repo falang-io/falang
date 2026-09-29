@@ -1,0 +1,26 @@
+{
+  "files": {
+    "label": "Files",
+    "action": {
+      "download": "Download URL to File",
+      "fromText": "Text to File",
+      "readText": "Read File as text",
+      "delete": "Delete File",
+      "info": "Get File info",
+      "publish": "Publish File",
+      "unpublish": "Unpublish File"
+    },
+    "field": {
+      "url": "URL",
+      "headers": "Headers (object expression, optional)",
+      "name": "File name (optional)",
+      "ttlHours": "Expires after (hours, optional)",
+      "text": "Text",
+      "mime": "MIME type (default text/plain)",
+      "file": "File",
+      "maxBytes": "Max bytes to read (default 1048576)",
+      "fileId": "File id",
+      "result": "Save result to"
+    }
+  }
+}

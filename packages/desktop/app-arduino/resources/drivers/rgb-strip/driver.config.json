@@ -1,0 +1,35 @@
+{
+  "id": "rgb-strip",
+  "label": "Addressable RGB strip (WS2812/NeoPixel)",
+  "version": "1.0.0",
+  "includes": ["rgb-strip-driver.h"],
+  "sourceFiles": ["rgb-strip-driver.h", "rgb-strip-driver.cpp"],
+  "declarations": [
+    "declare function rgbstrip_set_pixel_color(pin: number, numLeds: number, index: number, r: number, g: number, b: number): void;",
+    "declare function rgbstrip_show(pin: number, numLeds: number): void;"
+  ],
+  "actions": [
+    {
+      "id": "set-pixel-color",
+      "label": "Set pixel color",
+      "fields": [
+        { "name": "pin", "label": "Data pin", "kind": "pin", "default": "6" },
+        { "name": "numLeds", "label": "Strip length", "kind": "number", "default": "8", "min": 1 },
+        { "name": "index", "label": "Pixel index", "kind": "number", "default": "0", "min": 0 },
+        { "name": "r", "label": "Red (0-255)", "kind": "number", "default": "255", "min": 0, "max": 255 },
+        { "name": "g", "label": "Green (0-255)", "kind": "number", "default": "0", "min": 0, "max": 255 },
+        { "name": "b", "label": "Blue (0-255)", "kind": "number", "default": "0", "min": 0, "max": 255 }
+      ],
+      "codeTemplate": "rgbstrip_set_pixel_color(${pin}, ${numLeds}, ${index}, ${r}, ${g}, ${b})"
+    },
+    {
+      "id": "show",
+      "label": "Show (push buffer to strip)",
+      "fields": [
+        { "name": "pin", "label": "Data pin", "kind": "pin", "default": "6" },
+        { "name": "numLeds", "label": "Strip length", "kind": "number", "default": "8", "min": 1 }
+      ],
+      "codeTemplate": "rgbstrip_show(${pin}, ${numLeds})"
+    }
+  ]
+}

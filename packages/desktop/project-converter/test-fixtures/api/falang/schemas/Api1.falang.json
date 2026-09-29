@@ -1,0 +1,254 @@
+{
+  "id": "p6mLqn1qW2p2FBIVeeuOx",
+  "schemeVersion": 2,
+  "name": "Api1",
+  "type": "logic_external_apis",
+  "description": "",
+  "root": {
+    "id": "o6ZKgYac1zoILTt3Pkmcu",
+    "alias": "logic_external_apis",
+    "block": {
+      "width": 160
+    },
+    "children": [
+      {
+        "id": "NXnul1ZAi9aMHndbHtRtE",
+        "alias": "system",
+        "block": {
+          "name": "Sum",
+          "width": 128
+        },
+        "children": [
+          {
+            "id": "P-LaSzygZmYzEEj6I8zlQ",
+            "alias": "system",
+            "block": {
+              "parameters": [
+                {
+                  "name": "a",
+                  "type": {
+                    "type": "struct",
+                    "iconId": "JydYxOeZX2pJehjEPfwng",
+                    "schemeId": "eSxMzKgsf7laP9EdZ4GS4",
+                    "name": "Object1",
+                    "properties": {
+                      "x": {
+                        "constant": false,
+                        "type": "number",
+                        "numberType": "integer",
+                        "integerType": "int32",
+                        "optional": false
+                      },
+                      "y": {
+                        "constant": false,
+                        "type": "number",
+                        "numberType": "integer",
+                        "integerType": "int32",
+                        "optional": false
+                      },
+                      "z": {
+                        "constant": false,
+                        "type": "number",
+                        "numberType": "integer",
+                        "integerType": "int32",
+                        "optional": false
+                      }
+                    }
+                  }
+                },
+                {
+                  "name": "b",
+                  "type": {
+                    "type": "struct",
+                    "iconId": "JydYxOeZX2pJehjEPfwng",
+                    "schemeId": "eSxMzKgsf7laP9EdZ4GS4",
+                    "name": "Object1",
+                    "properties": {
+                      "x": {
+                        "constant": false,
+                        "type": "number",
+                        "numberType": "integer",
+                        "integerType": "int32",
+                        "optional": false
+                      },
+                      "y": {
+                        "constant": false,
+                        "type": "number",
+                        "numberType": "integer",
+                        "integerType": "int32",
+                        "optional": false
+                      },
+                      "z": {
+                        "constant": false,
+                        "type": "number",
+                        "numberType": "integer",
+                        "integerType": "int32",
+                        "optional": false
+                      }
+                    }
+                  }
+                }
+              ],
+              "returnValue": {
+                "type": "number",
+                "numberType": "integer",
+                "integerType": "int32"
+              },
+              "width": 192,
+              "name": "ObjectsSum"
+            },
+            "children": []
+          },
+          {
+            "id": "UvNEtGOFDsqQooDtF3bfM",
+            "alias": "system",
+            "block": {
+              "parameters": [
+                {
+                  "name": "a",
+                  "type": {
+                    "type": "number",
+                    "numberType": "integer",
+                    "integerType": "int32"
+                  }
+                },
+                {
+                  "name": "b",
+                  "type": {
+                    "type": "number",
+                    "numberType": "integer",
+                    "integerType": "int32"
+                  }
+                },
+                {
+                  "name": "c",
+                  "type": {
+                    "type": "number",
+                    "numberType": "integer",
+                    "integerType": "int32"
+                  }
+                }
+              ],
+              "returnValue": {
+                "type": "number",
+                "numberType": "integer",
+                "integerType": "int32"
+              },
+              "width": 192,
+              "name": "NumberSum"
+            },
+            "children": []
+          }
+        ]
+      },
+      {
+        "id": "o5UQT6DnwfSD9r6GYukfU",
+        "alias": "system",
+        "block": {
+          "name": "Concat",
+          "width": 128
+        },
+        "children": [
+          {
+            "id": "8Ji42nVrmIJW53kYF5YeN",
+            "alias": "system",
+            "block": {
+              "parameters": [
+                {
+                  "name": "a",
+                  "type": {
+                    "type": "struct",
+                    "iconId": "huk78gHpJJUGPotySpkE0",
+                    "schemeId": "eSxMzKgsf7laP9EdZ4GS4",
+                    "name": "Object2",
+                    "properties": {
+                      "a": {
+                        "type": "string",
+                        "constant": false,
+                        "optional": false
+                      },
+                      "b": {
+                        "type": "string",
+                        "constant": false,
+                        "optional": false
+                      }
+                    }
+                  }
+                },
+                {
+                  "name": "b",
+                  "type": {
+                    "type": "struct",
+                    "iconId": "huk78gHpJJUGPotySpkE0",
+                    "schemeId": "eSxMzKgsf7laP9EdZ4GS4",
+                    "name": "Object2",
+                    "properties": {
+                      "a": {
+                        "type": "string",
+                        "constant": false,
+                        "optional": false
+                      },
+                      "b": {
+                        "type": "string",
+                        "constant": false,
+                        "optional": false
+                      }
+                    }
+                  }
+                }
+              ],
+              "returnValue": {
+                "type": "string"
+              },
+              "width": 192,
+              "name": "Object2Concat"
+            },
+            "children": []
+          },
+          {
+            "id": "REBb92WDKktkIBd1Gngmr",
+            "alias": "system",
+            "block": {
+              "parameters": [
+                {
+                  "name": "a",
+                  "type": {
+                    "type": "string"
+                  }
+                },
+                {
+                  "name": "b",
+                  "type": {
+                    "type": "string"
+                  }
+                },
+                {
+                  "name": "c",
+                  "type": {
+                    "type": "string"
+                  }
+                }
+              ],
+              "returnValue": {
+                "type": "string"
+              },
+              "width": 192,
+              "name": "StringConcat"
+            },
+            "children": []
+          }
+        ]
+      }
+    ],
+    "gaps": [],
+    "header": {
+      "alias": "system",
+      "block": {
+        "text": "",
+        "width": 160,
+        "color": "#ffffff"
+      },
+      "id": "JbPM2yzAPGxFP71-Tsfu7"
+    }
+  }
+}

@@ -1,0 +1,85 @@
+---
+title: Основы работы со схемами
+description: Документация для визуального языка Фаланг
+head:
+  - tag: meta
+    attrs:
+      name: keywords
+      content: "документация, falang, фаланг, no-code, инструмент для визуального программирования"
+---
+
+import ImageRow from '../../../components/image-row.astro';
+import Gallery from '../../../components/gallery.astro';
+
+#### Дерево каталогов
+<ImageRow>
+  В левой части приложения находится дерево каталогов. Для создания папки или схемы нажмите правой кнопкой на пустое пространство.
+  <img slot="media" src='/img/docs/directories-tree.png' />
+</ImageRow>
+
+#### Вставка / удаление
+<ImageRow>
+  <p>
+    Для вставки иконы нажмите правой кнопкой на валентную точку и нажмите на пункт меню с соответствующей иконой.
+    Для удаления - нажмите на икону правой кнопкой и выберите пункт "удалить".
+  </p>
+  <p>
+    Если нужно скопировать икону в другое место, выберите на иконе пункт "скопировать", и в другой валентной точке выберите пункт "вставить".
+  </p>
+  <p>
+    В зависимости от расположения валентной точки, программой могут быть предложены различные варианты для вставки.
+  </p>
+  <video slot="media" loop autoplay muted playsinline>
+    <source src="/img/docs/insert-delete.webm" type="video/webm" />
+  </video>
+</ImageRow>
+
+#### Перенос
+<ImageRow>
+  <p>
+    Для переноса иконы зажмите над ней клавишу мыши, и перенесите на ту валентную точку, в которую хотите эту икону перенести.
+  </p>
+  <p>
+    Для переноса группы икон, нажмите сначала одну икону, потом, с нажатой клавишей Shift, нажмите на другую икону, находящуюся на том же шампуре.
+    После перенесите эту группу икон на нужную валентную точку.
+  </p>
+  <video slot="media" loop autoplay muted playsinline>
+    <source src="/img/docs/move.webm" type="video/webm" />
+  </video>
+</ImageRow>
+
+#### Изменение размера
+<ImageRow>
+  <p>
+    Для изменения ширины иконы нажмите на нее, а затем потяните круглый ползунок на правой грани.
+  </p>
+  <video slot="media" loop autoplay muted playsinline>
+    <source src="/img/docs/size.webm" type="video/webm" />
+  </video>
+</ImageRow>
+
+#### Редактировани иконы
+<ImageRow>
+  <p>
+    Для редактирования нужно нажать на икону двойным щелчком мыши. В зависимости от типа диаграмы и иконы будут возможны разые способы редактирования.
+  </p>
+  <video slot="media" loop autoplay muted playsinline>
+    <source src="/img/docs/edit.webm" type="video/webm" />
+  </video>
+</ImageRow>
+
+#### "Выходы"
+<ImageRow>
+  <p>Иконы "выхода" (break, continue, return, throw) появляются в меню, если валентная точка удовлетворяет следующим условиям:</p>
+  <ul>
+    <li>Валентная точка является последней в данном шампуре</li>
+    <li>Шампур не находится на главной оси алгоритма либо данной макро иконы</li>
+  </ul>
+  <video slot="media" loop autoplay muted playsinline>
+    <source src="/img/docs/outs.webm" type="video/webm" />
+  </video>
+</ImageRow>
+<p>На изображении ниже красным помечены валентные точки, в которых возможно применение иконы "Выход"</p>
+<Gallery>
+  <img src='/img/docs/outs-vp.png' />
+</Gallery>

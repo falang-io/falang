@@ -1,0 +1,123 @@
+---
+title: Databases
+description: Reading and writing Postgres, MySQL and SQLite from a scenario — synced schema, typed tables, the where operator DSL
+head:
+  - tag: meta
+    attrs:
+      name: keywords
+      content: 'database, postgres, mysql, sqlite, sql, query, workflow'
+---
+
+<p>
+  A database credential connects a scenario directly to a Postgres or MySQL database — read/write rows through typed
+  actions, or fall back to raw SQL for anything the typed actions don't cover. Once the schema is synced, the editor
+  knows the connected database's tables: a "Select" node on <code>orders</code> offers <code>orders</code> as a
+  <code>table</code> choice, its result is typed row by row, and Monaco completes column names as you type a filter.
+</p>
+
+#### Connecting a database
+
+<p>
+  Add a Postgres or MySQL credential the same way as any other integration, with a single connection string —
+  <code>postgres://user:pass@host:5432/db</code> or <code>mysql://user:pass@host:3306/db</code> — rather than separate
+  host/port/user/password fields, because a dev and a production database are usually two entirely different servers,
+  not just a different password on the same one; a connection string is also what every driver, ORM and cloud console
+  already hands you. An <code>ssl</code> setting (prefer/require/disable) sits alongside it. Like every credential in
+  the engine, the connection string is stored separately for the dev and prod environments and encrypted at rest — the
+  editor and "Sync structure" always use the dev one, a published (production) run always uses prod.
+</p>
+
+#### Sync structure
+
+<p>
+  Press <b>"Sync structure"</b> on the credential to make the editor read the database's real tables and columns. This
+  connects once (using the dev connection string), reads the schema, and stores it — no live database round trip happens
+  while you're editing a node afterward. Re-run it any time the schema changes (a column added, a table renamed) to
+  bring the editor's picture back in sync; nothing breaks if you forget, a node referencing a table that no longer
+  matches just fails with a plain database error the next time it runs.
+</p>
+
+<p>
+  Once synced, every table gets four typed shapes the editor uses automatically: <b>Row</b> (every column, as it comes
+  back from a query), <b>Insert</b> (every column, with columns that have a default value or allow <code>NULL</code>{' '}
+  made optional), <b>Patch</b> (every column optional, for a partial update) and <b>Where</b> (see below). Column types
+  map the way you'd expect — integers and floats to numbers, text/dates/UUIDs to strings, booleans to booleans, JSON
+  columns and anything unrecognized to a permissive "any" type.
+</p>
+
+#### Actions
+
+<p>Each dialect (Postgres, MySQL, SQLite) has the same six actions:</p>
+
+<ul>
+  <li>
+    <b>Select</b> — returns every matching row as a <b>Row</b> array. Takes an optional <code>where</code> filter, an
+    <code>orderBy</code> (e.g. <code>created_at desc</code>) and a <code>limit</code>.
+  </li>
+  <li>
+    <b>Select one</b> — same as Select but returns a single <b>Row</b> and fails if nothing matches; use Select with a
+    limit of 1 instead when "no rows" is a normal, expected outcome rather than an error.
+  </li>
+  <li>
+    <b>Insert</b> — inserts one row (typed against <b>Insert</b>) and returns it back as a <b>Row</b>, including any
+    column the database filled in itself (an auto-incrementing id, a default timestamp).
+  </li>
+  <li>
+    <b>Update</b> — applies a <b>Patch</b> to every row matching <code>where</code> and returns the number of rows
+    changed. <code>where</code> is required and must not be empty — there is no way to accidentally update every row in
+    a table by leaving the filter blank.
+  </li>
+  <li>
+    <b>Delete</b> — same required-non-empty <code>where</code> rule as Update, returns the number of rows removed.
+  </li>
+  <li>
+    <b>Query</b> — the escape hatch for joins, aggregates, or anything else the five actions above can't express: a raw
+    SQL statement plus a separate list of parameters bound in as <code>$1</code>/<code>$2</code> (Postgres) or{' '}
+    <code>?</code> (MySQL/SQLite) placeholders. The SQL text itself is never interpolated with values — parameters
+    always travel separately, the same protection against SQL injection every parameterized-query API gives you.
+  </li>
+</ul>
+
+#### Filtering with `where`
+
+<p>
+  <code>where</code> is a small filter language, not just equality. A bare value on a column means "equals" (and{' '}
+  <code>null</code> means <code>IS NULL</code>); to use anything else, give that column an object with one or more
+  operators — <code>eq</code>, <code>ne</code>, <code>gt</code>, <code>gte</code>, <code>lt</code>, <code>lte</code>,{' '}
+  <code>in</code>, <code>notIn</code>, <code>isNull</code>, and, for text columns, <code>like</code>/<code>ilike</code>/
+  <code>startsWith</code>/<code>contains</code>. Multiple columns are combined with AND by default; wrap alternatives in
+  an explicit <code>or</code> (or <code>and</code>) array to nest further:
+</p>
+
+```ts
+// status is "new" or "paid", and total is over 100
+{ status: { in: ['new', 'paid'] }, total: { gt: 100 } }
+
+// id is 1 or 2
+{ or: [{ id: 1 }, { id: 2 }] }
+
+// note contains "urgent", case-insensitively (Postgres)
+{ note: { ilike: '%urgent%' } }
+```
+
+#### Retries and idempotency
+
+<p>
+  Every database action runs as its own step in the scenario's durable execution, and like any other step it retries
+  automatically on failure — a network blip, a dropped connection, a momentarily unreachable database. This is usually
+  exactly what you want: a failed write is treated as "the row was never created", and a retry finishes the job. The one
+  edge case worth knowing about is a write that the database actually committed, but whose acknowledgement never made it
+  back before the connection dropped — a retry in that rare case can insert or update the same row twice. If a table is
+  written by a scenario that might retry, give it a unique constraint (or an explicit idempotency-key column) so a
+  duplicate attempt is rejected by the database itself rather than silently succeeding twice.
+</p>
+
+#### SQLite is local/dev-only
+
+<p>
+  SQLite is available as a third dialect, backed by a plain file (or an in-memory database) rather than a server — no
+  separate service to run, which makes it convenient for local development, self-hosted single-server deployments with a
+  mounted volume, and tests. It is not a production choice for a deployment that scales runner pods up and down: a
+  runner pod's own filesystem does not persist across restarts, so a SQLite file living inside one does not survive a
+  scale-to-zero cycle. Reach for Postgres or MySQL for anything that has to outlive the pod that wrote it.
+</p>

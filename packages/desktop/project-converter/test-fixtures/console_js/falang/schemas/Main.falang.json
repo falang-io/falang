@@ -1,0 +1,43 @@
+{
+  "description": "",
+  "id": "dmSSknmlhrZ9ADABgQwbb",
+  "name": "Main",
+  "root": {
+    "id": "lmBVUAHq78gcw1wQd2AnR",
+    "alias": "function",
+    "block": {
+      "width": 176,
+      "code": "exports.main = function()"
+    },
+    "children": [
+      {
+        "id": "2yTP36gkTtDWej9LAgxpq",
+        "alias": "foreach",
+        "block": {
+          "width": 192,
+          "code": "for (let i = 1; i <= 10; i++)"
+        },
+        "children": [
+          {
+            "alias": "action",
+            "block": {
+              "width": 128,
+              "code": "helloWorld(i);"
+            },
+            "id": "n0qyDp3iKxr3uWcHAZx3z"
+          }
+        ]
+      }
+    ],
+    "footer": {
+      "width": 64,
+      "code": "return;"
+    },
+    "header": {
+      "width": 304,
+      "code": "const { helloWorld } = require('./helloWorld');"
+    }
+  },
+  "schemeVersion": 2,
+  "type": "function"
+}

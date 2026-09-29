@@ -1,0 +1,18 @@
+# Local registry for @falang/* snapshot packages (see scripts/README-registry.md).
+# Serves ONLY the @falang scope; no uplink to npmjs on purpose.
+storage: /verdaccio/storage/data
+
+auth:
+  htpasswd:
+    file: /verdaccio/storage/htpasswd
+    # registration stays enabled (default max_users) so publish-snapshot.sh can create its user
+
+packages:
+  '@falang/*':
+    access: $all
+    publish: $authenticated
+    unpublish: $authenticated
+  '**':
+    access: $all
+
+log: { type: stdout, format: pretty, level: warn }

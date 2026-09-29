@@ -1,0 +1,16 @@
+{
+  "icon": {
+    "create-var": "Новая переменная",
+    "action": "Действие",
+    "call-function": "Вызов функции",
+    "call-api": "Вызов API",
+    "log": "Лог",
+    "arr-pop": "Массив: pop",
+    "arr-push": "Массив: push",
+    "arr-shift": "Массив: shift",
+    "arr-unshift": "Массив: unshift",
+    "arr-insert": "Массив: вставить",
+    "arr-slice": "Массив: срез",
+    "from-to-cycle": "Цикл (от/до)"
+  }
+}

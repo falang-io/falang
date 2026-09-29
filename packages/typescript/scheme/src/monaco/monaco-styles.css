@@ -1,0 +1,37 @@
+.monaco-editor {
+  background: transparent !important;
+}
+.monaco-editor .view-line {
+  background: transparent !important;
+}
+
+/* Внутренние элементы */
+.monaco-editor .overflow-guard {
+  background: transparent !important;
+}
+
+/* Панель с номерами строк */
+.monaco-editor .margin {
+  background-color: transparent !important;
+}
+
+/* Область с кодом */
+.monaco-editor .lines-content {
+  background: transparent !important;
+}
+
+/* View линии */
+.monaco-editor .view-lines {
+  background: transparent !important;
+}
+
+/* Overlay элементы */
+.monaco-editor .view-overlays {
+  background: transparent !important;
+}
+
+.monaco-editor .suggest-widget {
+  transform: none !important; /* Отменить масштабирование подсказок */
+  transform-origin: top left;
+  position: absolute; /* Чтобы позиционировать подсказки правильно */
+}

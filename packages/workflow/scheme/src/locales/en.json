@@ -1,0 +1,33 @@
+{
+  "integration-editor": {
+    "select-placeholder": "Select…",
+    "select-credential-placeholder": "Select an integration…",
+    "select-struct-placeholder": "Select a struct…",
+    "loading": "Loading…",
+    "select-credential-first": "Select an integration first…",
+    "result-text": "Text",
+    "result-structured-output": "Structured output",
+    "alias": "Alias",
+    "variable": "Variable",
+    "options": "Options",
+    "add-option": "Add option",
+    "type-number": "Number",
+    "type-boolean": "Boolean",
+    "type-void": "None",
+    "prompt": "Prompt"
+  },
+  "activepieces-picker": {
+    "title": "Add ActivePieces action",
+    "select-placeholder": "Select a piece and action…",
+    "no-integrations": "No configured ActivePieces integrations found in this workflow"
+  },
+  "trigger-function": {
+    "schedule-status": {
+      "active": "active",
+      "paused": "paused",
+      "next": "next {{time}}",
+      "last": "last {{time}}",
+      "skipped": "skipped {{count}}"
+    }
+  }
+}

@@ -1,0 +1,26 @@
+---
+// One or more centered images/videos, replacing the old one-image/triple-images
+// wrapper divs (which carried no dedicated styling of their own). Usage in .mdx:
+//   <Gallery><img src="/img/docs/snake.png" /></Gallery>
+---
+
+<div class="gallery">
+  <slot />
+</div>
+
+<style>
+  .gallery {
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: center;
+    gap: 1rem;
+    margin: 1.5rem 0;
+  }
+
+  .gallery :global(img),
+  .gallery :global(video) {
+    max-width: 100%;
+    border: 1px solid var(--sl-color-gray-5);
+    border-radius: 4px;
+  }
+</style>

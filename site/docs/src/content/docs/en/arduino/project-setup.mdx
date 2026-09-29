@@ -1,0 +1,91 @@
+---
+title: Project setup
+description: Creating an Arduino project, binding a board, and describing your hardware with the Devices document
+head:
+  - tag: meta
+    attrs:
+      name: keywords
+      content: 'arduino, board, project setup, devices, pins, drivers'
+---
+
+<p>
+  Every Arduino project starts with a short "New Project…" dialog and comes with three fixed documents —{' '}
+  <code>setup</code>, <code>loop</code>, and <code>Devices</code> — so there's always a place for describing your
+  wiring, not just for writing code.
+</p>
+
+#### Creating a project
+
+<ul>
+  <li>
+    <b>File &gt; New Project</b> (or <b>Ctrl+N</b>, or the welcome page's <b>New Project…</b> button) opens a dialog
+    asking for a <b>name</b>, a <b>folder</b> (it follows the name until you pick your own with <b>Browse…</b>), and a{' '}
+    <b>board</b>.
+  </li>
+  <li>The board list covers the common ones: Uno, Nano, Nano (old bootloader), Mega 2560, and ESP32 Dev Module.</li>
+  <li>
+    <b>The board is chosen once and never changes.</b> It's written to <code>falang/config/arduino.json</code> inside
+    the project folder — versioned along with everything else in the project — and every later compile, upload, and
+    debug upload reads it from there. <b>Build &amp; Upload</b> shows it as plain text; there's no board picker there
+    any more, only a port to choose.
+  </li>
+  <li>
+    Opening a project created before this existed treats it as an Uno and writes the config file the first time you open
+    it, so it behaves the same way from then on.
+  </li>
+</ul>
+
+#### The fixed documents
+
+<ul>
+  <li>
+    <code>setup</code> and <code>loop</code> are ordinary function documents — the same editor as any other function —
+    but pinned: the project tree offers no delete/rename/drag on them, and a new document at the project root can't be
+    named <code>setup</code> or <code>loop</code> either. They always exist and compile straight to Arduino's own{' '}
+    <code>setup()</code>/<code>loop()</code>.
+  </li>
+  <li>
+    <code>Devices</code> is a third pinned document, but it isn't a scheme — it's a small form for describing the
+    board's wiring, not code (see below).
+  </li>
+</ul>
+
+#### The Devices document
+
+<p>
+  Two tables, both feeding directly into the generated <code>setup()</code>:
+</p>
+
+<ul>
+  <li>
+    <b>Digital pins</b> — a pin number, a mode (<code>Input</code>, <code>Output</code>, or <code>Input (pull-up)</code>
+    ), and an optional label for your own reference. Each row becomes one <code>pinMode(...)</code> call at the top of{' '}
+    <code>setup()</code>, in the order you listed them — no need to write it by hand in a code block any more.
+  </li>
+  <li>
+    <b>Devices</b> — pick a built-in driver, give the instance a name, and fill in the fields it asks for.{' '}
+    <b>LCD1602 (I2C)</b> was the first built-in device: it only asks for the display's I2C address (the common presets —
+    0x20, 0x27, 0x3E — are offered as a dropdown). <b>LCD1602 (Parallel)</b> is the same display wired directly to 6
+    GPIO pins instead — for boards or setups without I2C — and asks for those 6 pins (RS, EN, D4-D7) instead of an
+    address. Adding either emits its own setup call (initializing the display) right after the pin modes.
+  </li>
+  <li>
+    A driver only needs to declare a device section to show up in this list — most of the bundled drivers (DHT, HC-SR04,
+    servo, the RGB strip) are action-only today and don't appear here; only the two LCD1602 drivers do so far.
+  </li>
+  <li>
+    Any driver behind a device instance is included in the build automatically — its source files and its{' '}
+    <code>#include</code> are added to the sketch even if no action node anywhere in <code>setup</code>/
+    <code>loop</code> ever calls into it.
+  </li>
+</ul>
+
+#### Build & Upload
+
+<p>
+  The board is already fixed, so <b>Build &amp; Upload</b> only asks you to pick a <b>port</b>. The generated sketch is
+  written to <code>src/sketch/sketch.ino</code> inside the project folder (plus any driver source files it needs) —
+  there's no more hidden <code>.build</code> folder to know about. You can open and read the generated code like any
+  other file, and since it lives under <code>src/</code>, it's captured by version history the same as everything else
+  in the project.
+</p>

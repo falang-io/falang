@@ -1,0 +1,35 @@
+{
+  "name": "playground",
+  "private": true,
+  "version": "0.0.0",
+  "type": "module",
+  "scripts": {
+    "dev": "vite",
+    "build": "tsc -b && vite build",
+    "lint": "eslint .",
+    "preview": "vite preview",
+    "check": "tsc --noEmit -p tsconfig.node.json"
+  },
+  "devDependencies": {
+    "@falang/agent": "*",
+    "@falang/antd": "*",
+    "@falang/debug": "*",
+    "@falang/di": "*",
+    "@falang/dto": "*",
+    "@falang/text-dto": "*",
+    "@falang/text-scheme": "*",
+    "@types/node": "^24.12.2",
+    "@types/react": "^19.2.14",
+    "@types/react-dom": "^19.2.3",
+    "@vitejs/plugin-react": "^6.0.1",
+    "globals": "^17.4.0",
+    "react": "^19.2.4",
+    "react-dom": "^19.2.4",
+    "vite": "^8.0.4"
+  },
+  "dependencies": {
+    "mobx": "^6.15.4",
+    "mobx-react-lite": "^4.1.1"
+  },
+  "license": "AGPL-3.0-only"
+}

@@ -1,0 +1,29 @@
+{
+  "name": "@falang/desktop-worker-process",
+  "version": "1.0.0",
+  "description": "One-job-per-process runner over Node's fork-style IPC, with a progress/result/error protocol — moves CPU-bound work (codegen, project compiles) out of Electron's main process so it never blocks the UI. Shared by app-sketch and app-arduino's `main` processes.",
+  "license": "AGPL-3.0-only",
+  "author": "",
+  "type": "commonjs",
+  "main": "src/index.ts",
+  "scripts": {
+    "test": "vitest run -c ../../../vitest.config.ts",
+    "coverage": "vitest run --coverage -c ../../../vitest.config.ts",
+    "check": "tsc --noEmit -p tsconfig.build.json"
+  },
+  "dependencies": {
+    "@types/node": "^25.5.0"
+  },
+  "files": [
+    "src",
+    "!src/**/*.test.ts",
+    "!src/**/*.test.tsx",
+    "!src/**/*.e2e.test.ts",
+    "!src/**/*.workflow-e2e-spec.ts",
+    "!src/**/*.spec.ts",
+    "!src/**/*.docker-e2e-spec.ts",
+    "!src/**/*-test-harness.ts",
+    "!src/test-utils",
+    "!src/**/__snapshots__"
+  ]
+}

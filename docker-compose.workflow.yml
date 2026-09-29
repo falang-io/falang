@@ -1,0 +1,382 @@
+# MVP stack for the workflow engine (see ADRs 0001, 0002, 0003 and 0016 (private)).
+#
+# Services: a self-hosted Temporal server (postgres-backed `auto-setup` image, matching
+# https://github.com/temporalio/docker-compose), its admin CLI and web UI, a separate Postgres
+# instance for `@falang/workflow-backend`'s own persistence (users/projects/folders/documents —
+# unrelated to Temporal's own postgres above), `backend` itself (NestJS + TypeORM), and
+# `@falang/workflow-client`. There is no separate `runner`/`compiler` container here: `backend`
+# compiles a project's `function` documents in-process via `@falang/workflow-compiler`, but the
+# compiled workflow itself runs as its own pod on a *local `kind` Kubernetes cluster*, not inside
+# this container — `RunnerProcessManager` creates/deletes a k8s `Deployment` per workflow
+# definition/version, the same mechanism a real deployment uses (see
+# ADR 0016 (private)'s Phase 2). Run `scripts/kind-dev-setup.sh`
+# before `docker compose up` — it creates that cluster, the `workflow` namespace, and loads
+# `docker/runner.Dockerfile`'s image into it; without it, `backend`'s build/publish/activate/stop
+# calls fail (no kubeconfig, no cluster, no runner image).
+#
+# Known gotcha, confirmed reproducible: on the *first* `up` after the `falang-workflow-network`
+# network is (re)created, `backend`'s second network attachment (`kind`, below) sometimes loses a
+# race and doesn't take — its container ends up on `kind` only. Symptom: `backend`'s logs show
+# `getaddrinfo EAI_AGAIN app-postgres` in a retry loop and it never comes up. Fix:
+# `docker compose -f docker-compose.workflow.yml restart backend` (or `docker network connect
+# falang-workflow-network falang-workflow-backend`) once — it doesn't recur once both networks are
+# actually attached, only ever seen right after network creation.
+#
+# Secrets (JWT_SECRET, *_PASSWORD, CREDENTIALS_ENCRYPTION_KEY, ACTIVEPIECES_SERVICE_SECRET below)
+# come from a root `.env` file (gitignored, not committed —
+# see ADR 0016 (private) Phase 0) via compose's own `${VAR:-default}`
+# interpolation; every one has a dev-only fallback baked in here so plain `docker compose up` still
+# works with zero setup. Copy `.env.example` to `.env` and override before using this anywhere but
+# local dev — especially SEED_DEFAULT_ADMIN, which must be `false` on a public deployment.
+#
+# Quick start:
+#   1. ./scripts/kind-dev-setup.sh
+#   2. docker compose -f docker-compose.workflow.yml up --build
+#   3. Open http://localhost:5175 and log in as admin/admin (auto-seeded on backend startup unless
+#      SEED_DEFAULT_ADMIN=false — change this password before using this anywhere but local dev),
+#      or register a new account from the login page (POST /auth/register).
+#   4. Create a project from the project list, open it, create a folder and a "Function" document,
+#      give the function a name and body. Everything is persisted to `app-postgres` immediately
+#      (no local-only draft state).
+#   5. Click "Build & Run" in the toolbar. This compiles every `function` document in the project
+#      and creates a k8s Deployment for it in the `kind` cluster (visible under a
+#      `workflow-dev-<projectId>` task queue, shown in the toolbar next to the status dot once the
+#      build succeeds, and via `kubectl -n workflow get pods`) that can run any of them as a
+#      workflow type.
+#   6. Start an execution against that task queue using the admin-tools CLI, e.g.:
+#        docker compose -f docker-compose.workflow.yml exec temporal-admin-tools \
+#          temporal workflow start --task-queue workflow-dev-<projectId> --type <functionName> \
+#          --workflow-id demo-1 --input '{}'
+#      Watch it run at http://localhost:8080 (Temporal Web UI).
+#   7. "Publish" promotes the current code to a stable `workflow-<projectId>` task queue shared by
+#      every published version (each publish is a new immutable version, see ADR 0004 (private)) — shown in
+#      the "Versions" modal, which also lists rollback ("Activate") and manual retirement ("Stop
+#      runner") controls per version.
+name: falang-workflow
+
+services:
+  postgresql:
+    image: postgres:16
+    container_name: falang-workflow-postgresql
+    restart: on-failure
+    environment:
+      POSTGRES_USER: temporal
+      POSTGRES_PASSWORD: ${TEMPORAL_DB_PASSWORD:-temporal}
+    volumes:
+      - falang-workflow-postgresql-data:/var/lib/postgresql/data
+    healthcheck:
+      test: ['CMD-SHELL', 'pg_isready -U temporal']
+      interval: 2s
+      timeout: 5s
+      retries: 30
+    networks: [falang-workflow-network]
+
+  app-postgres:
+    image: postgres:16
+    container_name: falang-workflow-app-postgres
+    environment:
+      POSTGRES_USER: falang
+      POSTGRES_PASSWORD: ${APP_DB_PASSWORD:-falang}
+      POSTGRES_DB: falang_workflow
+    ports:
+      # Published so `backend` can also be run locally (`npm run start:dev`, matching
+      # `.env.example`'s `DB_HOST=localhost`) against this same container.
+      - '5432:5432'
+    volumes:
+      - falang-workflow-app-postgres-data:/var/lib/postgresql/data
+    networks: [falang-workflow-network]
+
+  # S3-compatible object storage behind `backend`'s internal file API — see
+  # ADR 0038 (private). Runner pods never talk to this directly (no
+  # `RUNNER_*` override exists for it, unlike `RUNNER_TEMPORAL_ADDRESS`/`BACKEND_INTERNAL_URL`
+  # above): every file read/write goes through `backend`, which is on this same docker network.
+  # Production uses Yandex Object Storage instead (ADR 0038 "Decisions (2026-09-28)" #1) — this
+  # service is dev-only.
+  #
+  # Image note: the official `minio/minio`/`minio/mc` images are gone from Docker Hub as of this
+  # writing (confirmed via the registry API — the whole `minio/minio` repository 404s, and
+  # `quay.io/minio/minio` requires an authenticated/paid pull) — MinIO stopped publishing free
+  # prebuilt container images in 2025. `bitnamilegacy/minio`/`bitnamilegacy/minio-client` (Bitnami's
+  # frozen "legacy" free tier, last built 2025-07-18/21) are the closest drop-in replacement that
+  # still pulls anonymously; pinned to their newest available tags. See this file's own comment
+  # below and the task report for the full verification trail.
+  minio:
+    image: bitnamilegacy/minio:2025.7.18
+    container_name: falang-workflow-minio
+    restart: on-failure
+    environment:
+      - MINIO_ROOT_USER=${MINIO_ROOT_USER:-falang}
+      - MINIO_ROOT_PASSWORD=${MINIO_ROOT_PASSWORD:-falangfalang}
+      # Bitnami-specific convenience (not available on the now-unpullable official image) — creates
+      # the bucket at startup too; `minio-init` below still runs its own `mc mb --ignore-existing`
+      # as a second, idempotent guarantee, matching the official-image pattern this was modeled on.
+      - MINIO_DEFAULT_BUCKETS=falang-files
+    ports:
+      - '9000:9000'
+      - '9001:9001'
+    volumes:
+      - falang-workflow-minio-data:/bitnami/minio/data
+    healthcheck:
+      test: ['CMD', 'curl', '-f', 'http://localhost:9000/minio/health/live']
+      interval: 5s
+      timeout: 5s
+      retries: 20
+    networks: [falang-workflow-network]
+
+  # One-shot bucket bootstrap (`mc alias set` + `mc mb --ignore-existing`) — kept even though
+  # `minio`'s own `MINIO_DEFAULT_BUCKETS` above already creates the bucket, so `backend`'s
+  # `depends_on: minio-init: condition: service_completed_successfully` has something concrete to
+  # wait on and this stays close to a plain official-`minio/mc`-based setup if that image becomes
+  # pullable again later.
+  minio-init:
+    image: bitnamilegacy/minio-client:2025.7.21
+    container_name: falang-workflow-minio-init
+    depends_on:
+      minio:
+        condition: service_healthy
+    command:
+      - /bin/sh
+      - -c
+      - >
+        mc alias set local http://minio:9000 ${MINIO_ROOT_USER:-falang} ${MINIO_ROOT_PASSWORD:-falangfalang} &&
+        mc mb --ignore-existing local/falang-files
+    networks: [falang-workflow-network]
+
+  temporal:
+    image: temporalio/auto-setup:1.29.1
+    container_name: falang-workflow-temporal
+    restart: on-failure
+    depends_on:
+      postgresql:
+        condition: service_healthy
+    environment:
+      - DB=postgres12
+      - DB_PORT=5432
+      - POSTGRES_USER=temporal
+      - POSTGRES_PWD=temporal
+      - POSTGRES_SEEDS=postgresql
+      - DYNAMIC_CONFIG_FILE_PATH=config/dynamicconfig/development-sql.yaml
+      - TEMPORAL_ADDRESS=temporal:7233
+      - TEMPORAL_CLI_ADDRESS=temporal:7233
+    ports:
+      - '7233:7233'
+    volumes:
+      - ./docker/temporal-dynamicconfig:/etc/temporal/config/dynamicconfig
+    networks: [falang-workflow-network]
+
+  temporal-admin-tools:
+    image: temporalio/admin-tools:1.29.1-tctl-1.18.4-cli-1.5.0
+    container_name: falang-workflow-temporal-admin-tools
+    depends_on: [temporal]
+    environment:
+      - TEMPORAL_ADDRESS=temporal:7233
+      - TEMPORAL_CLI_ADDRESS=temporal:7233
+    stdin_open: true
+    tty: true
+    networks: [falang-workflow-network]
+
+  temporal-ui:
+    image: temporalio/ui:2.34.0
+    container_name: falang-workflow-temporal-ui
+    depends_on: [temporal]
+    environment:
+      - TEMPORAL_ADDRESS=temporal:7233
+      - TEMPORAL_CORS_ORIGINS=http://localhost:5175
+    ports:
+      - '8080:8080'
+    networks: [falang-workflow-network]
+
+  backend:
+    build:
+      context: .
+      dockerfile: docker/backend.Dockerfile
+    container_name: falang-workflow-backend
+    depends_on:
+      temporal:
+        condition: service_started
+      app-postgres:
+        condition: service_started
+      # Ensures the `falang-files` bucket exists before `backend` (or anything that pokes it) ever
+      # tries to upload — see ADR 0038 (private) §2.
+      minio-init:
+        condition: service_completed_successfully
+    environment:
+      - PORT=4000
+      - TEMPORAL_ADDRESS=temporal:7233
+      - TEMPORAL_NAMESPACE=default
+      # Runner pods live on the `kind` docker network below, not this one — they can't resolve
+      # `temporal` by docker-internal DNS name, so they need the address above overridden to
+      # something reachable from inside `kind` instead. `KIND_GATEWAY_IP` is that network's own
+      # gateway address (any host-published port, like Temporal's `7233:7233` below, is reachable
+      # from a pod via this address — see `scripts/kind-dev-setup.sh`'s comment for why); its
+      # default matches a `kind` network on a machine with no other docker networks yet, override it
+      # with what that script prints if it differs on yours.
+      - RUNNER_TEMPORAL_ADDRESS=${KIND_GATEWAY_IP:-172.18.0.1}:7233
+      # Where a runner pod fetches its compiled artifact (`internal/artifacts/...`) and resolves
+      # credentials (`internal/credentials/resolve`) — same reachability requirement as above. Was
+      # never set explicitly pre-k8s: `RunnerProcessManager` defaulted it to `localhost:$PORT`,
+      # valid only because `runner` was a child process sharing this container/host with `backend`
+      # — a pod has no such shortcut, so this must be set explicitly now.
+      - BACKEND_INTERNAL_URL=http://${KIND_GATEWAY_IP:-172.18.0.1}:4000
+      # `RunnerProcessManager` creates runner Deployments here — see
+      # ADR 0016 (private)'s Phase 2.
+      - K8S_NAMESPACE=workflow
+      - RUNNER_IMAGE=falang-workflow-runner:local
+      # Read by `@kubernetes/client-node`'s `KubeConfig.loadFromDefault()` — generated by
+      # `scripts/kind-dev-setup.sh`, points at the kind control-plane container by name (reachable
+      # since this service is also on the `kind` docker network below, unlike every other service
+      # in this file).
+      - KUBECONFIG=/kubeconfig/config
+      - DB_HOST=app-postgres
+      - DB_PORT=5432
+      - DB_USER=falang
+      - DB_PASSWORD=${APP_DB_PASSWORD:-falang}
+      - DB_NAME=falang_workflow
+      - JWT_SECRET=${JWT_SECRET:-dev-secret-change-me}
+      # Encrypts `secret`-kind integration credential fields (e.g. Telegram bot tokens) at rest —
+      # any string works (it's hashed into a real AES-256 key, same ergonomics as JWT_SECRET above).
+      # Changing this after real credentials are saved makes them permanently undecryptable.
+      - CREDENTIALS_ENCRYPTION_KEY=${CREDENTIALS_ENCRYPTION_KEY:-dev-encryption-key-change-me}
+      # Seeds a default admin/admin account on boot when no users exist yet — dev/test convenience.
+      # MUST be false for a public deployment now that self-service registration exists
+      # (POST /auth/register) — see ADR 0016 (private) Phase 0.
+      - SEED_DEFAULT_ADMIN=${SEED_DEFAULT_ADMIN:-true}
+      # Comma-separated usernames promoted to the `admin` role on boot (see
+      # ADR 0030 (private)) — bootstraps further admins
+      # on a public deployment (`SEED_DEFAULT_ADMIN=false`): the operator signs up normally, sets
+      # this, and restarts once. Empty by default; unused in local dev, where the seeded admin/admin
+      # account already has the role.
+      - ADMIN_USERNAMES=${ADMIN_USERNAMES:-}
+      # Off by default in the backend (community edition: admins create users in /admin); local dev
+      # keeps self-service signup on. `TERMS_URL`, if set, adds a required terms checkbox to signup.
+      - SELF_SERVICE_SIGNUP=${SELF_SERVICE_SIGNUP:-true}
+      - TERMS_URL=${TERMS_URL:-}
+      # Unset by default: with no public ingress, `@falang/workflow-gateway`'s `GatewayRuntimeService`
+      # falls back to long-polling every configured vendor credential (Telegram's `getUpdates`) on a
+      # loop instead of registering a webhook. Set this to the externally reachable HTTPS base URL
+      # this container is published under (e.g. `https://bots.example.com`, behind a reverse proxy —
+      # not `http://localhost:4000`, which Telegram cannot reach) to switch to webhook mode; see
+      # ADR 0006 (private) (webhook mode requires a public HTTPS URL; long-polling is the default).
+      # - GATEWAY_PUBLIC_HOST=https://bots.example.com
+      # Standalone service hosting ActivePieces piece packages, outside this repo's npm workspace —
+      # see ADR 0010 (private). Used both by `backend` itself
+      # (`ActivepiecesCatalogService`, field-options lookups) and passed to runner pods for their
+      # compiled `activepieces-*` action activities — the override below is for the latter only,
+      # same reachability reasoning as `RUNNER_TEMPORAL_ADDRESS`/`BACKEND_INTERNAL_URL` above.
+      - ACTIVEPIECES_SERVICE_URL=http://activepieces:4100
+      - RUNNER_ACTIVEPIECES_SERVICE_URL=http://${KIND_GATEWAY_IP:-172.18.0.1}:4100
+      - ACTIVEPIECES_SERVICE_SECRET=${ACTIVEPIECES_SERVICE_SECRET:-dev-activepieces-secret-change-me}
+      # Standalone ffmpeg-backed job service for `media-*` action activities (image resize/convert,
+      # video trim/concat/thumbnail/transcode, audio extract/convert) — see
+      # ADR 0041 (private). `backend` itself never calls this directly (no
+      # catalog/field-options lookup like `ACTIVEPIECES_SERVICE_URL` above needs); only runner pods'
+      # compiled `media-*` activities do, hence the `RUNNER_*` override below, same reachability
+      # reasoning as `RUNNER_ACTIVEPIECES_SERVICE_URL`/`RUNNER_TELEGRAM_API_BASE_URL`.
+      - MEDIA_SERVICE_URL=http://media:4200
+      - RUNNER_MEDIA_SERVICE_URL=http://${KIND_GATEWAY_IP:-172.18.0.1}:4200
+      # Object storage — see ADR 0038 (private). Only `backend` ever
+      # holds these; runner pods talk to `backend`'s internal file API instead (no `RUNNER_S3_*`
+      # override exists, matching that ADR's "pods never see S3 credentials" design).
+      - S3_ENDPOINT=http://minio:9000
+      - S3_REGION=us-east-1
+      - S3_BUCKET=falang-files
+      - S3_ACCESS_KEY=${MINIO_ROOT_USER:-falang}
+      - S3_SECRET_KEY=${MINIO_ROOT_PASSWORD:-falangfalang}
+      - S3_FORCE_PATH_STYLE=true
+      # Per-user file/quota limits (ADR 0038 (private) §2) — env-level defaults, overridable per
+      # user via `PUT /admin/users/:id/limits`. Uncomment to change the fallback applied to every
+      # user with no override row; values shown are `UserLimitsService`'s own built-in defaults.
+      # - MAX_PROJECT_FILES_BYTES=1073741824
+      # - MAX_FILE_BYTES=104857600
+      # - DEV_FILE_TTL_HOURS=24
+      # - INGRESS_FILE_TTL_HOURS=168
+    ports:
+      - '4000:4000'
+    volumes:
+      # Generated by `scripts/kind-dev-setup.sh` — run that first, or `KubeConfig.loadFromDefault()`
+      # finds nothing and every build/publish/activate/stop call fails.
+      - ./docker/kind-kubeconfig.yaml:/kubeconfig/config:ro
+    # On both networks: `falang-workflow-network` to reach `temporal`/`app-postgres`/`activepieces`
+    # by their docker-internal names as before, `kind` (external — created by `kind create cluster`,
+    # see `scripts/kind-dev-setup.sh`) to reach the k8s API server the kubeconfig above points at.
+    networks: [falang-workflow-network, kind]
+
+  activepieces:
+    build:
+      context: ./activepieces
+    container_name: falang-workflow-activepieces
+    depends_on: [backend]
+    environment:
+      - PORT=4100
+      # Resolves credentialId -> real secret via backend's existing internal resolver — see
+      # ADR 0010 (private). The per-project token itself travels in
+      # each request body (forwarded from whichever runner pod or backend poll loop called this
+      # service), not a static env var here — see ADR 0016 (private)'s "Namespace/RBAC model and
+      # inter-pod auth".
+      - BACKEND_INTERNAL_URL=http://backend:4000
+      # Authenticates inbound calls from runner/backend — must match ACTIVEPIECES_SERVICE_SECRET above.
+      - ACTIVEPIECES_SERVICE_SECRET=${ACTIVEPIECES_SERVICE_SECRET:-dev-activepieces-secret-change-me}
+    ports:
+      - '4100:4100'
+    networks: [falang-workflow-network]
+
+  # Standalone ffmpeg-backed media job service (image resize/convert, video trim/concat/thumbnail/
+  # transcode, audio extract/convert) — see ADR 0041 (private). Reached by
+  # `backend`'s internal file API (uploads a job's result there) and by runner pods' compiled
+  # `media-*` action activities (which POST/GET/DELETE its job API directly, per-project-token
+  # authenticated) — `docker/media.Dockerfile`, same "build from repo root, exec-form CMD on the
+  # local tsx binary" shape as `docker/backend.Dockerfile`/`docker/runner.Dockerfile`.
+  media:
+    build:
+      context: .
+      dockerfile: docker/media.Dockerfile
+    container_name: falang-workflow-media
+    restart: on-failure
+    depends_on:
+      backend:
+        condition: service_started
+    environment:
+      - PORT=4200
+      - BACKEND_INTERNAL_URL=http://backend:4000
+      # Scratch space for ffmpeg's temp input/output files, one subdirectory per job — deliberately
+      # ephemeral (tmpfs below), matching a runner pod's own `emptyDir`-backed `/work` in k8s (see
+      # `deploy/k8s/workflow/media-deployment.yaml`); nothing here needs to survive a restart.
+      - MEDIA_WORK_DIR=/work
+    ports:
+      - '4200:4200'
+    tmpfs:
+      - /work
+    healthcheck:
+      test: ['CMD', 'node', '-e', "fetch('http://localhost:4200/health').then((r) => process.exit(r.ok ? 0 : 1))"]
+      interval: 5s
+      timeout: 5s
+      retries: 20
+    networks: [falang-workflow-network]
+
+  client:
+    build:
+      context: .
+      dockerfile: docker/client.Dockerfile
+    container_name: falang-workflow-client
+    depends_on: [backend]
+    environment:
+      # The browser talks to the backend directly via its published host port, not the
+      # docker-internal service name.
+      - VITE_BACKEND_URL=http://localhost:4000
+    ports:
+      - '5175:5175'
+    networks: [falang-workflow-network]
+
+networks:
+  falang-workflow-network:
+    name: falang-workflow-network
+  # Created by `kind create cluster` (see `scripts/kind-dev-setup.sh`), not by this file — `backend`
+  # joins it to reach the k8s API server for `RunnerProcessManager`. Run that script before
+  # `docker compose up`, or this network won't exist yet and compose will refuse to start.
+  kind:
+    external: true
+
+volumes:
+  falang-workflow-postgresql-data:
+  falang-workflow-app-postgres-data:
+  falang-workflow-minio-data:

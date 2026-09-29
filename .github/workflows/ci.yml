@@ -1,0 +1,32 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
+# One job: install dominates the runtime, and splitting lint/check/test into parallel jobs
+# would pay for `npm ci` (a large workspace) three times.
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: npm
+      - run: npm ci
+      - name: No references to private docs
+        run: "! git grep -n 'docs/decisions\\|docs/plans' -- . ':!CLAUDE.md' ':!.github/workflows/ci.yml'"
+      - name: Lint
+        run: npx oxlint
+      - name: Type-check
+        run: npm run check
+      - name: Unit tests
+        # Real TypeScript type-checks in some backend tests exceed Vitest's 20 s default on a slow runner.
+        run: npx vitest run -c vitest.config.root.ts --testTimeout=180000

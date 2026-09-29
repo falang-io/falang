@@ -1,0 +1,651 @@
+{
+  "id": "m7pVTfZRXeP0bT6BWlmQf",
+  "type": "function",
+  "name": "main",
+  "root": {
+    "id": "lB5upikdDh_HbhKEy2jH0",
+    "name": "function",
+    "children": [
+      {
+        "id": "2Hl43bAzn6I0ZKuqivPwL",
+        "name": "function-header",
+        "data": ""
+      },
+      {
+        "id": "vlilHE7HPhFVO_kkSDiyG",
+        "name": "function-body",
+        "data": {
+          "parameters": [
+            {
+              "name": "config",
+              "type": {
+                "type": "struct",
+                "id": "8tR8snUlmrVZE4DDDuo9C"
+              }
+            }
+          ],
+          "returnValue": {
+            "type": "void"
+          }
+        },
+        "children": [
+          {
+            "id": "PL1ygW9jTUqSOjf0qD5cf",
+            "name": "create-var",
+            "data": {
+              "name": "state",
+              "variableType": {
+                "type": "struct",
+                "id": "yhxyfy9m5HuAFEaJZ_Ob4",
+                "constant": false,
+                "optional": false
+              }
+            }
+          },
+          {
+            "id": "Th_Mpjao_oLzpEoRTVOJV",
+            "name": "action",
+            "data": "state.config = config"
+          },
+          {
+            "id": "coMU79dt42juxXxaI9V0v",
+            "name": "call-function",
+            "data": {
+              "schemeId": "LHTslQF9bzoqB6XSC1quV",
+              "iconId": null,
+              "parameters": [],
+              "returnVariable": "newColors"
+            }
+          },
+          {
+            "id": "fda4Yx38op-Pn320kZ_6v",
+            "name": "action",
+            "data": "state.colors = newColors"
+          },
+          {
+            "id": "nOIj_tm-8R6736W1G7rjN",
+            "name": "call-function",
+            "data": {
+              "schemeId": "9r_4NfSsuYqbP9ScYSYBR",
+              "iconId": null,
+              "parameters": ["state"],
+              "returnVariable": "snakePoint"
+            }
+          },
+          {
+            "id": "xHRB4msL6yFfuxGSolU3G",
+            "name": "action",
+            "data": "state.snake.x = snakePoint.x"
+          },
+          {
+            "id": "_oMa_qBHodtiQ4yEPqpa9",
+            "name": "action",
+            "data": "state.snake.y = snakePoint.y"
+          },
+          {
+            "id": "EhpuZbl6e0pnIeusCa_5M",
+            "name": "call-function",
+            "data": {
+              "schemeId": "zdslcqgRu28Idy8zf--n8",
+              "iconId": null,
+              "parameters": ["state"],
+              "returnVariable": "foodPoint"
+            }
+          },
+          {
+            "id": "_DlmnAOHP64qjn_EByQNh",
+            "name": "action",
+            "data": "state.food = foodPoint"
+          },
+          {
+            "id": "OBURwlMvvVzKS56ghPw54",
+            "name": "arr-push",
+            "data": {
+              "arr": "state.snake.body",
+              "value": "snakePoint"
+            }
+          },
+          {
+            "id": "eBkdfxI8XgcEG6gW_bbKD",
+            "name": "call-function",
+            "data": {
+              "schemeId": "MfN5AOPHfZqUJ2ngOu3-Z",
+              "iconId": null,
+              "parameters": ["state"],
+              "returnVariable": ""
+            }
+          },
+          {
+            "id": "Wnjqt6u201-28OxXrjqIF",
+            "name": "call-function",
+            "data": {
+              "schemeId": "gFRB0Owe8fCqXE8tUqgfN",
+              "iconId": null,
+              "parameters": ["state"],
+              "returnVariable": ""
+            }
+          },
+          {
+            "id": "n7geuiwQBL18fzr6wSd7E",
+            "name": "call-function",
+            "data": {
+              "schemeId": "JWQudFlU2WMpaPUF9FajM",
+              "iconId": null,
+              "parameters": ["snakePoint", "state.colors.cellColor", "state.config"],
+              "returnVariable": ""
+            }
+          },
+          {
+            "id": "LVIjyQVeO9DbTqBLWS4QN",
+            "name": "while",
+            "data": "true",
+            "meta": {
+              "trueIsMain": false
+            },
+            "children": [
+              {
+                "id": "OTH3M7nL6TwI2m6UqC_uq",
+                "name": "call-api",
+                "data": {
+                  "schemeId": "ucuAXFssAyGB1IV3QV_Nh",
+                  "iconId": "HOZ9AUAjOP8sLZL-whOAS",
+                  "parameters": [],
+                  "returnVariable": ""
+                }
+              },
+              {
+                "id": "73HZd8WnmnnaowYkSyW2Y",
+                "name": "call-api",
+                "data": {
+                  "schemeId": "ucuAXFssAyGB1IV3QV_Nh",
+                  "iconId": "YptE5uPQevBqu9s246hGo",
+                  "parameters": [],
+                  "returnVariable": "buttons"
+                }
+              },
+              {
+                "id": "N3P--yhZiBDqmqpPO9ZaL",
+                "name": "if",
+                "data": "buttons.left",
+                "meta": {
+                  "trueOnRight": false
+                },
+                "children": [
+                  {
+                    "id": "9_x-ej9fMmjQEtnf_soHF",
+                    "name": "if-child",
+                    "children": [
+                      {
+                        "id": "20ZJL1qnLFgtA471QN1nm",
+                        "name": "if",
+                        "data": "state.snake.dirX == 1",
+                        "meta": {
+                          "trueOnRight": true
+                        },
+                        "children": [
+                          {
+                            "id": "aiyecqH76fdCoNPCUnzZq",
+                            "name": "if-child",
+                            "children": [
+                              {
+                                "id": "lsKFPHiFUnvBV8xZQYqRs",
+                                "name": "action",
+                                "data": "state.snake.dirX = -1"
+                              },
+                              {
+                                "id": "g02JFtOlwKkKeDKyb8iH2",
+                                "name": "action",
+                                "data": "state.snake.dirY = 0"
+                              }
+                            ]
+                          },
+                          {
+                            "id": "8-fHxlI9P-W39_S91X0AP",
+                            "name": "if-child",
+                            "children": []
+                          }
+                        ]
+                      }
+                    ]
+                  },
+                  {
+                    "id": "8GCd-lNOO11mYSkLf7OmU",
+                    "name": "if-child",
+                    "children": [
+                      {
+                        "id": "kUtdEpABwwB3FknbIIlYi",
+                        "name": "if",
+                        "data": "buttons.right",
+                        "meta": {
+                          "trueOnRight": false
+                        },
+                        "children": [
+                          {
+                            "id": "iaJsfrNJWMbE-uAiqsyHk",
+                            "name": "if-child",
+                            "children": [
+                              {
+                                "id": "xPkvSV53hUz6pJxFRFeG9",
+                                "name": "if",
+                                "data": "state.snake.dirX == -1",
+                                "meta": {
+                                  "trueOnRight": true
+                                },
+                                "children": [
+                                  {
+                                    "id": "PbOimnbqNE2FVVnq33ImI",
+                                    "name": "if-child",
+                                    "children": [
+                                      {
+                                        "id": "xiWo2aSAyaSAAeXILMzIE",
+                                        "name": "action",
+                                        "data": "state.snake.dirX = 1"
+                                      },
+                                      {
+                                        "id": "guBRV_MOEO6dbL-ZOlhk9",
+                                        "name": "action",
+                                        "data": "state.snake.dirY = 0"
+                                      }
+                                    ]
+                                  },
+                                  {
+                                    "id": "1KcoENUswbiThT3YmrdTC",
+                                    "name": "if-child",
+                                    "children": []
+                                  }
+                                ]
+                              }
+                            ]
+                          },
+                          {
+                            "id": "_J6w9Hl7TEzbvnZuZLbVS",
+                            "name": "if-child",
+                            "children": [
+                              {
+                                "id": "Ah1YgblPJpw6h5fKYsYa1",
+                                "name": "if",
+                                "data": "buttons.top",
+                                "meta": {
+                                  "trueOnRight": false
+                                },
+                                "children": [
+                                  {
+                                    "id": "l8WAKO9TY3TkmINqWpy1u",
+                                    "name": "if-child",
+                                    "children": [
+                                      {
+                                        "id": "4JFaZJSrvfDVbhDRaarp6",
+                                        "name": "if",
+                                        "data": "state.snake.dirY == 1",
+                                        "meta": {
+                                          "trueOnRight": true
+                                        },
+                                        "children": [
+                                          {
+                                            "id": "WFFz2NVgSX_5WUwY0_gt_",
+                                            "name": "if-child",
+                                            "children": [
+                                              {
+                                                "id": "S8dQHEOvfnZXgXNaYJQC_",
+                                                "name": "action",
+                                                "data": "state.snake.dirX = 0"
+                                              },
+                                              {
+                                                "id": "Ox3hhZRJfg5FMflfFY1fF",
+                                                "name": "action",
+                                                "data": "state.snake.dirY = -1"
+                                              }
+                                            ]
+                                          },
+                                          {
+                                            "id": "tPckT-c4CE5nYnYl8mKx8",
+                                            "name": "if-child",
+                                            "children": []
+                                          }
+                                        ]
+                                      }
+                                    ]
+                                  },
+                                  {
+                                    "id": "7973yGSwOWE96ByEtbyB0",
+                                    "name": "if-child",
+                                    "children": [
+                                      {
+                                        "id": "z4HPvsk14oGd6gHgAjt7P",
+                                        "name": "if",
+                                        "data": "buttons.bottom",
+                                        "meta": {
+                                          "trueOnRight": false
+                                        },
+                                        "children": [
+                                          {
+                                            "id": "0u0MP1VuIoxBDXPTkxIlC",
+                                            "name": "if-child",
+                                            "children": [
+                                              {
+                                                "id": "csOMo5j2PD6An5PwEohKm",
+                                                "name": "if",
+                                                "data": "state.snake.dirY == -1",
+                                                "meta": {
+                                                  "trueOnRight": true
+                                                },
+                                                "children": [
+                                                  {
+                                                    "id": "8EGZSF77waNmg7w-lZXXw",
+                                                    "name": "if-child",
+                                                    "children": [
+                                                      {
+                                                        "id": "71w6gNOkzKiPSYNUWLWjT",
+                                                        "name": "action",
+                                                        "data": "state.snake.dirX = 0"
+                                                      },
+                                                      {
+                                                        "id": "_7GjktgNfrD9E5efh77tA",
+                                                        "name": "action",
+                                                        "data": "state.snake.dirY = 1"
+                                                      }
+                                                    ]
+                                                  },
+                                                  {
+                                                    "id": "QwxCl6Ld3inm_oRII0pqi",
+                                                    "name": "if-child",
+                                                    "children": []
+                                                  }
+                                                ]
+                                              }
+                                            ]
+                                          },
+                                          {
+                                            "id": "9wKlIkG625sviGMhGBxte",
+                                            "name": "if-child",
+                                            "children": []
+                                          }
+                                        ]
+                                      }
+                                    ]
+                                  }
+                                ]
+                              }
+                            ]
+                          }
+                        ]
+                      }
+                    ]
+                  }
+                ]
+              },
+              {
+                "id": "BjtdWWmhwWBdMi4lJa4EW",
+                "name": "if",
+                "data": "state.snake.dirX == 0 && state.snake.dirY == 0",
+                "meta": {
+                  "trueOnRight": true
+                },
+                "children": [
+                  {
+                    "id": "LvJldwXxXokDHXZSS0L3W",
+                    "name": "if-child",
+                    "children": []
+                  },
+                  {
+                    "id": "mouo4Bbpg2MtF4cV3ZAd7",
+                    "name": "if-child",
+                    "children": [],
+                    "out": {
+                      "id": "JcvvD8MSQBqMhy9Pq4ikc",
+                      "name": "continue",
+                      "meta": {
+                        "outLevel": 1
+                      }
+                    }
+                  }
+                ]
+              },
+              {
+                "id": "y-82umpcjj0E7E0aBNTDm",
+                "name": "call-function",
+                "data": {
+                  "schemeId": "nOyebu5dibPnEZ5ts2H2M",
+                  "iconId": null,
+                  "parameters": ["state"],
+                  "returnVariable": "nextPoint"
+                }
+              },
+              {
+                "id": "pXy2D1myY3LaVRIJSAupb",
+                "name": "action",
+                "data": "state.snake.x =nextPoint.x"
+              },
+              {
+                "id": "IlIanWUjpVergZAeeiZm2",
+                "name": "action",
+                "data": "state.snake.y = nextPoint.y"
+              },
+              {
+                "id": "f9UwUDTP1olgYfu5K74hm",
+                "name": "call-function",
+                "data": {
+                  "schemeId": "Xf2XR9efm2JETsaCaeGA5",
+                  "iconId": null,
+                  "parameters": ["state"],
+                  "returnVariable": "isOver"
+                }
+              },
+              {
+                "id": "7_4sZYSpK5CzmHEIvLWLg",
+                "name": "if",
+                "data": "isOver",
+                "meta": {
+                  "trueOnRight": false
+                },
+                "children": [
+                  {
+                    "id": "xe8aQglFErO43sFBjJ8Kl",
+                    "name": "if-child",
+                    "children": [
+                      {
+                        "id": "dPjGRiBJLvEeDTX5xbzHu",
+                        "name": "action",
+                        "data": "state.snake.dirX = 0"
+                      },
+                      {
+                        "id": "9mwS3yc9mrNMP2M-P2sAS",
+                        "name": "action",
+                        "data": "state.snake.dirY = 0"
+                      },
+                      {
+                        "id": "c65HhdmoFu1GpnNNWLWkB",
+                        "name": "call-function",
+                        "data": {
+                          "schemeId": "9r_4NfSsuYqbP9ScYSYBR",
+                          "iconId": null,
+                          "parameters": ["state"],
+                          "returnVariable": "newSnakePoint"
+                        }
+                      },
+                      {
+                        "id": "leLkEbFVQW87YHakHfFAX",
+                        "name": "action",
+                        "data": "state.snake.body = [newSnakePoint]"
+                      },
+                      {
+                        "id": "NM0MNlvryEsXtu58IKDgs",
+                        "name": "call-function",
+                        "data": {
+                          "schemeId": "zdslcqgRu28Idy8zf--n8",
+                          "iconId": null,
+                          "parameters": ["state"],
+                          "returnVariable": "newFoodPoint"
+                        }
+                      },
+                      {
+                        "id": "578E6v0c9I0hRO6o1PDP-",
+                        "name": "action",
+                        "data": "state.food = newFoodPoint"
+                      },
+                      {
+                        "id": "gMinsGFaFQQkv-SiXdT-6",
+                        "name": "call-api",
+                        "data": {
+                          "schemeId": "ucuAXFssAyGB1IV3QV_Nh",
+                          "iconId": "tj9MNfCBMgTZH6eqNQFOd",
+                          "parameters": [
+                            "0",
+                            "0",
+                            "state.config.cellSize * state.config.gameWidth",
+                            "state.config.cellSize * state.config.gameHeight",
+                            "state.colors.foodColor"
+                          ],
+                          "returnVariable": ""
+                        }
+                      },
+                      {
+                        "id": "vAg5y8j3yLm0eRIQollqL",
+                        "name": "call-function",
+                        "data": {
+                          "schemeId": "MfN5AOPHfZqUJ2ngOu3-Z",
+                          "iconId": null,
+                          "parameters": ["state"],
+                          "returnVariable": ""
+                        }
+                      },
+                      {
+                        "id": "oejSVBSOo4shgFcVcvqE4",
+                        "name": "call-function",
+                        "data": {
+                          "schemeId": "gFRB0Owe8fCqXE8tUqgfN",
+                          "iconId": null,
+                          "parameters": ["state"],
+                          "returnVariable": ""
+                        }
+                      },
+                      {
+                        "id": "LnM4pGU1fzaM7VEO8SQXD",
+                        "name": "call-function",
+                        "data": {
+                          "schemeId": "JWQudFlU2WMpaPUF9FajM",
+                          "iconId": null,
+                          "parameters": ["newSnakePoint", "state.colors.cellColor", "state.config"],
+                          "returnVariable": ""
+                        }
+                      }
+                    ]
+                  },
+                  {
+                    "id": "hcULrQlClvsvQsjxJtV5p",
+                    "name": "if-child",
+                    "children": [
+                      {
+                        "id": "GG75qN8xmI5WV4ATpE8Db",
+                        "name": "arr-unshift",
+                        "data": {
+                          "arr": "state.snake.body",
+                          "value": "nextPoint"
+                        }
+                      },
+                      {
+                        "id": "d9Xp7CDH4kEYpSWrcd6S2",
+                        "name": "call-function",
+                        "data": {
+                          "schemeId": "JWQudFlU2WMpaPUF9FajM",
+                          "iconId": null,
+                          "parameters": ["nextPoint", "state.colors.cellColor", "state.config"],
+                          "returnVariable": ""
+                        }
+                      },
+                      {
+                        "id": "J8FssgibapviRe1t0KXfw",
+                        "name": "if",
+                        "data": "state.snake.x == state.food.x && state.snake.y == state.food.y",
+                        "meta": {
+                          "trueOnRight": true
+                        },
+                        "children": [
+                          {
+                            "id": "LU9WQX4AC35HGrFuv7kWD",
+                            "name": "if-child",
+                            "children": [
+                              {
+                                "id": "GzFhOMMQf-nGEF0KwIHUZ",
+                                "name": "arr-pop",
+                                "data": {
+                                  "arr": "state.snake.body",
+                                  "variable": "oldPoint"
+                                }
+                              },
+                              {
+                                "id": "w49QyhSyqKkNDpzGmoRjy",
+                                "name": "call-function",
+                                "data": {
+                                  "schemeId": "JWQudFlU2WMpaPUF9FajM",
+                                  "iconId": null,
+                                  "parameters": ["oldPoint", "state.colors.backgroundColor", "state.config"],
+                                  "returnVariable": ""
+                                }
+                              },
+                              {
+                                "id": "SrriDRS3uorPptX9WCEhs",
+                                "name": "call-api",
+                                "data": {
+                                  "schemeId": "ucuAXFssAyGB1IV3QV_Nh",
+                                  "iconId": "mVRSeELOimFdKMeMIKqFo",
+                                  "parameters": [
+                                    "oldPoint.x * state.config.cellSize + state.config.cellSize / 2",
+                                    "oldPoint.y * state.config.cellSize + state.config.cellSize / 2",
+                                    "state.config.pointRadius",
+                                    "state.colors.pointColor"
+                                  ],
+                                  "returnVariable": ""
+                                }
+                              }
+                            ]
+                          },
+                          {
+                            "id": "XltMytdWcPJmfPXKKoKgx",
+                            "name": "if-child",
+                            "children": [
+                              {
+                                "id": "Naa9RR5i-Vl_AfGCf0jqz",
+                                "name": "call-function",
+                                "data": {
+                                  "schemeId": "zdslcqgRu28Idy8zf--n8",
+                                  "iconId": null,
+                                  "parameters": ["state"],
+                                  "returnVariable": "newFoodPoint"
+                                }
+                              },
+                              {
+                                "id": "pjozbbcGA5eFaGMIRd4tZ",
+                                "name": "action",
+                                "data": "state.food = newFoodPoint"
+                              },
+                              {
+                                "id": "_kbNGeEvINMqUxodF4N6Z",
+                                "name": "call-function",
+                                "data": {
+                                  "schemeId": "gFRB0Owe8fCqXE8tUqgfN",
+                                  "iconId": null,
+                                  "parameters": ["state"],
+                                  "returnVariable": ""
+                                }
+                              }
+                            ]
+                          }
+                        ]
+                      }
+                    ]
+                  }
+                ]
+              }
+            ]
+          }
+        ]
+      },
+      {
+        "id": "uxym_WD4UQmWkiJt-NRi8",
+        "name": "function-footer",
+        "data": ""
+      }
+    ]
+  }
+}

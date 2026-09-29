@@ -1,0 +1,592 @@
+{
+  "id": "kHyjfyZ38T2JD3yH7pzN3",
+  "schemeVersion": 2,
+  "name": "State",
+  "type": "object_definition",
+  "description": "",
+  "root": {
+    "id": "m7IMRm5qZTdS75rvJ0-02",
+    "alias": "tree",
+    "block": {
+      "text": "State",
+      "width": 64,
+      "color": "#ffffff"
+    },
+    "children": [
+      {
+        "id": "mWThR-uew3FxhF4m2YY5a",
+        "alias": "system",
+        "block": {
+          "text": "Point",
+          "width": 96,
+          "color": "#ffffff"
+        },
+        "children": [
+          {
+            "id": "doP5v4zD9vr8Ve8MzSOyT",
+            "alias": "system",
+            "block": {
+              "width": 128,
+              "color": "#ffffff",
+              "name": "x",
+              "variableType": {
+                "constant": false,
+                "type": "number",
+                "numberType": "integer",
+                "integerType": "int32",
+                "optional": false
+              }
+            },
+            "children": []
+          },
+          {
+            "id": "Tt3GEZvDBB4deZvCN3VXB",
+            "alias": "system",
+            "block": {
+              "width": 128,
+              "color": "#ffffff",
+              "name": "y",
+              "variableType": {
+                "constant": false,
+                "type": "number",
+                "numberType": "integer",
+                "integerType": "int32",
+                "optional": false
+              }
+            },
+            "children": []
+          }
+        ]
+      },
+      {
+        "id": "PltGH3SuO2kd-EgPPir0F",
+        "alias": "system",
+        "block": {
+          "text": "Snake",
+          "width": 64,
+          "color": "#ffffff"
+        },
+        "children": [
+          {
+            "id": "1IF6eY7CgK7RkDEJIYuBO",
+            "alias": "system",
+            "block": {
+              "width": 192,
+              "color": "#ffffff",
+              "name": "x",
+              "variableType": {
+                "constant": false,
+                "type": "number",
+                "numberType": "integer",
+                "integerType": "int32",
+                "optional": false
+              }
+            },
+            "children": []
+          },
+          {
+            "id": "SKReNQsr6G_Ow6-NnH7oL",
+            "alias": "system",
+            "block": {
+              "width": 192,
+              "color": "#ffffff",
+              "name": "y",
+              "variableType": {
+                "constant": false,
+                "type": "number",
+                "numberType": "integer",
+                "integerType": "int32",
+                "optional": false
+              }
+            },
+            "children": []
+          },
+          {
+            "id": "HKjSwhWUmeM01j22qFuXX",
+            "alias": "system",
+            "block": {
+              "width": 192,
+              "color": "#ffffff",
+              "name": "dirX",
+              "variableType": {
+                "constant": false,
+                "type": "number",
+                "numberType": "integer",
+                "integerType": "int32",
+                "optional": false
+              }
+            },
+            "children": []
+          },
+          {
+            "id": "zU6aQAG-SV8h2a6qm8Yvs",
+            "alias": "system",
+            "block": {
+              "width": 192,
+              "color": "#ffffff",
+              "name": "dirY",
+              "variableType": {
+                "constant": false,
+                "type": "number",
+                "numberType": "integer",
+                "integerType": "int32",
+                "optional": false
+              }
+            },
+            "children": []
+          },
+          {
+            "id": "cefCmTlu0VPzmi8DXQT1d",
+            "alias": "system",
+            "block": {
+              "width": 192,
+              "color": "#ffffff",
+              "name": "body",
+              "variableType": {
+                "type": "array",
+                "elementType": {
+                  "type": "struct",
+                  "iconId": "mWThR-uew3FxhF4m2YY5a",
+                  "schemeId": "kHyjfyZ38T2JD3yH7pzN3",
+                  "name": "Point",
+                  "properties": {
+                    "x": {
+                      "constant": false,
+                      "type": "number",
+                      "numberType": "integer",
+                      "integerType": "int32",
+                      "optional": false
+                    },
+                    "y": {
+                      "constant": false,
+                      "type": "number",
+                      "numberType": "integer",
+                      "integerType": "int32",
+                      "optional": false
+                    }
+                  }
+                },
+                "constant": false,
+                "optional": false,
+                "dimensions": 1
+              }
+            },
+            "children": []
+          }
+        ]
+      },
+      {
+        "id": "meDT1V2wIp9D9Eb4cOZyH",
+        "alias": "system",
+        "block": {
+          "text": "Color",
+          "width": 64,
+          "color": "#ffffff"
+        },
+        "children": [
+          {
+            "id": "jG0TJRkEzzO3QoObsmGx1",
+            "alias": "system",
+            "block": {
+              "width": 192,
+              "color": "#ffffff",
+              "name": "r",
+              "variableType": {
+                "constant": false,
+                "type": "number",
+                "numberType": "integer",
+                "integerType": "int32",
+                "optional": false
+              }
+            },
+            "children": []
+          },
+          {
+            "id": "mRtfaToZzuoRNRHEDOgYp",
+            "alias": "system",
+            "block": {
+              "width": 192,
+              "color": "#ffffff",
+              "name": "g",
+              "variableType": {
+                "constant": false,
+                "type": "number",
+                "numberType": "integer",
+                "integerType": "int32",
+                "optional": false
+              }
+            },
+            "children": []
+          },
+          {
+            "id": "kg3EMMFM6Iz-godMCERam",
+            "alias": "system",
+            "block": {
+              "width": 192,
+              "color": "#ffffff",
+              "name": "b",
+              "variableType": {
+                "constant": false,
+                "type": "number",
+                "numberType": "integer",
+                "integerType": "int32",
+                "optional": false
+              }
+            },
+            "children": []
+          }
+        ]
+      },
+      {
+        "id": "8tR8snUlmrVZE4DDDuo9C",
+        "alias": "system",
+        "block": {
+          "text": "Config",
+          "width": 96,
+          "color": "#ffffff"
+        },
+        "children": [
+          {
+            "id": "i_-IM_d67uDocOIvf7M7N",
+            "alias": "system",
+            "block": {
+              "width": 192,
+              "color": "#ffffff",
+              "name": "cellSize",
+              "variableType": {
+                "constant": false,
+                "type": "number",
+                "numberType": "integer",
+                "integerType": "int32",
+                "optional": false
+              }
+            },
+            "children": []
+          },
+          {
+            "id": "kxzlEciJGcgBvTWi-BN6U",
+            "alias": "system",
+            "block": {
+              "width": 192,
+              "color": "#ffffff",
+              "name": "foodSize",
+              "variableType": {
+                "constant": false,
+                "type": "number",
+                "numberType": "integer",
+                "integerType": "int32",
+                "optional": false
+              }
+            },
+            "children": []
+          },
+          {
+            "id": "5bfiyKUQgq0udIJHjAaZo",
+            "alias": "system",
+            "block": {
+              "width": 192,
+              "color": "#ffffff",
+              "name": "pointRadius",
+              "variableType": {
+                "constant": false,
+                "type": "number",
+                "numberType": "integer",
+                "integerType": "int32",
+                "optional": false
+              }
+            },
+            "children": []
+          },
+          {
+            "id": "OT4lCCn3_taL8GBH1-rKu",
+            "alias": "system",
+            "block": {
+              "width": 192,
+              "color": "#ffffff",
+              "name": "gameWidth",
+              "variableType": {
+                "constant": false,
+                "type": "number",
+                "numberType": "integer",
+                "integerType": "int32",
+                "optional": false
+              }
+            },
+            "children": []
+          },
+          {
+            "id": "zRHy9AG5FBWvdTV_rMl9e",
+            "alias": "system",
+            "block": {
+              "width": 192,
+              "color": "#ffffff",
+              "name": "gameHeight",
+              "variableType": {
+                "constant": false,
+                "type": "number",
+                "numberType": "integer",
+                "integerType": "int32",
+                "optional": false
+              }
+            },
+            "children": []
+          }
+        ]
+      },
+      {
+        "id": "Gprl18EKht0l_OIgo25VK",
+        "alias": "system",
+        "block": {
+          "text": "Colors",
+          "width": 64,
+          "color": "#ffffff"
+        },
+        "children": [
+          {
+            "id": "vgVa_DifWTEDpqzaxvjJb",
+            "alias": "system",
+            "block": {
+              "width": 192,
+              "color": "#ffffff",
+              "name": "foodColor",
+              "variableType": {
+                "type": "struct",
+                "constant": false,
+                "optional": false,
+                "iconId": "meDT1V2wIp9D9Eb4cOZyH",
+                "schemeId": "kHyjfyZ38T2JD3yH7pzN3",
+                "name": "Color",
+                "properties": {}
+              }
+            },
+            "children": []
+          },
+          {
+            "id": "zVnY-xpOa4R2s6kSV3dZ5",
+            "alias": "system",
+            "block": {
+              "width": 192,
+              "color": "#ffffff",
+              "name": "cellColor",
+              "variableType": {
+                "type": "struct",
+                "constant": false,
+                "optional": false,
+                "iconId": "meDT1V2wIp9D9Eb4cOZyH",
+                "schemeId": "kHyjfyZ38T2JD3yH7pzN3",
+                "name": "Color",
+                "properties": {}
+              }
+            },
+            "children": []
+          },
+          {
+            "id": "9w7l15qQnw-upcLr_PNkB",
+            "alias": "system",
+            "block": {
+              "width": 192,
+              "color": "#ffffff",
+              "name": "pointColor",
+              "variableType": {
+                "type": "struct",
+                "constant": false,
+                "optional": false,
+                "iconId": "meDT1V2wIp9D9Eb4cOZyH",
+                "schemeId": "kHyjfyZ38T2JD3yH7pzN3",
+                "name": "Color",
+                "properties": {}
+              }
+            },
+            "children": []
+          },
+          {
+            "id": "T9sDLjBQFvAh1dFs6qCyT",
+            "alias": "system",
+            "block": {
+              "width": 192,
+              "color": "#ffffff",
+              "name": "backgroundColor",
+              "variableType": {
+                "type": "struct",
+                "constant": false,
+                "optional": false,
+                "iconId": "meDT1V2wIp9D9Eb4cOZyH",
+                "schemeId": "kHyjfyZ38T2JD3yH7pzN3",
+                "name": "Color"
+              }
+            },
+            "children": []
+          }
+        ]
+      },
+      {
+        "id": "EMD2v8KQQbp3hg1Nr8312",
+        "alias": "system",
+        "block": {
+          "text": "ButtonsState",
+          "width": 128,
+          "color": "#ffffff"
+        },
+        "children": [
+          {
+            "id": "SUoF6ejdv1J-LQhz9WF7H",
+            "alias": "system",
+            "block": {
+              "width": 192,
+              "color": "#ffffff",
+              "name": "left",
+              "variableType": {
+                "type": "boolean",
+                "constant": false,
+                "optional": false
+              }
+            },
+            "children": []
+          },
+          {
+            "id": "AteHhQIAqQvA_-yi6fDaE",
+            "alias": "system",
+            "block": {
+              "width": 192,
+              "color": "#ffffff",
+              "name": "right",
+              "variableType": {
+                "type": "boolean",
+                "constant": false,
+                "optional": false
+              }
+            },
+            "children": []
+          },
+          {
+            "id": "FQ3uiRLMOyBxh8-6hCJAE",
+            "alias": "system",
+            "block": {
+              "width": 192,
+              "color": "#ffffff",
+              "name": "top",
+              "variableType": {
+                "type": "boolean",
+                "constant": false,
+                "optional": false
+              }
+            },
+            "children": []
+          },
+          {
+            "id": "_-K9GkPOLqrv_VyMI25TK",
+            "alias": "system",
+            "block": {
+              "width": 192,
+              "color": "#ffffff",
+              "name": "bottom",
+              "variableType": {
+                "type": "boolean",
+                "constant": false,
+                "optional": false
+              }
+            },
+            "children": []
+          }
+        ]
+      },
+      {
+        "id": "yhxyfy9m5HuAFEaJZ_Ob4",
+        "alias": "system",
+        "block": {
+          "text": "GameState",
+          "width": 96,
+          "color": "#ffffff"
+        },
+        "children": [
+          {
+            "id": "Ho3o-sifvkGMP8d70CFd9",
+            "alias": "system",
+            "block": {
+              "width": 192,
+              "color": "#ffffff",
+              "name": "colors",
+              "variableType": {
+                "type": "struct",
+                "constant": false,
+                "optional": false,
+                "iconId": "Gprl18EKht0l_OIgo25VK",
+                "schemeId": "kHyjfyZ38T2JD3yH7pzN3",
+                "name": "Colors",
+                "properties": {}
+              }
+            },
+            "children": []
+          },
+          {
+            "id": "DtB2PmpVPxPB5R5AjeZWw",
+            "alias": "system",
+            "block": {
+              "width": 192,
+              "color": "#ffffff",
+              "name": "snake",
+              "variableType": {
+                "type": "struct",
+                "constant": false,
+                "optional": false,
+                "iconId": "PltGH3SuO2kd-EgPPir0F",
+                "schemeId": "kHyjfyZ38T2JD3yH7pzN3",
+                "name": "Snake",
+                "properties": {}
+              }
+            },
+            "children": []
+          },
+          {
+            "id": "9DneYhRM7rl5-myemG3kq",
+            "alias": "system",
+            "block": {
+              "width": 192,
+              "color": "#ffffff",
+              "name": "food",
+              "variableType": {
+                "type": "struct",
+                "constant": false,
+                "optional": false,
+                "iconId": "mWThR-uew3FxhF4m2YY5a",
+                "schemeId": "kHyjfyZ38T2JD3yH7pzN3",
+                "name": "Point",
+                "properties": {}
+              }
+            },
+            "children": []
+          },
+          {
+            "id": "Zk38UrFvUaERnerooppLP",
+            "alias": "system",
+            "block": {
+              "width": 192,
+              "color": "#ffffff",
+              "name": "config",
+              "variableType": {
+                "type": "struct",
+                "constant": false,
+                "optional": false,
+                "iconId": "8tR8snUlmrVZE4DDDuo9C",
+                "schemeId": "kHyjfyZ38T2JD3yH7pzN3",
+                "name": "Config",
+                "properties": {}
+              }
+            },
+            "children": []
+          }
+        ]
+      }
+    ],
+    "gaps": [],
+    "header": {
+      "alias": "system",
+      "block": {
+        "text": "",
+        "width": 64,
+        "color": "#ffffff"
+      },
+      "id": "GqUc8adttnw-IBfuifiRA"
+    }
+  }
+}

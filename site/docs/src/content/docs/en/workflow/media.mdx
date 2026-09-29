@@ -1,0 +1,86 @@
+---
+title: Media
+description: The media integration — resize, convert, trim, concat, thumbnail and transcode images/video/audio with ffmpeg, working on File references
+head:
+  - tag: meta
+    attrs:
+      name: keywords
+      content: 'media, ffmpeg, image resize, thumbnail, video, audio, convert, transcode, concat, crop, workflow'
+---
+
+<p>
+  The <b>Media</b> integration processes images, video and audio with <a href="https://ffmpeg.org/">ffmpeg</a> — resize
+  a photo, make a thumbnail, trim or stitch clips, convert a voice message before transcribing it. Every action takes
+  and returns a <a href="./files/">File</a> reference, never raw bytes: the work happens on a separate, dedicated
+  service, not inside your scenario's own process. No credentials are needed — it's available to every scenario the
+  moment the project exists.
+</p>
+
+#### Actions
+
+<ul>
+  <li>
+    <b>Probe.</b> Reads a file's duration, width/height, video/audio codec, bitrate and MIME type without changing
+    anything — the usual first step before deciding what to do with a file whose shape you don't already know (e.g. a
+    photo of unknown size someone sent).
+  </li>
+  <li>
+    <b>Resize image.</b> Fits an image inside a given width/height (or crops to exactly fill it), with a target format
+    (keep the original, JPEG, PNG or WebP) and quality.
+  </li>
+  <li>
+    <b>Convert image.</b> Changes an image's format and quality without resizing.
+  </li>
+  <li>
+    <b>Trim video.</b> Cuts a clip starting at a given time, for a given duration — a fast stream copy by default (no
+    re-encoding), or a full re-encode when the cut needs to land exactly on a non-keyframe boundary.
+  </li>
+  <li>
+    <b>Concatenate video.</b> Joins several clips into one, in order — a fast copy when every input already shares the
+    same codec/resolution, or a re-encode when they don't.
+  </li>
+  <li>
+    <b>Video thumbnail.</b> Grabs a single frame at a given time as a JPEG image, with an optional target width.
+  </li>
+  <li>
+    <b>Transcode video.</b> Re-encodes a video to one of a few fixed presets (web-friendly 720p/1080p, a Telegram-sized
+    preset, or an animated GIF) and a target container format.
+  </li>
+  <li>
+    <b>Extract audio.</b> Pulls the audio track out of a video file as MP3, AAC, WAV or Ogg.
+  </li>
+  <li>
+    <b>Convert audio.</b> Changes an audio file's format, bitrate, channel count (mono/stereo) and sample rate — the
+    usual step before <b>Call AI (transcribe)</b>, since a Telegram voice message arrives as Ogg/Opus and some
+    transcription backends want something else.
+  </li>
+</ul>
+
+#### Typical chains
+
+<ul>
+  <li>
+    <b>Telegram voice message → text.</b> <code>message.voice</code> is already a <code>File</code> — run{' '}
+    <b>Convert audio</b> (to MP3 or WAV) on it, then pass the result to <b>Call AI (transcribe)</b>.
+  </li>
+  <li>
+    <b>Incoming photo → a smaller copy sent back.</b> <b>Probe</b> the incoming <code>message.photo</code> to check its
+    size, <b>Resize image</b> it down (e.g. to fit inside 800×800 as WebP), then <b>Send file</b> the result back to the
+    chat.
+  </li>
+  <li>
+    <b>Video upload → a preview.</b> <b>Probe</b> for duration, <b>Video thumbnail</b> at a fixed timestamp (or a
+    fraction of the duration) for a preview image, and <b>Transcode video</b> to a web-friendly preset before
+    publishing.
+  </li>
+</ul>
+
+#### Limits and timeouts
+
+<p>
+  Every operation is a long-running, heartbeating step rather than a quick call — a transcode or a large concat can take
+  minutes, and the platform reports progress and lets it be cancelled while it runs (e.g. if the scenario itself is
+  stopped) rather than blocking with no feedback. Inputs are checked against their real container/codec before any
+  processing starts, so an unsupported or corrupt file is rejected early rather than fed to a decoder. Only a fixed set
+  of operations is exposed — there's no free-form access to ffmpeg's own command-line options.
+</p>

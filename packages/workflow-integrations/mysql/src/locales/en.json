@@ -1,0 +1,38 @@
+{
+  "mysql": {
+    "label": "MySQL",
+    "field": {
+      "connectionString": "Connection string (mysql://user:pass@host:3306/db)"
+    }
+  },
+  "sql": {
+    "action": {
+      "select": "Select rows",
+      "selectOne": "Select one row",
+      "insert": "Insert row",
+      "update": "Update rows",
+      "delete": "Delete rows",
+      "query": "Raw SQL query"
+    },
+    "field": {
+      "credentialId": "Database",
+      "table": "Table",
+      "where": "Where (optional)",
+      "orderBy": "Order by (e.g. created_at desc)",
+      "limit": "Limit (optional)",
+      "row": "Row",
+      "set": "Set",
+      "sql": "SQL",
+      "params": "Parameters (array expression)",
+      "result": "Result type",
+      "resultVariable": "Save result to",
+      "whereRequired": "Where must not be empty",
+      "ssl": "SSL",
+      "sslOption": {
+        "prefer": "Prefer (use TLS if available)",
+        "require": "Require (fail without TLS)",
+        "disable": "Disable"
+      }
+    }
+  }
+}

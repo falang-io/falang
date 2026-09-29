@@ -1,0 +1,29 @@
+{
+  "openai": {
+    "label": "OpenAI-compatible",
+    "credentialField": {
+      "baseUrl": "Base URL",
+      "apiKey": "API Key"
+    },
+    "field": {
+      "integration": "Integration",
+      "model": "Model",
+      "prompt": "Prompt",
+      "attachments": "Attachments",
+      "result": "Result",
+      "resultVariable": "Save result to",
+      "size": "Size",
+      "file": "Audio file",
+      "transcribeModel": "Model (e.g. whisper-1)",
+      "language": "Language (optional)"
+    },
+    "action": {
+      "callAiText": "Call AI (text)",
+      "callAiImage": "Call AI (image generation)",
+      "callAiTranscribe": "Call AI (transcribe audio)"
+    },
+    "choice": {
+      "callAiChoice": "Ask AI (choice)"
+    }
+  }
+}

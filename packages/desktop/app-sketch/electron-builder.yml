@@ -1,0 +1,34 @@
+appId: com.falang.desktop
+productName: Falang
+executableName: falang
+directories:
+  output: dist
+  buildResources: resources
+files:
+  - out/**/*
+  - package.json
+  - '!**/*.{ts,tsx,map}'
+asarUnpack:
+  - resources/**
+# The bundled `@falang/desktop-mcp` stdio server (ADR 0029 (private), phase E) — `mcp-server-path.ts`
+# resolves a packaged build's command to `node <resourcesPath>/mcp-server/index.js`, so it must land
+# unpacked at exactly that path. Built by the `prebuild:*` npm hooks below (`npm run build -w
+# @falang/desktop-mcp`) before electron-builder runs; not part of this app's own `out/` output.
+extraResources:
+  - from: ../mcp/dist/index.js
+    to: mcp-server/index.js
+  # The bundled codegen export worker (ADR 0019 (private)'s "Implementation notes (export worker
+  # …)") — `resolve-export-worker-command.ts` resolves a packaged build's command to `node
+  # <resourcesPath>/export-worker/index.js`. Built by this package's own `prebuild:*` npm hooks
+  # (`npm run build:export-worker`) before electron-builder runs.
+  - from: worker-dist/index.js
+    to: export-worker/index.js
+# No auto-update (matching the old Electron app's offline-first UX: the app never phones home — see ADR 0005 (private)).
+linux:
+  target: AppImage
+  category: Development
+mac:
+  target: dmg
+  category: public.app-category.developer-tools
+win:
+  target: nsis

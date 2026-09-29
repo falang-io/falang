@@ -1,0 +1,71 @@
+{
+  "id": "JWQudFlU2WMpaPUF9FajM",
+  "type": "function",
+  "name": "drawSnakeSquare",
+  "root": {
+    "id": "K26d9OrusDeFwiQif8nMs",
+    "name": "function",
+    "children": [
+      {
+        "id": "8Ea2B2T9goVy3Km5WO73H",
+        "name": "function-header",
+        "data": ""
+      },
+      {
+        "id": "XCreQkGFHcEnwqhrpyfyp",
+        "name": "function-body",
+        "data": {
+          "parameters": [
+            {
+              "name": "point",
+              "type": {
+                "type": "struct",
+                "id": "mWThR-uew3FxhF4m2YY5a"
+              }
+            },
+            {
+              "name": "color",
+              "type": {
+                "type": "struct",
+                "id": "meDT1V2wIp9D9Eb4cOZyH"
+              }
+            },
+            {
+              "name": "config",
+              "type": {
+                "type": "struct",
+                "id": "8tR8snUlmrVZE4DDDuo9C"
+              }
+            }
+          ],
+          "returnValue": {
+            "type": "void"
+          }
+        },
+        "children": [
+          {
+            "id": "inPlwfqnVyKbuKIARZ0aK",
+            "name": "call-api",
+            "data": {
+              "schemeId": "ucuAXFssAyGB1IV3QV_Nh",
+              "iconId": "tj9MNfCBMgTZH6eqNQFOd",
+              "parameters": [
+                "point.x * config.cellSize",
+                "point.y * config.cellSize",
+                "config.cellSize - 2",
+                "config.cellSize - 2",
+                "color"
+              ],
+              "returnVariable": ""
+            }
+          }
+        ]
+      },
+      {
+        "id": "Bd_3utQn_FVovHcejnDfb",
+        "name": "function-footer",
+        "data": ""
+      }
+    ]
+  }
+}

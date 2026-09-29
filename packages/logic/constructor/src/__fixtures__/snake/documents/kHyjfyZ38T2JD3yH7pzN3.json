@@ -1,0 +1,492 @@
+{
+  "id": "kHyjfyZ38T2JD3yH7pzN3",
+  "type": "objects-structure",
+  "name": "State",
+  "root": {
+    "id": "m7IMRm5qZTdS75rvJ0-02",
+    "name": "objects-structure",
+    "children": [
+      {
+        "id": "3ye_MzI7YIgFCWCtbaH6C",
+        "name": "objects-structure-header",
+        "data": "State"
+      },
+      {
+        "id": "vYX4Uq3_P1P6Xd6HuxvbB",
+        "name": "objects-structure-body",
+        "data": null,
+        "children": [
+          {
+            "id": "mWThR-uew3FxhF4m2YY5a",
+            "name": "objects-structure-thread",
+            "data": "Point",
+            "children": [
+              {
+                "id": "doP5v4zD9vr8Ve8MzSOyT",
+                "name": "objects-structure-child",
+                "data": {
+                  "name": "x",
+                  "variableType": {
+                    "type": "number",
+                    "numberType": {
+                      "type": "integer",
+                      "integerType": "int32"
+                    },
+                    "constant": false,
+                    "optional": false
+                  }
+                },
+                "children": []
+              },
+              {
+                "id": "Tt3GEZvDBB4deZvCN3VXB",
+                "name": "objects-structure-child",
+                "data": {
+                  "name": "y",
+                  "variableType": {
+                    "type": "number",
+                    "numberType": {
+                      "type": "integer",
+                      "integerType": "int32"
+                    },
+                    "constant": false,
+                    "optional": false
+                  }
+                },
+                "children": []
+              }
+            ]
+          },
+          {
+            "id": "PltGH3SuO2kd-EgPPir0F",
+            "name": "objects-structure-thread",
+            "data": "Snake",
+            "children": [
+              {
+                "id": "1IF6eY7CgK7RkDEJIYuBO",
+                "name": "objects-structure-child",
+                "data": {
+                  "name": "x",
+                  "variableType": {
+                    "type": "number",
+                    "numberType": {
+                      "type": "integer",
+                      "integerType": "int32"
+                    },
+                    "constant": false,
+                    "optional": false
+                  }
+                },
+                "children": []
+              },
+              {
+                "id": "SKReNQsr6G_Ow6-NnH7oL",
+                "name": "objects-structure-child",
+                "data": {
+                  "name": "y",
+                  "variableType": {
+                    "type": "number",
+                    "numberType": {
+                      "type": "integer",
+                      "integerType": "int32"
+                    },
+                    "constant": false,
+                    "optional": false
+                  }
+                },
+                "children": []
+              },
+              {
+                "id": "HKjSwhWUmeM01j22qFuXX",
+                "name": "objects-structure-child",
+                "data": {
+                  "name": "dirX",
+                  "variableType": {
+                    "type": "number",
+                    "numberType": {
+                      "type": "integer",
+                      "integerType": "int32"
+                    },
+                    "constant": false,
+                    "optional": false
+                  }
+                },
+                "children": []
+              },
+              {
+                "id": "zU6aQAG-SV8h2a6qm8Yvs",
+                "name": "objects-structure-child",
+                "data": {
+                  "name": "dirY",
+                  "variableType": {
+                    "type": "number",
+                    "numberType": {
+                      "type": "integer",
+                      "integerType": "int32"
+                    },
+                    "constant": false,
+                    "optional": false
+                  }
+                },
+                "children": []
+              },
+              {
+                "id": "cefCmTlu0VPzmi8DXQT1d",
+                "name": "objects-structure-child",
+                "data": {
+                  "name": "body",
+                  "variableType": {
+                    "type": "array",
+                    "elementType": {
+                      "type": "struct",
+                      "id": "mWThR-uew3FxhF4m2YY5a"
+                    },
+                    "dimensions": 1,
+                    "constant": false,
+                    "optional": false
+                  }
+                },
+                "children": []
+              }
+            ]
+          },
+          {
+            "id": "meDT1V2wIp9D9Eb4cOZyH",
+            "name": "objects-structure-thread",
+            "data": "Color",
+            "children": [
+              {
+                "id": "jG0TJRkEzzO3QoObsmGx1",
+                "name": "objects-structure-child",
+                "data": {
+                  "name": "r",
+                  "variableType": {
+                    "type": "number",
+                    "numberType": {
+                      "type": "integer",
+                      "integerType": "int32"
+                    },
+                    "constant": false,
+                    "optional": false
+                  }
+                },
+                "children": []
+              },
+              {
+                "id": "mRtfaToZzuoRNRHEDOgYp",
+                "name": "objects-structure-child",
+                "data": {
+                  "name": "g",
+                  "variableType": {
+                    "type": "number",
+                    "numberType": {
+                      "type": "integer",
+                      "integerType": "int32"
+                    },
+                    "constant": false,
+                    "optional": false
+                  }
+                },
+                "children": []
+              },
+              {
+                "id": "kg3EMMFM6Iz-godMCERam",
+                "name": "objects-structure-child",
+                "data": {
+                  "name": "b",
+                  "variableType": {
+                    "type": "number",
+                    "numberType": {
+                      "type": "integer",
+                      "integerType": "int32"
+                    },
+                    "constant": false,
+                    "optional": false
+                  }
+                },
+                "children": []
+              }
+            ]
+          },
+          {
+            "id": "8tR8snUlmrVZE4DDDuo9C",
+            "name": "objects-structure-thread",
+            "data": "Config",
+            "children": [
+              {
+                "id": "i_-IM_d67uDocOIvf7M7N",
+                "name": "objects-structure-child",
+                "data": {
+                  "name": "cellSize",
+                  "variableType": {
+                    "type": "number",
+                    "numberType": {
+                      "type": "integer",
+                      "integerType": "int32"
+                    },
+                    "constant": false,
+                    "optional": false
+                  }
+                },
+                "children": []
+              },
+              {
+                "id": "kxzlEciJGcgBvTWi-BN6U",
+                "name": "objects-structure-child",
+                "data": {
+                  "name": "foodSize",
+                  "variableType": {
+                    "type": "number",
+                    "numberType": {
+                      "type": "integer",
+                      "integerType": "int32"
+                    },
+                    "constant": false,
+                    "optional": false
+                  }
+                },
+                "children": []
+              },
+              {
+                "id": "5bfiyKUQgq0udIJHjAaZo",
+                "name": "objects-structure-child",
+                "data": {
+                  "name": "pointRadius",
+                  "variableType": {
+                    "type": "number",
+                    "numberType": {
+                      "type": "integer",
+                      "integerType": "int32"
+                    },
+                    "constant": false,
+                    "optional": false
+                  }
+                },
+                "children": []
+              },
+              {
+                "id": "OT4lCCn3_taL8GBH1-rKu",
+                "name": "objects-structure-child",
+                "data": {
+                  "name": "gameWidth",
+                  "variableType": {
+                    "type": "number",
+                    "numberType": {
+                      "type": "integer",
+                      "integerType": "int32"
+                    },
+                    "constant": false,
+                    "optional": false
+                  }
+                },
+                "children": []
+              },
+              {
+                "id": "zRHy9AG5FBWvdTV_rMl9e",
+                "name": "objects-structure-child",
+                "data": {
+                  "name": "gameHeight",
+                  "variableType": {
+                    "type": "number",
+                    "numberType": {
+                      "type": "integer",
+                      "integerType": "int32"
+                    },
+                    "constant": false,
+                    "optional": false
+                  }
+                },
+                "children": []
+              }
+            ]
+          },
+          {
+            "id": "Gprl18EKht0l_OIgo25VK",
+            "name": "objects-structure-thread",
+            "data": "Colors",
+            "children": [
+              {
+                "id": "vgVa_DifWTEDpqzaxvjJb",
+                "name": "objects-structure-child",
+                "data": {
+                  "name": "foodColor",
+                  "variableType": {
+                    "type": "struct",
+                    "id": "meDT1V2wIp9D9Eb4cOZyH",
+                    "constant": false,
+                    "optional": false
+                  }
+                },
+                "children": []
+              },
+              {
+                "id": "zVnY-xpOa4R2s6kSV3dZ5",
+                "name": "objects-structure-child",
+                "data": {
+                  "name": "cellColor",
+                  "variableType": {
+                    "type": "struct",
+                    "id": "meDT1V2wIp9D9Eb4cOZyH",
+                    "constant": false,
+                    "optional": false
+                  }
+                },
+                "children": []
+              },
+              {
+                "id": "9w7l15qQnw-upcLr_PNkB",
+                "name": "objects-structure-child",
+                "data": {
+                  "name": "pointColor",
+                  "variableType": {
+                    "type": "struct",
+                    "id": "meDT1V2wIp9D9Eb4cOZyH",
+                    "constant": false,
+                    "optional": false
+                  }
+                },
+                "children": []
+              },
+              {
+                "id": "T9sDLjBQFvAh1dFs6qCyT",
+                "name": "objects-structure-child",
+                "data": {
+                  "name": "backgroundColor",
+                  "variableType": {
+                    "type": "struct",
+                    "id": "meDT1V2wIp9D9Eb4cOZyH",
+                    "constant": false,
+                    "optional": false
+                  }
+                },
+                "children": []
+              }
+            ]
+          },
+          {
+            "id": "EMD2v8KQQbp3hg1Nr8312",
+            "name": "objects-structure-thread",
+            "data": "ButtonsState",
+            "children": [
+              {
+                "id": "SUoF6ejdv1J-LQhz9WF7H",
+                "name": "objects-structure-child",
+                "data": {
+                  "name": "left",
+                  "variableType": {
+                    "type": "boolean",
+                    "constant": false,
+                    "optional": false
+                  }
+                },
+                "children": []
+              },
+              {
+                "id": "AteHhQIAqQvA_-yi6fDaE",
+                "name": "objects-structure-child",
+                "data": {
+                  "name": "right",
+                  "variableType": {
+                    "type": "boolean",
+                    "constant": false,
+                    "optional": false
+                  }
+                },
+                "children": []
+              },
+              {
+                "id": "FQ3uiRLMOyBxh8-6hCJAE",
+                "name": "objects-structure-child",
+                "data": {
+                  "name": "top",
+                  "variableType": {
+                    "type": "boolean",
+                    "constant": false,
+                    "optional": false
+                  }
+                },
+                "children": []
+              },
+              {
+                "id": "_-K9GkPOLqrv_VyMI25TK",
+                "name": "objects-structure-child",
+                "data": {
+                  "name": "bottom",
+                  "variableType": {
+                    "type": "boolean",
+                    "constant": false,
+                    "optional": false
+                  }
+                },
+                "children": []
+              }
+            ]
+          },
+          {
+            "id": "yhxyfy9m5HuAFEaJZ_Ob4",
+            "name": "objects-structure-thread",
+            "data": "GameState",
+            "children": [
+              {
+                "id": "Ho3o-sifvkGMP8d70CFd9",
+                "name": "objects-structure-child",
+                "data": {
+                  "name": "colors",
+                  "variableType": {
+                    "type": "struct",
+                    "id": "Gprl18EKht0l_OIgo25VK",
+                    "constant": false,
+                    "optional": false
+                  }
+                },
+                "children": []
+              },
+              {
+                "id": "DtB2PmpVPxPB5R5AjeZWw",
+                "name": "objects-structure-child",
+                "data": {
+                  "name": "snake",
+                  "variableType": {
+                    "type": "struct",
+                    "id": "PltGH3SuO2kd-EgPPir0F",
+                    "constant": false,
+                    "optional": false
+                  }
+                },
+                "children": []
+              },
+              {
+                "id": "9DneYhRM7rl5-myemG3kq",
+                "name": "objects-structure-child",
+                "data": {
+                  "name": "food",
+                  "variableType": {
+                    "type": "struct",
+                    "id": "mWThR-uew3FxhF4m2YY5a",
+                    "constant": false,
+                    "optional": false
+                  }
+                },
+                "children": []
+              },
+              {
+                "id": "Zk38UrFvUaERnerooppLP",
+                "name": "objects-structure-child",
+                "data": {
+                  "name": "config",
+                  "variableType": {
+                    "type": "struct",
+                    "id": "8tR8snUlmrVZE4DDDuo9C",
+                    "constant": false,
+                    "optional": false
+                  }
+                },
+                "children": []
+              }
+            ]
+          }
+        ]
+      }
+    ]
+  }
+}

@@ -1,0 +1,140 @@
+{
+  "id": "zdslcqgRu28Idy8zf--n8",
+  "schemeVersion": 2,
+  "name": "getNewFoodPoint",
+  "type": "function",
+  "description": "",
+  "root": {
+    "id": "UTXeesjId4EdZOMA35YW1",
+    "alias": "function",
+    "header": {
+      "text": "",
+      "width": 64,
+      "color": "#ffffff"
+    },
+    "block": {
+      "parameters": [
+        {
+          "name": "state",
+          "type": {
+            "type": "struct",
+            "iconId": "yhxyfy9m5HuAFEaJZ_Ob4",
+            "schemeId": "kHyjfyZ38T2JD3yH7pzN3",
+            "name": "GameState"
+          }
+        }
+      ],
+      "returnValue": {
+        "type": "struct",
+        "iconId": "mWThR-uew3FxhF4m2YY5a",
+        "schemeId": "kHyjfyZ38T2JD3yH7pzN3",
+        "name": "Point"
+      },
+      "width": 224,
+      "name": "getNewFoodPoint"
+    },
+    "children": [
+      {
+        "id": "DQZhz6wI53p8hPB7WPRAm",
+        "alias": "pseudo-cycle",
+        "block": {
+          "width": 64
+        },
+        "children": [
+          {
+            "id": "nv69UdcCiiXZ3zQeoqpO5",
+            "alias": "call_function",
+            "block": {
+              "parameters": [
+                "state"
+              ],
+              "returnVariable": "newFoodPoint",
+              "schemeId": "p1oTmW4T5DPD-s9IIoGwU",
+              "width": 192,
+              "iconId": null
+            }
+          },
+          {
+            "id": "VckIcLeMDb4P6lC0ug7iX",
+            "alias": "foreach",
+            "block": {
+              "arr": "state.snake.body",
+              "index": "",
+              "item": "bodyItem",
+              "width": 192
+            },
+            "children": [
+              {
+                "id": "-B1ubzcYAsKCnoIqg2OP1",
+                "alias": "if",
+                "block": {
+                  "width": 224,
+                  "color": "#ffffff",
+                  "expression": "newFoodPoint.x == bodyItem.x and newFoodPoint.y == bodyItem.y",
+                  "type": "boolean",
+                  "variableType": null
+                },
+                "trueOnRight": true,
+                "gaps": [],
+                "children": [
+                  {
+                    "alias": "system",
+                    "id": "1O-hc6VoQcIgYf6ouEW4z",
+                    "block": {
+                      "width": 0
+                    },
+                    "children": []
+                  },
+                  {
+                    "alias": "system",
+                    "id": "1Vj3Tn3prqSBRo1u2Zynx",
+                    "block": {
+                      "width": 0
+                    },
+                    "children": [],
+                    "out": {
+                      "type": "continue",
+                      "level": 2,
+                      "alias": "system",
+                      "block": {
+                        "width": 64
+                      },
+                      "id": "ucY4KtY0R5PSWdSfz_ybJ"
+                    }
+                  }
+                ]
+              }
+            ]
+          },
+          {
+            "id": "eY2h0tVu6B07rv-r5R7qI",
+            "alias": "assign_var",
+            "block": {
+              "width": 256,
+              "color": "#ffffff",
+              "expression": "returnValue.x = newFoodPoint.x",
+              "type": "assign",
+              "variableType": null
+            }
+          },
+          {
+            "id": "AOOJSmk-jdzqHSn472XDm",
+            "alias": "assign_var",
+            "block": {
+              "width": 256,
+              "color": "#ffffff",
+              "expression": "returnValue.y = newFoodPoint.y",
+              "type": "assign",
+              "variableType": null
+            }
+          }
+        ]
+      }
+    ],
+    "footer": {
+      "text": "",
+      "width": 64,
+      "color": "#ffffff"
+    }
+  }
+}

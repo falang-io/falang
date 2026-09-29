@@ -1,0 +1,33 @@
+{
+  "integration-editor": {
+    "select-placeholder": "Выбрать…",
+    "select-credential-placeholder": "Выберите интеграцию…",
+    "select-struct-placeholder": "Выберите структуру…",
+    "loading": "Загрузка…",
+    "select-credential-first": "Сначала выберите интеграцию…",
+    "result-text": "Текст",
+    "result-structured-output": "Структурированный вывод",
+    "alias": "Алиас",
+    "variable": "Переменная",
+    "options": "Варианты",
+    "add-option": "Добавить вариант",
+    "type-number": "Число",
+    "type-boolean": "Логическое",
+    "type-void": "Нет",
+    "prompt": "Подсказка"
+  },
+  "activepieces-picker": {
+    "title": "Добавить действие ActivePieces",
+    "select-placeholder": "Выберите интеграцию и действие…",
+    "no-integrations": "В этом workflow нет настроенных интеграций ActivePieces"
+  },
+  "trigger-function": {
+    "schedule-status": {
+      "active": "активно",
+      "paused": "на паузе",
+      "next": "следующий {{time}}",
+      "last": "последний {{time}}",
+      "skipped": "пропущено {{count}}"
+    }
+  }
+}

@@ -1,0 +1,65 @@
+{
+  "id": "OTDzsN8iFb3HJcptGs6gd",
+  "schemeVersion": 2,
+  "name": "CreateAndPrintNumberArray",
+  "type": "function",
+  "description": "",
+  "root": {
+    "id": "MJkB_WjgPLcHI4F5gQc1t",
+    "alias": "function",
+    "header": {
+      "text": "",
+      "width": 160,
+      "color": "#ffffff"
+    },
+    "block": {
+      "parameters": [],
+      "returnValue": {
+        "type": "void"
+      },
+      "width": 192,
+      "name": "CreateAndPrintNumberArray"
+    },
+    "children": [
+      {
+        "id": "I3v1io3MlVSvRYLMQWoz5",
+        "alias": "create_var",
+        "block": {
+          "width": 128,
+          "color": "#ffffff",
+          "expression": "x = [1,2,3]",
+          "type": "create",
+          "variableType": {
+            "type": "array",
+            "elementType": {
+              "type": "number",
+              "numberType": "integer",
+              "integerType": "int32"
+            },
+            "constant": false,
+            "optional": false,
+            "dimensions": 1
+          }
+        }
+      },
+      {
+        "id": "cjBjvWfIAFwxNwz73zz6n",
+        "alias": "call_function",
+        "block": {
+          "parameters": [
+            "x"
+          ],
+          "returnVariable": "",
+          "schemeId": "IcuthIiJQ_r3xMWs5My6i",
+          "width": 160,
+          "iconId": null
+        }
+      }
+    ],
+    "footer": {
+      "text": "",
+      "width": 160,
+      "color": "#ffffff"
+    }
+  }
+}

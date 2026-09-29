@@ -1,0 +1,108 @@
+---
+title: Files
+description: Working with files in the workflow engine — the File reference type, where files come from, public links, quotas and TTL
+head:
+  - tag: meta
+    attrs:
+      name: keywords
+      content: 'files, file, upload, download, storage, s3, quota, workflow'
+---
+
+<p>
+  A <b>File</b> is a small reference value — <code>id</code>, <code>name</code>, <code>size</code>, <code>mime</code>,
+  and an optional <code>publicUrl</code> — never the bytes themselves. The bytes live in the platform's own object
+  storage; a scenario only ever passes the reference around between nodes, the same way it passes a number or a string.
+  This keeps file handling out of a scenario's own execution history, which has to stay small — a 50&nbsp;MB attachment
+  would never fit there as a value, but its <code>File</code> reference does.
+</p>
+
+#### Where a File comes from
+
+<ul>
+  <li>
+    <b>Telegram media.</b> A photo, document, voice message, audio or video attached to an incoming message is resolved
+    into a <code>File</code> automatically, before the scenario even starts — <code>message.photo</code>,
+    <code>message.document</code>, <code>message.voice</code>, <code>message.audio</code> and <code>message.video</code>{' '}
+    are already <code>File</code> values (or absent, if the message carries none of that kind). No extra node is needed
+    to "download" them.
+  </li>
+  <li>
+    <b>"Download file" action.</b> Fetches any URL and stores the response as a <code>File</code> — the one place a
+    plain link turns into a file your scenario can act on.
+  </li>
+  <li>
+    <b>"Call AI (image)" action.</b> Asks an OpenAI-compatible model to generate an image from a text prompt and returns
+    it as a <code>File</code>.
+  </li>
+  <li>
+    <b>An HTTP request configured to return a file.</b> The "HTTP request" node has a "response as" setting; set to
+    "file", the response body is stored as a <code>File</code> instead of being parsed as text or JSON — useful for
+    downloading a binary payload (a PDF, an image, an archive) from any API. The same setting lets the request's own
+    body be a <code>File</code>, for uploading one to an API that expects raw bytes.
+  </li>
+  <li>
+    <b>Manual upload.</b> The project's <b>Files</b> tab (see below) lets you upload a file by hand — handy for giving a
+    scenario something to process during testing, without waiting for a real trigger.
+  </li>
+  <li>
+    <b>"Create file from text" action.</b> Turns a string your scenario built (a CSV, a JSON document, a rendered HTML
+    page) into a <code>File</code>, so it can be sent on or downloaded like anything else.
+  </li>
+</ul>
+
+#### What you can do with a File
+
+<ul>
+  <li>
+    <b>Read it as text</b> — the "Read file as text" action loads a file's contents into a string variable, refusing
+    files over a configurable size (workflow state has to stay small; large files are for streaming between nodes, not
+    for holding in a variable).
+  </li>
+  <li>
+    <b>Send it to Telegram</b> — "Send file" delivers a <code>File</code> to a chat as a photo, document, video, audio
+    or voice message (auto-detected from its type, or chosen explicitly).
+  </li>
+  <li>
+    <b>Attach it to an AI request</b> — "Call AI"/"AI Choice" accept a list of <code>File</code> attachments (images
+    and, where the model supports it, documents), so the model can see what was sent along with the prompt.
+  </li>
+  <li>
+    <b>Transcribe it</b> — "Call AI (transcribe)" turns an audio <code>File</code> (e.g. a Telegram voice message) into
+    text.
+  </li>
+  <li>
+    <b>Delete it</b>, or <b>re-look it up by id</b> ("File info") if you only kept its id somewhere (a database row, per
+    the database integrations) rather than the full reference.
+  </li>
+</ul>
+
+#### Public links are opt-in
+
+<p>
+  A <code>File</code> is internal-only by default — reachable only from inside your own scenarios and from the project's
+  Files tab, never from a bare URL anyone could guess or share. The "Publish file" action turns on a public,
+  unauthenticated link (a long, unguessable token, not the file's own id) that anyone with the link can open; "Unpublish
+  file" turns it back off without deleting the file itself. Deleting the file revokes any link immediately. This is
+  deliberately separate from sending a file to Telegram or attaching it to an AI request — both of those work without
+  ever publishing anything, since the file's bytes are delivered directly rather than through a link a third party has
+  to fetch.
+</p>
+
+#### TTL and quotas
+
+<p>
+  Every file counts against two limits: a maximum size for one file, and a maximum total size for a project's files
+  taken together — uploading past either is rejected. Files also expire automatically unless a scenario explicitly asked
+  for them not to: a file created by a run on the <b>dev</b> stand is removed after a day by default, a file Telegram
+  delivered into a chat after a week, and a file created by a <b>published</b> (production) run never expires on its
+  own. These defaults can be changed per user by an administrator (see <a href="./administration/">Administration</a>),
+  so a deployment can raise or lower them for a specific account without changing the defaults for everyone else.
+</p>
+
+#### The Files tab
+
+<p>
+  Every project has a <b>Files</b> tab (next to Runs) listing everything a scenario — or a manual upload — has put into
+  storage: name, size, type, who created it, when it expires, and whether it's published. From there you can download,
+  delete, upload a new file, or toggle a file's public link, and see how much of the project's quota is currently used.
+</p>

@@ -1,0 +1,95 @@
+{
+  "id": "3KRuQDi5yTgpPfiZzRQHp",
+  "schemeVersion": 2,
+  "name": "ArrSum",
+  "type": "function",
+  "description": "",
+  "root": {
+    "id": "ECkXuMSeT9ocMPMMEJR66",
+    "alias": "function",
+    "header": {
+      "text": "",
+      "width": 160,
+      "color": "#ffffff"
+    },
+    "block": {
+      "parameters": [
+        {
+          "name": "arr",
+          "type": {
+            "type": "array",
+            "elementType": {
+              "type": "number",
+              "numberType": "integer",
+              "integerType": "int32"
+            },
+            "dimensions": 1
+          }
+        }
+      ],
+      "returnValue": {
+        "type": "void"
+      },
+      "width": 192,
+      "name": "ArrSum"
+    },
+    "children": [
+      {
+        "id": "EhDNmfXTdkL-NJbYKicT9",
+        "alias": "create_var",
+        "block": {
+          "width": 128,
+          "color": "#ffffff",
+          "expression": "x = 0",
+          "type": "create",
+          "variableType": {
+            "constant": false,
+            "type": "number",
+            "numberType": "integer",
+            "integerType": "int32",
+            "optional": false
+          }
+        }
+      },
+      {
+        "id": "BSUf1EWz7uhIL_rOfBGwG",
+        "alias": "foreach",
+        "block": {
+          "arr": "arr",
+          "index": "",
+          "item": "item",
+          "width": 128
+        },
+        "children": [
+          {
+            "id": "KcoSugS3FKUKDxRagz6Y7",
+            "alias": "assign_var",
+            "block": {
+              "width": 128,
+              "color": "#ffffff",
+              "expression": "x = x + item",
+              "type": "assign",
+              "variableType": null
+            }
+          }
+        ]
+      },
+      {
+        "id": "cPYhCt9ppkHwlw2t_F4r9",
+        "alias": "log",
+        "block": {
+          "width": 128,
+          "color": "#ffffff",
+          "expression": "\"Sum is: {x}\"",
+          "type": "string",
+          "variableType": null
+        }
+      }
+    ],
+    "footer": {
+      "text": "",
+      "width": 160,
+      "color": "#ffffff"
+    }
+  }
+}

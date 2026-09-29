@@ -1,0 +1,52 @@
+{
+  "name": "falang-monorepo",
+  "version": "1.0.0",
+  "description": "",
+  "license": "AGPL-3.0-only",
+  "author": "",
+  "type": "commonjs",
+  "main": "index.js",
+  "scripts": {
+    "test": "vitest -c vitest.config.root.ts",
+    "test-e2e": "./scripts/kind-e2e-setup.sh && docker compose -f docker-compose.workflow-e2e.yml run --build --rm e2e-tests && npm run test-e2e:workflow && docker compose -f docker-compose.workflow-e2e.yml down -v",
+    "test-e2e:workflow": "vitest run -c vitest.config.workflow-e2e.ts",
+    "test-e2e-logic": "./scripts/build-logic-cpp-runner-image.sh && ./scripts/build-logic-go-runner-image.sh && ./scripts/build-logic-rust-runner-image.sh && ./scripts/build-logic-sharp-runner-image.sh && npm test -w @falang/logic-e2e-tests",
+    "test-e2e-arduino-debug-protocol": "./scripts/build-logic-cpp-runner-image.sh && vitest run -c vitest.config.arduino-debug-protocol.ts",
+    "coverage:unit": "vitest run --coverage -c vitest.config.root.ts",
+    "coverage:e2e": "./scripts/kind-e2e-setup.sh && COLLECT_COVERAGE=true docker compose -f docker-compose.workflow-e2e.yml run --build --rm e2e-tests && npm run test-e2e:workflow && docker compose -f docker-compose.workflow-e2e.yml down -v",
+    "coverage:merge": "node scripts/merge-coverage.mjs",
+    "coverage": "npm run coverage:unit && npm run coverage:e2e && npm run coverage:merge",
+    "format": "prettier --write .",
+    "format:check": "prettier --check .",
+    "lint": "oxlint",
+    "check": "node scripts/check.js",
+    "start-workflow": "docker compose -f docker-compose.workflow.yml up --build -d",
+    "workflow-recreate-client": "./scripts/workflow-recreate-client.sh",
+    "workflow-recreate-backend": "./scripts/workflow-recreate-backend.sh",
+    "workflow-recreate": "npm run workflow-recreate-client && npm run workflow-recreate-backend",
+    "publish-npm-packages": "node scripts/publish-npm-packages.js",
+    "publish-docker-images": "./scripts/publish-docker-images.sh"
+  },
+  "devDependencies": {
+    "@stryker-mutator/core": "^9.6.0",
+    "@stryker-mutator/vitest-runner": "^9.6.0",
+    "@types/node": "^25.5.0",
+    "@vitest/coverage-v8": "^4.1.2",
+    "js-yaml": "^4.1.0",
+    "jsdom": "^29.1.1",
+    "monocart-coverage-reports": "^2.13.0",
+    "oxlint": "^1.51.0",
+    "prettier": "3.8.3",
+    "typescript": "^6.0.2",
+    "vitest": "^4.0.18",
+    "vitest-monocart-coverage": "^4.0.2"
+  },
+  "workspaces": [
+    "./packages/*/*",
+    "./playground",
+    "./playground-workflow"
+  ],
+  "engines": {
+    "node": ">=24"
+  }
+}

@@ -1,0 +1,68 @@
+---
+title: Debugging
+description: Breakpoints, pausing, and inspecting variables on the workflow dev stand
+head:
+  - tag: meta
+    attrs:
+      name: keywords
+      content: "debugger, breakpoint, debugging, workflow, temporal"
+---
+
+<p>
+  The visual debugger lets you pause a function on the dev stand at any statement, see exactly which icon it's
+  paused on, and inspect every variable currently in scope — the same way you'd step through code in a text IDE,
+  but directly on the diagram.
+</p>
+
+#### Setting breakpoints
+<ul>
+  <li>
+    Right-click any statement icon (an action, a log, a loop, a call to another function, …) and choose
+    <b>Add breakpoint</b>. A hollow red dot appears at the icon's corner.
+  </li>
+  <li>
+    Breakpoints are saved in your browser and belong to you, not to the project — they aren't exported, published,
+    or seen by other people working on the same project.
+  </li>
+  <li>
+    You can toggle a breakpoint at any time, including while a debug session is already running: the dot fills in
+    solid once a session picks it up.
+  </li>
+</ul>
+
+#### Starting a session
+<p>
+  Click <b>Debug</b> in the toolbar next to <b>Run</b>. If the function takes parameters, you'll be asked for them
+  first, the same as with <b>Run</b>. If you haven't set any breakpoints yet, the session pauses immediately on the
+  function's first statement — otherwise it runs until the first breakpoint it hits.
+</p>
+<p>
+  Only one dev execution runs at a time: starting a debug session stops whatever the dev stand was previously
+  running, the same rule <b>Run</b> already follows.
+</p>
+
+#### While paused
+<ul>
+  <li>The paused icon is highlighted on the canvas, and the view pans to it if it's off-screen.</li>
+  <li>
+    The side panel lists every variable in scope at that point — function parameters, everything declared earlier
+    in the current function, and loop variables if you're paused inside one.
+  </li>
+  <li><b>Continue</b> resumes until the next breakpoint (or the function finishes).</li>
+  <li><b>Step over</b> resumes until the next statement at the same call depth — it won't stop inside a function called from the current line, only after it returns.</li>
+  <li><b>Stop</b> ends the session outright.</li>
+</ul>
+
+#### Things to know
+<ul>
+  <li>
+    Debugging only works on the dev stand — a published (prod) version is never instrumented, so a live production
+    workflow can't be paused or inspected this way.
+  </li>
+  <li>
+    A debug session left paused for a long time may find its dev pod has been put to sleep in the meantime (the
+    same idle scale-down that applies to an idle dev stand generally). The execution itself isn't lost — it's
+    durable — but the first click after a long pause can be slow while the pod wakes back up.
+  </li>
+  <li>Trigger functions (started by an external event) can't be debugged yet.</li>
+</ul>

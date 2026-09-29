@@ -1,0 +1,29 @@
+{
+  "name": "@falang/workflow-integrations-wildberries",
+  "version": "1.0.0",
+  "description": "",
+  "license": "AGPL-3.0-only",
+  "author": "",
+  "type": "commonjs",
+  "main": "src/index.ts",
+  "scripts": {
+    "test": "vitest run -c ../../../vitest.config.ts",
+    "coverage": "vitest run --coverage -c ../../../vitest.config.ts",
+    "check": "tsc --noEmit -p tsconfig.build.json"
+  },
+  "dependencies": {
+    "@falang/workflow-integrations-common": "*"
+  },
+  "files": [
+    "src",
+    "!src/**/*.test.ts",
+    "!src/**/*.test.tsx",
+    "!src/**/*.e2e.test.ts",
+    "!src/**/*.workflow-e2e-spec.ts",
+    "!src/**/*.spec.ts",
+    "!src/**/*.docker-e2e-spec.ts",
+    "!src/**/*-test-harness.ts",
+    "!src/test-utils",
+    "!src/**/__snapshots__"
+  ]
+}

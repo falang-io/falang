@@ -1,0 +1,10 @@
+{
+  "name": "falang",
+  "description": "Edit falang projects (workflow/logic/simple-code/Arduino) with a coding agent — skills covering the document/node model, the Arduino pin/driver nodes, and the workflow product's dev/prod build-run-publish loop, plus the workflow MCP server config.",
+  "version": "0.1.0",
+  "author": {
+    "name": "falang"
+  },
+  "homepage": "https://falang.io",
+  "keywords": ["falang", "workflow", "arduino", "mcp", "automation"]
+}

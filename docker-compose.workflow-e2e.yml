@@ -1,0 +1,467 @@
+# Browser end-to-end stack for the workflow engine (see ADRs 0001-0003 (private) and
+# @falang/workflow-e2e-tests). A near-duplicate of docker-compose.workflow.yml, isolated from it:
+# distinct container names, network, volumes, and *host*-published ports (so both stacks can run
+# side by side without colliding), plus one extra service — `e2e-tests` — that runs
+# @falang/workflow-e2e-tests (Playwright) against `client`/`backend`/`temporal` and exits.
+#
+# `client`'s browser here is Playwright's Chromium running *inside* the `e2e-tests` container, on
+# this compose file's own internal network — so, unlike the dev stack (whose browser runs on the
+# host), `client` is configured with `VITE_BACKEND_URL=http://backend:4000` (the internal service
+# name/port), not a host-published one. The published host ports below (4001/5176/7234/8081/5433)
+# exist purely so a developer can inspect this stack from outside Docker while it runs (now also
+# 4103 for `activepieces`).
+#
+# Like docker-compose.workflow.yml, `backend` here compiles a project's `function` documents
+# in-process but runs the compiled workflow as its own pod on a *local `kind` Kubernetes cluster* —
+# `RunnerProcessManager` creates/deletes a k8s `Deployment` per workflow definition/version, see
+# ADR 0016 (private)'s Phase 2. This stack uses its own, separate
+# `kind` cluster (`falang-workflow-e2e`, not the dev stack's `falang-workflow-dev`) so both stacks
+# stay fully isolated per this file's own header note above. `npm run test-e2e`/`coverage:e2e`
+# (root package.json) run `scripts/kind-e2e-setup.sh` before `docker compose`, so a plain `npm run
+# test-e2e` is still a single command; run that script directly only when debugging the cluster.
+#
+# Same known gotcha as docker-compose.workflow.yml: on the *first* `run`/`up` after
+# `falang-workflow-e2e-network` is (re)created, `backend`'s second network attachment (`kind`,
+# below) can lose a race and not take. Symptom: `backend`'s logs show `getaddrinfo EAI_AGAIN
+# app-postgres` in a retry loop. Fix: `docker compose -f docker-compose.workflow-e2e.yml restart
+# backend` once.
+#
+# Run: ./scripts/kind-e2e-setup.sh && docker compose -f docker-compose.workflow-e2e.yml run --build --rm e2e-tests
+# (then `docker compose -f docker-compose.workflow-e2e.yml down -v` to clean up). `run` starts every
+# dependency this service needs and returns e2e-tests' own exit code directly. The `kind` cluster
+# itself is left running afterwards (matching the dev stack's own idempotent-reuse approach) — `npm
+# run test-e2e` re-running `kind-e2e-setup.sh` each time is cheap once the cluster/image already exist.
+#
+# `npm run test-e2e`/`coverage:e2e` (root package.json) also run `npm run test-e2e:workflow` right
+# after the `e2e-tests` container exits, before `down -v` — the workflow tier (see
+# ADR 0018 (private)) is a plain host-side Vitest process, not a compose
+# service, and reuses this same running stack (`backend`/`temporal`/`mocks`/`activepieces` are still
+# up at that point, `run --rm` only removes the ad hoc `e2e-tests` container, not its dependencies) via
+# their host-published ports (4001/7234/4102/4103). Both tiers run sequentially, never concurrently,
+# so they don't compete for this stack's single `backend` container/`kind` node/Temporal server — see
+# that ADR's own "Implementation notes" for why concurrent workflow-tier files alone already starved
+# each other on this same constraint.
+name: falang-workflow-e2e
+
+services:
+  postgresql:
+    image: postgres:16
+    container_name: falang-workflow-e2e-postgresql
+    environment:
+      POSTGRES_USER: temporal
+      POSTGRES_PASSWORD: temporal
+    volumes:
+      - falang-workflow-e2e-postgresql-data:/var/lib/postgresql/data
+    networks: [falang-workflow-e2e-network]
+
+  app-postgres:
+    image: postgres:16
+    container_name: falang-workflow-e2e-app-postgres
+    environment:
+      POSTGRES_USER: falang
+      POSTGRES_PASSWORD: falang
+      POSTGRES_DB: falang_workflow
+    ports:
+      - '5433:5432'
+    volumes:
+      - falang-workflow-e2e-app-postgres-data:/var/lib/postgresql/data
+    networks: [falang-workflow-e2e-network]
+
+  # Two "the user's own database" stand-ins for ADR 0039 (private)'s
+  # postgres/mysql dialect packages — reached from *both* `backend` (the "Sync structure" call,
+  # which connects directly with `pg`/`mysql2`) and this stack's runner pods (the compiled
+  # postgres-*/mysql-* activities) via the same host-published port + `${KIND_GATEWAY_IP}`
+  # reachable-from-everywhere address, since the credential's `connectionString` is one value
+  # shared by both call sites (see `packages/workflow/backend/src/test-utils/workflow-e2e-client.ts`'s
+  # `WORKFLOW_E2E_RUNNER_DB_HOST`). Seeded via each image's own `/docker-entrypoint-initdb.d/`
+  # mechanism, one `orders` table each (`docker/e2e-seed/*.sql`).
+  postgres-user-db:
+    image: postgres:16
+    container_name: falang-workflow-e2e-postgres-user-db
+    environment:
+      POSTGRES_USER: falang
+      POSTGRES_PASSWORD: falang
+      POSTGRES_DB: userdb
+    ports:
+      - '5435:5432'
+    volumes:
+      - ./docker/e2e-seed/postgres-user-db.sql:/docker-entrypoint-initdb.d/postgres-user-db.sql:ro
+      - falang-workflow-e2e-postgres-user-db-data:/var/lib/postgresql/data
+    healthcheck:
+      test: ['CMD-SHELL', 'pg_isready -U falang -d userdb']
+      interval: 5s
+      timeout: 5s
+      retries: 20
+    networks: [falang-workflow-e2e-network]
+
+  mysql-user-db:
+    image: mysql:8
+    container_name: falang-workflow-e2e-mysql-user-db
+    environment:
+      MYSQL_ROOT_PASSWORD: falang-root
+      MYSQL_USER: falang
+      MYSQL_PASSWORD: falang
+      MYSQL_DATABASE: userdb
+    ports:
+      - '3308:3306'
+    volumes:
+      - ./docker/e2e-seed/mysql-user-db.sql:/docker-entrypoint-initdb.d/mysql-user-db.sql:ro
+      - falang-workflow-e2e-mysql-user-db-data:/var/lib/mysql
+    healthcheck:
+      test: ['CMD', 'mysqladmin', 'ping', '-h', 'localhost', '-u', 'falang', '-pfalang']
+      interval: 5s
+      timeout: 5s
+      retries: 20
+    networks: [falang-workflow-e2e-network]
+
+  # S3-compatible object storage behind `backend`'s internal file API — see
+  # ADR 0038 (private). Only `backend` (on this compose network)
+  # talks to it directly; runner pods in this stack's own `kind` cluster never reach it (no
+  # `RUNNER_S3_*` override, matching that ADR's "pods never see S3 credentials" design — unlike
+  # `RUNNER_TEMPORAL_ADDRESS`/`RUNNER_TELEGRAM_API_BASE_URL`/`RUNNER_ACTIVEPIECES_SERVICE_URL`
+  # below, which exist only because *those* pods do need cross-network reachability).
+  #
+  # Same image substitution as docker-compose.workflow.yml's own `minio`/`minio-init` comment: the
+  # official `minio/minio`/`minio/mc` images are gone from Docker Hub (confirmed via the registry
+  # API) and `quay.io/minio/minio` requires an authenticated/paid pull, so this uses
+  # `bitnamilegacy/minio`/`bitnamilegacy/minio-client` (Bitnami's frozen "legacy" free tier,
+  # last built 2025-07-18/21) instead — see that file's comment for the full verification trail.
+  minio:
+    image: bitnamilegacy/minio:2025.7.18
+    container_name: falang-workflow-e2e-minio
+    environment:
+      - MINIO_ROOT_USER=falang
+      - MINIO_ROOT_PASSWORD=falangfalang
+      - MINIO_DEFAULT_BUCKETS=falang-files
+    ports:
+      - '9002:9000'
+      - '9003:9001'
+    volumes:
+      - falang-workflow-e2e-minio-data:/bitnami/minio/data
+    healthcheck:
+      test: ['CMD', 'curl', '-f', 'http://localhost:9000/minio/health/live']
+      interval: 5s
+      timeout: 5s
+      retries: 20
+    networks: [falang-workflow-e2e-network]
+
+  minio-init:
+    image: bitnamilegacy/minio-client:2025.7.21
+    container_name: falang-workflow-e2e-minio-init
+    depends_on:
+      minio:
+        condition: service_healthy
+    command:
+      - /bin/sh
+      - -c
+      - >
+        mc alias set local http://minio:9000 falang falangfalang &&
+        mc mb --ignore-existing local/falang-files
+    networks: [falang-workflow-e2e-network]
+
+  temporal:
+    image: temporalio/auto-setup:1.29.1
+    container_name: falang-workflow-e2e-temporal
+    depends_on: [postgresql]
+    environment:
+      - DB=postgres12
+      - DB_PORT=5432
+      - POSTGRES_USER=temporal
+      - POSTGRES_PWD=temporal
+      - POSTGRES_SEEDS=postgresql
+      - DYNAMIC_CONFIG_FILE_PATH=config/dynamicconfig/development-sql.yaml
+      - TEMPORAL_ADDRESS=temporal:7233
+      - TEMPORAL_CLI_ADDRESS=temporal:7233
+    ports:
+      - '7234:7233'
+    volumes:
+      - ./docker/temporal-dynamicconfig:/etc/temporal/config/dynamicconfig
+    networks: [falang-workflow-e2e-network]
+
+  temporal-admin-tools:
+    image: temporalio/admin-tools:1.29.1-tctl-1.18.4-cli-1.5.0
+    container_name: falang-workflow-e2e-temporal-admin-tools
+    depends_on: [temporal]
+    environment:
+      - TEMPORAL_ADDRESS=temporal:7233
+      - TEMPORAL_CLI_ADDRESS=temporal:7233
+    stdin_open: true
+    tty: true
+    networks: [falang-workflow-e2e-network]
+
+  temporal-ui:
+    image: temporalio/ui:2.34.0
+    container_name: falang-workflow-e2e-temporal-ui
+    depends_on: [temporal]
+    environment:
+      - TEMPORAL_ADDRESS=temporal:7233
+      - TEMPORAL_CORS_ORIGINS=http://localhost:5176
+    ports:
+      - '8081:8080'
+    networks: [falang-workflow-e2e-network]
+
+  mocks:
+    build:
+      context: .
+      dockerfile: docker/mocks.Dockerfile
+    container_name: falang-workflow-e2e-mocks
+    environment:
+      - PORT=4100
+    ports:
+      - '4102:4100'
+    networks: [falang-workflow-e2e-network]
+
+  backend:
+    build:
+      context: .
+      dockerfile: docker/backend.Dockerfile
+    container_name: falang-workflow-e2e-backend
+    depends_on:
+      temporal:
+        condition: service_started
+      app-postgres:
+        condition: service_started
+      mocks:
+        condition: service_started
+      # Ensures the `falang-files` bucket exists before `backend` (or any spec) ever tries to
+      # upload — see ADR 0038 (private) §2.
+      minio-init:
+        condition: service_completed_successfully
+    # Overrides `docker/backend.Dockerfile`'s own `CMD ["npm", "run", "start"]` (untouched, still
+    # used by `docker-compose.workflow.yml`'s normal dev stack) for this e2e stack only. `npm run
+    # start` was confirmed to NOT forward `SIGTERM` to the `tsx`-run Node process it spawns (a
+    # plain `node`-under-`npm` reproduction never saw the signal); `sh -c 'exec ...'` replaces the
+    # shell with that same process instead of forking it, so the process this stack's `down`
+    # signals *is* the Node process. Needed for `NODE_V8_COVERAGE` below to ever flush — see
+    # ADR 0012 (private).
+    command: ['sh', '-c', 'exec npx tsx src/main.ts']
+    environment:
+      - PORT=4000
+      - TSX_TSCONFIG_PATH=../../../tsconfig.base.json
+      - TEMPORAL_ADDRESS=temporal:7233
+      - TEMPORAL_NAMESPACE=default
+      # Runner pods live on the `kind` docker network below, not this one — same reachability
+      # requirement as docker-compose.workflow.yml's `backend`, see its comments for the full
+      # explanation. Host ports differ here (this stack's own `temporal`/`backend`/`activepieces`
+      # host-published ports: 7234/4001/4103), so the values below don't match the dev stack's.
+      - RUNNER_TEMPORAL_ADDRESS=${KIND_GATEWAY_IP:-172.18.0.1}:7234
+      - BACKEND_INTERNAL_URL=http://${KIND_GATEWAY_IP:-172.18.0.1}:4001
+      # `RunnerProcessManager` creates runner Deployments here — see
+      # ADR 0016 (private)'s Phase 2. This stack's own `kind`
+      # cluster (`falang-workflow-e2e`, see `scripts/kind-e2e-setup.sh`) is separate from the dev
+      # stack's, but reuses the same namespace name and runner image tag since the two clusters
+      # never share state.
+      - K8S_NAMESPACE=workflow
+      - RUNNER_IMAGE=falang-workflow-runner:local
+      # Read by `@kubernetes/client-node`'s `KubeConfig.loadFromDefault()` — generated by
+      # `scripts/kind-e2e-setup.sh`, points at the `falang-workflow-e2e` kind control-plane
+      # container by name (reachable since this service is also on the `kind` docker network
+      # below, unlike every other service in this file).
+      - KUBECONFIG=/kubeconfig/config
+      - DB_HOST=app-postgres
+      - DB_PORT=5432
+      - DB_USER=falang
+      - DB_PASSWORD=falang
+      - DB_NAME=falang_workflow
+      - JWT_SECRET=e2e-secret
+      - CREDENTIALS_ENCRYPTION_KEY=e2e-encryption-key
+      # See ADR 0030 (private) — unused here, this
+      # stack's seeded admin/admin account already has the `admin` role by default.
+      - ADMIN_USERNAMES=
+      # Off by default in the backend; the e2e specs register users through POST /auth/register.
+      - SELF_SERVICE_SIGNUP=true
+      # OAuth2 callback redirect_uri base — see ADR 0015 (private). Reachable
+      # by both `backend` itself and the `e2e-tests` container's browser, since that browser runs
+      # *inside* this compose network too (see header note), not on the host.
+      - BACKEND_PUBLIC_URL=http://backend:4000
+      # Points the in-process gateway (telegram-backend.ts) at @falang/workflow-mocks's Telegram
+      # mock instead of the real Bot API. Runner pods need their own override below — unlike the
+      # pre-k8s child-process runner, a pod's env is an explicit allowlist
+      # (`RunnerProcessManager.start()`), it does not inherit `backend`'s own `process.env`.
+      - TELEGRAM_API_BASE_URL=http://mocks:4100/telegram
+      # Override for runner pods specifically — same reachability reasoning as
+      # RUNNER_TEMPORAL_ADDRESS/BACKEND_INTERNAL_URL above (this stack's `mocks` host port is 4102).
+      - RUNNER_TELEGRAM_API_BASE_URL=http://${KIND_GATEWAY_IP:-172.18.0.1}:4102/telegram
+      # See `activepieces` service below and ADR 0010 (private) —
+      # same pattern as docker-compose.workflow.yml, mirrored here for e2e.
+      - ACTIVEPIECES_SERVICE_URL=http://activepieces:4100
+      # Override for runner pods specifically — same reachability reasoning as
+      # RUNNER_TEMPORAL_ADDRESS/BACKEND_INTERNAL_URL above (this stack's `activepieces` host port
+      # is 4103, not the dev stack's 4100).
+      - RUNNER_ACTIVEPIECES_SERVICE_URL=http://${KIND_GATEWAY_IP:-172.18.0.1}:4103
+      - ACTIVEPIECES_SERVICE_SECRET=e2e-activepieces-secret
+      # See `media` service below and ADR 0041 (private) — same pattern as
+      # docker-compose.workflow.yml, mirrored here for e2e.
+      - MEDIA_SERVICE_URL=http://media:4200
+      # Override for runner pods specifically — same reachability reasoning as
+      # RUNNER_TEMPORAL_ADDRESS/BACKEND_INTERNAL_URL above (this stack's `media` host port is 4204,
+      # not the dev stack's 4200).
+      - RUNNER_MEDIA_SERVICE_URL=http://${KIND_GATEWAY_IP:-172.18.0.1}:4204
+      # Object storage — see ADR 0038 (private). Only `backend` holds
+      # these; this stack's runner pods don't reach S3 at all (no `RUNNER_S3_*` override), matching
+      # docker-compose.workflow.yml's own comment on this.
+      - S3_ENDPOINT=http://minio:9000
+      - S3_REGION=us-east-1
+      - S3_BUCKET=falang-files
+      - S3_ACCESS_KEY=falang
+      - S3_SECRET_KEY=falangfalang
+      - S3_FORCE_PATH_STYLE=true
+      # V8 coverage for `backend` itself only — runner pods do NOT inherit this (or any other
+      # unlisted var): unlike the pre-k8s child-process runner, a pod's env is the explicit
+      # allowlist `RunnerProcessManager.start()` builds, and coverage was never added to it. This
+      # is a known, already-documented gap, not something this stack's kind migration introduced —
+      # see the ADR's "Implementation notes (Phase 2, core mechanism)" section ("A real gap found
+      # doing this"). Flushed on `docker compose down`'s `SIGTERM` via `main.ts`'s coverage
+      # shutdown hook.
+      - NODE_V8_COVERAGE=/coverage/node
+    ports:
+      - '4001:4000'
+    volumes:
+      - ./coverage/e2e-node:/coverage/node
+      # Generated by `scripts/kind-e2e-setup.sh` — run automatically by `npm run
+      # test-e2e`/`coverage:e2e`, or `KubeConfig.loadFromDefault()` finds nothing and every
+      # build/publish/activate/stop call fails the same way this whole stack was broken before.
+      - ./docker/kind-kubeconfig-e2e.yaml:/kubeconfig/config:ro
+    # On both networks: `falang-workflow-e2e-network` to reach `temporal`/`app-postgres`/`mocks`/
+    # `activepieces` by their docker-internal names as before, `kind` (external — shared with the
+    # dev stack's cluster, created by `kind create cluster`, see `scripts/kind-e2e-setup.sh`) to
+    # reach this stack's own `falang-workflow-e2e` cluster's k8s API server.
+    networks: [falang-workflow-e2e-network, kind]
+
+  activepieces:
+    build:
+      context: ./activepieces
+    container_name: falang-workflow-e2e-activepieces
+    depends_on: [backend]
+    environment:
+      - PORT=4100
+      - BACKEND_INTERNAL_URL=http://backend:4000
+      - ACTIVEPIECES_SERVICE_SECRET=e2e-activepieces-secret
+      # Registers the `mock`/`mockBasicAuth`/`mockOAuth2` pieces (see `src/pieces/mock-piece.ts` and
+      # ADR 0013 (private)) and mounts their test-only fixture routes
+      # (`src/routes/mock.ts`, `src/routes/mock-oauth2.ts`) — never set outside this e2e stack.
+      - NODE_ENV=test
+      # `mockOAuth2Piece`'s authUrl/tokenUrl base — reachable by both `backend` (server-side token
+      # exchange) and the `e2e-tests` container's browser (the authorize redirect), since both are on
+      # this same compose network. See ADR 0015 (private).
+      - MOCK_OAUTH_BASE_URL=http://activepieces:4100/mock-oauth2
+    ports:
+      - '4103:4100'
+    networks: [falang-workflow-e2e-network]
+
+  # Standalone ffmpeg-backed media job service — see docker-compose.workflow.yml's own `media`
+  # comment and ADR 0041 (private). Host port `4204` (not the dev stack's
+  # `4200`), same per-stack host-port-isolation convention as `activepieces`'s `4103` above.
+  media:
+    build:
+      context: .
+      dockerfile: docker/media.Dockerfile
+    container_name: falang-workflow-e2e-media
+    depends_on:
+      backend:
+        condition: service_started
+    environment:
+      - PORT=4200
+      - BACKEND_INTERNAL_URL=http://backend:4000
+      - MEDIA_WORK_DIR=/work
+    ports:
+      - '4204:4200'
+    tmpfs:
+      - /work
+    healthcheck:
+      test: ['CMD', 'node', '-e', "fetch('http://localhost:4200/health').then((r) => process.exit(r.ok ? 0 : 1))"]
+      interval: 5s
+      timeout: 5s
+      retries: 20
+    networks: [falang-workflow-e2e-network]
+
+  client:
+    build:
+      context: .
+      dockerfile: docker/client.Dockerfile
+    container_name: falang-workflow-e2e-client
+    depends_on: [backend]
+    environment:
+      # `e2e-tests`' browser runs inside this compose network, not on the host — see header note.
+      - VITE_BACKEND_URL=http://backend:4000
+    ports:
+      - '5176:5175'
+    networks: [falang-workflow-e2e-network]
+
+  e2e-tests:
+    build:
+      context: .
+      dockerfile: docker/e2e-tests.Dockerfile
+    container_name: falang-workflow-e2e-tests
+    depends_on:
+      backend:
+        condition: service_started
+      client:
+        condition: service_started
+      temporal:
+        condition: service_started
+      mocks:
+        condition: service_started
+      activepieces:
+        condition: service_started
+      # `service_started`, not `service_healthy`, matching every other same-stack image dependency
+      # above (`backend`/`client`/`temporal`/`mocks`/`activepieces`) — this image is heavy (ffmpeg
+      # via apt), the same "started is good enough" call this stack already makes for its siblings.
+      media:
+        condition: service_started
+      # Not touched directly by this container (the workflow-tier spec that uses them is a
+      # host-side Vitest process run *after* `e2e-tests` exits, reusing this same still-running
+      # stack — see this file's own header note) — declared as a dependency here purely so
+      # `docker compose ... run --rm e2e-tests` (the one command `npm run test-e2e` issues) is
+      # what actually brings these two services up and waits for them to be healthy.
+      postgres-user-db:
+        condition: service_healthy
+      mysql-user-db:
+        condition: service_healthy
+    environment:
+      - CLIENT_URL=http://client:5175
+      - BACKEND_URL=http://backend:4000
+      - TEMPORAL_ADDRESS=temporal:7233
+      - MOCKS_URL=http://mocks:4100
+      # `media`'s own job API — for a future workflow-tier media spec to drive/inspect jobs
+      # directly, mirroring `MOCKS_URL` above. See ADR 0041 (private).
+      - MEDIA_URL=http://media:4200
+      # Some specs (integrations-http.spec.ts, integrations-openai.spec.ts) embed a mocks URL
+      # directly into workflow-node/credential *data* that a runner pod's compiled activity later
+      # fetches at execution time (an HTTP Request node's URL, an OpenAI credential's `baseUrl`) —
+      # unlike `MOCKS_URL` above, which this test process itself calls directly and which works
+      # fine on this compose network, that embedded URL needs to be reachable from inside the
+      # `kind` cluster's own network, same reachability requirement as
+      # `RUNNER_TEMPORAL_ADDRESS`/`RUNNER_TELEGRAM_API_BASE_URL` on `backend` above.
+      - RUNNER_MOCKS_URL=http://${KIND_GATEWAY_IP:-172.18.0.1}:4102
+      - CI=true
+      # `falang-workflow-activepieces`'s own test-only fixture routes (`src/routes/mock.ts`) — lets
+      # the ActivePieces e2e specs simulate an external event and inspect the mock store directly,
+      # replacing the old real-WordPress fixture. See ADR 0013 (private).
+      - ACTIVEPIECES_URL=http://activepieces:4100
+      - ACTIVEPIECES_SERVICE_SECRET=e2e-activepieces-secret
+      # Browser (Chromium CDP) coverage — see `tests/fixtures.ts`'s `collectCoverage` fixture and
+      # ADR 0012 (private). Off by default so a plain `docker compose
+      # ... run --rm e2e-tests` (no coverage intent) doesn't pay the collection overhead or leave
+      # `coverage-reports/` behind; `npm run coverage:e2e` (root) sets this to `true`.
+      - COLLECT_COVERAGE=${COLLECT_COVERAGE:-false}
+    volumes:
+      - ./coverage/e2e-browser:/app/packages/workflow/e2e-tests/coverage-reports/e2e-browser
+    networks: [falang-workflow-e2e-network]
+
+networks:
+  falang-workflow-e2e-network:
+    name: falang-workflow-e2e-network
+  # Created by `kind create cluster` (see `scripts/kind-e2e-setup.sh`), not by this file — `backend`
+  # joins it to reach the `falang-workflow-e2e` cluster's k8s API server. Run that script (or `npm
+  # run test-e2e`/`coverage:e2e`, which run it automatically) before `docker compose`, or this
+  # network won't exist yet and compose will refuse to start.
+  kind:
+    external: true
+
+volumes:
+  falang-workflow-e2e-postgresql-data:
+  falang-workflow-e2e-app-postgres-data:
+  falang-workflow-e2e-postgres-user-db-data:
+  falang-workflow-e2e-mysql-user-db-data:
+  falang-workflow-e2e-minio-data:

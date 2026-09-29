@@ -1,0 +1,74 @@
+{
+  "id": "yDJVKMbhJtOihiw1GEmZQ",
+  "schemeVersion": 2,
+  "name": "Test2",
+  "type": "function",
+  "description": "",
+  "root": {
+    "id": "IuHq8EUnuDsTP5-UynwnQ",
+    "alias": "function",
+    "header": {
+      "text": "",
+      "width": 160,
+      "color": "#ffffff"
+    },
+    "block": {
+      "parameters": [],
+      "returnValue": {
+        "type": "void"
+      },
+      "width": 192,
+      "name": "Test2"
+    },
+    "children": [
+      {
+        "id": "FlV7e2mHOuR3rWqpkfY8r",
+        "alias": "create_var",
+        "block": {
+          "width": 128,
+          "color": "#ffffff",
+          "expression": "x = 10",
+          "type": "create",
+          "variableType": {
+            "constant": false,
+            "type": "number",
+            "numberType": "integer",
+            "integerType": "int32",
+            "optional": false
+          }
+        }
+      },
+      {
+        "id": "WTDHLcHA-Frmj270dMDlT",
+        "alias": "call_api",
+        "block": {
+          "parameters": [
+            "x",
+            "20",
+            "30"
+          ],
+          "returnVariable": "result",
+          "schemeId": "o6ZKgYac1zoILTt3Pkmcu",
+          "width": 160,
+          "iconId": "UvNEtGOFDsqQooDtF3bfM"
+        }
+      },
+      {
+        "id": "jMHZjuHikhyRZUqI6VjpQ",
+        "alias": "log",
+        "block": {
+          "width": 192,
+          "color": "#ffffff",
+          "expression": "\"Sumbers sum is: {result}\"",
+          "type": "string",
+          "variableType": null
+        }
+      }
+    ],
+    "footer": {
+      "text": "",
+      "width": 160,
+      "color": "#ffffff"
+    }
+  }
+}

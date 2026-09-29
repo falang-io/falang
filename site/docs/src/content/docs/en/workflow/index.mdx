@@ -1,0 +1,60 @@
+---
+title: Workflow builder
+description: Overview of the Falang workflow engine — a visual process editor with durable execution on Temporal
+head:
+  - tag: meta
+    attrs:
+      name: keywords
+      content: "workflow, temporal, automation, no-code, durable execution"
+---
+
+#### What the workflow builder is
+<p>
+  Falang's workflow builder is a visual editor for business processes and automations, built on the same scheme
+  engine as the <a href="../logic/">logic constructor</a>, but aimed at long-running, reliable scenarios: handling
+  messages from bots, incoming webhooks, calls to external services, waiting for events, and manual approval steps.
+</p>
+<p>
+  Unlike classic no-code integrators, every running scenario executes as a
+  <a href="https://temporal.io" target="_blank"> Temporal</a> workflow — a durable-execution platform. That gives
+  you, out of the box:
+</p>
+<ul>
+  <li>automatic retries when an external call fails;</li>
+  <li>timers and long waits with no polling and no risk of losing state;</li>
+  <li>recovery after a process crash — the scenario resumes exactly where it left off;</li>
+  <li>a full execution history for every run.</li>
+</ul>
+<p>
+  This sets Falang apart from typical low-code BPM tools aimed at business analysts, and from simple integrators
+  with no delivery guarantees — it's an engine for developers who need corporate-BPM-grade reliability without a
+  heavy implementation cycle.
+</p>
+
+#### Core concepts
+<ul>
+  <li><b>Project</b> — a container for documents: functions, trigger functions, and the project's integrations document.</li>
+  <li><b>Function</b> — an ordinary algorithm scheme, same as in the logic constructor.</li>
+  <li>
+    <b>Trigger function</b> — a document started by an external event (a Telegram message, an incoming webhook,
+    etc.) and executed as a workflow.
+  </li>
+  <li><b>Build &amp; Run</b> — compiles every function in the project and runs it as a worker, available for a test run (a dev version).</li>
+  <li><b>Publish</b> — promotes the current code to a stable (prod) version, with the ability to roll back to any earlier version.</li>
+  <li>
+    <b>Run</b> — starts a function document on the dev stand and follows it live: the icon it's currently on lights
+    up on the canvas as it executes, and a side panel shows its status and event history. The same panel can follow
+    any other execution (dev or published) picked from the project's own run list.
+  </li>
+  <li>
+    <b>Debug</b> — like Run, but you can set breakpoints on any statement first: execution pauses there, the paused
+    icon is highlighted, and a side panel lists every variable in scope. See <a href="./debugging/">Debugging</a>.
+  </li>
+</ul>
+
+#### Next
+<ul>
+  <li><a href="./local-setup/">Local setup</a> — how to run the engine yourself and try it live.</li>
+  <li><a href="./integrations/">Integrations</a> — which external services are already supported.</li>
+  <li><a href="./debugging/">Debugging</a> — breakpoints, pausing, and inspecting variables on the dev stand.</li>
+</ul>

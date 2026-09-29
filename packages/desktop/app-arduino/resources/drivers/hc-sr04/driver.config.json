@@ -1,0 +1,21 @@
+{
+  "id": "hc-sr04",
+  "label": "HC-SR04 (Ultrasonic distance)",
+  "version": "1.0.0",
+  "includes": ["hcsr04-driver.h"],
+  "sourceFiles": ["hcsr04-driver.h", "hcsr04-driver.cpp"],
+  "declarations": ["declare function hcsr04_read_distance(trigPin: number, echoPin: number): number;"],
+  "actions": [
+    {
+      "id": "read-distance",
+      "label": "Read distance (cm)",
+      "fields": [
+        { "name": "trigPin", "label": "Trig pin", "kind": "pin", "default": "9" },
+        { "name": "echoPin", "label": "Echo pin", "kind": "pin", "default": "10" },
+        { "name": "variable", "label": "Result variable", "kind": "new-variable", "default": "distanceCm" }
+      ],
+      "codeTemplate": "hcsr04_read_distance(${trigPin}, ${echoPin})",
+      "resultType": "float"
+    }
+  ]
+}

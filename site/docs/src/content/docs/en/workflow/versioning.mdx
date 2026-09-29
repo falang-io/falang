@@ -1,0 +1,77 @@
+---
+title: Version history
+description: Committing, naming, comparing, and restoring versions of a project
+head:
+  - tag: meta
+    attrs:
+      name: keywords
+      content: 'version history, versioning, commit, diff, restore, workflow'
+---
+
+<p>
+  Every project keeps a history of itself, the same way a document in Google Docs does: it saves automatically as you
+  work, and you can name any point in that history, compare two points, or go back to an earlier one. Click
+  <b>History</b> in the toolbar to open it — it shares the right-hand sidebar with the AI agent panel (see
+  <b>Agent</b> next to it), so opening one closes the other.
+</p>
+
+#### Auto-saved and named versions
+
+<ul>
+  <li>
+    Your edits are always saved as you work, but an <b>auto</b> version is only created when you come back to a project
+    after being away for a while (more than three hours by default) — it captures the project exactly as you left it at
+    the end of your previous session, before your new edit takes effect. Editing continuously doesn't create a stream of
+    auto versions; there's no timer running while you work. These aren't meant to be read one by one — the history panel
+    hides them behind a <b>Show auto-saved versions</b> switch, always keeping the very latest one visible.
+  </li>
+  <li>
+    Type a message and click <b>Commit</b> to create a <b>named</b> version — a deliberate checkpoint, like "before
+    changing the pricing logic". If nothing has actually changed since the last version, this just names that version
+    instead of creating an empty new one.
+  </li>
+  <li>A version can be renamed later from the history list, whether it started out auto-saved or named.</li>
+  <li>
+    Publishing a project (see the toolbar's <b>Publish</b>) always creates its own named version, so a published
+    version's exact source is always something you can look back at and compare against later.
+  </li>
+</ul>
+
+#### Comparing two versions
+
+<p>
+  Opening the history panel shows, right away, whether your current unsaved work differs from the last version — the
+  same "changes since last commit" idea as a source control tool. Click <b>Compare</b> to see exactly what changed, or
+  use <b>Compare with working copy</b> / <b>Compare with previous</b> on any version in the list.
+</p>
+<ul>
+  <li>
+    The diff opens side by side: the earlier version on the left, the later one on the right, both read-only. Added,
+    removed, moved, and changed icons are outlined in green, red, blue, and amber.
+  </li>
+  <li>
+    Use the <b>previous change</b> / <b>next change</b> buttons to step through everything that's different without
+    hunting for it on the canvas yourself.
+  </li>
+  <li>Click any highlighted icon to see exactly which fields changed, old value next to new.</li>
+  <li>Renamed, added, and removed documents and folders are listed too, not just changes inside one document.</li>
+</ul>
+
+#### Restoring an earlier version
+
+<p>
+  Click <b>Restore</b> on any version in the history list. Your project is replaced with that version's content —
+  documents that didn't exist yet at that point are removed, ones that were deleted since are brought back. A new
+  version is created automatically right afterward recording the restore, so restoring is itself never a destructive,
+  un-loggable action: the version you restored <i>from</i> is still there in the history, right where it was.
+</p>
+
+#### What isn't versioned the normal way
+
+<p>
+  The project's <b>Integrations</b> document (your connected accounts and credentials) is versioned along with
+  everything else so you can see which integrations were configured at any point in time — but the secret half of each
+  credential (API keys, tokens, passwords) is never included in a version's content, the same way it's never included
+  when you export a project. Restoring an old version never touches your currently stored credentials: a credential that
+  still exists keeps its current secret value, and one that no longer exists comes back needing to be reconnected.
+</p>

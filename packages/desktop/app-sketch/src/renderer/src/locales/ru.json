@@ -1,0 +1,104 @@
+{
+  "agent-chat": {
+    "not-configured": "ИИ-агент ещё не настроен — откройте Настройки → Агент…, чтобы настроить его.",
+    "no-sessions": "Пока нет сессий",
+    "new-session": "Новая сессия",
+    "rename": "Переименовать",
+    "export-session": "Экспортировать сессию (JSON)",
+    "delete": "Удалить",
+    "delete-confirm": "Удалить эту сессию? Это действие нельзя отменить.",
+    "steps-count_one": "{{count}} шаг",
+    "steps-count_few": "{{count}} шага",
+    "steps-count_many": "{{count}} шагов",
+    "steps-count_other": "{{count}} шага",
+    "tokens_one": "{{count}} токен",
+    "tokens_few": "{{count}} токена",
+    "tokens_many": "{{count}} токенов",
+    "tokens_other": "{{count}} токена",
+    "thinking": "Думаю…",
+    "failed": "Ошибка",
+    "undo": "Отменить",
+    "redo": "Повторить",
+    "input-placeholder": "Опишите, что должен изменить агент, или задайте вопрос…",
+    "send": "Отправить",
+    "stop": "Остановить"
+  },
+  "desktop-app-sketch": {
+    "history-panel": {
+      "title": "История версий"
+    },
+    "versioning-settings": {
+      "title": "Настройки версионирования",
+      "repo-mode-label": "Репозиторий",
+      "repo-mode-private": "Отдельный (рекомендуется)",
+      "repo-mode-private-hint": "Создаёт собственный .git внутри папки проекта. Если эта папка уже находится внутри другого git-репозитория, это создаст вложенный репозиторий, который внешний git может читать некорректно — в этом случае используйте «Использовать внешний репозиторий».",
+      "repo-mode-enclosing": "Использовать внешний репозиторий",
+      "repo-mode-enclosing-hint": "Использует git-репозиторий, в котором уже находится папка проекта, ограничивая все операции файлами этого проекта. Автоматически переключается на «Отдельный», если внешний репозиторий не найден.",
+      "author-name-label": "Имя автора",
+      "author-email-label": "Email автора",
+      "auto-version-gap-hours-label": "Автоверсия после (часов)",
+      "auto-version-gap-hours-hint": "Если вы вернётесь к проекту позже, чем через это время, следующее изменение автоматически сохранит версию — такой, какой проект был до этого изменения."
+    },
+    "language-settings": {
+      "title": "Настройки языка",
+      "label": "Язык"
+    },
+    "welcome-page": {
+      "new-project": "Новый проект…",
+      "open-project": "Открыть проект…",
+      "recent-projects": "Недавние проекты"
+    },
+    "new-project": {
+      "title": "Новый проект",
+      "name-label": "Название",
+      "name-required": "Укажите название проекта",
+      "directory-label": "Папка",
+      "directory-required": "Укажите папку проекта",
+      "type-label": "Тип проекта",
+      "create": "Создать",
+      "cancel": "Отмена",
+      "type": {
+        "text": "Текст",
+        "logic": "Логика",
+        "simple-code-cpp": "Код (C++)",
+        "simple-code-js": "Код (JavaScript)",
+        "simple-code-ts": "Код (TypeScript)",
+        "simple-code-php": "Код (PHP)",
+        "simple-code-rust": "Код (Rust)"
+      }
+    }
+  },
+  "version-history": {
+    "commit": "Сохранить",
+    "name-current-version": "Назвать текущую версию",
+    "message-placeholder": "Что изменилось?",
+    "default-message": "Версия без названия",
+    "changes-since-last-commit": "Изменения с последней версии",
+    "compare": "Сравнить",
+    "show-auto-saved": "Показывать автосохранённые версии",
+    "no-commits": "Версий пока нет",
+    "kind-auto": "Авто",
+    "kind-named": "Названная",
+    "compare-with-working-copy": "Сравнить с текущей версией",
+    "compare-with-previous": "Сравнить с предыдущей",
+    "rename": "Переименовать",
+    "restore": "Восстановить",
+    "restore-confirm-title": "Восстановить эту версию?",
+    "restore-confirm-description": "Текущее состояние проекта будет заменено содержимым этой версии. Новая версия создаётся автоматически, так что это можно отменить.",
+    "close": "Закрыть",
+    "previous-change": "Предыдущее изменение",
+    "next-change": "Следующее изменение",
+    "no-changes": "Нет изменений",
+    "select-a-node": "Выберите изменённый узел, чтобы увидеть изменения",
+    "field": "Поле",
+    "old-value": "Было",
+    "new-value": "Стало",
+    "document-kind-added": "Добавлен",
+    "document-kind-removed": "Удалён",
+    "document-kind-modified": "Изменён",
+    "folder-kind-added": "Добавлена",
+    "folder-kind-removed": "Удалена",
+    "folder-kind-renamed": "Переименована",
+    "folder-kind-moved": "Перемещена"
+  }
+}

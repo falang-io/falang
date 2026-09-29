@@ -1,0 +1,148 @@
+/* Read-only view (`html-block.cmp.tsx`) — keep paragraphs tight so a small diagram block doesn't
+   get padded out by the browser's default block margins. */
+.falang-html-content p {
+  margin: 0;
+}
+.falang-html-content img {
+  max-width: 100%;
+}
+.falang-html-content ul,
+.falang-html-content ol {
+  margin: 0;
+  padding-left: 20px;
+}
+
+/* Editor */
+.falang-html-block-editor {
+  position: relative;
+}
+.falang-html-editable {
+  outline: none;
+  min-height: 1em;
+}
+.falang-html-editable p {
+  margin: 0;
+}
+.falang-html-editable ul,
+.falang-html-editable ol {
+  margin: 0;
+  padding-left: 20px;
+}
+.falang-html-bold {
+  font-weight: bold;
+}
+.falang-html-italic {
+  font-style: italic;
+}
+.falang-html-underline {
+  text-decoration: underline;
+}
+.falang-html-strikethrough {
+  text-decoration: line-through;
+}
+
+/* Image node — an inline `span` (see `lexical/image-node.tsx`), so an image lives inside its
+   paragraph like any other inline content and can be centered/right-aligned via the paragraph's
+   own `text-align`, unlike the previous generation's block-level, always-100%-wide image. */
+.editor-image {
+  display: inline-block;
+  position: relative;
+  cursor: default;
+  max-width: 100%;
+  user-select: none;
+}
+.editor-image img.focused {
+  outline: 2px solid rgb(60, 132, 244);
+  user-select: none;
+}
+.editor-image img.focused.draggable {
+  cursor: grab;
+}
+
+/* Resize handles */
+.image-resizer {
+  position: absolute;
+  width: 7px;
+  height: 7px;
+  border: 1px solid #fff;
+  background-color: rgb(60, 132, 244);
+}
+.image-resizer.image-resizer-n {
+  top: -6px;
+  left: 48%;
+  cursor: n-resize;
+}
+.image-resizer.image-resizer-ne {
+  top: -6px;
+  right: -6px;
+  cursor: ne-resize;
+}
+.image-resizer.image-resizer-e {
+  bottom: 48%;
+  right: -6px;
+  cursor: e-resize;
+}
+.image-resizer.image-resizer-se {
+  bottom: -6px;
+  right: -6px;
+  cursor: se-resize;
+}
+.image-resizer.image-resizer-s {
+  bottom: -6px;
+  left: 48%;
+  cursor: s-resize;
+}
+.image-resizer.image-resizer-sw {
+  bottom: -6px;
+  left: -6px;
+  cursor: sw-resize;
+}
+.image-resizer.image-resizer-w {
+  bottom: 48%;
+  left: -6px;
+  cursor: w-resize;
+}
+.image-resizer.image-resizer-nw {
+  top: -6px;
+  left: -6px;
+  cursor: nw-resize;
+}
+
+/* Toolbar — floats above the block (`bottom: 100%`) so it never contributes to the block's own
+   measured height (see `block-view.tsx`'s `ResizeObserver`-driven `BlockContainer`). */
+.html-block-toolbar {
+  position: absolute;
+  bottom: 100%;
+  left: 0;
+  z-index: 10;
+  display: flex;
+  white-space: nowrap;
+  background: #fff;
+  border: 1px solid #ccc;
+  border-radius: 6px;
+  padding: 2px;
+  margin-bottom: 2px;
+  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.15);
+}
+.html-toolbar-item {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border: 0;
+  background: none;
+  border-radius: 4px;
+  padding: 4px 6px;
+  cursor: pointer;
+  color: #444;
+}
+.html-toolbar-item:hover:not(:disabled) {
+  background-color: #eee;
+}
+.html-toolbar-item:disabled {
+  opacity: 0.3;
+  cursor: not-allowed;
+}
+.html-toolbar-item.active {
+  background-color: rgba(60, 132, 244, 0.15);
+  color: rgb(60, 132, 244);
+}

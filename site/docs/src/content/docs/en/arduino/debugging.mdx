@@ -1,0 +1,117 @@
+---
+title: Debugging
+description: Breakpoints, pausing, and inspecting variables on a real board over USB serial
+head:
+  - tag: meta
+    attrs:
+      name: keywords
+      content: 'debugger, breakpoint, debugging, arduino, serial'
+---
+
+<p>
+  The visual debugger works on real hardware too: pause your sketch at any statement while it's running on the board,
+  see exactly which icon it's paused on, and inspect the variables in scope — the same debugger the workflow product
+  uses, talking to the board over the same USB serial port the sketch was uploaded through.
+</p>
+
+#### Setting breakpoints
+
+<ul>
+  <li>
+    Right-click any statement icon (an action, a log, a loop, a call to another function, …) and choose
+    <b>Add breakpoint</b>. A hollow red dot appears at the icon's corner.
+  </li>
+  <li>
+    Breakpoints are saved next to your project (a <code>.falang-debug.json</code> file alongside
+    <code>falang.json</code>) — they're a per-developer setting, not part of the sketch itself, so they aren't written
+    into the generated <code>.ino</code> file.
+  </li>
+  <li>
+    You can toggle a breakpoint at any time, including while a debug session is already attached to the board: the dot
+    fills in solid once the firmware picks it up.
+  </li>
+</ul>
+
+#### Starting a session
+
+<p>
+  Open <b>Build &amp; Upload</b>, pick your board and port, and click <b>Upload (debug)</b> instead of the plain
+  <b>Upload</b> button. This compiles a debug build (tracing instrumentation on), uploads it, and attaches — if you
+  haven't set any breakpoints yet, the session pauses immediately at the very first traced statement, otherwise it runs
+  until the first breakpoint it hits.
+</p>
+<p>
+  A normal (non-debug) upload is always available too — debug builds are strictly opt-in, and the extra instrumentation
+  is skipped entirely unless you specifically chose <b>Upload (debug)</b>.
+</p>
+
+#### While paused
+
+<ul>
+  <li>The paused icon is highlighted on the canvas, and the view pans to it if it's off-screen.</li>
+  <li>
+    The side panel lists the variables in scope at that point that the debugger can show — plain numbers and booleans.
+    Arrays, structs, and strings aren't sent over the wire yet (see "Things to know" below).
+  </li>
+  <li>
+    <b>Continue</b> resumes until the next breakpoint.
+  </li>
+  <li>
+    <b>Step over</b> resumes until the next statement at the same call depth — it won't stop inside a function called
+    from the current line, only after it returns.
+  </li>
+  <li>
+    <b>Stop</b> ends the session outright.
+  </li>
+</ul>
+
+#### Things to know
+
+<ul>
+  <li>
+    Only plain numbers and booleans can be shown as variables today — the firmware-side monitor has no way to send an
+    array, struct, or string value over serial yet. The rest of the debugger (breakpoints, pausing, stepping) works the
+    same regardless.
+  </li>
+  <li>
+    Attaching the debugger resets the board — this is normal (opening a serial port does that on most Arduino boards)
+    and is actually how the debugger guarantees breakpoints set before you attach are never missed, even one inside{' '}
+    <code>setup</code>.
+  </li>
+  <li>
+    A debug build costs extra flash — one trace call per statement, plus one call per traced variable. On a small board
+    (an Uno's 32&nbsp;KB) a large sketch may not fit in debug mode even though the normal build does; the upload will
+    tell you if that happens.
+  </li>
+  <li>
+    While a debug session is attached, the board's serial port is in use by the debugger — a sketch's own use of{' '}
+    <code>Serial</code> for anything else isn't visible at the same time.
+  </li>
+</ul>
+
+#### Version history
+
+<p>
+  Every project also keeps a version history, independent of the debugger — a "History" button above the tabs (and{' '}
+  <b>Sketch &gt; Version History</b>) opens a panel listing every saved version, newest first. The app auto-saves a new
+  version when you come back to the sketch after being away for a while (configurable in{' '}
+  <b>Settings &gt; Versioning…</b>, three hours by default) — it captures the sketch exactly as you left it before your
+  next edit takes effect, not on a timer while you're actively editing. You can also name the current version at any
+  time to mark it as a real checkpoint — auto-saved versions stay collapsed behind a "show auto-saved versions" toggle
+  so the list stays readable.
+</p>
+<ul>
+  <li>
+    <b>Compare</b> opens a side-by-side view of two versions — added, removed, and changed icons are highlighted
+    directly on the canvas, with a field-level list of exactly what changed on the selected one.
+  </li>
+  <li>
+    <b>Restore</b> overwrites the project with an older version's content and saves a new version so the restore itself
+    can be undone.
+  </li>
+  <li>
+    Version history is backed by a real git repository under the hood (see <b>Settings &gt; Versioning…</b> for the
+    repository location and commit author) — by default a private one created inside the project folder the first time
+    something is saved.
+  </li>
+</ul>

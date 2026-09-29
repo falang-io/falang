@@ -1,0 +1,101 @@
+{
+  "id": "TrdFn0000000000000001",
+  "schemeVersion": 2,
+  "name": "TestReturnDefault",
+  "type": "function",
+  "description": "",
+  "root": {
+    "id": "TrdRoot000000000000001",
+    "alias": "function",
+    "header": {
+      "text": "",
+      "width": 160,
+      "color": "#ffffff"
+    },
+    "block": {
+      "parameters": [
+        {
+          "name": "x",
+          "type": {
+            "type": "number",
+            "numberType": "integer",
+            "integerType": "int32"
+          }
+        }
+      ],
+      "returnValue": {
+        "type": "boolean"
+      },
+      "width": 192,
+      "name": "TestReturnDefault"
+    },
+    "children": [
+      {
+        "id": "TrdIf0000000000000001",
+        "alias": "if",
+        "block": {
+          "width": 96,
+          "color": "#ffffff",
+          "expression": "x > 5",
+          "type": "boolean",
+          "variableType": null
+        },
+        "trueOnRight": true,
+        "gaps": [],
+        "children": [
+          {
+            "alias": "system",
+            "id": "TrdFalse00000000000001",
+            "block": {
+              "width": 0
+            },
+            "children": [],
+            "out": {
+              "type": "return",
+              "level": 1,
+              "alias": "system",
+              "block": {
+                "width": 64
+              },
+              "id": "TrdFalseOut0000000001"
+            }
+          },
+          {
+            "alias": "system",
+            "id": "TrdTrue000000000000001",
+            "block": {
+              "width": 0
+            },
+            "children": [
+              {
+                "id": "TrdAssign00000000000001",
+                "alias": "assign_var",
+                "block": {
+                  "width": 160,
+                  "color": "#ffffff",
+                  "expression": "returnValue = true",
+                  "type": "assign",
+                  "variableType": null
+                }
+              }
+            ],
+            "out": {
+              "type": "return",
+              "level": 1,
+              "alias": "system",
+              "block": {
+                "width": 64
+              },
+              "id": "TrdTrueOut00000000001"
+            }
+          }
+        ]
+      }
+    ],
+    "footer": {
+      "text": "",
+      "width": 160,
+      "color": "#ffffff"
+    }
+  }
+}

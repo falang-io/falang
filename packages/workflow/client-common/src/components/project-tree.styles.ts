@@ -1,0 +1,53 @@
+import type React from 'react';
+
+export const S: Record<string, React.CSSProperties> = {
+  root: {
+    display: 'flex',
+    flexDirection: 'column',
+    height: '100%',
+    background: '#1e1e2e',
+    color: '#cdd6f4',
+    fontFamily: 'system-ui, sans-serif',
+    fontSize: 13,
+    userSelect: 'none',
+  },
+  header: {
+    display: 'flex',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    padding: '8px 8px 8px 12px',
+    borderBottom: '1px solid #313244',
+  },
+  headerTitle: {
+    fontSize: 11,
+    fontWeight: 600,
+    textTransform: 'uppercase',
+    letterSpacing: '0.08em',
+    color: '#6c7086',
+  },
+  list: { flex: 1, overflowY: 'auto', padding: '4px 0', minHeight: 0 },
+  empty: { padding: '12px', color: '#6c7086', fontSize: 12, textAlign: 'center' },
+  newRow: { padding: '4px 12px', display: 'flex', alignItems: 'center', gap: 6, borderBottom: '1px solid #313244' },
+  newInput: {
+    flex: 1,
+    background: '#313244',
+    border: '1px solid #cba6f7',
+    borderRadius: 3,
+    color: '#cdd6f4',
+    padding: '2px 6px',
+    fontSize: 13,
+    outline: 'none',
+  },
+  hint: { fontSize: 10, color: '#6c7086', whiteSpace: 'nowrap' },
+  addBtn: {
+    padding: '3px 10px',
+    background: '#313244',
+    border: 'none',
+    borderRadius: 4,
+    color: '#cdd6f4',
+    fontSize: 11,
+    cursor: 'pointer',
+  },
+  ctxWrap: { position: 'fixed', zIndex: 9999 },
+  ctxMenu: { minWidth: 170, boxShadow: '0 4px 16px rgba(0,0,0,0.6)', borderRadius: 6 },
+};

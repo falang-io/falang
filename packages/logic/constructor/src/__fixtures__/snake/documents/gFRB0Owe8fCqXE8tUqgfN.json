@@ -1,0 +1,56 @@
+{
+  "id": "gFRB0Owe8fCqXE8tUqgfN",
+  "type": "function",
+  "name": "DrawFood",
+  "root": {
+    "id": "52uYxdCVKxGQj9iZAv5Iw",
+    "name": "function",
+    "children": [
+      {
+        "id": "bqilvBYZ3VnxkSenwKxM-",
+        "name": "function-header",
+        "data": ""
+      },
+      {
+        "id": "Feq-z1-YI0rLngasFKKPG",
+        "name": "function-body",
+        "data": {
+          "parameters": [
+            {
+              "name": "state",
+              "type": {
+                "type": "struct",
+                "id": "yhxyfy9m5HuAFEaJZ_Ob4"
+              }
+            }
+          ],
+          "returnValue": {
+            "type": "void"
+          }
+        },
+        "children": [
+          {
+            "id": "CzavJabM-Qart76uOglVG",
+            "name": "call-api",
+            "data": {
+              "schemeId": "ucuAXFssAyGB1IV3QV_Nh",
+              "iconId": "mVRSeELOimFdKMeMIKqFo",
+              "parameters": [
+                "state.food.x * state.config.cellSize + 1/2 + state.config.cellSize / 2",
+                "state.food.y * state.config.cellSize + state.config.cellSize / 2",
+                "state.config.foodSize",
+                "state.colors.foodColor"
+              ],
+              "returnVariable": ""
+            }
+          }
+        ]
+      },
+      {
+        "id": "YMtVCSaonDjNc03GR_NVJ",
+        "name": "function-footer",
+        "data": ""
+      }
+    ]
+  }
+}

@@ -1,0 +1,88 @@
+---
+title: Локальный запуск
+description: Как запустить workflow-движок Falang локально с помощью Docker Compose и kind
+head:
+  - tag: meta
+    attrs:
+      name: keywords
+      content: "workflow, docker, kubernetes, kind, локальный запуск, self-hosted"
+---
+
+<p>
+  Workflow-движок распространяется как open source, и его можно полностью запустить локально — это самый быстрый
+  способ его попробовать. Понадобятся установленные <a href="https://www.docker.com/" target="_blank">Docker</a> и
+  <a href="https://kind.sigs.k8s.io/" target="_blank"> kind</a> (Kubernetes in Docker): каждый запущенный сценарий
+  выполняется в собственном поде локального k8s-кластера — тем же механизмом, что и в боевом окружении.
+</p>
+
+#### Быстрый старт
+<ol>
+  <li>
+    Создайте локальный kind-кластер:
+    <pre><code>./scripts/kind-dev-setup.sh</code></pre>
+    Скрипт идемпотентен — его можно перезапускать повторно, например после изменений в коде раннера, чтобы
+    пересобрать и перезагрузить его образ в кластер.
+  </li>
+  <li>
+    Скопируйте <code>.env.example</code> в <code>.env</code> в корне репозитория. Для чистого локального запуска
+    можно ничего не менять — у каждого секрета (<code>JWT_SECRET</code>, <code>CREDENTIALS_ENCRYPTION_KEY</code> и
+    т.д.) есть значение по умолчанию для разработки.
+  </li>
+  <li>
+    Поднимите стек:
+    <pre><code>docker compose -f docker-compose.workflow.yml up --build</code></pre>
+  </li>
+  <li>
+    Откройте <code>http://localhost:5175</code> и войдите как
+    <code> admin</code>/<code>admin</code> (учётная запись создаётся автоматически при первом запуске backend'а)
+    либо зарегистрируйте новый аккаунт со страницы входа.
+  </li>
+  <li>Создайте проект, затем в нём — папку и документ типа «Функция»: задайте имя и тело функции.</li>
+  <li>
+    Нажмите «Build &amp; Run» на панели инструментов. Это скомпилирует все функции проекта и создаст под в
+    kind-кластере для их выполнения — под очередью задач вида <code>workflow-dev-&lt;projectId&gt;</code> (её имя
+    отображается на панели инструментов рядом с индикатором статуса, а также командой
+    <code> kubectl -n workflow get pods</code>).
+  </li>
+  <li>
+    Запустите выполнение через CLI администратора Temporal:
+    <pre><code>{`docker compose -f docker-compose.workflow.yml exec temporal-admin-tools \\
+  temporal workflow start --task-queue workflow-dev-<projectId> --type <functionName> \\
+  --workflow-id demo-1 --input '{}'`}</code></pre>
+    Ход выполнения можно наблюдать в Temporal Web UI: <code>http://localhost:8080</code>.
+  </li>
+  <li>
+    Кнопка «Publish» переводит текущий код в стабильную версию (общую очередь задач
+    <code> workflow-&lt;projectId&gt;</code>) — в модальном окне «Версии» доступны откат («Активировать») и
+    остановка более старых версий («Остановить раннер»).
+  </li>
+</ol>
+
+#### Из чего состоит стек
+<p><code>docker-compose.workflow.yml</code> поднимает:</p>
+<ul>
+  <li>самостоятельно размещённый сервер <b>Temporal</b> (с собственной базой Postgres) и его веб-интерфейс;</li>
+  <li>отдельную базу Postgres для <b>backend</b>'а (проекты, папки, документы, пользователи);</li>
+  <li>
+    <b>backend</b> — сервис, который хранит проекты, компилирует функции и управляет запуском/остановкой подов
+    выполнения через Kubernetes API;
+  </li>
+  <li><b>client</b> — веб-редактор схем;</li>
+  <li>
+    <b>activepieces</b> — вспомогательный сервис для части интеграций (см. <a href="./integrations/">Интеграции</a>).
+  </li>
+</ul>
+<p>
+  Каждый опубликованный сценарий выполняется не отдельным процессом внутри контейнера backend'а, а собственным
+  подом в Kubernetes — именно поэтому нужен локальный kind-кластер.
+</p>
+
+#### Известная особенность
+<p>
+  При самом первом запуске <code>docker compose up</code> после (пере)создания сети
+  <code> falang-workflow-network</code> контейнер backend'а иногда не успевает подключиться ко второй сети
+  (<code>kind</code>) — в его логах будут постоянные ошибки вида <code>getaddrinfo EAI_AGAIN app-postgres</code>.
+  Лечится одной командой:
+</p>
+<pre><code>docker compose -f docker-compose.workflow.yml restart backend</code></pre>
+<p>Повторно эта проблема не возникает, пока обе сети не пересоздаются заново.</p>

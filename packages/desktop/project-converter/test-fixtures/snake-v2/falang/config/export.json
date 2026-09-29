@@ -1,0 +1,12 @@
+{
+  "exports": [
+    {
+      "language": "ts",
+      "path": "./code/ts/src/falang"
+    },
+    {
+      "language": "rust",
+      "path": "./code/rust/src/falang"
+    }
+  ]
+}

@@ -1,0 +1,59 @@
+{
+  "id": "LHTslQF9bzoqB6XSC1quV",
+  "type": "function",
+  "name": "getColors",
+  "root": {
+    "id": "b0DLl_wFtqSjCFgZlOo64",
+    "name": "function",
+    "children": [
+      {
+        "id": "4A7-K_zK-2htI4GbM_A4R",
+        "name": "function-header",
+        "data": ""
+      },
+      {
+        "id": "eAY-pD-xo0dk5ETo3jTeq",
+        "name": "function-body",
+        "data": {
+          "parameters": [],
+          "returnValue": {
+            "type": "struct",
+            "id": "Gprl18EKht0l_OIgo25VK"
+          }
+        },
+        "children": [
+          {
+            "id": "CcfLFSMw7P_XUpMqTcSAp",
+            "name": "action",
+            "data": "returnValue.foodColor.r = 255"
+          },
+          {
+            "id": "ZW9bxgwEIwlNZ-ukPcnni",
+            "name": "action",
+            "data": "returnValue.cellColor.g = 255"
+          },
+          {
+            "id": "VzhtTbeVFVh4ZvXcSdsj5",
+            "name": "action",
+            "data": "returnValue.pointColor.r = 50"
+          },
+          {
+            "id": "4QfZ0-hyon6tYQ6xsAnQR",
+            "name": "action",
+            "data": "returnValue.pointColor.g = 50"
+          },
+          {
+            "id": "BICP6FBwsBZOGOlYz-HCE",
+            "name": "action",
+            "data": "returnValue.pointColor.b = 50"
+          }
+        ]
+      },
+      {
+        "id": "jz4cAAN6phb6pEc3JyB8k",
+        "name": "function-footer",
+        "data": ""
+      }
+    ]
+  }
+}

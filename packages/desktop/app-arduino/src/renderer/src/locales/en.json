@@ -1,0 +1,106 @@
+{
+  "agent-chat": {
+    "not-configured": "The AI agent isn't configured yet — open Settings → Agent… to set it up.",
+    "no-sessions": "No sessions yet",
+    "new-session": "New session",
+    "rename": "Rename",
+    "export-session": "Export session (JSON)",
+    "delete": "Delete",
+    "delete-confirm": "Delete this session? This can't be undone.",
+    "steps-count_one": "{{count}} step",
+    "steps-count_other": "{{count}} steps",
+    "tokens_one": "{{count}} token",
+    "tokens_other": "{{count}} tokens",
+    "thinking": "Thinking…",
+    "failed": "Failed",
+    "undo": "Undo",
+    "redo": "Redo",
+    "input-placeholder": "Describe what the agent should change, or ask a question…",
+    "send": "Send",
+    "stop": "Stop"
+  },
+  "desktop-app-arduino": {
+    "history-panel": {
+      "title": "Version History"
+    },
+    "versioning-settings": {
+      "title": "Versioning settings",
+      "repo-mode-label": "Repository",
+      "repo-mode-private": "Private (recommended)",
+      "repo-mode-private-hint": "Creates its own .git inside this project folder. If this folder is already inside another git repository, this creates a nested repository your outer git may not read correctly — use \"Use enclosing repository\" instead in that case.",
+      "repo-mode-enclosing": "Use enclosing repository",
+      "repo-mode-enclosing-hint": "Reuses a git repository this project folder is already inside, scoping every operation to this project's own files. Falls back to Private automatically when no enclosing repository is found.",
+      "author-name-label": "Author name",
+      "author-email-label": "Author email",
+      "auto-version-gap-hours-label": "Auto-version after (hours)",
+      "auto-version-gap-hours-hint": "When you come back to this project after being away longer than this, your next edit is automatically checkpointed as it stood before that edit."
+    },
+    "language-settings": {
+      "title": "Language settings",
+      "label": "Language"
+    },
+    "welcome-page": {
+      "new-project": "New Project…",
+      "open-project": "Open Project…",
+      "recent-projects": "Recent Projects"
+    },
+    "new-project": {
+      "title": "New Project",
+      "name-label": "Name",
+      "name-required": "Project name is required",
+      "directory-label": "Folder",
+      "directory-required": "Project folder is required",
+      "board-label": "Board",
+      "create": "Create",
+      "cancel": "Cancel"
+    },
+    "devices-editor": {
+      "title": "Devices",
+      "load-error": "Couldn't read this document",
+      "pins-title": "Digital pins",
+      "add-pin": "Add pin",
+      "no-pins": "No pins yet",
+      "pin-column-pin": "Pin",
+      "pin-column-mode": "Mode",
+      "pin-column-label": "Label",
+      "devices-title": "Devices",
+      "add-device": "Add device",
+      "no-devices": "No devices yet",
+      "no-device-drivers": "No installed driver supports a device",
+      "unknown-driver": "Unknown driver"
+    }
+  },
+  "version-history": {
+    "commit": "Commit",
+    "name-current-version": "Name current version",
+    "message-placeholder": "What changed?",
+    "default-message": "Untitled version",
+    "changes-since-last-commit": "Changes since last commit",
+    "compare": "Compare",
+    "show-auto-saved": "Show auto-saved versions",
+    "no-commits": "No versions yet",
+    "kind-auto": "Auto",
+    "kind-named": "Named",
+    "compare-with-working-copy": "Compare with working copy",
+    "compare-with-previous": "Compare with previous",
+    "rename": "Rename",
+    "restore": "Restore",
+    "restore-confirm-title": "Restore this version?",
+    "restore-confirm-description": "The working copy will be overwritten with this version's content. A new version is created automatically so this can be undone.",
+    "close": "Close",
+    "previous-change": "Previous change",
+    "next-change": "Next change",
+    "no-changes": "No changes",
+    "select-a-node": "Select a changed node to see what changed",
+    "field": "Field",
+    "old-value": "Old value",
+    "new-value": "New value",
+    "document-kind-added": "Added",
+    "document-kind-removed": "Removed",
+    "document-kind-modified": "Modified",
+    "folder-kind-added": "Added",
+    "folder-kind-removed": "Removed",
+    "folder-kind-renamed": "Renamed",
+    "folder-kind-moved": "Moved"
+  }
+}

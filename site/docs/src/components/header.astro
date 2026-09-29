@@ -1,0 +1,104 @@
+---
+// Starlight's default Header, plus a link back to the marketing site and a language switch
+// (docs.falang.io <-> docs.falang.ru — same domain-per-locale model as the marketing site's
+// lang-switch.astro, no in-page locale routing to switch between).
+import Search from '@astrojs/starlight/components/Search.astro';
+import SiteTitle from '@astrojs/starlight/components/SiteTitle.astro';
+import SocialIcons from '@astrojs/starlight/components/SocialIcons.astro';
+import ThemeSelect from '@astrojs/starlight/components/ThemeSelect.astro';
+import config from 'virtual:starlight/user-config';
+import { locale, type Locale } from '../i18n/locale';
+
+const shouldRenderSearch =
+  config.pagefind || config.components.Search !== '@astrojs/starlight/components/Search.astro';
+
+const MAIN_SITE: Record<Locale, string> = { en: 'https://falang.io', ru: 'https://falang.ru' };
+const MAIN_SITE_LABEL: Record<Locale, string> = { en: 'falang.io', ru: 'falang.ru' };
+const OTHER_DOCS_DOMAIN: Record<Locale, string> = { en: 'https://docs.falang.ru', ru: 'https://docs.falang.io' };
+const OTHER_LOCALE_LABEL: Record<Locale, string> = { en: 'RU', ru: 'EN' };
+---
+
+<div class="header">
+  <div class="title-wrapper sl-flex">
+    <SiteTitle />
+  </div>
+  <div class="sl-flex print:hidden">
+    {shouldRenderSearch && <Search />}
+  </div>
+  <div class="sl-hidden md:sl-flex print:hidden right-group">
+    <a class="chrome-link" href={MAIN_SITE[locale]}>{MAIN_SITE_LABEL[locale]}</a>
+    <a class="chrome-link" href={OTHER_DOCS_DOMAIN[locale]} title="Change language">
+      {OTHER_LOCALE_LABEL[locale]}
+    </a>
+    <div class="sl-flex social-icons">
+      <SocialIcons />
+    </div>
+    <ThemeSelect />
+  </div>
+</div>
+
+<style>
+  @layer starlight.core {
+    .header {
+      display: flex;
+      gap: var(--sl-nav-gap);
+      justify-content: space-between;
+      align-items: center;
+      height: 100%;
+    }
+
+    .title-wrapper {
+      overflow: clip;
+      padding: 0.25rem;
+      margin: -0.25rem;
+      min-width: 0;
+    }
+
+    .right-group,
+    .social-icons {
+      gap: 1rem;
+      align-items: center;
+    }
+
+    .chrome-link {
+      color: var(--sl-color-text);
+      text-decoration: none;
+      font-size: var(--sl-text-sm);
+      white-space: nowrap;
+    }
+    .chrome-link:hover {
+      color: var(--sl-color-white);
+    }
+
+    .social-icons::after {
+      content: '';
+      height: 2rem;
+      border-inline-end: 1px solid var(--sl-color-gray-5);
+    }
+
+    @media (min-width: 50rem) {
+      :global(:root[data-has-sidebar]) {
+        --__sidebar-pad: calc(2 * var(--sl-nav-pad-x));
+      }
+      :global(:root:not([data-has-toc])) {
+        --__toc-width: 0rem;
+      }
+      .header {
+        --__sidebar-width: max(0rem, var(--sl-content-inline-start, 0rem) - var(--sl-nav-pad-x));
+        --__main-column-fr: calc(
+          (
+              100% + var(--__sidebar-pad, 0rem) - var(--__toc-width, var(--sl-sidebar-width)) -
+                (2 * var(--__toc-width, var(--sl-nav-pad-x))) - var(--sl-content-inline-start, 0rem) -
+                var(--sl-content-width)
+            ) / 2
+        );
+        display: grid;
+        grid-template-columns:
+          minmax(calc(var(--__sidebar-width) + max(0rem, var(--__main-column-fr) - var(--sl-nav-gap))), auto)
+          1fr
+          auto;
+        align-content: center;
+      }
+    }
+  }
+</style>

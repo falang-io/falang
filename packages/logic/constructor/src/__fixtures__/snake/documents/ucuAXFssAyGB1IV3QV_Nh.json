@@ -1,0 +1,213 @@
+{
+  "id": "ucuAXFssAyGB1IV3QV_Nh",
+  "type": "external-api-structure",
+  "name": "GameApi",
+  "root": {
+    "id": "IXPTCilqzAuOKyR3fWJRB",
+    "name": "external-api-structure",
+    "children": [
+      {
+        "id": "OvrIv-Vz4VCGfEb8xwHtN",
+        "name": "external-api-structure-header",
+        "data": ""
+      },
+      {
+        "id": "Q7s-mNyRwRn0zcZZ-WRpZ",
+        "name": "external-api-structure-body",
+        "data": null,
+        "children": [
+          {
+            "id": "N0471EOFCfLSLlXHZsUzM",
+            "name": "external-api-structure-thread",
+            "data": {
+              "name": "Application"
+            },
+            "children": [
+              {
+                "id": "YptE5uPQevBqu9s246hGo",
+                "name": "external-api-structure-child",
+                "data": {
+                  "name": "GetButtonsState",
+                  "parameters": [],
+                  "returnValue": {
+                    "type": "struct",
+                    "id": "EMD2v8KQQbp3hg1Nr8312"
+                  }
+                },
+                "children": []
+              },
+              {
+                "id": "HOZ9AUAjOP8sLZL-whOAS",
+                "name": "external-api-structure-child",
+                "data": {
+                  "name": "Sleep",
+                  "parameters": [],
+                  "returnValue": {
+                    "type": "void"
+                  }
+                },
+                "children": []
+              },
+              {
+                "id": "MjCAc3qOsvQTxgvn0YUJR",
+                "name": "external-api-structure-child",
+                "data": {
+                  "name": "GetRandom",
+                  "parameters": [
+                    {
+                      "name": "min",
+                      "type": {
+                        "type": "number",
+                        "numberType": {
+                          "type": "integer",
+                          "integerType": "int32"
+                        }
+                      }
+                    },
+                    {
+                      "name": "max",
+                      "type": {
+                        "type": "number",
+                        "numberType": {
+                          "type": "integer",
+                          "integerType": "int32"
+                        }
+                      }
+                    }
+                  ],
+                  "returnValue": {
+                    "type": "number",
+                    "numberType": {
+                      "type": "integer",
+                      "integerType": "int32"
+                    }
+                  }
+                },
+                "children": []
+              }
+            ]
+          },
+          {
+            "id": "c5NQKyPWa-R2TjHWG-zB-",
+            "name": "external-api-structure-thread",
+            "data": {
+              "name": "Drawing"
+            },
+            "children": [
+              {
+                "id": "tj9MNfCBMgTZH6eqNQFOd",
+                "name": "external-api-structure-child",
+                "data": {
+                  "name": "DrawRect",
+                  "parameters": [
+                    {
+                      "name": "x",
+                      "type": {
+                        "type": "number",
+                        "numberType": {
+                          "type": "integer",
+                          "integerType": "int32"
+                        }
+                      }
+                    },
+                    {
+                      "name": "y",
+                      "type": {
+                        "type": "number",
+                        "numberType": {
+                          "type": "integer",
+                          "integerType": "int32"
+                        }
+                      }
+                    },
+                    {
+                      "name": "w",
+                      "type": {
+                        "type": "number",
+                        "numberType": {
+                          "type": "integer",
+                          "integerType": "int32"
+                        }
+                      }
+                    },
+                    {
+                      "name": "h",
+                      "type": {
+                        "type": "number",
+                        "numberType": {
+                          "type": "integer",
+                          "integerType": "int32"
+                        }
+                      }
+                    },
+                    {
+                      "name": "color",
+                      "type": {
+                        "type": "struct",
+                        "id": "meDT1V2wIp9D9Eb4cOZyH"
+                      }
+                    }
+                  ],
+                  "returnValue": {
+                    "type": "void"
+                  }
+                },
+                "children": []
+              },
+              {
+                "id": "mVRSeELOimFdKMeMIKqFo",
+                "name": "external-api-structure-child",
+                "data": {
+                  "name": "DrawCircle",
+                  "parameters": [
+                    {
+                      "name": "x",
+                      "type": {
+                        "type": "number",
+                        "numberType": {
+                          "type": "integer",
+                          "integerType": "int32"
+                        }
+                      }
+                    },
+                    {
+                      "name": "y",
+                      "type": {
+                        "type": "number",
+                        "numberType": {
+                          "type": "integer",
+                          "integerType": "int32"
+                        }
+                      }
+                    },
+                    {
+                      "name": "r",
+                      "type": {
+                        "type": "number",
+                        "numberType": {
+                          "type": "integer",
+                          "integerType": "int32"
+                        }
+                      }
+                    },
+                    {
+                      "name": "color",
+                      "type": {
+                        "type": "struct",
+                        "id": "meDT1V2wIp9D9Eb4cOZyH"
+                      }
+                    }
+                  ],
+                  "returnValue": {
+                    "type": "void"
+                  }
+                },
+                "children": []
+              }
+            ]
+          }
+        ]
+      }
+    ]
+  }
+}

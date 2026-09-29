@@ -1,0 +1,15 @@
+{
+  "tasks": {
+    "label": "Human tasks",
+    "field": {
+      "title": "Title",
+      "description": "Description",
+      "payload": "Payload (optional)",
+      "attachments": "Attachments (optional)",
+      "timeout": "Timeout (e.g. 10m, 48h) — leave empty for no timeout"
+    },
+    "question": {
+      "humanTask": "Ask the project owner"
+    }
+  }
+}

@@ -1,0 +1,12 @@
+pre[class*='language-'],
+pre[class*='language-'] code {
+  padding: 0 !important;
+  margin: 0 !important;
+  overflow: auto !important;
+  word-wrap: normal !important;
+  white-space: pre-wrap !important;
+  overflow: hidden !important;
+  font-family: 'Courier New', monospace !important;
+  background: transparent !important;
+  line-height: 16px !important;
+}

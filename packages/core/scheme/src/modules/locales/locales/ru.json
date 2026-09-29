@@ -1,0 +1,54 @@
+{
+  "icon": {
+    "action": "Действие",
+    "link": "Ссылка",
+    "if": "Если",
+    "switch": "Переключатель",
+    "foreach": "Для каждого",
+    "while": "Пока",
+    "break": "Прервать",
+    "continue": "Продолжить",
+    "throw": "Исключение",
+    "return": "Возврат",
+    "parallel": "Параллельно",
+    "parallel-thread": "Поток",
+    "pseudo-cycle": "Цикл"
+  },
+  "base": {
+    "true": "Истина",
+    "false": "Ложь"
+  },
+  "menu": {
+    "delete": "Удалить",
+    "group-action": "Действие",
+    "group-arrays": "Массивы",
+    "group-condition": "Условие",
+    "group-cycles": "Циклы",
+    "group-integrations": "Интеграции",
+    "switch-true-false": "Поменять true/false"
+  },
+  "debugger": {
+    "add-breakpoint": "Поставить точку останова",
+    "remove-breakpoint": "Убрать точку останова",
+    "start": "Запустить",
+    "continue": "Продолжить",
+    "step-over": "Шаг",
+    "stop": "Остановить",
+    "status-idle": "Не запущено",
+    "status-starting": "Запуск…",
+    "status-running": "Выполняется",
+    "status-paused": "Пауза",
+    "status-terminated": "Завершено",
+    "terminated-completed": "успешно",
+    "terminated-failed": "с ошибкой",
+    "terminated-stopped": "остановлено",
+    "reason-breakpoint": "на точке останова",
+    "reason-step": "после шага",
+    "reason-entry": "на входе",
+    "current-node": "Текущий узел",
+    "variable": "Переменная",
+    "value": "Значение",
+    "no-variables": "Нет переменных в области видимости",
+    "output": "Вывод"
+  }
+}

@@ -1,0 +1,196 @@
+{
+  "id": "lmP165Il1dOj2AtZYcUwI",
+  "schemeVersion": 2,
+  "name": "TestBuildObject1",
+  "type": "function",
+  "description": "",
+  "root": {
+    "id": "vyx4mzfmMAwgh6yueeK32",
+    "alias": "function",
+    "header": {
+      "text": "",
+      "width": 160,
+      "color": "#ffffff"
+    },
+    "block": {
+      "parameters": [],
+      "returnValue": {
+        "type": "void"
+      },
+      "width": 192,
+      "name": "TestBuildObject1"
+    },
+    "children": [
+      {
+        "id": "RVsxc0nxvZwBqz8aHJasf",
+        "alias": "create_var",
+        "block": {
+          "width": 128,
+          "color": "#ffffff",
+          "expression": "x = 0",
+          "type": "create",
+          "variableType": {
+            "constant": false,
+            "type": "number",
+            "numberType": "integer",
+            "integerType": "int32",
+            "optional": false
+          }
+        }
+      },
+      {
+        "id": "sqZp4_x8EwBpGGtR767OV",
+        "alias": "create_var",
+        "block": {
+          "width": 128,
+          "color": "#ffffff",
+          "expression": "y = 0",
+          "type": "create",
+          "variableType": {
+            "constant": false,
+            "type": "number",
+            "numberType": "integer",
+            "integerType": "int32",
+            "optional": false
+          }
+        }
+      },
+      {
+        "id": "bAYilKIGeGxnbz1W7NcN9",
+        "alias": "create_var",
+        "block": {
+          "width": 128,
+          "color": "#ffffff",
+          "expression": "z = 0",
+          "type": "create",
+          "variableType": {
+            "constant": false,
+            "type": "number",
+            "numberType": "integer",
+            "integerType": "int32",
+            "optional": false
+          }
+        }
+      },
+      {
+        "id": "hwvi2im-dI1OCvMGmb5st",
+        "alias": "call_api",
+        "block": {
+          "parameters": [
+            "x",
+            "y",
+            "z"
+          ],
+          "returnVariable": "o1",
+          "schemeId": "kJvnkBkWAJpic5R0hpq90",
+          "width": 160,
+          "iconId": "PPBYGnYA_MmTWdTYlHVwd"
+        }
+      },
+      {
+        "id": "un1S5Hk5Vl7u1IlWfM9Ok",
+        "alias": "create_var",
+        "block": {
+          "width": 128,
+          "color": "#ffffff",
+          "expression": "b",
+          "type": "create",
+          "variableType": {
+            "type": "struct",
+            "constant": false,
+            "optional": false,
+            "iconId": "JydYxOeZX2pJehjEPfwng",
+            "schemeId": "eSxMzKgsf7laP9EdZ4GS4",
+            "name": "Object1",
+            "properties": {
+              "x": {
+                "constant": false,
+                "type": "number",
+                "numberType": "integer",
+                "integerType": "int32",
+                "optional": false
+              },
+              "y": {
+                "constant": false,
+                "type": "number",
+                "numberType": "integer",
+                "integerType": "int32",
+                "optional": false
+              },
+              "z": {
+                "constant": false,
+                "type": "number",
+                "numberType": "integer",
+                "integerType": "int32",
+                "optional": false
+              }
+            }
+          }
+        }
+      },
+      {
+        "id": "Nc5b0JoTR_KSfSL-CsurE",
+        "alias": "assign_var",
+        "block": {
+          "width": 128,
+          "color": "#ffffff",
+          "expression": "b.x = 4",
+          "type": "assign",
+          "variableType": null
+        }
+      },
+      {
+        "id": "TGgchoIZun05cmfA0ZCA4",
+        "alias": "assign_var",
+        "block": {
+          "width": 128,
+          "color": "#ffffff",
+          "expression": "b.y = 5",
+          "type": "assign",
+          "variableType": null
+        }
+      },
+      {
+        "id": "glvmMy5xHrAE97ijSxNUh",
+        "alias": "assign_var",
+        "block": {
+          "width": 128,
+          "color": "#ffffff",
+          "expression": "b.z = 6",
+          "type": "assign",
+          "variableType": null
+        }
+      },
+      {
+        "id": "nLw7kZDshiVmsnMijhonh",
+        "alias": "call_api",
+        "block": {
+          "parameters": [
+            "o1",
+            "b"
+          ],
+          "returnVariable": "sum",
+          "schemeId": "o6ZKgYac1zoILTt3Pkmcu",
+          "width": 160,
+          "iconId": "P-LaSzygZmYzEEj6I8zlQ"
+        }
+      },
+      {
+        "id": "WPkH1s1QKMlyLPMEvnV5t",
+        "alias": "log",
+        "block": {
+          "width": 224,
+          "color": "#ffffff",
+          "expression": "\"TestBuildObject1Result is: {sum}\"",
+          "type": "string",
+          "variableType": null
+        }
+      }
+    ],
+    "footer": {
+      "text": "",
+      "width": 160,
+      "color": "#ffffff"
+    }
+  }
+}

@@ -1,0 +1,40 @@
+---
+title: Text diagrams
+description: Rules for working with text diagrams
+head:
+  - tag: meta
+    attrs:
+      name: keywords
+      content: "text, diagrams, falang"
+---
+
+import ImageRow from '../../../components/image-row.astro';
+import Gallery from '../../../components/gallery.astro';
+
+<p>Text algorithms allow you to visualize algorithms in human language.</p>
+<p>Currently, three types of schemes are available in text algorithms:</p>
+<ul>
+  <li><b>Function</b>: algorithm as a function</li>
+  <li><b>Silhouette</b>: diagram of long-term processes. Analogue of the "silhouette" icon in the Dragon.</li>
+  <li><b>Tree</b>: for describing tree structures</li>
+</ul>
+<Gallery>
+  <img src='/img/docs/icon-function.png' />
+  <img src='/img/docs/icon-liferythm.png' />
+  <img src='/img/docs/icon-tree.png' />
+</Gallery>
+
+#### Links between diagrams
+<ImageRow>
+  It is possible to create links between diagrams. In this case, when you click on the link icon in the right corner of the icon, the diagram to which the link leads will be opened.
+  <img slot="media" src='/img/docs/icon-link.png' />
+</ImageRow>
+
+#### Changing icon and background color
+<p>Text algorithms implement the ability to edit the color of the icon or background</p>
+<Gallery>
+  <img src='/img/docs/bg.webp' />
+</Gallery>
+
+#### Rich text formatting
+<p>Double-clicking a text icon opens a rich text editor with a formatting toolbar: bold, italic, underline, strikethrough, left/center/right/justify alignment, bullet and numbered lists, and undo/redo. You can also insert images — drag the resize handles on a selected image to change its size, and use the alignment buttons on its paragraph to center or right-align it.</p>

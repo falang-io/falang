@@ -1,0 +1,38 @@
+{
+  "telegram": {
+    "label": "Telegram",
+    "credentialField": {
+      "botToken": "Bot Token"
+    },
+    "trigger": {
+      "onMessage": "On message",
+      "onCommand": "On command"
+    },
+    "field": {
+      "command": "Command",
+      "bot": "Bot",
+      "chatId": "Chat ID",
+      "text": "Text",
+      "question": "Question",
+      "timeout": "Timeout (e.g. 10m, 48h) — leave empty for no timeout",
+      "file": "File",
+      "sendFileAs": "Send as",
+      "caption": "Caption"
+    },
+    "action": {
+      "sendMessage": "Send message",
+      "sendFile": "Send file"
+    },
+    "question": {
+      "askQuestion": "Ask question"
+    },
+    "sendFileAs": {
+      "auto": "Auto (by file type)",
+      "photo": "Photo",
+      "document": "Document",
+      "video": "Video",
+      "audio": "Audio",
+      "voice": "Voice message"
+    }
+  }
+}

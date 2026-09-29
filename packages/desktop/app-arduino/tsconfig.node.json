@@ -1,0 +1,31 @@
+{
+  "compilerOptions": {
+    "tsBuildInfoFile": "./node_modules/.tmp/tsconfig.node.tsbuildinfo",
+    "target": "es2023",
+    // `dom` added alongside `ES2023` (previously Node-only) for the same reason as `jsx` below —
+    // `@falang/scheme`'s browser-facing modules (e.g. `scheme.ts`'s `window`/`document` use) are part
+    // of this program transitively (see the `jsx` comment) even though nothing under `main`/`preload`
+    // itself ever runs in a browser; these are ambient type declarations only, `noEmit` stays `true`.
+    "lib": ["ES2023", "dom"],
+    "module": "esnext",
+    "types": ["node", "electron-vite/node"],
+    "skipLibCheck": true,
+
+    "moduleResolution": "bundler",
+    "allowImportingTsExtensions": true,
+    "verbatimModuleSyntax": true,
+    "moduleDetection": "force",
+    "noEmit": true,
+    // No .tsx here — `main`/`preload` are plain Node — but `@falang/agent`'s `IChatTurn` (docs/
+    // decisions/0033-agent-chat-sessions.md) ties `IAgentStep` back to `agent-session.ts`, which
+    // imports `@falang/scheme` for real (`TOKEN_HISTORY`), so this program transitively includes
+    // that package's .tsx files even though nothing here ever renders one. Matches `tsconfig.web.json`'s
+    // own value (and `tsconfig.base.json`'s default, which every other package's tsconfig inherits).
+    "jsx": "react-jsx",
+
+    "noUnusedLocals": true,
+    "noUnusedParameters": true,
+    "noFallthroughCasesInSwitch": true
+  },
+  "include": ["electron.vite.config.ts", "src/main/**/*", "src/preload/**/*"]
+}

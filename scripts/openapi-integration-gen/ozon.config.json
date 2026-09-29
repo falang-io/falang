@@ -1,0 +1,8 @@
+{
+  "vendorPrefix": "ozon",
+  "constantPrefix": "OZON",
+  "specs": ["/home/serginho/swagger.json"],
+  "skipParamNames": ["Client-Id", "Api-Key"],
+  "baseUrl": "https://api-seller.ozon.ru",
+  "outFile": "packages/workflow-integrations/ozon/src/ozon.generated.ts"
+}

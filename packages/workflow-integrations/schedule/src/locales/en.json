@@ -1,0 +1,22 @@
+{
+  "schedule": {
+    "label": "Schedule",
+    "trigger": {
+      "interval": "Every…",
+      "cron": "Cron expression"
+    },
+    "field": {
+      "every": "Every",
+      "unit": "Unit",
+      "expression": "Cron expression",
+      "timezone": "Timezone"
+    },
+    "unit": {
+      "seconds": "seconds",
+      "minutes": "minutes",
+      "hours": "hours",
+      "days": "days",
+      "weeks": "weeks"
+    }
+  }
+}

@@ -1,0 +1,19 @@
+{
+  "name": "falang",
+  "owner": {
+    "name": "falang",
+    "url": "https://falang.io"
+  },
+  "description": "falang's own Claude Code plugin marketplace — the falang plugin (MCP server config + skills for editing falang projects), published from this monorepo.",
+  "plugins": [
+    {
+      "name": "falang",
+      "source": "./falang",
+      "description": "Edit falang projects (workflow/logic/code/Arduino) with a coding agent.",
+      "version": "0.1.0",
+      "author": {
+        "name": "falang"
+      }
+    }
+  ]
+}

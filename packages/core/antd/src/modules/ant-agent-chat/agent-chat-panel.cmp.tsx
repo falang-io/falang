@@ -1,0 +1,242 @@
+import type React from 'react';
+import type { ReactNode } from 'react';
+import { useState } from 'react';
+import { observer } from 'mobx-react-lite';
+import { Alert, Button, Collapse, Input, Space, Tag, Typography } from 'antd';
+import { RedoOutlined, SendOutlined, StopOutlined, UndoOutlined } from '@ant-design/icons';
+import { describeToolCall, type AgentSession, type IAgentStep, type IChatTurn } from '@falang/agent';
+import type { HistoryStore } from '@falang/scheme';
+import { useAgentChatT } from './use-agent-chat-t.js';
+import type { AgentChatSessionStore } from './agent-chat.store.js';
+import { SessionPickerHeader } from './session-picker-header.cmp.js';
+
+const { TextArea } = Input;
+
+const statusTagColor = (status: AgentSession['status']): string => {
+  if (status === 'running') return 'processing';
+  if (status === 'error') return 'error';
+  return 'default';
+};
+
+const styles: Record<string, React.CSSProperties> = {
+  root: { display: 'flex', flexDirection: 'column', gap: 8, minHeight: 0 },
+  messages: { display: 'flex', flexDirection: 'column', gap: 12, overflow: 'auto', flex: 1, minHeight: 120 },
+  turn: { display: 'flex', flexDirection: 'column', gap: 4 },
+  request: { fontWeight: 500 },
+  reply: { whiteSpace: 'pre-wrap' },
+  usage: { fontSize: 11 },
+  stepDetail: { fontSize: 11, whiteSpace: 'pre-wrap', wordBreak: 'break-word' },
+};
+
+/** One tool-call step — a readable one-liner (`describeToolCall`), ok/error tag, and click-to-expand raw input/result. */
+const StepItem: React.FC<{ readonly step: IAgentStep }> = ({ step }) => {
+  const [expanded, setExpanded] = useState(false);
+  return (
+    <div>
+      <Button
+        type="link"
+        size="small"
+        onClick={() => setExpanded((value) => !value)}
+        style={{ height: 'auto', padding: 0 }}
+      >
+        {describeToolCall(step.call)}
+      </Button>
+      <Tag color={step.result.ok ? 'success' : 'error'} style={{ marginLeft: 8 }}>
+        {step.result.ok ? 'ok' : 'error'}
+      </Tag>
+      {expanded && (
+        <Typography.Text type="secondary" style={styles.stepDetail}>
+          {JSON.stringify(step.call.input)}
+          {'\n→ '}
+          {step.result.ok ? step.result.content : step.result.error}
+        </Typography.Text>
+      )}
+    </div>
+  );
+};
+
+const StepsCollapse: React.FC<{ readonly steps: readonly IAgentStep[] }> = ({ steps }) => {
+  const t = useAgentChatT();
+  if (steps.length === 0) return null;
+  return (
+    <Collapse
+      size="small"
+      items={[
+        {
+          children: (
+            <Space direction="vertical" size={4}>
+              {steps.map((step, index) => (
+                // oxlint-disable-next-line no-array-index-key -- steps have no stable id of their own within a turn
+                <StepItem key={index} step={step} />
+              ))}
+            </Space>
+          ),
+          key: 'steps',
+          label: t('agent-chat:steps-count', { count: steps.length }),
+        },
+      ]}
+    />
+  );
+};
+
+/** A host's `renderError` result (if any) replaces the plain text: it is meant as the whole notice (e.g. a "buy credits" call to action). */
+const ErrorNotice: React.FC<{
+  readonly error: unknown;
+  readonly text: string;
+  readonly renderError?: (error: unknown) => ReactNode | null;
+}> = ({ error, text, renderError }) => {
+  const custom = error !== null && renderError ? renderError(error) : null;
+  return custom ?? <Alert type="error" showIcon message={text} />;
+};
+
+const TurnView: React.FC<{
+  readonly turn: IChatTurn;
+  readonly rawError?: unknown;
+  readonly renderError?: (error: unknown) => ReactNode | null;
+}> = ({ turn, rawError, renderError }) => {
+  const t = useAgentChatT();
+  return (
+    <div style={styles.turn}>
+      <Typography.Text style={styles.request}>{turn.request}</Typography.Text>
+      <StepsCollapse steps={turn.steps} />
+      {turn.status === 'error' ? (
+        <ErrorNotice error={rawError} text={turn.error || t('agent-chat:failed')} renderError={renderError} />
+      ) : (
+        <Typography.Text style={styles.reply}>{turn.message}</Typography.Text>
+      )}
+      {turn.usage ? (
+        <Typography.Text type="secondary" style={styles.usage}>
+          {t('agent-chat:tokens', { count: turn.usage.totalTokens })}
+        </Typography.Text>
+      ) : null}
+    </div>
+  );
+};
+
+/** The in-progress turn, driven by the live `AgentSession` passed to the panel rather than a persisted `IChatTurn` — same shape as `TurnView` once it settles. */
+const RunningTurnView: React.FC<{ readonly agentSession: AgentSession; readonly request: string }> = observer(
+  ({ agentSession, request }) => {
+    const t = useAgentChatT();
+    return (
+      <div style={styles.turn}>
+        <Typography.Text style={styles.request}>{request}</Typography.Text>
+        <StepsCollapse steps={agentSession.steps} />
+        <Tag color="processing">{t('agent-chat:thinking')}</Tag>
+      </div>
+    );
+  },
+);
+
+export interface IAgentChatPanelProps {
+  readonly store: AgentChatSessionStore;
+  /** The project's one `AgentSession` (ADR 0036 (private)) —
+   *  never swapped on tab switch, unlike before that ADR. */
+  readonly agentSession: AgentSession;
+  /** The *active* document's `HistoryStore` — one agent run is one undo group per document touched
+   *  (ADR 0034 (private)), so Undo/Redo here act on whichever document is currently on screen. `null`
+   *  when the active view has no `HistoryStore` of its own (e.g. a non-scheme document, or nothing open at
+   *  all) — Undo/Redo are then simply disabled; this never affects whether Send is enabled. */
+  readonly history: HistoryStore | null;
+  /** The document open in the editor at this moment, if it's one the agent can edit — read fresh at send
+   *  time via `AgentSession.run`'s `activeDocumentId`, and on every render for `IChatTurn.documentId`
+   *  bookkeeping — an observable-reading function so it tracks tab switches. `null` is a perfectly normal
+   *  value (ADR 0036's "no home document" amendment: an empty project, or a non-agent-capable document, is
+   *  still workable) and never disables Send by itself. */
+  readonly getActiveDocumentId: () => string | null;
+  readonly configured: boolean;
+  readonly configuredLoading: boolean;
+  readonly model: string | null;
+  /** Optional host hook: given the original thrown value of a failed turn / send, return a node to show instead of the
+   *  plain error text (replaces it, since it is meant as the full notice), or `null` for the default text. */
+  readonly renderError?: (error: unknown) => ReactNode | null;
+}
+
+/**
+ * The agent chat panel (ADR 0033 (private); project-scoped session and a
+ * project-level `getActiveDocumentId()`/`history` seam since ADR 0036 (private), which also dropped the
+ * old "open a document the agent can edit" requirement — the agent works fine with no document open) — a
+ * session picker (new/rename/delete), a scrollable turn history (each turn's tool-call steps collapsed by
+ * default, then its final reply), and the input box. Reused as-is by the workflow client and both desktop
+ * apps; each host only supplies its own `AgentChatSessionStore` (built over its own `IAgentSessionStore`),
+ * the project's one `AgentSession`, and `getActiveDocumentId()`/`history` resolved from whichever document
+ * is currently active.
+ */
+export const AgentChatPanel: React.FC<IAgentChatPanelProps> = observer(
+  ({ store, agentSession, history, getActiveDocumentId, configured, configuredLoading, model, renderError }) => {
+    const t = useAgentChatT();
+    const [request, setRequest] = useState('');
+
+    const isRunning = store.sending || agentSession.status === 'running';
+    const canSend = configured && !configuredLoading && Boolean(request.trim()) && !isRunning;
+
+    const send = (): void => {
+      if (!canSend) return;
+      const text = request.trim();
+      setRequest('');
+      store.send(text, { agentSession, activeDocumentId: getActiveDocumentId() }).catch(() => null);
+    };
+
+    const activeSession = store.activeSession;
+    const pendingRequest = store.pendingRequest;
+
+    return (
+      <div className="agent-chat-panel" style={styles.root}>
+        {!configuredLoading && !configured ? (
+          <Alert type="warning" showIcon message={t('agent-chat:not-configured')} />
+        ) : null}
+
+        <SessionPickerHeader store={store} model={configured ? model : null} />
+
+        <Space wrap>
+          <Tag color={statusTagColor(agentSession.status)}>{agentSession.status}</Tag>
+          <Button
+            size="small"
+            icon={<UndoOutlined />}
+            disabled={!history?.isBackAvailable}
+            onClick={() => history?.back()}
+          >
+            {t('agent-chat:undo')}
+          </Button>
+          <Button
+            size="small"
+            icon={<RedoOutlined />}
+            disabled={!history?.isForwardAvailable}
+            onClick={() => history?.forward()}
+          >
+            {t('agent-chat:redo')}
+          </Button>
+        </Space>
+
+        {store.error && <ErrorNotice error={store.rawError} text={store.error} renderError={renderError} />}
+
+        <div style={styles.messages}>
+          {(activeSession?.turns ?? []).map((turn) => (
+            <TurnView key={turn.id} turn={turn} rawError={store.getTurnError(turn.id)} renderError={renderError} />
+          ))}
+          {pendingRequest !== null && <RunningTurnView agentSession={agentSession} request={pendingRequest} />}
+        </div>
+
+        <TextArea
+          rows={3}
+          placeholder={t('agent-chat:input-placeholder')}
+          value={request}
+          disabled={isRunning || !configured || configuredLoading}
+          onChange={(event) => setRequest(event.target.value)}
+          onKeyDown={(event) => {
+            if (event.key === 'Enter' && (event.metaKey || event.ctrlKey)) send();
+          }}
+        />
+        <Space>
+          <Button type="primary" size="small" icon={<SendOutlined />} disabled={!canSend} onClick={send}>
+            {t('agent-chat:send')}
+          </Button>
+          {isRunning ? (
+            <Button size="small" danger icon={<StopOutlined />} onClick={() => agentSession.cancel()}>
+              {t('agent-chat:stop')}
+            </Button>
+          ) : null}
+        </Space>
+      </div>
+    );
+  },
+);

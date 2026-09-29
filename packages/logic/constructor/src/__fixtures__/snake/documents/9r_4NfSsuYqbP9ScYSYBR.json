@@ -1,0 +1,72 @@
+{
+  "id": "9r_4NfSsuYqbP9ScYSYBR",
+  "type": "function",
+  "name": "getRandomPoint",
+  "root": {
+    "id": "p1oTmW4T5DPD-s9IIoGwU",
+    "name": "function",
+    "children": [
+      {
+        "id": "eWjz0LI8QUdpUzfMiz_u0",
+        "name": "function-header",
+        "data": ""
+      },
+      {
+        "id": "QtckXuIwkuewm7OsycOcH",
+        "name": "function-body",
+        "data": {
+          "parameters": [
+            {
+              "name": "state",
+              "type": {
+                "type": "struct",
+                "id": "yhxyfy9m5HuAFEaJZ_Ob4"
+              }
+            }
+          ],
+          "returnValue": {
+            "type": "struct",
+            "id": "mWThR-uew3FxhF4m2YY5a"
+          }
+        },
+        "children": [
+          {
+            "id": "QoxOq5QmBL289JWVnNsa_",
+            "name": "call-api",
+            "data": {
+              "schemeId": "ucuAXFssAyGB1IV3QV_Nh",
+              "iconId": "MjCAc3qOsvQTxgvn0YUJR",
+              "parameters": ["0", "state.config.gameWidth"],
+              "returnVariable": "x"
+            }
+          },
+          {
+            "id": "1zE6iGn9WUdhq57-K0gSH",
+            "name": "call-api",
+            "data": {
+              "schemeId": "ucuAXFssAyGB1IV3QV_Nh",
+              "iconId": "MjCAc3qOsvQTxgvn0YUJR",
+              "parameters": ["0", "state.config.gameHeight"],
+              "returnVariable": "y"
+            }
+          },
+          {
+            "id": "01k6Xc4_S5yNpF2tNLrvx",
+            "name": "action",
+            "data": "returnValue.x = x"
+          },
+          {
+            "id": "JGK4-Dkom4nLbELAh_HWX",
+            "name": "action",
+            "data": "returnValue.y = y"
+          }
+        ]
+      },
+      {
+        "id": "6TK_T-xeWt4hRWX4IPD5Y",
+        "name": "function-footer",
+        "data": ""
+      }
+    ]
+  }
+}

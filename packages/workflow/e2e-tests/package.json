@@ -1,0 +1,38 @@
+{
+  "name": "@falang/workflow-e2e-tests",
+  "version": "1.0.0",
+  "description": "",
+  "license": "AGPL-3.0-only",
+  "author": "",
+  "private": true,
+  "type": "commonjs",
+  "scripts": {
+    "test": "playwright test",
+    "test:headed": "playwright test --headed",
+    "check": "tsc --noEmit -p tsconfig.build.json"
+  },
+  "devDependencies": {
+    "@falang/dto": "*",
+    "@falang/typescript-dto": "*",
+    "@falang/workflow-integrations-openai": "*",
+    "@falang/workflow-integrations-telegram": "*",
+    "@falang/workflow-integrations-webhook": "*",
+    "@falang/workflow-mocks": "*",
+    "@playwright/test": "^1.61.1",
+    "@temporalio/client": "^1.13.0",
+    "@types/node": "^24.12.2",
+    "monocart-coverage-reports": "^2.13.0"
+  },
+  "files": [
+    "src",
+    "!src/**/*.test.ts",
+    "!src/**/*.test.tsx",
+    "!src/**/*.e2e.test.ts",
+    "!src/**/*.workflow-e2e-spec.ts",
+    "!src/**/*.spec.ts",
+    "!src/**/*.docker-e2e-spec.ts",
+    "!src/**/*-test-harness.ts",
+    "!src/test-utils",
+    "!src/**/__snapshots__"
+  ]
+}

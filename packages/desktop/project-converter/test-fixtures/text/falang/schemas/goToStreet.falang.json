@@ -1,0 +1,80 @@
+{
+  "description": "",
+  "id": "S8SeeO6rAD7glWnCARNwM",
+  "name": "goToStreet",
+  "root": {
+    "id": "JCIij0P71vnVDpr7jzt1N",
+    "alias": "function",
+    "block": {
+      "width": 160,
+      "text": "Go to street algorithm"
+    },
+    "children": [
+      {
+        "alias": "action",
+        "block": {
+          "width": 160,
+          "text": "Put on a jacket"
+        },
+        "id": "Ci0in2oTRfUBkoA6dDg7B"
+      },
+      {
+        "alias": "if",
+        "id": "uuIdfIPMD4xBcx-hjKxvh",
+        "block": {
+          "width": 160,
+          "text": "Rain on the street?"
+        },
+        "children": [
+          {
+            "id": "ojr7PrXuBMo9wlUbkCOqh",
+            "alias": "system",
+            "block": {
+              "width": 160,
+              "text": ""
+            },
+            "children": []
+          },
+          {
+            "id": "sEcQ7vhYraIAahP0RxPDY",
+            "alias": "system",
+            "block": {
+              "width": 160,
+              "text": ""
+            },
+            "children": [
+              {
+                "alias": "action",
+                "block": {
+                  "width": 160,
+                  "text": "Take an umbrella"
+                },
+                "id": "pGhcpdGBwVRv0Or1Dss_M"
+              }
+            ]
+          }
+        ],
+        "gaps": [],
+        "trueOnRight": true
+      },
+      {
+        "alias": "action",
+        "block": {
+          "width": 160,
+          "text": "Get out of the house"
+        },
+        "id": "MwnmDrpBbV2_7a5jd_b_r"
+      }
+    ],
+    "footer": {
+      "width": 160,
+      "text": "You are on the street"
+    },
+    "header": {
+      "width": 160,
+      "text": ""
+    }
+  },
+  "schemeVersion": 2,
+  "type": "function"
+}

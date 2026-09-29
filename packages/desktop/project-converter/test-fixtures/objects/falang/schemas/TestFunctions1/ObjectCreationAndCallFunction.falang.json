@@ -1,0 +1,129 @@
+{
+  "id": "D5K1JKRylFyYSxvYl7DCb",
+  "schemeVersion": 2,
+  "name": "ObjectCreationAndCallFunction",
+  "type": "function",
+  "description": "",
+  "root": {
+    "id": "t7XgteSsefGbiuigSdDqx",
+    "alias": "function",
+    "header": {
+      "text": "",
+      "width": 160,
+      "color": "#ffffff"
+    },
+    "block": {
+      "parameters": [],
+      "returnValue": {
+        "type": "void"
+      },
+      "width": 192,
+      "name": "ObjectCreationAndCallFunction"
+    },
+    "children": [
+      {
+        "id": "iMIM44gITmYbG3BafyzWJ",
+        "alias": "create_var",
+        "block": {
+          "width": 128,
+          "color": "#ffffff",
+          "expression": "x",
+          "type": "create",
+          "variableType": {
+            "type": "struct",
+            "constant": false,
+            "optional": false,
+            "iconId": "JJESuMMF-s7cdVOyL_vKQ",
+            "schemeId": "WlwcPb7wDq7Lo0zWJHXoi",
+            "name": "ObjA",
+            "properties": {
+              "x": {
+                "constant": false,
+                "type": "number",
+                "numberType": "integer",
+                "integerType": "int32",
+                "optional": false
+              },
+              "y": {
+                "constant": false,
+                "type": "number",
+                "numberType": "integer",
+                "integerType": "int32",
+                "optional": false
+              },
+              "z": {
+                "constant": false,
+                "type": "number",
+                "numberType": "integer",
+                "integerType": "int32",
+                "optional": false
+              }
+            }
+          }
+        }
+      },
+      {
+        "id": "YOxMPtHbHYTkQTyrk_vDK",
+        "alias": "assign_var",
+        "block": {
+          "width": 128,
+          "color": "#ffffff",
+          "expression": "x.x = 10",
+          "type": "assign",
+          "variableType": null
+        }
+      },
+      {
+        "id": "aVpSobgJ3E8KZ13t0rLKM",
+        "alias": "assign_var",
+        "block": {
+          "width": 128,
+          "color": "#ffffff",
+          "expression": "x.y = 20",
+          "type": "assign",
+          "variableType": null
+        }
+      },
+      {
+        "id": "6V7DXwdwGDsIFU9LJ6PWY",
+        "alias": "assign_var",
+        "block": {
+          "width": 128,
+          "color": "#ffffff",
+          "expression": "x.z = 30",
+          "type": "assign",
+          "variableType": null
+        }
+      },
+      {
+        "id": "7MDkox1kXRv7xHpgOUp_R",
+        "alias": "call_function",
+        "block": {
+          "parameters": [
+            "x"
+          ],
+          "returnVariable": "sum",
+          "schemeId": "nn9VE0OQYK8swaoC4_166",
+          "width": 160,
+          "iconId": null
+        }
+      },
+      {
+        "id": "ONeDQMdfG0GBXPHfgg3Ro",
+        "alias": "log",
+        "block": {
+          "width": 160,
+          "color": "#ffffff",
+          "expression": "\"objA sum is: {sum}\"",
+          "type": "string",
+          "variableType": null
+        }
+      }
+    ],
+    "footer": {
+      "text": "",
+      "width": 160,
+      "color": "#ffffff"
+    }
+  }
+}

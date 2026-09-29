@@ -1,0 +1,13 @@
+{
+  "http-request": {
+    "label": "HTTP Request",
+    "field": {
+      "method": "Method",
+      "url": "URL",
+      "headers": "Headers (object expression, optional)",
+      "body": "Body (expression, optional)",
+      "responseAs": "Response as (auto/text/json/file)",
+      "result": "Save result to"
+    }
+  }
+}

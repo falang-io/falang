@@ -1,0 +1,16 @@
+{
+  "icon": {
+    "create-var": "New variable",
+    "action": "Action",
+    "call-function": "Call function",
+    "call-api": "Call API",
+    "log": "Log",
+    "arr-pop": "Array: pop",
+    "arr-push": "Array: push",
+    "arr-shift": "Array: shift",
+    "arr-unshift": "Array: unshift",
+    "arr-insert": "Array: insert",
+    "arr-slice": "Array: slice",
+    "from-to-cycle": "For (from/to)"
+  }
+}

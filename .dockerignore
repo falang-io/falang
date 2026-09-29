@@ -1,0 +1,14 @@
+.git
+node_modules
+build
+dist
+coverage
+.stryker-tmp
+reports
+stryker.log
+old
+references
+.builds
+.claude
+.vscode
+/activepieces

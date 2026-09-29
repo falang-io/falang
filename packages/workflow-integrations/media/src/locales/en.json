@@ -1,0 +1,36 @@
+{
+  "media": {
+    "label": "Media (ffmpeg)",
+    "action": {
+      "probe": "Probe media info",
+      "imageResize": "Resize image",
+      "imageConvert": "Convert image",
+      "videoTrim": "Trim video",
+      "videoConcat": "Concatenate videos",
+      "videoThumbnail": "Video thumbnail",
+      "videoTranscode": "Transcode video",
+      "audioExtract": "Extract audio",
+      "audioConvert": "Convert audio"
+    },
+    "field": {
+      "file": "File",
+      "files": "Files (2 or more)",
+      "width": "Width (px, optional)",
+      "height": "Height (px, optional)",
+      "fit": "Fit",
+      "imageFormat": "Format",
+      "videoFormat": "Format",
+      "audioFormat": "Format",
+      "quality": "Quality (1-100, default 85)",
+      "start": "Start (seconds)",
+      "duration": "Duration (seconds, optional)",
+      "reencode": "Re-encode",
+      "at": "At (seconds)",
+      "preset": "Preset",
+      "bitrate": "Bitrate",
+      "mono": "Mono",
+      "sampleRate": "Sample rate (Hz)",
+      "result": "Save result to"
+    }
+  }
+}

@@ -1,0 +1,53 @@
+{
+  "id": "dht",
+  "label": "DHT11 / DHT22 (Temperature/Humidity)",
+  "version": "1.0.0",
+  "includes": ["dht-driver.h"],
+  "sourceFiles": ["dht-driver.h", "dht-driver.cpp"],
+  "declarations": [
+    "declare function dht_read_temperature(pin: number, sensorType: number): number;",
+    "declare function dht_read_humidity(pin: number, sensorType: number): number;"
+  ],
+  "actions": [
+    {
+      "id": "read-temperature",
+      "label": "Read temperature (°C)",
+      "fields": [
+        { "name": "pin", "label": "Data pin", "kind": "pin", "default": "2" },
+        {
+          "name": "sensorType",
+          "label": "Sensor",
+          "kind": "select",
+          "default": "1",
+          "options": [
+            { "value": "0", "label": "DHT11" },
+            { "value": "1", "label": "DHT22" }
+          ]
+        },
+        { "name": "variable", "label": "Result variable", "kind": "new-variable", "default": "temperature" }
+      ],
+      "codeTemplate": "dht_read_temperature(${pin}, ${sensorType})",
+      "resultType": "float"
+    },
+    {
+      "id": "read-humidity",
+      "label": "Read humidity (%RH)",
+      "fields": [
+        { "name": "pin", "label": "Data pin", "kind": "pin", "default": "2" },
+        {
+          "name": "sensorType",
+          "label": "Sensor",
+          "kind": "select",
+          "default": "1",
+          "options": [
+            { "value": "0", "label": "DHT11" },
+            { "value": "1", "label": "DHT22" }
+          ]
+        },
+        { "name": "variable", "label": "Result variable", "kind": "new-variable", "default": "humidity" }
+      ],
+      "codeTemplate": "dht_read_humidity(${pin}, ${sensorType})",
+      "resultType": "float"
+    }
+  ]
+}

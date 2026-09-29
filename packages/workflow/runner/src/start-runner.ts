@@ -1,0 +1,59 @@
+import { NativeConnection, Worker, type WorkerOptions } from '@temporalio/worker';
+import { fetchArtifact } from './fetch-artifact.js';
+import { loadCjsModuleFromSource } from './load-cjs-module-from-source.js';
+import type { IRunnerConfig } from './runner-config.js';
+
+/**
+ * Starts a Temporal Worker for a single compiled workflow. Per
+ * ADR 0002 (private), one runner pod backs exactly one workflow
+ * definition/version on its own task queue — there is no multi-tenant loading or hot-reload here.
+ * Resolves once the worker shuts down (e.g. on SIGINT/SIGTERM) or its poll loop errors out.
+ *
+ * The artifact is fetched over HTTP and loaded entirely in memory — see
+ * ADR 0016 (private)'s "Artifact delivery into the runner pod": this
+ * pod's filesystem is never written to (its Pod spec sets `readOnlyRootFilesystem: true`), unlike
+ * the pre-k8s version of this function, which read `workflowsPath`/`activitiesPath` off local disk.
+ */
+export const startRunner = async (config: IRunnerConfig): Promise<void> => {
+  const connection = config.temporalAddress
+    ? await NativeConnection.connect({ address: config.temporalAddress })
+    : null;
+
+  const { workflowBundle, activitiesSource } = await fetchArtifact({
+    artifactBaseUrl: config.artifactBaseUrl,
+    projectId: config.projectId,
+    internalProjectToken: config.internalProjectToken,
+    buildId: config.buildId,
+  });
+  // Filename only needs to be a plausible absolute path inside this image's own node_modules
+  // resolution tree — never actually read from disk — so `require('@temporalio/activity')` inside
+  // the loaded activities resolves against the runner image's pre-baked `node_modules`.
+  const activities = loadCjsModuleFromSource(activitiesSource, '/app/activities.js') as object;
+
+  const workerOptions: WorkerOptions = {
+    namespace: config.namespace,
+    taskQueue: config.taskQueue,
+    workflowBundle: { code: workflowBundle },
+    activities,
+  };
+  if (connection) {
+    workerOptions.connection = connection;
+  }
+  if (config.deploymentName && config.buildId) {
+    // PINNED (not AUTO_UPGRADE): an execution stays on the version it started on for its whole
+    // lifetime — only new workflow starts follow whichever version is "current". See
+    // ADR 0004 (private) for why AUTO_UPGRADE was rejected.
+    workerOptions.workerDeploymentOptions = {
+      version: { deploymentName: config.deploymentName, buildId: config.buildId },
+      useWorkerVersioning: true,
+      defaultVersioningBehavior: 'PINNED',
+    };
+  }
+
+  try {
+    const worker = await Worker.create(workerOptions);
+    await worker.run();
+  } finally {
+    await connection?.close();
+  }
+};

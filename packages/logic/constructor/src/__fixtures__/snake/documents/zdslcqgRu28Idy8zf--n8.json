@@ -1,0 +1,106 @@
+{
+  "id": "zdslcqgRu28Idy8zf--n8",
+  "type": "function",
+  "name": "getNewFoodPoint",
+  "root": {
+    "id": "UTXeesjId4EdZOMA35YW1",
+    "name": "function",
+    "children": [
+      {
+        "id": "DTWFw2IEe_kGz2inAzu9N",
+        "name": "function-header",
+        "data": ""
+      },
+      {
+        "id": "68y2MYQAtqD1MROgoNft0",
+        "name": "function-body",
+        "data": {
+          "parameters": [
+            {
+              "name": "state",
+              "type": {
+                "type": "struct",
+                "id": "yhxyfy9m5HuAFEaJZ_Ob4"
+              }
+            }
+          ],
+          "returnValue": {
+            "type": "struct",
+            "id": "mWThR-uew3FxhF4m2YY5a"
+          }
+        },
+        "children": [
+          {
+            "id": "DQZhz6wI53p8hPB7WPRAm",
+            "name": "pseudo-cycle",
+            "children": [
+              {
+                "id": "nv69UdcCiiXZ3zQeoqpO5",
+                "name": "call-function",
+                "data": {
+                  "schemeId": "9r_4NfSsuYqbP9ScYSYBR",
+                  "iconId": null,
+                  "parameters": ["state"],
+                  "returnVariable": "newFoodPoint"
+                }
+              },
+              {
+                "id": "VckIcLeMDb4P6lC0ug7iX",
+                "name": "foreach",
+                "data": {
+                  "arr": "state.snake.body",
+                  "item": "bodyItem",
+                  "index": ""
+                },
+                "children": [
+                  {
+                    "id": "-B1ubzcYAsKCnoIqg2OP1",
+                    "name": "if",
+                    "data": "newFoodPoint.x == bodyItem.x && newFoodPoint.y == bodyItem.y",
+                    "meta": {
+                      "trueOnRight": true
+                    },
+                    "children": [
+                      {
+                        "id": "1O-hc6VoQcIgYf6ouEW4z",
+                        "name": "if-child",
+                        "children": []
+                      },
+                      {
+                        "id": "1Vj3Tn3prqSBRo1u2Zynx",
+                        "name": "if-child",
+                        "children": [],
+                        "out": {
+                          "id": "ucY4KtY0R5PSWdSfz_ybJ",
+                          "name": "continue",
+                          "meta": {
+                            "outLevel": 2
+                          }
+                        }
+                      }
+                    ]
+                  }
+                ]
+              },
+              {
+                "id": "eY2h0tVu6B07rv-r5R7qI",
+                "name": "action",
+                "data": "returnValue.x = newFoodPoint.x"
+              },
+              {
+                "id": "AOOJSmk-jdzqHSn472XDm",
+                "name": "action",
+                "data": "returnValue.y = newFoodPoint.y"
+              }
+            ]
+          }
+        ]
+      },
+      {
+        "id": "NxsPPawU82RTNfjGNy17e",
+        "name": "function-footer",
+        "data": ""
+      }
+    ]
+  }
+}

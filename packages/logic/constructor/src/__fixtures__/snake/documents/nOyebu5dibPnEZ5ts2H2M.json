@@ -1,0 +1,156 @@
+{
+  "id": "nOyebu5dibPnEZ5ts2H2M",
+  "type": "function",
+  "name": "getNextPoint",
+  "root": {
+    "id": "SwH6HqGCKAdnPQFBpMc2L",
+    "name": "function",
+    "children": [
+      {
+        "id": "rmXX9gMEJ83E7PDW0BkS8",
+        "name": "function-header",
+        "data": ""
+      },
+      {
+        "id": "f3VtDhbgi6H9FuNG5vQk4",
+        "name": "function-body",
+        "data": {
+          "parameters": [
+            {
+              "name": "state",
+              "type": {
+                "type": "struct",
+                "id": "yhxyfy9m5HuAFEaJZ_Ob4"
+              }
+            }
+          ],
+          "returnValue": {
+            "type": "struct",
+            "id": "mWThR-uew3FxhF4m2YY5a"
+          }
+        },
+        "children": [
+          {
+            "id": "rP9rN4kFsHGfJpGpniSPO",
+            "name": "action",
+            "data": "returnValue.x = state.snake.x + state.snake.dirX"
+          },
+          {
+            "id": "vueysL3Jwfa8zveAFJMx8",
+            "name": "action",
+            "data": "returnValue.y = state.snake.y + state.snake.dirY"
+          },
+          {
+            "id": "MIvkhNpZFOww2JZVcfSQt",
+            "name": "if",
+            "data": "returnValue.x < 0",
+            "meta": {
+              "trueOnRight": true
+            },
+            "children": [
+              {
+                "id": "M9PorK6VCZTv6F-jr73i5",
+                "name": "if-child",
+                "children": []
+              },
+              {
+                "id": "YPT9FqNsTeEATQaSgTKKw",
+                "name": "if-child",
+                "children": [
+                  {
+                    "id": "kkgTGQ1_zG-zFH2WtY3B7",
+                    "name": "action",
+                    "data": "returnValue.x = state.config.gameWidth - 1"
+                  }
+                ]
+              }
+            ]
+          },
+          {
+            "id": "X-eA6y5FWhxhObYVZhawl",
+            "name": "if",
+            "data": "returnValue.x >= state.config.gameWidth",
+            "meta": {
+              "trueOnRight": true
+            },
+            "children": [
+              {
+                "id": "hhtSlXiMbX3p3EOtwS_nx",
+                "name": "if-child",
+                "children": []
+              },
+              {
+                "id": "-YhOOwIvkgitQworsMwqS",
+                "name": "if-child",
+                "children": [
+                  {
+                    "id": "qhGMOpiAbh5PSSWpyw7LM",
+                    "name": "action",
+                    "data": "returnValue.x = 0"
+                  }
+                ]
+              }
+            ]
+          },
+          {
+            "id": "JWJofF7EZoLjDj809MdIj",
+            "name": "if",
+            "data": "returnValue.y < 0",
+            "meta": {
+              "trueOnRight": true
+            },
+            "children": [
+              {
+                "id": "pfF0Fs_ICV-nz8r-dDYhf",
+                "name": "if-child",
+                "children": []
+              },
+              {
+                "id": "Ql7gMYlJMzz2EDMdBmJcR",
+                "name": "if-child",
+                "children": [
+                  {
+                    "id": "I6JlOjQVEDHriJmb7nm4h",
+                    "name": "action",
+                    "data": "returnValue.y = state.config.gameHeight - 1"
+                  }
+                ]
+              }
+            ]
+          },
+          {
+            "id": "5babAoFjRXNlUyLoOc2S-",
+            "name": "if",
+            "data": "returnValue.y >= state.config.gameHeight",
+            "meta": {
+              "trueOnRight": true
+            },
+            "children": [
+              {
+                "id": "4pwxoIfuNf_HTP_eaQAVK",
+                "name": "if-child",
+                "children": []
+              },
+              {
+                "id": "oEuxFJ3PYYZAjsPt7Pl4_",
+                "name": "if-child",
+                "children": [
+                  {
+                    "id": "tg0yRV4m0fEACjAKzEvQ8",
+                    "name": "action",
+                    "data": "returnValue.y = 0"
+                  }
+                ]
+              }
+            ]
+          }
+        ]
+      },
+      {
+        "id": "asxf0Q5HXm8bu50B4bBLr",
+        "name": "function-footer",
+        "data": ""
+      }
+    ]
+  }
+}

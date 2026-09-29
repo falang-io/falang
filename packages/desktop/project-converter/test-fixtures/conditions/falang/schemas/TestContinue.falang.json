@@ -1,0 +1,129 @@
+{
+  "id": "Cr73IHyBaqO09w2Am0Bfs",
+  "schemeVersion": 2,
+  "name": "TestContinue",
+  "type": "function",
+  "description": "",
+  "root": {
+    "id": "gpWMXoVSd1pyXvn9IGYM9",
+    "alias": "function",
+    "header": {
+      "text": "",
+      "width": 160,
+      "color": "#ffffff"
+    },
+    "block": {
+      "parameters": [],
+      "returnValue": {
+        "type": "void"
+      },
+      "width": 192,
+      "name": "TestContinue"
+    },
+    "children": [
+      {
+        "id": "VtIEBS15od8PhXYfs07pg",
+        "alias": "log",
+        "block": {
+          "width": 128,
+          "color": "#ffffff",
+          "expression": "\"TestContinue\"",
+          "type": "string",
+          "variableType": null
+        }
+      },
+      {
+        "id": "UHuI-AIzn4NnarCT68plY",
+        "alias": "from_to_cycle",
+        "block": {
+          "from": "0",
+          "to": "4",
+          "item": "x",
+          "width": 128
+        },
+        "children": [
+          {
+            "id": "mxRmT9UDAp8UfHQAnO7-u",
+            "alias": "if",
+            "block": {
+              "width": 128,
+              "color": "#ffffff",
+              "expression": "x > 1",
+              "type": "boolean",
+              "variableType": null
+            },
+            "trueOnRight": true,
+            "gaps": [],
+            "children": [
+              {
+                "alias": "system",
+                "id": "Y40PeBWpHx-nNK_DX99xh",
+                "block": {
+                  "width": 0
+                },
+                "children": [
+                  {
+                    "id": "4yWXbe4GXaTGTf3CRkQsu",
+                    "alias": "log",
+                    "block": {
+                      "width": 160,
+                      "color": "#ffffff",
+                      "expression": "\"Not continue when x={x}\"",
+                      "type": "string",
+                      "variableType": null
+                    }
+                  },
+                  {
+                    "id": "Mf6A3Eg-yLcEMnaaSzeI2",
+                    "alias": "log",
+                    "block": {
+                      "width": 128,
+                      "color": "#ffffff",
+                      "expression": "\"Some code\"",
+                      "type": "string",
+                      "variableType": null
+                    }
+                  }
+                ]
+              },
+              {
+                "alias": "system",
+                "id": "fx5illDUAjcSL5IRJnO7y",
+                "block": {
+                  "width": 0
+                },
+                "children": [
+                  {
+                    "id": "pcHYD_6-pEiQSJ_Y80N5g",
+                    "alias": "log",
+                    "block": {
+                      "width": 160,
+                      "color": "#ffffff",
+                      "expression": "\"Continue when x={x}\"",
+                      "type": "string",
+                      "variableType": null
+                    }
+                  }
+                ],
+                "out": {
+                  "type": "continue",
+                  "level": 1,
+                  "alias": "system",
+                  "block": {
+                    "width": 64
+                  },
+                  "id": "ggBzHvSHVBTdRQ6Bollbx"
+                }
+              }
+            ]
+          }
+        ]
+      }
+    ],
+    "footer": {
+      "text": "",
+      "width": 160,
+      "color": "#ffffff"
+    }
+  }
+}

@@ -1,0 +1,107 @@
+// Vitest Snapshot v1, https://vitest.dev/guide/snapshot.html
+
+exports[`compileProject snapshot (pre-P1 baseline, no activityOptions) > compiles a project spanning log + telegram + openai + http-request, one function and one trigger-function > activities 1`] = `
+"import { log } from '@temporalio/activity';
+
+/**
+ * Registered as a real Worker activity (see \`@falang/workflow-runner\`'s \`startRunner\`), so every
+ * \`log\` node in a compiled workflow (via \`proxyLocalActivities\`, see the workflows module) becomes
+ * a \`MarkerRecorded\` history event, visible in Temporal Web UI — unlike \`@temporalio/workflow\`'s
+ * replay-local \`log.info()\`, which only reaches this process's stderr. Also logs through the
+ * Activity Context so it still shows up there too.
+ *
+ * Must return \`message\`: a Local Activity marker only persists the activity's *result* (needed
+ * for replay), not its input (recomputed deterministically by the workflow code on replay
+ * instead) — so returning \`void\` here would make the message invisible in the marker despite
+ * this whole mechanism existing to surface it there.
+ */
+export const logActivity = (message: string): string => {
+  log.info(message);
+  return message;
+};
+
+export const runActivepiecesAction = async (
+  credentialId: string,
+  pieceName: string,
+  actionName: string,
+  propsValue: Record<string, unknown>,
+): Promise<unknown> => {
+  const baseUrl = process.env.ACTIVEPIECES_SERVICE_URL;
+  const secret = process.env.ACTIVEPIECES_SERVICE_SECRET;
+  if (!baseUrl || !secret) {
+    throw new Error('ACTIVEPIECES_SERVICE_URL/ACTIVEPIECES_SERVICE_SECRET are not configured for this runner process');
+  }
+  // Forwarded so the activepieces service can present this token back to the backend credential
+  // resolver, scoped to this project — see ADR 0016 (private).
+  // Unrelated to ACTIVEPIECES_SERVICE_SECRET above, which only authorizes this call itself
+  // (runner pod -> activepieces service).
+  const projectId = process.env.PROJECT_ID;
+  const internalProjectToken = process.env.INTERNAL_PROJECT_TOKEN;
+  if (!projectId || !internalProjectToken) {
+    throw new Error('PROJECT_ID/INTERNAL_PROJECT_TOKEN are not configured for this runner process');
+  }
+  const response = await fetch(
+    \`\${baseUrl}/credentials/\${credentialId}/pieces/\${pieceName}/actions/\${actionName}/run\`,
+    {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'x-internal-api-key': secret },
+      body: JSON.stringify({ propsValue, projectId, internalProjectToken }),
+    },
+  );
+  if (!response.ok) {
+    throw new Error(\`activepieces service call failed: \${response.status} \${await response.text()}\`);
+  }
+  const data = (await response.json()) as { result: unknown };
+  return data.result;
+};
+
+export const telegramSendMessage = async () => {};
+
+export const callAiText = async () => "answer";
+
+export const httpRequest = async () => ({ status: 200, body: "" });
+
+"
+`;
+
+exports[`compileProject snapshot (pre-P1 baseline, no activityOptions) > compiles a project spanning log + telegram + openai + http-request, one function and one trigger-function > workflows 1`] = `
+"import { condition, defineSignal, proxyLocalActivities, setHandler } from '@temporalio/workflow';
+
+const { logActivity, runActivepiecesAction, telegramSendMessage, callAiText, httpRequest } = proxyLocalActivities<{ logActivity(message: string): Promise<string>; runActivepiecesAction(credentialId: string, pieceName: string, actionName: string, propsValue: Record<string, unknown>): Promise<unknown>; telegramSendMessage(credentialId: string, chatId: string, text: string): Promise<void>; callAiText(credentialId: string, prompt: string): Promise<string>; httpRequest(url: string): Promise<{ status: number; body: string }> }>({
+  startToCloseTimeout: '10 seconds',
+});
+
+// doc-start:summarize:doc-helper
+export async function summarize(): Promise<void> {
+  // icon-start:call-ai-text:ai1
+  const summary = await callAiText("cred-openai", \`\\\`Summarize this\\\`\`);
+  // icon-end:call-ai-text:ai1
+  // icon-start:log:log1
+  await logActivity(\`summary\`);
+  // icon-end:log:log1
+}
+// doc-end:summarize:doc-helper
+
+// doc-start:onMessage:doc-trigger
+export async function onMessage(): Promise<void> {
+  const onMessageSignal = defineSignal<[any]>('telegramMessage');
+
+  let message!: any;
+  let hasSignal = false;
+  setHandler(onMessageSignal, (payload: any) => {
+    message = payload;
+    hasSignal = true;
+  });
+  await condition(() => hasSignal);
+  // icon-start:call-function:call1
+  await summarize();
+  // icon-end:call-function:call1
+  // icon-start:http-request:http1
+  const response = await httpRequest(\`\\\`https://example.com\\\`\`);
+  // icon-end:http-request:http1
+  // icon-start:telegram-send-message:send1
+  await telegramSendMessage("cred-1", message.chat.id, \`done\`);
+  // icon-end:telegram-send-message:send1
+}
+// doc-end:onMessage:doc-trigger"
+`;

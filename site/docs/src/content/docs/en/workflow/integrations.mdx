@@ -1,0 +1,155 @@
+---
+title: Integrations
+description: Catalog of Falang workflow engine integrations — Telegram, OpenAI, HTTP requests, webhooks, ActivePieces
+head:
+  - tag: meta
+    attrs:
+      name: keywords
+      content: 'integrations, telegram, openai, webhook, activepieces, workflow'
+---
+
+<p>
+  External services connect to a scenario in two ways: as dedicated trigger/action nodes right on the scheme (built-in
+  integrations), or through the ActivePieces catalog of ready-made integrations.
+</p>
+
+#### Built-in integrations
+
+<ul>
+  <li>
+    <b>Telegram Bot API</b>. The "Telegram message" trigger starts the scenario on every new message to the bot, and the
+    "Send message" action replies on its behalf. A photo, document, voice message, audio or video attached to an
+    incoming message is resolved into a <a href="./files/">File</a> automatically, and "Send file" delivers one back as
+    an attachment. Credentials (the bot token) are stored separately for the dev and prod environments and encrypted at
+    rest. Locally the engine long-polls Telegram; once a public address is configured it switches to webhooks
+    automatically.
+  </li>
+  <li>
+    <b>OpenAI-compatible models</b>. The "Call AI" action sends a chat-completion request to the selected model and
+    returns text, optionally with <a href="./files/">file</a> attachments (e.g. an incoming Telegram photo) attached to
+    the prompt; a separate "AI Choice" node asks the model to pick one of a set of predefined options with structured
+    data — handy for branching a scenario off the model's answer. "Call AI (image)" generates an image and returns it as
+    a file, and "Call AI (transcribe)" turns an audio file into text. The API base URL is configurable, so this works
+    with more than just api.openai.com — Azure OpenAI, local servers like llama.cpp, and any other compatible provider.
+  </li>
+  <li>
+    <b>HTTP request</b>. A generic outbound call to any HTTP API: method, URL, headers and body are given as
+    expressions, and the result is stored in a variable — including, when the response is binary, as a{' '}
+    <a href="./files/">file</a> rather than decoded text. No credentials of its own are needed — authorization is simply
+    written into the request headers.
+  </li>
+  <li>
+    <b>Webhook</b>. A generic inbound trigger: each trigger function gets its own URL, and calling it (a POST request)
+    starts the scenario, passing the request body as input.
+  </li>
+  <li>
+    <b>Schedule</b>. A timer-based trigger — a fixed interval or a cron expression — that starts a scenario on a
+    recurring basis with no external service or credentials involved. See{' '}
+    <a href="./schedule-triggers/">Schedule triggers</a> for the full picture (cron builder, dev/prod behavior, overlap
+    handling).
+  </li>
+  <li>
+    <b>Files</b>. Every scenario can create, read, publish and pass around <a href="./files/">files</a> — a reference
+    value, never raw bytes in the scenario's own state — backed by the platform's own object storage, with per-user
+    quotas and automatic expiry. See <a href="./files/">Files</a> for the full picture.
+  </li>
+  <li>
+    <b>Databases</b>. A single connection string connects a scenario to a Postgres or MySQL database (SQLite too, for
+    local development); "Sync structure" makes the editor know its tables, so select/insert/update/delete actions are
+    typed per table with Monaco completion, plus a small operator DSL for filtering and a raw-SQL action for anything
+    else. See <a href="./databases/">Databases</a> for the full picture.
+  </li>
+  <li>
+    <b>Tasks</b>. A <a href="./human-tasks/">human task</a> pauses a scenario until the project owner resolves it from a
+    Tasks page — approve/reject (or any custom set of options), each with its own typed answer, plus an optional timeout
+    branch. No credentials needed — the task is always addressed to whoever owns the project.
+  </li>
+  <li>
+    <b>Media</b>. Resize/convert an image, trim/concatenate/thumbnail/transcode a video, extract or convert audio — all
+    powered by ffmpeg on a dedicated service, working on <a href="./files/">files</a> in and out. No credentials needed.
+    See <a href="./media/">Media</a> for the full catalog of operations.
+  </li>
+</ul>
+
+#### ActivePieces — a catalog of ready-made integrations
+
+<p>
+  For services that don't yet have a dedicated built-in integration, an adapter on top of the open-source
+  <a href="https://www.activepieces.com/" target="_blank">
+    {' '}
+    ActivePieces
+  </a>{' '}
+  library is used. It runs as a separate service, isolated from the rest of the engine — third-party integration code
+  runs in its own process and has no access to the core system — and exposes a curated list of ready-made actions.
+  Currently included (62 services):
+</p>
+<ul>
+  <li>
+    <b>Messaging</b> — Slack, Discord, Mattermost, Microsoft Teams;
+  </li>
+  <li>
+    <b>Google Workspace</b> — Google Sheets, Gmail, Google Drive, Google Calendar, Google Forms;
+  </li>
+  <li>
+    <b>Email &amp; marketing</b> — SMTP, IMAP, SendGrid, Resend, Mailchimp, ActiveCampaign, Klaviyo, Sendinblue (Brevo);
+  </li>
+  <li>
+    <b>Project/task management &amp; CRM</b> — Notion, Trello, Jira Cloud, Todoist, Linear, ClickUp, HubSpot,
+    Salesforce, Pipedrive, Zoho CRM, Close, monday.com, Asana, Wrike;
+  </li>
+  <li>
+    <b>Support &amp; helpdesk</b> — Zendesk, Freshdesk, Intercom;
+  </li>
+  <li>
+    <b>Developer tools</b> — GitHub, GitLab;
+  </li>
+  <li>
+    <b>Data &amp; storage</b> — Airtable, Postgres, MySQL, Amazon S3, Dropbox, MongoDB, Box;
+  </li>
+  <li>
+    <b>Forms &amp; scheduling</b> — Typeform, JotForm, Calendly;
+  </li>
+  <li>
+    <b>Communication &amp; video</b> — Zoom, Twilio;
+  </li>
+  <li>
+    <b>E-commerce</b> — Shopify, WooCommerce;
+  </li>
+  <li>
+    <b>Payments &amp; accounting</b> — Stripe, Razorpay, Paddle, QuickBooks, Xero;
+  </li>
+  <li>
+    <b>Documents &amp; eSignature</b> — DocuSign, PandaDoc;
+  </li>
+  <li>
+    <b>Analytics</b> — Mixpanel, PostHog;
+  </li>
+  <li>
+    <b>Content &amp; social</b> — WordPress, RSS, YouTube.
+  </li>
+</ul>
+<p>
+  This mechanism supports basic auth, arbitrary custom auth fields, and full OAuth2 (an authorization popup plus
+  automatic token refresh) — so it can connect services that need OAuth2 even before the built-in integration framework
+  supports it directly. For an OAuth2 service, the OAuth2 client (client ID/secret) is registered once by the
+  deployment's admin, in the Admin app's "OAuth credentials" page — not per credential. A service an admin hasn't
+  enabled there doesn't appear in "add integration" at all; once enabled, connecting an account is just a "Connect"
+  click, no client ID/secret to paste in. See <a href="./administration/">Administration</a> for the full walkthrough.
+  Some of the services above declare more than one authentication method (e.g. Slack, Notion, HubSpot, GitHub); in those
+  cases the adapter picks the one best suited to a self-hosted deployment (typically a static token) rather than
+  requiring a vendor-registered OAuth2 app.
+</p>
+<p>
+  Most actions above are typed forms generated from each service's own field definitions. A few services (including
+  Typeform, JotForm, Calendly, and Box, plus a generic "custom API call" action present on nearly every service) only
+  expose fields whose shape the vendor computes at runtime — for those, the field is a single free-form expression (an
+  authenticated HTTP passthrough to that vendor's API) rather than a typed form, and there's no live suggestion of the
+  exact keys the vendor expects.
+</p>
+
+#### What's next
+
+<p>
+  The list of built-in integrations keeps growing, currently toward services in demand on the Russian market: 1С,
+  Bitrix24, amoCRM, ЮKassa/SBP, Диадок/СБИС, and others.
+</p>

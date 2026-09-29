@@ -1,0 +1,152 @@
+{
+  "id": "0DQdtY2pAfBgI7ecPTm1g",
+  "schemeVersion": 2,
+  "name": "TestBuildObject2",
+  "type": "function",
+  "description": "",
+  "root": {
+    "id": "5WXwOnDIhzDyp2csGtOmh",
+    "alias": "function",
+    "header": {
+      "text": "",
+      "width": 160,
+      "color": "#ffffff"
+    },
+    "block": {
+      "parameters": [],
+      "returnValue": {
+        "type": "void"
+      },
+      "width": 192,
+      "name": "TestBuildObject2"
+    },
+    "children": [
+      {
+        "id": "r4iAjtANAE3Ky4pG2SOGM",
+        "alias": "create_var",
+        "block": {
+          "width": 128,
+          "color": "#ffffff",
+          "expression": "a = \"asd\"",
+          "type": "create",
+          "variableType": {
+            "type": "string",
+            "constant": false,
+            "optional": false
+          }
+        }
+      },
+      {
+        "id": "VjH2KyInA1D7yc0yWCpFA",
+        "alias": "create_var",
+        "block": {
+          "width": 128,
+          "color": "#ffffff",
+          "expression": "b = \"xyz\"",
+          "type": "create",
+          "variableType": {
+            "type": "string",
+            "constant": false,
+            "optional": false
+          }
+        }
+      },
+      {
+        "id": "vEJiSIrd3VIsvdQsdflfi",
+        "alias": "call_api",
+        "block": {
+          "parameters": [
+            "a",
+            "b"
+          ],
+          "returnVariable": "o",
+          "schemeId": "kJvnkBkWAJpic5R0hpq90",
+          "width": 160,
+          "iconId": "aEGAhViskVo-VcL9hQOnQ"
+        }
+      },
+      {
+        "id": "H3SpQVzLVvkcwLY-gNEAj",
+        "alias": "create_var",
+        "block": {
+          "width": 128,
+          "color": "#ffffff",
+          "expression": "o2",
+          "type": "create",
+          "variableType": {
+            "type": "struct",
+            "constant": false,
+            "optional": false,
+            "iconId": "huk78gHpJJUGPotySpkE0",
+            "schemeId": "eSxMzKgsf7laP9EdZ4GS4",
+            "name": "Object2",
+            "properties": {
+              "a": {
+                "type": "string",
+                "constant": false,
+                "optional": false
+              },
+              "b": {
+                "type": "string",
+                "constant": false,
+                "optional": false
+              }
+            }
+          }
+        }
+      },
+      {
+        "id": "7-K5EdnQfECSjST0fw1Oq",
+        "alias": "assign_var",
+        "block": {
+          "width": 128,
+          "color": "#ffffff",
+          "expression": "o2.a = \"qwe\"",
+          "type": "assign",
+          "variableType": null
+        }
+      },
+      {
+        "id": "6-6RbAY1MZqJ-eNHp8w0C",
+        "alias": "assign_var",
+        "block": {
+          "width": 128,
+          "color": "#ffffff",
+          "expression": "o2.b = \"zxc\"",
+          "type": "assign",
+          "variableType": null
+        }
+      },
+      {
+        "id": "JvPIqGPOjVHgosxAYk3yL",
+        "alias": "call_api",
+        "block": {
+          "parameters": [
+            "o",
+            "o2"
+          ],
+          "returnVariable": "res",
+          "schemeId": "o6ZKgYac1zoILTt3Pkmcu",
+          "width": 160,
+          "iconId": "8Ji42nVrmIJW53kYF5YeN"
+        }
+      },
+      {
+        "id": "HNn6pG_6hEbfc_g2Hj9mn",
+        "alias": "log",
+        "block": {
+          "width": 192,
+          "color": "#ffffff",
+          "expression": "\"TestBuildObjec2 is: {res}\"",
+          "type": "string",
+          "variableType": null
+        }
+      }
+    ],
+    "footer": {
+      "text": "",
+      "width": 160,
+      "color": "#ffffff"
+    }
+  }
+}

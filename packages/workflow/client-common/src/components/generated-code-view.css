@@ -1,0 +1,70 @@
+.falang-code-view {
+  margin: 0;
+  padding: 12px 0;
+  background: #11111b;
+  color: #cdd6f4;
+  font-family: ui-monospace, 'Cascadia Code', Consolas, monospace;
+  font-size: 12px;
+  line-height: 1.5;
+  overflow: auto;
+  max-height: 65vh;
+}
+
+.falang-code-view__line {
+  display: flex;
+  padding: 0 12px;
+  white-space: pre;
+}
+
+.falang-code-view__line--clickable {
+  cursor: pointer;
+}
+
+.falang-code-view__line--clickable:hover {
+  background: #313244;
+}
+
+.falang-code-view__line-number {
+  flex: 0 0 auto;
+  width: 3em;
+  margin-right: 12px;
+  text-align: right;
+  color: #6c7086;
+  user-select: none;
+}
+
+.falang-code-view__line-content {
+  flex: 1 1 auto;
+}
+
+.falang-code-view .token.comment {
+  color: #6c7086;
+  font-style: italic;
+}
+
+.falang-code-view .token.string,
+.falang-code-view .token.template-string {
+  color: #a6e3a1;
+}
+
+.falang-code-view .token.number,
+.falang-code-view .token.boolean {
+  color: #fab387;
+}
+
+.falang-code-view .token.keyword {
+  color: #cba6f7;
+}
+
+.falang-code-view .token.function {
+  color: #89b4fa;
+}
+
+.falang-code-view .token.class-name {
+  color: #f9e2af;
+}
+
+.falang-code-view .token.operator,
+.falang-code-view .token.punctuation {
+  color: #9399b2;
+}

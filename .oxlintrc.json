@@ -1,0 +1,68 @@
+{
+  "$schema": "./node_modules/oxlint/configuration_schema.json",
+  "categories": {
+    "correctness": "error",
+    "pedantic": "error",
+    "perf": "error",
+    "nursery": "error",
+    "restriction": "error",
+    "style": "error",
+    "suspicious": "error"
+  },
+  // "**/migrations/**": TypeORM CLI-generated migration files (`npm run migration:generate` in
+  // @falang/workflow-backend) — not hand-written, so not worth hand-fixing lint on every generation.
+  // "**/*.generated.ts": OpenAPI-spec-derived vendor integration data (`scripts/generate-openapi-
+  // integration.mjs`, see ADR 0017 (private)) — same reasoning, e.g. Ozon's 470-method spec produces
+  // a legitimately >300-line file that gets regenerated wholesale, never hand-edited.
+  "ignorePatterns": [
+    "node_modules",
+    ".vscode",
+    "old",
+    "*.js",
+    "/activepieces",
+    "**/migrations/**",
+    "**/*.generated.ts"
+  ],
+  "env": {
+    "browser": true, // для браузера (включает setTimeout)
+    "node": true, // для Node.js
+    "es2021": true // для современных возможностей ES
+  },
+  "rules": {
+    "eslint/sort-keys": "allow",
+    "id-length": "allow",
+    "new-cap": "allow",
+    "sort-imports": "allow",
+    "no-magic-numbers": "allow",
+    "capitalized-comments": "allow",
+    "class-methods-use-this": "allow",
+    "no-ternary": "allow",
+    "unicorn/prefer-spread": "allow",
+    "oxc/no-rest-spread-properties": "allow",
+    "max-statements": "allow",
+    "max-lines-per-function": "allow",
+    "prefer-destructuring": "allow",
+    "curly": "allow",
+    "no-null": "allow",
+    "no-array-for-each": "allow",
+    "max-params": "allow",
+    "no-optional-chaining": "allow",
+    "explicit-module-boundary-types": "allow",
+    "explicit-function-return-type": "allow",
+    "no-duplicate-imports": "allow",
+    "no-continue": "allow",
+    "no-warning-comments": "allow",
+    "no-async-await": "allow",
+    "unicorn/prefer-top-level-await": "allow",
+    "no-template-curly-in-string": "allow",
+    // NestJS modules (`@falang/workflow-backend`) are decorator-only classes by design — same
+    // shape as Angular modules, which this rule's own `allowWithDecorator` option exists for.
+    "no-extraneous-class": ["error", { "allowWithDecorator": true }]
+  },
+  "overrides": [
+    {
+      "files": ["**/*.astro"],
+      "globals": { "Astro": "readonly" }
+    }
+  ]
+}

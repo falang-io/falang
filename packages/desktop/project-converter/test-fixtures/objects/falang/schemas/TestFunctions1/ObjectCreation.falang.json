@@ -1,0 +1,94 @@
+{
+  "id": "rg9-SZV2fKN_IDPS3gxBS",
+  "schemeVersion": 2,
+  "name": "ObjectCreation",
+  "type": "function",
+  "description": "",
+  "root": {
+    "id": "_1AN9vwtSeUV1rOpT_6Qo",
+    "alias": "function",
+    "header": {
+      "text": "",
+      "width": 160,
+      "color": "#ffffff"
+    },
+    "block": {
+      "parameters": [],
+      "returnValue": {
+        "type": "void"
+      },
+      "width": 192,
+      "name": "ObjectCreation"
+    },
+    "children": [
+      {
+        "id": "LpZf_RZZrZYwL9QFwY8W7",
+        "alias": "create_var",
+        "block": {
+          "width": 128,
+          "color": "#ffffff",
+          "expression": "x",
+          "type": "create",
+          "variableType": {
+            "type": "struct",
+            "constant": false,
+            "optional": false,
+            "iconId": "JJESuMMF-s7cdVOyL_vKQ",
+            "schemeId": "WlwcPb7wDq7Lo0zWJHXoi",
+            "name": "ObjA",
+            "properties": {
+              "x": {
+                "constant": false,
+                "type": "number",
+                "numberType": "integer",
+                "integerType": "int32",
+                "optional": false
+              },
+              "y": {
+                "constant": false,
+                "type": "number",
+                "numberType": "integer",
+                "integerType": "int32",
+                "optional": false
+              },
+              "z": {
+                "constant": false,
+                "type": "number",
+                "numberType": "integer",
+                "integerType": "int32",
+                "optional": false
+              }
+            }
+          }
+        }
+      },
+      {
+        "id": "yCtmw5fQIDD53s1po0jlV",
+        "alias": "assign_var",
+        "block": {
+          "width": 128,
+          "color": "#ffffff",
+          "expression": "x.z = 10",
+          "type": "assign",
+          "variableType": null
+        }
+      },
+      {
+        "id": "qljGskRL9uDUJWIpyXV00",
+        "alias": "log",
+        "block": {
+          "width": 128,
+          "color": "#ffffff",
+          "expression": "\"x.y is: {x.z}\"",
+          "type": "string",
+          "variableType": null
+        }
+      }
+    ],
+    "footer": {
+      "text": "",
+      "width": 160,
+      "color": "#ffffff"
+    }
+  }
+}

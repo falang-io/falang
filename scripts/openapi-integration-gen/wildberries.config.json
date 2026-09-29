@@ -1,0 +1,21 @@
+{
+  "vendorPrefix": "wildberries",
+  "constantPrefix": "WILDBERRIES",
+  "specs": [
+    "/home/serginho/wildberries-specs/01-general.yaml",
+    "/home/serginho/wildberries-specs/02-items.yaml",
+    "/home/serginho/wildberries-specs/03-orders-fbs.yaml",
+    "/home/serginho/wildberries-specs/04-orders-dbw.yaml",
+    "/home/serginho/wildberries-specs/05-dbs.yaml",
+    "/home/serginho/wildberries-specs/06-in-store-pickup.yaml",
+    "/home/serginho/wildberries-specs/07-orders-fbw.yaml",
+    "/home/serginho/wildberries-specs/08-promotion.yaml",
+    "/home/serginho/wildberries-specs/09-communications.yaml",
+    "/home/serginho/wildberries-specs/10-rates.yaml",
+    "/home/serginho/wildberries-specs/11-analytics.yaml",
+    "/home/serginho/wildberries-specs/12-reports.yaml",
+    "/home/serginho/wildberries-specs/13-finances.yaml"
+  ],
+  "skipParamNames": [],
+  "outFile": "packages/workflow-integrations/wildberries/src/wildberries.generated.ts"
+}

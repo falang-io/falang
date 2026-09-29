@@ -1,0 +1,96 @@
+{
+  "id": "9r_4NfSsuYqbP9ScYSYBR",
+  "schemeVersion": 2,
+  "name": "getRandomPoint",
+  "type": "function",
+  "description": "",
+  "root": {
+    "id": "p1oTmW4T5DPD-s9IIoGwU",
+    "alias": "function",
+    "header": {
+      "text": "",
+      "width": 64,
+      "color": "#ffffff"
+    },
+    "block": {
+      "parameters": [
+        {
+          "name": "state",
+          "type": {
+            "type": "struct",
+            "iconId": "yhxyfy9m5HuAFEaJZ_Ob4",
+            "schemeId": "kHyjfyZ38T2JD3yH7pzN3",
+            "name": "GameState",
+            "properties": {}
+          }
+        }
+      ],
+      "returnValue": {
+        "type": "struct",
+        "iconId": "mWThR-uew3FxhF4m2YY5a",
+        "schemeId": "kHyjfyZ38T2JD3yH7pzN3",
+        "name": "Point",
+        "properties": {}
+      },
+      "width": 192,
+      "name": "getRandomPoint"
+    },
+    "children": [
+      {
+        "id": "QoxOq5QmBL289JWVnNsa_",
+        "alias": "call_api",
+        "block": {
+          "parameters": [
+            "0",
+            "state.config.gameWidth"
+          ],
+          "returnVariable": "x",
+          "schemeId": "IXPTCilqzAuOKyR3fWJRB",
+          "width": 256,
+          "iconId": "MjCAc3qOsvQTxgvn0YUJR"
+        }
+      },
+      {
+        "id": "1zE6iGn9WUdhq57-K0gSH",
+        "alias": "call_api",
+        "block": {
+          "parameters": [
+            "0",
+            "state.config.gameHeight"
+          ],
+          "returnVariable": "y",
+          "schemeId": "IXPTCilqzAuOKyR3fWJRB",
+          "width": 256,
+          "iconId": "MjCAc3qOsvQTxgvn0YUJR"
+        }
+      },
+      {
+        "id": "01k6Xc4_S5yNpF2tNLrvx",
+        "alias": "assign_var",
+        "block": {
+          "width": 160,
+          "color": "#ffffff",
+          "expression": "returnValue.x = x",
+          "type": "assign",
+          "variableType": null
+        }
+      },
+      {
+        "id": "JGK4-Dkom4nLbELAh_HWX",
+        "alias": "assign_var",
+        "block": {
+          "width": 160,
+          "color": "#ffffff",
+          "expression": "returnValue.y = y",
+          "type": "assign",
+          "variableType": null
+        }
+      }
+    ],
+    "footer": {
+      "text": "",
+      "width": 64,
+      "color": "#ffffff"
+    }
+  }
+}

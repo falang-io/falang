@@ -1,0 +1,141 @@
+{
+  "id": "iNL6b1kjDVbCibBkpFO-n",
+  "schemeVersion": 2,
+  "name": "Api2",
+  "type": "logic_external_apis",
+  "description": "",
+  "root": {
+    "id": "kJvnkBkWAJpic5R0hpq90",
+    "alias": "logic_external_apis",
+    "block": {
+      "width": 160
+    },
+    "children": [
+      {
+        "id": "Acsp8zCzEF9iuqPd80dEW",
+        "alias": "system",
+        "block": {
+          "name": "BuildObject",
+          "width": 128
+        },
+        "children": [
+          {
+            "id": "PPBYGnYA_MmTWdTYlHVwd",
+            "alias": "system",
+            "block": {
+              "parameters": [
+                {
+                  "name": "x",
+                  "type": {
+                    "type": "number",
+                    "numberType": "integer",
+                    "integerType": "int32"
+                  }
+                },
+                {
+                  "name": "y",
+                  "type": {
+                    "type": "number",
+                    "numberType": "integer",
+                    "integerType": "int32"
+                  }
+                },
+                {
+                  "name": "z",
+                  "type": {
+                    "type": "number",
+                    "numberType": "integer",
+                    "integerType": "int32"
+                  }
+                }
+              ],
+              "returnValue": {
+                "type": "struct",
+                "iconId": "JydYxOeZX2pJehjEPfwng",
+                "schemeId": "eSxMzKgsf7laP9EdZ4GS4",
+                "name": "Object1",
+                "properties": {
+                  "x": {
+                    "constant": false,
+                    "type": "number",
+                    "numberType": "integer",
+                    "integerType": "int32",
+                    "optional": false
+                  },
+                  "y": {
+                    "constant": false,
+                    "type": "number",
+                    "numberType": "integer",
+                    "integerType": "int32",
+                    "optional": false
+                  },
+                  "z": {
+                    "constant": false,
+                    "type": "number",
+                    "numberType": "integer",
+                    "integerType": "int32",
+                    "optional": false
+                  }
+                }
+              },
+              "width": 192,
+              "name": "BuildObject1"
+            },
+            "children": []
+          },
+          {
+            "id": "aEGAhViskVo-VcL9hQOnQ",
+            "alias": "system",
+            "block": {
+              "parameters": [
+                {
+                  "name": "a",
+                  "type": {
+                    "type": "string"
+                  }
+                },
+                {
+                  "name": "b",
+                  "type": {
+                    "type": "string"
+                  }
+                }
+              ],
+              "returnValue": {
+                "type": "struct",
+                "iconId": "huk78gHpJJUGPotySpkE0",
+                "schemeId": "eSxMzKgsf7laP9EdZ4GS4",
+                "name": "Object2",
+                "properties": {
+                  "a": {
+                    "type": "string",
+                    "constant": false,
+                    "optional": false
+                  },
+                  "b": {
+                    "type": "string",
+                    "constant": false,
+                    "optional": false
+                  }
+                }
+              },
+              "width": 192,
+              "name": "BuildObject2"
+            },
+            "children": []
+          }
+        ]
+      }
+    ],
+    "gaps": [],
+    "header": {
+      "alias": "system",
+      "block": {
+        "text": "",
+        "width": 160,
+        "color": "#ffffff"
+      },
+      "id": "dt1b8fU4FYusJpd7YZaqt"
+    }
+  }
+}

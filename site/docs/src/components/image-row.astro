@@ -1,0 +1,56 @@
+---
+// Text + image/video side-by-side row, replacing the old hand-rolled
+// docs-img-wrapper/docs-img-content/docs-img markup. Usage in .mdx:
+//   <ImageRow>
+//     <p>...</p>
+//     <img slot="media" src="/img/docs/basics.png" />
+//   </ImageRow>
+---
+
+<div class="image-row">
+  <div class="image-row-content"><slot /></div>
+  <div class="image-row-media"><slot name="media" /></div>
+</div>
+
+<style>
+  .image-row {
+    display: flex;
+    flex-direction: column;
+    gap: 1rem;
+    margin: 1.5rem 0;
+  }
+
+  .image-row-content {
+    flex: 1;
+  }
+
+  .image-row-media {
+    display: flex;
+    justify-content: center;
+  }
+
+  .image-row-media :global(img),
+  .image-row-media :global(video) {
+    max-width: 300px;
+    width: 100%;
+    border: 1px solid var(--sl-color-gray-5);
+    border-radius: 4px;
+  }
+
+  @media (min-width: 50rem) {
+    .image-row {
+      flex-direction: row;
+      align-items: flex-start;
+    }
+
+    .image-row-media {
+      flex: none;
+      width: 220px;
+    }
+
+    .image-row-media :global(img),
+    .image-row-media :global(video) {
+      max-width: 100%;
+    }
+  }
+</style>

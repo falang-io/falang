@@ -1,0 +1,115 @@
+---
+title: Base icons
+description: The list of base Falang icons
+head:
+  - tag: meta
+    attrs:
+      name: keywords
+      content: "icons, falang"
+---
+
+import ImageRow from '../../../components/image-row.astro';
+import Gallery from '../../../components/gallery.astro';
+
+#### Basic concepts
+<p>Basic terminology migrated to Falang from the visual language <a href='https://drakon.su/' target='_blank'>Dragon</a></p>
+<ImageRow>
+  <ol>
+    <li><b>Skewer</b>: a vertical line on which icons are "skewered."</li>
+    <li><b>Action icon</b>: an atomic part of the circuit that specifies a specific action.</li>
+    <li><b>Macro icons</b>: composite icons that can contain branches, child icons and skewers within themselves.</li>
+    <li><b>Valence point</b>: a place in the algorithm where other icons can be inserted.</li>
+  </ol>
+  <img slot="media" src='/img/docs/basics.png' />
+</ImageRow>
+
+#### Simple icons
+<ImageRow>
+  <ol>
+    <li><b>Action</b></li>
+    <li><b>Link</b>: If an action links to another diagram, a link icon appears in the corner, clicking on which will take you to the corresponding diagram.</li>
+    <li><b>Output</b>: output data.</li>
+    <li><b>Input</b>: Used to enter data.</li>
+    <li><b>Shelf</b>: similar to the "action" icon, with two fields for entering text.</li>
+  </ol>
+  <img slot="media" src='/img/docs/simple-icons.png' />
+</ImageRow>
+
+#### Function
+<ImageRow>
+  A function is a macro-icon, which is the only and main one on a diagram of the corresponding type.
+  It consists of three blocks:
+  <ul>
+    <li><b>Title</b>, or comment: can be used for extended description</li>
+    <li><b>Name</b></li>
+    <li><b>Final block</b></li>
+  </ul>
+  <img slot="media" src='/img/docs/icon-function.png' />
+</ImageRow>
+
+#### Life rhythm
+<ImageRow>
+  A function is a macro-icon, which is the only and main one on a diagram of the corresponding type.
+  An analogue of the "Silhouette" icon in the Dragon. Allows you to conveniently describe long-term life algorithms.
+  <img slot="media" src='/img/docs/icon-liferythm.png' />
+</ImageRow>
+
+#### Tree
+<ImageRow>
+  A function is a macro-icon, which is the only and main one on a diagram of the corresponding type.
+  Allows you to describe tree-like data structures.
+  <img slot="media" src='/img/docs/icon-tree.png' />
+</ImageRow>
+
+#### "If"
+<ImageRow>
+  A macro icon of a conditional operator that directs the action of the algorithm depending on the fulfillment of the condition described in the main block.
+  Analogous to "if - else" in programming.
+  <img slot="media" src='/img/docs/icon-if.png' />
+</ImageRow>
+
+#### Switch
+<ImageRow>
+  A switch macro icon that directs the action of the algorithm to a specific child skewer if the value in the main block matches the value in the variant block.
+  Analogous to "Switch" in programming.
+  <img slot="media" src='/img/docs/icon-switch.png' />
+</ImageRow>
+
+#### Parallel execution
+<ImageRow>
+  Macro icon that executes child skewers in parallel. The action moves on only after all parallel processes have completed.
+  <img slot="media" src='/img/docs/icon-parallel.png' />
+</ImageRow>
+
+#### A cycle for everyone
+<ImageRow>
+  Macro icon passing through a data array, or for a variable from the minimum value to the maximum. Similar to for each.
+  <img slot="media" src='/img/docs/icon-foreach.png' />
+</ImageRow>
+
+#### Loop with condition
+<ImageRow>
+  A macro icon that repeats the execution of a process while some condition is met. Analogous to while.
+  <img slot="media" src='/img/docs/icon-while.png' />
+</ImageRow>
+
+#### Pseudo loop
+<ImageRow>
+  A loop that actually executes once. Used to use exit or continuation icons (continue, break).
+  <img slot="media" src='/img/docs/icon-pseudocycle.png' />
+</ImageRow>
+
+#### "Outputs"
+<p>
+  "Outputs" is a generalized name for a group of icons that change the forward flow of the algorithm.
+</p>
+<ol>
+  <li><b>Exit</b> - exit from the loop (analogous to break in programming)</li>
+  <li><b>Continue</b> - continue the cycle from the beginning (analogous to continue)</li>
+  <li><b>Return</b> - return from a function (analogous to return)</li>
+  <li><b>Error</b> - interruption of the algorithm as a result of an error (analogous to throw)</li>
+</ol>
+<Gallery>
+  <img src='/img/docs/outs-types.png' />
+</Gallery>
+<p>In the case of nested loops, the "Exit" and "Continue" icons at the end have indexes 1,2,... The index indicates the level of the outer loop to which the exit applies.</p>

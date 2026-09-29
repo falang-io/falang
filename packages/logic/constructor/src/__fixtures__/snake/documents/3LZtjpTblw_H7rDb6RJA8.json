@@ -1,0 +1,78 @@
+{
+  "id": "3LZtjpTblw_H7rDb6RJA8",
+  "type": "function",
+  "name": "DrawPoints",
+  "root": {
+    "id": "qIMuqdtmy4VhfBtzzn_Y6",
+    "name": "function",
+    "children": [
+      {
+        "id": "ZOkwfHeP7kcfklTJSjfHG",
+        "name": "function-header",
+        "data": ""
+      },
+      {
+        "id": "3AbjWgjes5e2q0LsoBo6y",
+        "name": "function-body",
+        "data": {
+          "parameters": [
+            {
+              "name": "state",
+              "type": {
+                "type": "struct",
+                "id": "yhxyfy9m5HuAFEaJZ_Ob4"
+              }
+            }
+          ],
+          "returnValue": {
+            "type": "void"
+          }
+        },
+        "children": [
+          {
+            "id": "NMAD8IjxsiYIZ26tQkduC",
+            "name": "from-to-cycle",
+            "data": {
+              "from": "0",
+              "to": "state.config.gameWidth - 1",
+              "item": "x"
+            },
+            "children": [
+              {
+                "id": "CjO68yBYiYPdk9yF7TuLA",
+                "name": "from-to-cycle",
+                "data": {
+                  "from": "0",
+                  "to": "state.config.gameHeight - 1",
+                  "item": "y"
+                },
+                "children": [
+                  {
+                    "id": "cklvoGUX8mIQ7e9igqENi",
+                    "name": "call-api",
+                    "data": {
+                      "schemeId": "ucuAXFssAyGB1IV3QV_Nh",
+                      "iconId": "mVRSeELOimFdKMeMIKqFo",
+                      "parameters": [
+                        "x * state.config.cellSize + state.config.cellSize / 2",
+                        "y * state.config.cellSize + state.config.cellSize / 2",
+                        "state.config.pointRadius",
+                        "state.colors.pointColor"
+                      ],
+                      "returnVariable": ""
+                    }
+                  }
+                ]
+              }
+            ]
+          }
+        ]
+      },
+      {
+        "id": "vKb_xyZ1flSUF4Ym8bXRR",
+        "name": "function-footer",
+        "data": ""
+      }
+    ]
+  }
+}

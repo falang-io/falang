@@ -1,0 +1,22 @@
+{
+  "schedule": {
+    "label": "Расписание",
+    "trigger": {
+      "interval": "Каждые…",
+      "cron": "Cron-выражение"
+    },
+    "field": {
+      "every": "Каждые",
+      "unit": "Единица",
+      "expression": "Cron-выражение",
+      "timezone": "Часовой пояс"
+    },
+    "unit": {
+      "seconds": "секунд",
+      "minutes": "минут",
+      "hours": "часов",
+      "days": "дней",
+      "weeks": "недель"
+    }
+  }
+}

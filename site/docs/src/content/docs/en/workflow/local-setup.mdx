@@ -1,0 +1,84 @@
+---
+title: Local setup
+description: How to run the Falang workflow engine locally with Docker Compose and kind
+head:
+  - tag: meta
+    attrs:
+      name: keywords
+      content: "workflow, docker, kubernetes, kind, local setup, self-hosted"
+---
+
+<p>
+  The workflow engine ships as open source, and you can run the whole thing locally — the fastest way to try it
+  out. You'll need <a href="https://www.docker.com/" target="_blank">Docker</a> and
+  <a href="https://kind.sigs.k8s.io/" target="_blank"> kind</a> (Kubernetes in Docker) installed: every running
+  scenario executes in its own pod on a local k8s cluster, the same mechanism production uses.
+</p>
+
+#### Quick start
+<ol>
+  <li>
+    Create the local kind cluster:
+    <pre><code>./scripts/kind-dev-setup.sh</code></pre>
+    The script is idempotent — safe to re-run, for example after changing the runner's code, to rebuild and reload
+    its image into the cluster.
+  </li>
+  <li>
+    Copy <code>.env.example</code> to <code>.env</code> at the repo root. For a clean local run you don't need to
+    change anything — every secret (<code>JWT_SECRET</code>, <code>CREDENTIALS_ENCRYPTION_KEY</code>, etc.) has a
+    dev-only default baked in.
+  </li>
+  <li>
+    Bring the stack up:
+    <pre><code>docker compose -f docker-compose.workflow.yml up --build</code></pre>
+  </li>
+  <li>
+    Open <code>http://localhost:5175</code> and log in as
+    <code> admin</code>/<code>admin</code> (auto-seeded the first time the backend boots), or register a new
+    account from the login page.
+  </li>
+  <li>Create a project, then inside it a folder and a "Function" document: give the function a name and a body.</li>
+  <li>
+    Click "Build &amp; Run" in the toolbar. This compiles every function in the project and creates a pod in the
+    kind cluster to run them — shown under a task-queue name like <code>workflow-dev-&lt;projectId&gt;</code>
+    (displayed in the toolbar next to the status dot, and via <code>kubectl -n workflow get pods</code>).
+  </li>
+  <li>
+    Start an execution using the Temporal admin CLI:
+    <pre><code>{`docker compose -f docker-compose.workflow.yml exec temporal-admin-tools \\
+  temporal workflow start --task-queue workflow-dev-<projectId> --type <functionName> \\
+  --workflow-id demo-1 --input '{}'`}</code></pre>
+    Watch it run in the Temporal Web UI: <code>http://localhost:8080</code>.
+  </li>
+  <li>
+    "Publish" promotes the current code to the stable version (a shared task queue,
+    <code> workflow-&lt;projectId&gt;</code>) — the "Versions" modal lets you roll back ("Activate") or retire
+    older versions ("Stop runner").
+  </li>
+</ol>
+
+#### What's in the stack
+<p><code>docker-compose.workflow.yml</code> brings up:</p>
+<ul>
+  <li>a self-hosted <b>Temporal</b> server (with its own Postgres) and its web UI;</li>
+  <li>a separate Postgres database for the <b>backend</b> (projects, folders, documents, users);</li>
+  <li>the <b>backend</b> — stores projects, compiles functions, and manages starting/stopping runner pods via the Kubernetes API;</li>
+  <li>the <b>client</b> — the web scheme editor;</li>
+  <li>
+    <b>activepieces</b> — a helper service backing part of the integrations catalog (see
+    <a href="./integrations/"> Integrations</a>).
+  </li>
+</ul>
+<p>
+  Every published scenario runs not as a process inside the backend's own container, but as its own pod in
+  Kubernetes — which is why the local kind cluster is needed.
+</p>
+
+#### A known quirk
+<p>
+  On the very first <code>docker compose up</code> after the <code>falang-workflow-network</code> network is
+  (re)created, the backend container sometimes fails to attach to the second network (<code>kind</code>) in time —
+  its logs show a steady stream of <code>getaddrinfo EAI_AGAIN app-postgres</code> errors. One command fixes it:
+</p>
+<pre><code>docker compose -f docker-compose.workflow.yml restart backend</code></pre>
+<p>It doesn't recur once both networks are actually attached.</p>

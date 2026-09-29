@@ -1,0 +1,33 @@
+{
+  "description": "",
+  "id": "djzFnALioxn8kUl96N7G-",
+  "name": "helloWorld",
+  "root": {
+    "id": "kDS04_drBhF6TX0LJ6vy1",
+    "alias": "function",
+    "block": {
+      "width": 208,
+      "code": "exports.helloWorld = function(i)"
+    },
+    "children": [
+      {
+        "alias": "action",
+        "block": {
+          "width": 224,
+          "code": "console.log(`Hello, world! ${i}`);"
+        },
+        "id": "Ufm0nVl4QXQVyF-rM6Se8"
+      }
+    ],
+    "footer": {
+      "width": 64,
+      "code": "return;"
+    },
+    "header": {
+      "width": 80,
+      "code": ""
+    }
+  },
+  "schemeVersion": 2,
+  "type": "function"
+}

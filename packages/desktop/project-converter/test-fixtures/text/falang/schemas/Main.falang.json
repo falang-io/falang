@@ -1,0 +1,68 @@
+{
+  "id": "m7pVTfZRXeP0bT6BWlmQf",
+  "schemeVersion": 2,
+  "name": "Main",
+  "type": "function",
+  "description": "",
+  "root": {
+    "id": "lB5upikdDh_HbhKEy2jH0",
+    "alias": "function",
+    "header": {
+      "text": "",
+      "width": 272,
+      "color": "#ffffff"
+    },
+    "block": {
+      "text": "Some life algorithm",
+      "width": 160,
+      "color": "#ffffff"
+    },
+    "children": [
+      {
+        "id": "__voZ6YLN7wMLJ_rJnRlN",
+        "alias": "if",
+        "block": {
+          "text": "do you want go to street?",
+          "width": 192,
+          "color": "#ffffff"
+        },
+        "trueOnRight": true,
+        "gaps": [],
+        "children": [
+          {
+            "alias": "system",
+            "id": "Nyc7JFGQqGkrL7pMC1Twj",
+            "block": {
+              "width": 0
+            },
+            "children": []
+          },
+          {
+            "alias": "system",
+            "id": "Nyc7JFGQqGkrL7pMCyuwj",
+            "block": {
+              "width": 0
+            },
+            "children": [
+              {
+                "id": "Nyc7JFGQqGkrL7pMCyTwj",
+                "alias": "link",
+                "block": {
+                  "text": "goToStreet",
+                  "width": 160,
+                  "schemeId": "S8SeeO6rAD7glWnCARNwM",
+                  "color": "#ffffff"
+                }
+              }
+            ]
+          }
+        ]
+      }
+    ],
+    "footer": {
+      "text": "End",
+      "width": 160,
+      "color": "#ffffff"
+    }
+  }
+}

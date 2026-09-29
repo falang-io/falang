@@ -1,0 +1,8 @@
+{
+  "webhook": {
+    "label": "Webhook",
+    "trigger": {
+      "incomingWebhook": "Входящий webhook"
+    }
+  }
+}

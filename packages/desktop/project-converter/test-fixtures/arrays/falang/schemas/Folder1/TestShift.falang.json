@@ -1,0 +1,109 @@
+{
+  "id": "XnSqmEcbCAGxqgfAt-7RD",
+  "schemeVersion": 2,
+  "name": "TestShift",
+  "type": "function",
+  "description": "",
+  "root": {
+    "id": "ltZlGRVybHa9VxrcGxYjZ",
+    "alias": "function",
+    "header": {
+      "text": "",
+      "width": 160,
+      "color": "#ffffff"
+    },
+    "block": {
+      "parameters": [
+        {
+          "name": "arrParam",
+          "type": {
+            "type": "array",
+            "elementType": {
+              "type": "number",
+              "numberType": "integer",
+              "integerType": "int32"
+            },
+            "dimensions": 1
+          }
+        }
+      ],
+      "returnValue": {
+        "type": "void"
+      },
+      "width": 192,
+      "name": "TestShift"
+    },
+    "children": [
+      {
+        "id": "q2ipKSmBj1E1D2X7mevdb",
+        "alias": "log",
+        "block": {
+          "width": 128,
+          "color": "#ffffff",
+          "expression": "\"TestShift\"",
+          "type": "string",
+          "variableType": null
+        }
+      },
+      {
+        "id": "ojlOE1LR736BXaowFYZJO",
+        "alias": "create_var",
+        "block": {
+          "width": 128,
+          "color": "#ffffff",
+          "expression": "arr = arrParam",
+          "type": "create",
+          "variableType": {
+            "type": "array",
+            "elementType": {
+              "type": "number",
+              "numberType": "integer",
+              "integerType": "int32"
+            },
+            "constant": false,
+            "optional": false,
+            "dimensions": 1
+          }
+        }
+      },
+      {
+        "id": "aYRnAsO3CAY01Rgw1JVpr",
+        "alias": "arr_shift",
+        "block": {
+          "arr": "arr",
+          "variable": "x",
+          "width": 128
+        }
+      },
+      {
+        "id": "VREgd0iOgVx1bZ9UgzR42",
+        "alias": "log",
+        "block": {
+          "width": 128,
+          "color": "#ffffff",
+          "expression": "\"Shifted var: {x}\"",
+          "type": "string",
+          "variableType": null
+        }
+      },
+      {
+        "id": "jIWbCDqjm1oF9398aKZRh",
+        "alias": "call_function",
+        "block": {
+          "parameters": [
+            "arr"
+          ],
+          "returnVariable": "",
+          "schemeId": "IcuthIiJQ_r3xMWs5My6i",
+          "width": 160,
+          "iconId": null
+        }
+      }
+    ],
+    "footer": {
+      "text": "",
+      "width": 160,
+      "color": "#ffffff"
+    }
+  }
+}

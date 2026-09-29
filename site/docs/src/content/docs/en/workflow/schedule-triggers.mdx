@@ -1,0 +1,89 @@
+---
+title: Schedule triggers
+description: Timer-based triggers for the workflow engine — fixed intervals and cron expressions, backed by Temporal Schedules
+head:
+  - tag: meta
+    attrs:
+      name: keywords
+      content: 'schedule, cron, interval, timer, trigger, workflow, temporal'
+---
+
+<p>
+  A schedule trigger starts a scenario on its own, on a recurring time-based schedule — no external service, no
+  credentials to connect. It comes in two kinds: a fixed <b>interval</b> ("every 15 minutes") and a <b>cron</b>{' '}
+  expression ("at 09:00 on weekdays"). Under the hood both are backed by a durable Temporal Schedule rather than a
+  simple timer in the engine itself, so a fire is never lost to a restart and a schedule keeps its own history of recent
+  runs.
+</p>
+
+#### Interval
+
+<p>
+  Fires repeatedly on a fixed period — a whole number ("every") and a unit (seconds/minutes/hours/days/ weeks). The
+  first fire happens one full interval after the trigger is created or resumed, not immediately.
+</p>
+
+#### Cron
+
+<p>
+  Fires on a standard 5-field cron expression (minute, hour, day-of-month, month, day-of-week) — e.g.
+  <code>0 9 * * 1-5</code> for 09:00 on weekdays, or <code>*/15 * * * *</code> for every 15 minutes. A 6-field
+  expression with a leading seconds field is not supported and is rejected with an explanation when typed. A cron
+  trigger also has a required timezone (an IANA name like <code>Europe/Moscow</code>
+  or <code>UTC</code>) the expression is evaluated against.
+</p>
+<p>
+  Next to the raw expression field, a visual builder lets you pick a period, weekdays, time of day and so on from
+  dropdowns and have it write the expression for you; typing the expression directly always stays the source of truth —
+  hand-typing something the builder can't represent just leaves the builder showing a "custom expression" hint instead
+  of overriding what you typed. A live preview shows the next few fire times for whatever is currently configured, so
+  you can sanity-check a cron expression before saving it.
+</p>
+
+#### What the function receives
+
+<p>
+  The bound function receives one argument, <code>fire</code>, with two fields: <code>scheduledAt</code> (an ISO-8601
+  timestamp — the time this fire was <i>scheduled for</i>, not the current wall-clock time the function happens to start
+  running at) and <code>timezone</code>. Use <code>fire.scheduledAt</code> when the function needs to know which
+  scheduled slot it's running for, e.g. to format it back into local time or to decide "is this the first run of the
+  day".
+</p>
+
+#### Dev vs. prod
+
+<ul>
+  <li>
+    <b>Dev.</b> A schedule reconciles against the dev stand the same way any other trigger does. If the dev runner sits
+    idle long enough to be scaled down automatically, its schedules are paused along with it — a forgotten "every 10
+    seconds" schedule on the dev stand doesn't keep the pod (and the Temporal Schedule) firing forever. The next dev
+    build or manual run un-pauses it. The trigger-function block also shows a "Run now" action for a schedule trigger —
+    a synthesized fire that starts the function immediately, without waiting for the next scheduled time.
+  </li>
+  <li>
+    <b>Prod.</b> A published schedule is never auto-paused — it's expected to keep firing on its own indefinitely,
+    including waking a scaled-down runner pod shortly before its next fire is due. Stopping the published version pauses
+    its schedules (not delete); starting it again resumes them.
+  </li>
+</ul>
+
+#### Overlap and catch-up
+
+<p>
+  If a fire lands while the previous run of the same trigger is still in progress, it is skipped rather than started in
+  parallel or queued up — this matches how most schedule-driven automations expect a recurring job to behave. If the
+  engine (or Temporal itself) was down when one or more fires should have happened, up to an hour's worth of missed
+  fires are caught up once things are back; anything older than that is simply skipped. The trigger-function block shows
+  the schedule's current state (active/paused), its next and last fire time, and how many fires were skipped due to
+  overlap.
+</p>
+
+#### Things to know
+
+<ul>
+  <li>Only ActivePieces-style external services need a credential — a schedule trigger needs none.</li>
+  <li>
+    A per-trigger overlap policy (allowing parallel or queued fires instead of always skipping) isn't configurable yet —
+    every schedule uses the skip-on-overlap behavior described above.
+  </li>
+</ul>

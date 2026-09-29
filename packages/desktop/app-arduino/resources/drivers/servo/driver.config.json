@@ -1,0 +1,19 @@
+{
+  "id": "servo",
+  "label": "Servo",
+  "version": "1.0.0",
+  "includes": ["servo-driver.h"],
+  "sourceFiles": ["servo-driver.h", "servo-driver.cpp"],
+  "declarations": ["declare function servo_set_angle(pin: number, angle: number): void;"],
+  "actions": [
+    {
+      "id": "set-angle",
+      "label": "Set angle",
+      "fields": [
+        { "name": "pin", "label": "Pin", "kind": "pin", "default": "9" },
+        { "name": "angle", "label": "Angle (0-180)", "kind": "number", "default": "90", "min": 0, "max": 180 }
+      ],
+      "codeTemplate": "servo_set_angle(${pin}, ${angle})"
+    }
+  ]
+}

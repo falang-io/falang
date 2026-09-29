@@ -1,0 +1,29 @@
+{
+  "openai": {
+    "label": "OpenAI-совместимый",
+    "credentialField": {
+      "baseUrl": "Base URL",
+      "apiKey": "API-ключ"
+    },
+    "field": {
+      "integration": "Интеграция",
+      "model": "Модель",
+      "prompt": "Промпт",
+      "attachments": "Вложения",
+      "result": "Результат",
+      "resultVariable": "Сохранить результат в",
+      "size": "Размер",
+      "file": "Аудиофайл",
+      "transcribeModel": "Модель (напр. whisper-1)",
+      "language": "Язык (опционально)"
+    },
+    "action": {
+      "callAiText": "Вызов AI (текст)",
+      "callAiImage": "Вызов AI (генерация изображения)",
+      "callAiTranscribe": "Вызов AI (расшифровка аудио)"
+    },
+    "choice": {
+      "callAiChoice": "Вопрос AI (выбор)"
+    }
+  }
+}

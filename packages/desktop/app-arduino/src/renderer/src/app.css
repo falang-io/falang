@@ -1,0 +1,24 @@
+html,
+body,
+#root {
+  height: 100%;
+  width: 100%;
+  overflow: hidden;
+}
+
+body {
+  margin: 0;
+  background: #ffffff;
+}
+
+/* Remove drag handle icon space and leaf-node switcher gap in project tree */
+.ant-tree .ant-tree-draggable-icon {
+  display: none;
+}
+.ant-tree .ant-tree-switcher-noop {
+  width: 0;
+}
+
+.ant-tabs .ant-tabs-nav {
+  margin-bottom: 0 !important;
+}

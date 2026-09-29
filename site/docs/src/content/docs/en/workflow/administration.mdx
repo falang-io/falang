@@ -1,0 +1,219 @@
+---
+title: Administration
+description: Roles, the Admin app, and enabling OAuth2 integrations for the Falang workflow engine
+head:
+  - tag: meta
+    attrs:
+      name: keywords
+      content: 'admin, roles, oauth2, activepieces, workflow'
+---
+
+<p>
+  A deployment of the workflow engine has one operator-facing surface beyond the editor itself: the Admin app. It's
+  where an operator manages who else can administer the deployment, and where OAuth2-based integrations from the
+  ActivePieces catalog get switched on.
+</p>
+
+#### Roles
+
+<p>
+  Every account is a regular <b>user</b> by default. An <b>admin</b> account can additionally open the Admin app and
+  everything below — same login, same session, no separate credentials.
+</p>
+<ul>
+  <li>An admin can promote any other user to admin, or demote an admin back to a regular user, from the Users page.</li>
+  <li>
+    An admin can't change their own role — this avoids a deployment accidentally locking itself out of admin access.
+  </li>
+  <li>A role change takes effect immediately — no re-login required, just a page refresh for the affected account.</li>
+</ul>
+
+#### The first admin
+
+<p>
+  On a local or self-hosted stack running with the default seed, the built-in <code>admin</code>/<code>admin</code>{' '}
+  account is already an admin — nothing to configure.
+</p>
+<p>
+  On a deployment with self-service signup (the hosted product), sign up normally first, then turn that account into an
+  admin one of two ways:
+</p>
+<ul>
+  <li>
+    List the username in the backend's <code>ADMIN_USERNAMES</code> setting (comma-separated for more than one) and
+    restart the backend once — every listed user is promoted on boot.
+  </li>
+  <li>
+    Or set the role directly in the database:
+    <pre>
+      <code>UPDATE users SET role = 'admin' WHERE username = '…';</code>
+    </pre>
+  </li>
+</ul>
+<p>Further admins after the first one don't need either step — just promote them from the Users page.</p>
+
+#### User management
+
+<p>A self-hosted deployment doesn't let strangers sign themselves up by default. Accounts are created by an admin:</p>
+<ul>
+  <li>
+    <b>Create a user</b> — on the Users page click "Create user", enter a username and confirm. A random password is
+    generated and shown <b>once</b> in a dialog (with a Copy button); hand it to the person. It is never stored in
+    readable form and can't be shown again.
+  </li>
+  <li>
+    <b>Reset a password</b> — click "Reset password" on a user's row and confirm. The old password stops working
+    immediately and a new generated one is shown once, the same way. There is no e-mail: forgotten passwords are always
+    reset by an admin.
+  </li>
+  <li>
+    <b>Change your own password</b> — any signed-in user can use the "Change password" button (project list header, and
+    the Admin app header) and enter the current password plus a new one of at least 8 characters.
+  </li>
+</ul>
+<p>
+  <b>Default-password warning.</b> A fresh install seeds an <code>admin</code>/<code>admin</code> account. While that
+  account still has the password <code>admin</code>, the project list and every Admin page show a warning banner with a
+  "Change password" button; it disappears as soon as the password is changed. Change it before exposing the instance to
+  the internet.
+</p>
+<p>Two backend settings control public signup:</p>
+<ul>
+  <li>
+    <code>SELF_SERVICE_SIGNUP</code> — <code>false</code> by default. When <code>false</code>, the signup endpoint
+    refuses with <code>403</code> and the login page shows no "Create an account" link. Set it to <code>true</code> to
+    let anyone register (the hosted product does; the local Docker Compose stack does too).
+  </li>
+  <li>
+    <code>TERMS_URL</code> — optional. When set, signup shows a required "I accept the terms" checkbox linking to this
+    URL, the backend rejects a signup without acceptance, and the acceptance time is recorded on the account.
+  </li>
+</ul>
+
+#### Admin app
+
+<p>
+  Open <code>/admin</code> on the same host as the workflow editor (a signed-in admin also sees an "Admin" link from the
+  project list page). It has three pages:
+</p>
+<ul>
+  <li>
+    <b>Users</b> — every account, with a role switch per row.
+  </li>
+  <li>
+    <b>OAuth credentials</b> — the OAuth2 clients configured for ActivePieces integrations, see below.
+  </li>
+  <li>
+    <b>AI agent</b> — the app-wide configuration for the editor's AI editing agent, see below.
+  </li>
+</ul>
+
+#### Per-user limits
+
+<p>
+  The <b>Limits</b> button on a Users row opens that account's quotas: maximum size of one file, maximum total size of a
+  project's files, the file lifetimes, and the maximum number of <b>published versions running at the same time</b> per
+  project (default 3, or whatever the deployment's <code>MAX_CONCURRENT_PROD_VERSIONS</code> setting says). An empty
+  field means "use the deployment default"; a filled one overrides it for that account's projects only.
+</p>
+
+#### OAuth credentials — enabling OAuth2 integrations
+
+<p>
+  Integrations from the <a href="./integrations/">ActivePieces catalog</a> that authenticate via OAuth2 — Google Sheets,
+  Gmail, Google Drive, Slack, and others — use <b>one OAuth2 client per integration, owned by the deployment</b>,
+  configured once here. Users never paste a client ID or secret themselves; they just click "Connect".
+</p>
+<p>
+  An integration with no configured client is <b>disabled</b>: it doesn't appear in "add integration", nor in the
+  editor's action picker, at all.
+</p>
+<p>To enable one:</p>
+<ol>
+  <li>Open OAuth credentials in the Admin app and find the integration — it shows status "Disabled".</li>
+  <li>Click "Configure".</li>
+  <li>Paste the vendor's Client ID and Client secret.</li>
+  <li>Save. The status switches to "Enabled", and the integration becomes usable in every project.</li>
+</ol>
+<p>
+  Deleting a configured credential disables the integration again — existing connections for that vendor stop being able
+  to connect or refresh.
+</p>
+
+<p>
+  <b>Worked example — Google:</b>
+</p>
+<ol>
+  <li>
+    In{' '}
+    <a href="https://console.cloud.google.com/" target="_blank">
+      Google Cloud Console
+    </a>
+    , create an OAuth 2.0 Client ID of type "Web application".
+  </li>
+  <li>
+    Add an authorized redirect URI of the form{' '}
+    <code>https://&lt;your backend host&gt;/oauth2/callback/&lt;integration id&gt;</code>. The integration id is shown
+    in the OAuth credentials table's "Vendor" column — for Google Sheets it's
+    <code>activepieces-google-sheets</code>. For the hosted product, the backend host is
+    <code>api.workflow.falang.ru</code>, so the redirect URI is
+    <code>https://api.workflow.falang.ru/oauth2/callback/activepieces-google-sheets</code>.
+  </li>
+  <li>
+    One Google Cloud OAuth client can carry several redirect URIs — add one per Google integration you enable (Gmail,
+    Google Drive, Google Calendar, Google Forms, …) rather than creating a separate client for each.
+  </li>
+  <li>Paste that client's Client ID and Client secret into the Admin app as described above.</li>
+</ol>
+
+#### What users see
+
+<p>
+  Once an integration is enabled, it appears in the project's Integrations editor vendor list like any other. Its
+  credential form only asks for a Name (plus any vendor-specific non-secret fields) and a "Connect" button, which opens
+  the vendor's own consent popup — no client ID or secret field at all.
+</p>
+
+<p>
+  Built-in (non-catalog) OAuth2 integrations such as amoCRM and Диадок are unaffected by any of this — they keep their
+  own bring-your-own-app credential fields (client ID/secret entered per credential), unchanged.
+</p>
+
+#### AI agent
+
+<p>
+  The editor's AI agent (natural-language edits to a function document — click <b>Agent</b> in the toolbar to open its
+  panel in the right-hand sidebar, next to <b>History</b>; only one of the two is shown at a time) needs one app-wide
+  OpenAI-compatible endpoint before it can do anything. Nobody configures this per project; an admin sets it up once for
+  the whole deployment on the AI agent page:
+</p>
+<p>
+  The agent isn't limited to whichever document happens to be open — it can read and edit other documents in the project
+  too, and create new function or trigger documents, as well as object-structure documents (the interfaces that describe
+  your data's shape — types only, never storage). It even works in a brand-new project with no documents at all yet:
+  just describe what to build, and it creates the documents it needs as it goes.
+</p>
+<ul>
+  <li>
+    <b>Base URL</b> — the vendor's OpenAI-compatible API root, e.g. <code>https://api.openai.com/v1</code> or any
+    compatible provider.
+  </li>
+  <li>
+    <b>Model</b> — a plain model name, e.g. <code>gpt-4o-mini</code>.
+  </li>
+  <li>
+    <b>API key</b> — the vendor's API key, stored encrypted with the deployment's{' '}
+    <code>CREDENTIALS_ENCRYPTION_KEY</code>.
+  </li>
+</ul>
+<p>
+  Until this is configured, every user's agent chat panel shows a "not configured, ask an administrator" notice instead
+  of a send button — the agent simply isn't usable yet. Editing the settings later leaves the API key field empty on
+  purpose: submitting with it empty keeps the currently stored key, only the Base URL/Model change. "Reset" removes all
+  three values and disables the agent for everyone again.
+</p>
+<p>
+  This is a separate concept from the per-project "OpenAI" integration credential used by <code>call-ai-text</code>/
+  <code>call-ai-choice</code> nodes inside a workflow — that credential is unaffected and still configured per project,
+  same as any other integration.
+</p>

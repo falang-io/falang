@@ -1,0 +1,64 @@
+/*
+ * Starlight's built-in `TwoColumnContent` layout balances leftover viewport width by growing the
+ * content column *and* the right-hand "On this page" column toward each other, but the left
+ * sidebar nav stays `position: fixed` at the viewport edge — so past the point where content and
+ * the TOC hit their natural size, every extra pixel of a wide viewport piles up as dead space
+ * between the left sidebar and the content column instead of framing the page symmetrically.
+ *
+ * Fix targets `.main-frame`'s direct child (the unclassed `<div class="lg:sl-flex">` root
+ * `TwoColumnContent.astro` renders — `.lg\:sl-flex` is a real, stable class from Starlight's own
+ * util.css, not an ad hoc hook) rather than `.main-frame` itself: `.main-frame` carries
+ * `padding-inline-start: var(--sl-content-inline-start)` to clear the fixed sidebar, and capping
+ * + auto-centering *that* box directly would centre the padding along with it — pulling the
+ * padding away from the sidebar it's meant to clear and reintroducing the exact same stray gap,
+ * just capped instead of unbounded. Capping the child instead leaves the padding (and the
+ * sidebar's true edge) alone and centers only the content+TOC block within the space to its
+ * right, so leftover width past the natural size becomes an even margin on both sides of that
+ * block instead of one-sided dead space.
+ */
+@media (min-width: 72rem) {
+  .main-frame > .lg\:sl-flex {
+    max-inline-size: calc(var(--sl-content-width) + var(--sl-sidebar-width));
+    margin-inline: auto;
+  }
+}
+
+/*
+ * Falang "dark developer" theme — matches the marketing site's redesign
+ * (../main/public/site.css): dark surface, monospace headings, a teal accent
+ * (the same hue used for FalangSketch's product color on the marketing site,
+ * picked here as docs' one site-wide accent since Starlight only has a single
+ * accent hue, not a per-product one).
+ *
+ * Starlight's own :root block (props.css) *is* the dark palette; :root[data-theme='light']
+ * layers light-mode overrides on top. Overriding --sl-color-accent/-low/-high in both
+ * places keeps the same teal hue (172°) in either mode, only re-tuned for contrast.
+ */
+:root {
+  --sl-color-accent-low: hsl(172, 40%, 18%);
+  --sl-color-accent: hsl(172, 66%, 45%);
+  --sl-color-accent-high: hsl(172, 60%, 82%);
+}
+
+:root[data-theme='light'] {
+  --sl-color-accent-low: hsl(172, 70%, 90%);
+  --sl-color-accent: hsl(172, 70%, 32%);
+  --sl-color-accent-high: hsl(172, 75%, 22%);
+}
+
+:root {
+  --sl-font-mono: ui-monospace, 'JetBrains Mono', 'SFMono-Regular', Menlo, monospace;
+}
+
+.sl-markdown-content h1,
+.sl-markdown-content h2,
+.sl-markdown-content h3,
+.sl-markdown-content h4,
+.sl-markdown-content h5,
+.sl-markdown-content h6,
+#_top,
+.hero h1,
+.site-title {
+  font-family: var(--__sl-font-mono);
+  letter-spacing: -0.01em;
+}

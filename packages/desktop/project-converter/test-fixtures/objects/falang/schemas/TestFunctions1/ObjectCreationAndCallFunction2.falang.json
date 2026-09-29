@@ -1,0 +1,175 @@
+{
+  "id": "NPQAs83QH75SKDnUgLpXw",
+  "schemeVersion": 2,
+  "name": "ObjectCreationAndCallFunction2",
+  "type": "function",
+  "description": "",
+  "root": {
+    "id": "fwPRALKC1G7qxhU0KVIma",
+    "alias": "function",
+    "header": {
+      "text": "",
+      "width": 160,
+      "color": "#ffffff"
+    },
+    "block": {
+      "parameters": [],
+      "returnValue": {
+        "type": "void"
+      },
+      "width": 192,
+      "name": "ObjectCreationAndCallFunction2"
+    },
+    "children": [
+      {
+        "id": "VSchpb6bl0EeocS0SyBBM",
+        "alias": "create_var",
+        "block": {
+          "width": 128,
+          "color": "#ffffff",
+          "expression": "x",
+          "type": "create",
+          "variableType": {
+            "type": "struct",
+            "constant": false,
+            "optional": false,
+            "iconId": "rBAAQ5MU-EOwDP1KSnfA3",
+            "schemeId": "jyja0ksuYt5PHd8PJIpFk",
+            "name": "ObjC",
+            "properties": {
+              "x": {
+                "constant": false,
+                "type": "number",
+                "numberType": "integer",
+                "integerType": "int32",
+                "optional": false
+              },
+              "y": {
+                "type": "number",
+                "numberType": "float",
+                "floatType": "float32",
+                "constant": false,
+                "optional": false
+              },
+              "z": {
+                "type": "struct",
+                "constant": false,
+                "optional": false,
+                "iconId": "JJESuMMF-s7cdVOyL_vKQ",
+                "schemeId": "WlwcPb7wDq7Lo0zWJHXoi",
+                "name": "ObjA",
+                "properties": {
+                  "x": {
+                    "constant": false,
+                    "type": "number",
+                    "numberType": "integer",
+                    "integerType": "int32",
+                    "optional": false
+                  },
+                  "y": {
+                    "constant": false,
+                    "type": "number",
+                    "numberType": "integer",
+                    "integerType": "int32",
+                    "optional": false
+                  },
+                  "z": {
+                    "constant": false,
+                    "type": "number",
+                    "numberType": "integer",
+                    "integerType": "int32",
+                    "optional": false
+                  }
+                }
+              }
+            }
+          }
+        }
+      },
+      {
+        "id": "WE8Jqey9OZXIaPEFjpeoo",
+        "alias": "assign_var",
+        "block": {
+          "width": 128,
+          "color": "#ffffff",
+          "expression": "x.z.x = 10",
+          "type": "assign",
+          "variableType": null
+        }
+      },
+      {
+        "id": "ZxtYEEnn8I4d5T9sAZ9_T",
+        "alias": "assign_var",
+        "block": {
+          "width": 128,
+          "color": "#ffffff",
+          "expression": "x.z.y = 20",
+          "type": "assign",
+          "variableType": null
+        }
+      },
+      {
+        "id": "9iM3CCwqxDfmw6Lz7Um95",
+        "alias": "assign_var",
+        "block": {
+          "width": 128,
+          "color": "#ffffff",
+          "expression": "x.z.z = 30",
+          "type": "assign",
+          "variableType": null
+        }
+      },
+      {
+        "id": "59MDpONxJkpYeULwvjDFA",
+        "alias": "assign_var",
+        "block": {
+          "width": 128,
+          "color": "#ffffff",
+          "expression": "x.x = 40",
+          "type": "assign",
+          "variableType": null
+        }
+      },
+      {
+        "id": "3wjcxt_P10ol5IDLoicGy",
+        "alias": "assign_var",
+        "block": {
+          "width": 128,
+          "color": "#ffffff",
+          "expression": "x.y = 50",
+          "type": "assign",
+          "variableType": null
+        }
+      },
+      {
+        "id": "nmqsyv4JzaQCWWeX4sgDb",
+        "alias": "call_function",
+        "block": {
+          "parameters": [
+            "x"
+          ],
+          "returnVariable": "result",
+          "schemeId": "1RKm_Ow00-ptVlwL0APn3",
+          "width": 160,
+          "iconId": null
+        }
+      },
+      {
+        "id": "wjRuGI32mW_-4DtjjeXh3",
+        "alias": "log",
+        "block": {
+          "width": 160,
+          "color": "#ffffff",
+          "expression": "\"result is: {result}\"",
+          "type": "string",
+          "variableType": null
+        }
+      }
+    ],
+    "footer": {
+      "text": "",
+      "width": 160,
+      "color": "#ffffff"
+    }
+  }
+}

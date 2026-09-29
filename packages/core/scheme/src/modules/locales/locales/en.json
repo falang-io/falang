@@ -1,0 +1,54 @@
+{
+  "icon": {
+    "action": "Action",
+    "link": "Link",
+    "if": "If",
+    "switch": "Switch",
+    "foreach": "For each",
+    "while": "While",
+    "break": "Break",
+    "continue": "Continue",
+    "throw": "Throw",
+    "return": "Return",
+    "parallel": "Parallel",
+    "parallel-thread": "Thread",
+    "pseudo-cycle": "Cycle"
+  },
+  "base": {
+    "true": "True",
+    "false": "False"
+  },
+  "menu": {
+    "delete": "Delete",
+    "group-action": "Action",
+    "group-arrays": "Arrays",
+    "group-condition": "Condition",
+    "group-cycles": "Loops",
+    "group-integrations": "Integrations",
+    "switch-true-false": "Switch true/false"
+  },
+  "debugger": {
+    "add-breakpoint": "Add breakpoint",
+    "remove-breakpoint": "Remove breakpoint",
+    "start": "Start",
+    "continue": "Continue",
+    "step-over": "Step over",
+    "stop": "Stop",
+    "status-idle": "Not running",
+    "status-starting": "Starting…",
+    "status-running": "Running",
+    "status-paused": "Paused",
+    "status-terminated": "Finished",
+    "terminated-completed": "completed",
+    "terminated-failed": "failed",
+    "terminated-stopped": "stopped",
+    "reason-breakpoint": "at a breakpoint",
+    "reason-step": "after a step",
+    "reason-entry": "at entry",
+    "current-node": "Current node",
+    "variable": "Variable",
+    "value": "Value",
+    "no-variables": "No variables in scope",
+    "output": "Output"
+  }
+}

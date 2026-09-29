@@ -1,0 +1,227 @@
+{
+  "id": "IcO0GUjKlJeGV9OeRCkWx",
+  "schemeVersion": 2,
+  "name": "ObjectCreationAndCallFunction3",
+  "type": "function",
+  "description": "",
+  "root": {
+    "id": "11ptr-dy24PV4otJWrpoH",
+    "alias": "function",
+    "header": {
+      "text": "",
+      "width": 160,
+      "color": "#ffffff"
+    },
+    "block": {
+      "parameters": [],
+      "returnValue": {
+        "type": "void"
+      },
+      "width": 192,
+      "name": "ObjectCreationAndCallFunction3"
+    },
+    "children": [
+      {
+        "id": "ugdCoWO56WL9SqAiNgP-X",
+        "alias": "create_var",
+        "block": {
+          "width": 128,
+          "color": "#ffffff",
+          "expression": "x",
+          "type": "create",
+          "variableType": {
+            "type": "struct",
+            "constant": false,
+            "optional": false,
+            "iconId": "rBAAQ5MU-EOwDP1KSnfA3",
+            "schemeId": "jyja0ksuYt5PHd8PJIpFk",
+            "name": "ObjC",
+            "properties": {
+              "x": {
+                "constant": false,
+                "type": "number",
+                "numberType": "integer",
+                "integerType": "int32",
+                "optional": false
+              },
+              "y": {
+                "type": "number",
+                "numberType": "float",
+                "floatType": "float32",
+                "constant": false,
+                "optional": false
+              },
+              "z": {
+                "type": "struct",
+                "constant": false,
+                "optional": false,
+                "iconId": "JJESuMMF-s7cdVOyL_vKQ",
+                "schemeId": "WlwcPb7wDq7Lo0zWJHXoi",
+                "name": "ObjA",
+                "properties": {
+                  "x": {
+                    "constant": false,
+                    "type": "number",
+                    "numberType": "integer",
+                    "integerType": "int32",
+                    "optional": false
+                  },
+                  "y": {
+                    "constant": false,
+                    "type": "number",
+                    "numberType": "integer",
+                    "integerType": "int32",
+                    "optional": false
+                  },
+                  "z": {
+                    "constant": false,
+                    "type": "number",
+                    "numberType": "integer",
+                    "integerType": "int32",
+                    "optional": false
+                  }
+                }
+              }
+            }
+          }
+        }
+      },
+      {
+        "id": "qJPCSkX6hEMfS2pKWZg9U",
+        "alias": "create_var",
+        "block": {
+          "width": 128,
+          "color": "#ffffff",
+          "expression": "a",
+          "type": "create",
+          "variableType": {
+            "type": "struct",
+            "constant": false,
+            "optional": false,
+            "iconId": "JJESuMMF-s7cdVOyL_vKQ",
+            "schemeId": "WlwcPb7wDq7Lo0zWJHXoi",
+            "name": "ObjA",
+            "properties": {
+              "x": {
+                "constant": false,
+                "type": "number",
+                "numberType": "integer",
+                "integerType": "int32",
+                "optional": false
+              },
+              "y": {
+                "constant": false,
+                "type": "number",
+                "numberType": "integer",
+                "integerType": "int32",
+                "optional": false
+              },
+              "z": {
+                "constant": false,
+                "type": "number",
+                "numberType": "integer",
+                "integerType": "int32",
+                "optional": false
+              }
+            }
+          }
+        }
+      },
+      {
+        "id": "CwiuM8_Gyh4AnV1vDFfWm",
+        "alias": "assign_var",
+        "block": {
+          "width": 128,
+          "color": "#ffffff",
+          "expression": "a.x = 10",
+          "type": "assign",
+          "variableType": null
+        }
+      },
+      {
+        "id": "WwL9EkQ3WZ35eBDiscrEb",
+        "alias": "assign_var",
+        "block": {
+          "width": 128,
+          "color": "#ffffff",
+          "expression": "a.y = 20",
+          "type": "assign",
+          "variableType": null
+        }
+      },
+      {
+        "id": "d6FKODDJCY6TFkR_BjB_T",
+        "alias": "assign_var",
+        "block": {
+          "width": 128,
+          "color": "#ffffff",
+          "expression": "a.z = 30",
+          "type": "assign",
+          "variableType": null
+        }
+      },
+      {
+        "id": "cxZ2ft4g8AzkuZrXGGI7L",
+        "alias": "assign_var",
+        "block": {
+          "width": 128,
+          "color": "#ffffff",
+          "expression": "x.z = a",
+          "type": "assign",
+          "variableType": null
+        }
+      },
+      {
+        "id": "Cr8bPbGDNEv3lZoYFU90M",
+        "alias": "assign_var",
+        "block": {
+          "width": 128,
+          "color": "#ffffff",
+          "expression": "x.x = 40",
+          "type": "assign",
+          "variableType": null
+        }
+      },
+      {
+        "id": "AvnEwqgi6Wia61Zmv0ZsF",
+        "alias": "assign_var",
+        "block": {
+          "width": 128,
+          "color": "#ffffff",
+          "expression": "x.y = 50",
+          "type": "assign",
+          "variableType": null
+        }
+      },
+      {
+        "id": "lKPXCDgxef10CGOJ3ja-g",
+        "alias": "call_function",
+        "block": {
+          "parameters": [
+            "x"
+          ],
+          "returnVariable": "result",
+          "schemeId": "1RKm_Ow00-ptVlwL0APn3",
+          "width": 160,
+          "iconId": null
+        }
+      },
+      {
+        "id": "kHvaD7cqHfINSxujnw2H_",
+        "alias": "log",
+        "block": {
+          "width": 160,
+          "color": "#ffffff",
+          "expression": "\"result2 is: {result}\"",
+          "type": "string",
+          "variableType": null
+        }
+      }
+    ],
+    "footer": {
+      "text": "",
+      "width": 160,
+      "color": "#ffffff"
+    }
+  }
+}

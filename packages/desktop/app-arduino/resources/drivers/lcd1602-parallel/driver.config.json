@@ -1,0 +1,50 @@
+{
+  "id": "lcd1602-parallel",
+  "label": "LCD1602 (Parallel)",
+  "version": "1.0.0",
+  "includes": ["lcd1602-parallel-driver.h"],
+  "sourceFiles": ["lcd1602-parallel-driver.h", "lcd1602-parallel-driver.cpp"],
+  "declarations": [
+    "declare function lcd_parallel_clear(): void;",
+    "declare function lcd_parallel_print_text(col: number, row: number, text: string): void;",
+    "declare function lcd_parallel_init(rs: number, en: number, d4: number, d5: number, d6: number, d7: number): void;"
+  ],
+  "actions": [
+    {
+      "id": "clear",
+      "label": "Clear display",
+      "fields": [],
+      "codeTemplate": "lcd_parallel_clear()"
+    },
+    {
+      "id": "print-text",
+      "label": "Print text",
+      "fields": [
+        { "name": "col", "label": "Column (0-15)", "kind": "number", "default": "0", "min": 0, "max": 15 },
+        {
+          "name": "row",
+          "label": "Row",
+          "kind": "select",
+          "default": "0",
+          "options": [
+            { "value": "0", "label": "Row 1" },
+            { "value": "1", "label": "Row 2" }
+          ]
+        },
+        { "name": "text", "label": "Text", "kind": "string", "default": "Hello!" }
+      ],
+      "codeTemplate": "lcd_parallel_print_text(${col}, ${row}, ${text})"
+    }
+  ],
+  "device": {
+    "fields": [
+      { "name": "rs", "label": "RS pin", "kind": "pin", "default": "8" },
+      { "name": "en", "label": "EN pin", "kind": "pin", "default": "9" },
+      { "name": "d4", "label": "D4 pin", "kind": "pin", "default": "4" },
+      { "name": "d5", "label": "D5 pin", "kind": "pin", "default": "5" },
+      { "name": "d6", "label": "D6 pin", "kind": "pin", "default": "6" },
+      { "name": "d7", "label": "D7 pin", "kind": "pin", "default": "7" }
+    ],
+    "setupTemplate": "lcd_parallel_init(${rs}, ${en}, ${d4}, ${d5}, ${d6}, ${d7})"
+  }
+}

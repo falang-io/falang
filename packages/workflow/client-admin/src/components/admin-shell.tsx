@@ -1,0 +1,88 @@
+import type React from 'react';
+import { observer } from 'mobx-react-lite';
+import { getGlobalI18n } from '@falang/scheme';
+import { Button, Layout, Menu, Typography } from 'antd';
+import { KeyOutlined, RobotOutlined, TeamOutlined } from '@ant-design/icons';
+import {
+  authStore,
+  ChangePasswordModal,
+  DefaultPasswordBanner,
+  LanguageSwitcher,
+} from '@falang/workflow-client-common';
+import { adminNavigationStore, type TAdminPage } from '../admin-navigation-store.js';
+import { AgentSettingsPage } from './agent-settings-page.js';
+import { OAuthCredentialsPage } from './oauth-credentials-page.js';
+import { UsersPage } from './users-page.js';
+
+const styles: Record<string, React.CSSProperties> = {
+  root: { height: '100vh' },
+  header: {
+    display: 'flex',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    padding: '0 16px',
+    background: '#181825',
+    color: '#cdd6f4',
+  },
+  headerRight: { display: 'flex', alignItems: 'center', gap: 8 },
+  username: { color: '#cdd6f4', marginRight: 8 },
+  content: { padding: 24, overflow: 'auto' },
+};
+
+const PAGES: readonly { readonly key: TAdminPage; readonly icon: React.ReactNode }[] = [
+  { key: 'users', icon: <TeamOutlined /> },
+  { key: 'oauth-credentials', icon: <KeyOutlined /> },
+  { key: 'agent-settings', icon: <RobotOutlined /> },
+];
+
+const MENU_LABEL_KEYS: Record<TAdminPage, string> = {
+  users: 'shell.users-menu',
+  'oauth-credentials': 'shell.oauth-credentials-menu',
+  'agent-settings': 'shell.agent-settings-menu',
+};
+
+/** The admin app's shell — `Sider` menu (users / OAuth credentials) plus a header, no router, see ADR 0030 (private). */
+export const AdminShell: React.FC = observer(() => {
+  const t = getGlobalI18n().t;
+
+  return (
+    <Layout style={styles.root}>
+      <Layout.Header style={styles.header}>
+        <Typography.Title level={5} style={{ color: '#cdd6f4', margin: 0 }}>
+          {t('workflow-client-admin:shell.title')}
+        </Typography.Title>
+        <div style={styles.headerRight}>
+          <span style={styles.username}>{authStore.currentUser?.username}</span>
+          <LanguageSwitcher />
+          <a href="/">{t('workflow-client-admin:shell.back-to-app')}</a>
+          <Button onClick={() => authStore.setChangePasswordOpen(true)}>
+            {t('workflow-client-admin:shell.change-password')}
+          </Button>
+          <Button onClick={() => authStore.logout()}>{t('workflow-client-admin:shell.logout')}</Button>
+        </div>
+      </Layout.Header>
+      <Layout>
+        <Layout.Sider theme="dark" width={220}>
+          <Menu
+            theme="dark"
+            mode="inline"
+            selectedKeys={[adminNavigationStore.page]}
+            onSelect={({ key }) => adminNavigationStore.setPage(key as TAdminPage)}
+            items={PAGES.map(({ key, icon }) => ({
+              key,
+              icon,
+              label: t(`workflow-client-admin:${MENU_LABEL_KEYS[key]}`),
+            }))}
+          />
+        </Layout.Sider>
+        <Layout.Content style={styles.content}>
+          <DefaultPasswordBanner />
+          {adminNavigationStore.page === 'users' ? <UsersPage /> : null}
+          {adminNavigationStore.page === 'oauth-credentials' ? <OAuthCredentialsPage /> : null}
+          {adminNavigationStore.page === 'agent-settings' ? <AgentSettingsPage /> : null}
+        </Layout.Content>
+      </Layout>
+      <ChangePasswordModal />
+    </Layout>
+  );
+});

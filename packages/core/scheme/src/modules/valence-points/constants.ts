@@ -1,0 +1,2 @@
+export const VALENCE_POINT_CHECK_RADIUS = 12;
+export const VALENCE_POINT_RADIUS = 4;
