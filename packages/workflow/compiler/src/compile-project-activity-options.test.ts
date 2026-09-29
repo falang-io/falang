@@ -52,7 +52,7 @@ describe('compileProject with activityOptions', () => {
 
     expect(result.workflows).toContain(
       [
-        'const { logActivity, runActivepiecesAction } = proxyLocalActivities<{ logActivity(message: string): Promise<string>; runActivepiecesAction(credentialId: string, pieceName: string, actionName: string, propsValue: Record<string, unknown>): Promise<unknown> }>({',
+        'const { logActivity } = proxyLocalActivities<{ logActivity(message: string): Promise<string> }>({',
         "  startToCloseTimeout: '10 seconds',",
         '});',
       ].join('\n'),
@@ -116,7 +116,7 @@ describe('compileProject with activityOptions', () => {
     );
     expect(result.workflows).toContain(
       [
-        'const { logActivity, runActivepiecesAction } = proxyLocalActivities<{ logActivity(message: string): Promise<string>; runActivepiecesAction(credentialId: string, pieceName: string, actionName: string, propsValue: Record<string, unknown>): Promise<unknown> }>({',
+        'const { logActivity } = proxyLocalActivities<{ logActivity(message: string): Promise<string> }>({',
         "  startToCloseTimeout: '10 seconds',",
         '});',
       ].join('\n'),

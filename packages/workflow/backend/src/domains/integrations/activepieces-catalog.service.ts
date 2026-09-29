@@ -29,7 +29,7 @@ const stripOAuth2ClientFields = (piece: IActivepiecesPieceCatalogEntry): IActive
  * service's allowlist must not require a code change here.
  *
  * Fetch-once-cache-forever for this pass (matches this codebase's existing "no scanning/refresh yet"
- * MVP posture elsewhere, e.g. `compileActivities`'s unconditional emission) — a process restart
+ * MVP posture elsewhere) — a process restart
  * picks up a changed allowlist. Fails soft (empty list, not thrown) when the service is unreachable
  * or unconfigured, since ordinary document reads/writes route through this for *every* `integrations`
  * document, not just ActivePieces ones — they must not break because a separate service is down.

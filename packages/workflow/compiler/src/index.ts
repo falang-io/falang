@@ -8,3 +8,4 @@ export * from './integration-emitters.js';
 export * from './node-compile-error.js';
 export * from './parse-compiled-markers.js';
 export * from './position-runtime.js';
+export * from './used-integrations.js';

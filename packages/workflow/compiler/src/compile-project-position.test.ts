@@ -52,7 +52,7 @@ describe('compileProject — position tracking (ADR 0022 (private))', () => {
       [
         "import { ApplicationFailure, condition, defineQuery, defineSignal, isCancellation, proxyLocalActivities, setHandler } from '@temporalio/workflow';",
         '',
-        'const { logActivity, runActivepiecesAction } = proxyLocalActivities<{ logActivity(message: string): Promise<string>; runActivepiecesAction(credentialId: string, pieceName: string, actionName: string, propsValue: Record<string, unknown>): Promise<unknown> }>({',
+        'const { logActivity } = proxyLocalActivities<{ logActivity(message: string): Promise<string> }>({',
         "  startToCloseTimeout: '10 seconds',",
         '});',
         '',

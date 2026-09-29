@@ -1,8 +1,10 @@
 import { BadRequestException } from '@nestjs/common';
 import type { INode, IProjectDocument } from '@falang/dto';
+import { collectIntegrationActivityCode, compileActivities } from '@falang/workflow-compiler';
 import { describe, expect, it, vi } from 'vitest';
 import { REGISTERED_INTEGRATIONS } from '../../integrations/registered-integrations.js';
 import { compileProjectDocuments } from './compile-project-documents.js';
+import { typeCheckProject } from './type-check-project.js';
 
 // `compileProjectDocuments` type-checks via a real TS program — cold-start cost can exceed
 // vitest's default 5s test timeout when this file runs alongside the rest of the monorepo's suite
@@ -118,14 +120,29 @@ describe('compileProjectDocuments', () => {
     );
   });
 
-  it('compiles and type-checks with every REGISTERED_INTEGRATIONS registered at once, even with none used by any document', () => {
+  it('type-checks the activity code of every REGISTERED_INTEGRATIONS vendor side by side', () => {
     // Regression test: amoCRM's and Diadoc's native OAuth2 `sharedActivityCode` (ADR 0017 (private))
     // both start with the identical `import { resolveOAuth2AccessToken } from
-    // '@falang/workflow-integrations-common';` line — every registered integration's activity code
-    // compiles unconditionally (see `compile-project.ts`'s `buildWorkflowPreamble`), so this used to
-    // throw `Duplicate identifier 'resolveOAuth2AccessToken'` from `typeCheckProject` on *every*
-    // build, regardless of whether the project used amoCRM/Diadoc at all — found live via
-    // ADR 0025 (private)'s package F e2e pass, fixed in `compile-activities.ts` (import hoisting).
+    // '@falang/workflow-integrations-common';` line, which used to throw `Duplicate identifier
+    // 'resolveOAuth2AccessToken'` from `typeCheckProject` once concatenated (fixed in
+    // `compile-activities.ts` by import hoisting); the postgres/mysql/sqlite dialects collided the
+    // same way (ADR 0039 (private)). `compileProject` now only emits the vendors a project uses, so a
+    // real build no longer puts every vendor into one module — this test does it explicitly, since
+    // any project may still combine any subset of vendors.
+    const document: IProjectDocument = {
+      id: 'doc-1',
+      type: 'function',
+      name: 'run',
+      root: functionNode('doc-1', [{ id: 'l1', name: 'log', data: 'hi' }]),
+    };
+    const { workflows } = compileProjectDocuments([document], REGISTERED_INTEGRATIONS);
+
+    const activities = compileActivities(collectIntegrationActivityCode(REGISTERED_INTEGRATIONS));
+
+    expect(typeCheckProject(workflows, activities)).toEqual([]);
+  });
+
+  it('leaves unused integrations out of the compiled activities', () => {
     const document: IProjectDocument = {
       id: 'doc-1',
       type: 'function',
@@ -134,6 +151,9 @@ describe('compileProjectDocuments', () => {
     };
 
     const result = compileProjectDocuments([document], REGISTERED_INTEGRATIONS);
-    expect(result.workflows).toContain('export async function run(): Promise<void> {');
+
+    expect(result.activities).not.toContain('telegramSendMessage');
+    expect(result.activities).not.toContain('runActivepiecesAction');
+    expect(result.workflows).toContain('const { logActivity } = proxyLocalActivities<');
   });
 });

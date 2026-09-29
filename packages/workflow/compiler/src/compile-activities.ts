@@ -1,3 +1,5 @@
+import type { IWorkflowIntegration } from '@falang/workflow-integrations-common';
+
 const LOG_ACTIVITY_CODE = [
   "import { log } from '@temporalio/activity';",
   '',
@@ -24,8 +26,8 @@ const LOG_ACTIVITY_CODE = [
  * `activepieces-action-nodes.ts` and ADR 0010 (private)) — unlike
  * every other activity-backed node kind, this one isn't emitted per registered `IWorkflowIntegration`
  * (there is no `IActionDescriptor` for it at all, since its field list varies per node instance, not
- * per node kind — see the ADR). Always emitted unconditionally, same reasoning as `logActivity`
- * below. Makes an HTTP call to the standalone `falang-workflow-activepieces` service — `pieceName`/
+ * per node kind — see the ADR). Emitted only when some compiled document has an
+ * `activepieces-action` node (see `compileActivities`' `includeActivepiecesAction`). Makes an HTTP call to the standalone `falang-workflow-activepieces` service — `pieceName`/
  * `actionName` are runtime string arguments here, not baked into the function name, since one
  * activity backs every piece/action combination.
  */
@@ -108,17 +110,40 @@ const extractImports = (code: string): IExtractedImports => {
 };
 
 /**
+ * Every activity code block the given integrations contribute, in order: each vendor's
+ * `sharedActivityCode` (if any) once, ahead of its own actions'/questions'/choices' activity code —
+ * see `IWorkflowIntegration.sharedActivityCode`'s doc for why this can't just be folded in
+ * per-action/per-question/per-choice (helpers like a credential resolver would be redeclared and
+ * collide once concatenated into one activities.ts module). `compileProject` passes only the
+ * integrations a project uses; passing every registered one is how a test checks that all vendors
+ * still type-check side by side.
+ */
+export const collectIntegrationActivityCode = (integrations: readonly IWorkflowIntegration[]): readonly string[] =>
+  integrations.flatMap((integration) =>
+    [
+      integration.sharedActivityCode,
+      ...integration.actions.map((action) => action.activityCode),
+      ...(integration.questions ?? []).flatMap((question) => [
+        question.askActivityCode,
+        question.resolveActivityCode,
+        question.closeActivityCode,
+      ]),
+      ...(integration.choices ?? []).map((choice) => choice.activityCode),
+    ].filter((code): code is string => typeof code === 'string'),
+  );
+
+/**
  * Compiles the Activity implementations backing every activity-backed DSL node kind into a single
  * TypeScript module. Used by `compileProject` alongside the workflow-functions module:
  * `@falang/workflow-runner`'s `startRunner` loads this compiled module at the path it's written to
  * and registers it as the Temporal Worker's `activities`, instead of importing a hand-maintained
  * sibling file.
  *
- * `log`'s `logActivity` (see ADR 0001 (private)'s `log` row) is always emitted unconditionally,
- * regardless of whether the project's documents actually use it — scanning the project tree to
- * decide what to emit isn't worth the complexity yet for one built-in activity. `extraActivityCode`
- * (each registered vendor's `IActionDescriptor.activityCode`, see ADR 0006) is emitted the same way:
- * unconditionally, for the same reason — revisit both once this gets wasteful.
+ * `log`'s `logActivity` (see ADR 0001 (private)'s `log` row) is always emitted unconditionally —
+ * it's one tiny built-in activity. Integration code is not: `extraActivityCode` is only the code of
+ * the vendors the project actually uses (`compileProject` filters them via `selectUsedIntegrations`),
+ * and `runActivepiecesAction` is only emitted when `options.includeActivepiecesAction` is set
+ * (default `true`, so a direct caller keeps the full module).
  *
  * Every block's own `import …;` statements are hoisted out and deduplicated (string-identical
  * lines only) into one set emitted once at the top of the module, ahead of everything else, rather
@@ -127,8 +152,15 @@ const extractImports = (code: string): IExtractedImports => {
  * type-check once concatenated. Each block's remaining, import-stripped lines keep their original
  * order relative to one another.
  */
-export const compileActivities = (extraActivityCode: readonly string[] = []): string => {
-  const blocks = [LOG_ACTIVITY_CODE, RUN_ACTIVEPIECES_ACTION_CODE, ...extraActivityCode];
+export const compileActivities = (
+  extraActivityCode: readonly string[] = [],
+  options: { readonly includeActivepiecesAction?: boolean } = {},
+): string => {
+  const blocks = [
+    LOG_ACTIVITY_CODE,
+    ...((options.includeActivepiecesAction ?? true) ? [RUN_ACTIVEPIECES_ACTION_CODE] : []),
+    ...extraActivityCode,
+  ];
   const seenImports = new Set<string>();
   const hoistedImports: string[] = [];
   const bodies: string[] = [];

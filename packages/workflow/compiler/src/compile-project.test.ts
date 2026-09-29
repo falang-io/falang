@@ -43,7 +43,7 @@ describe('compileProject', () => {
       [
         "import { condition, defineSignal, proxyLocalActivities, setHandler } from '@temporalio/workflow';",
         '',
-        'const { logActivity, runActivepiecesAction } = proxyLocalActivities<{ logActivity(message: string): Promise<string>; runActivepiecesAction(credentialId: string, pieceName: string, actionName: string, propsValue: Record<string, unknown>): Promise<unknown> }>({',
+        'const { logActivity } = proxyLocalActivities<{ logActivity(message: string): Promise<string> }>({',
         "  startToCloseTimeout: '10 seconds',",
         '});',
         '',
@@ -111,7 +111,7 @@ describe('compileProject', () => {
       [
         "import { condition, defineSignal, proxyLocalActivities, setHandler } from '@temporalio/workflow';",
         '',
-        'const { logActivity, runActivepiecesAction } = proxyLocalActivities<{ logActivity(message: string): Promise<string>; runActivepiecesAction(credentialId: string, pieceName: string, actionName: string, propsValue: Record<string, unknown>): Promise<unknown> }>({',
+        'const { logActivity } = proxyLocalActivities<{ logActivity(message: string): Promise<string> }>({',
         "  startToCloseTimeout: '10 seconds',",
         '});',
         '',
@@ -154,7 +154,7 @@ describe('compileProject', () => {
       [
         "import { condition, defineSignal, proxyLocalActivities, setHandler } from '@temporalio/workflow';",
         '',
-        'const { logActivity, runActivepiecesAction } = proxyLocalActivities<{ logActivity(message: string): Promise<string>; runActivepiecesAction(credentialId: string, pieceName: string, actionName: string, propsValue: Record<string, unknown>): Promise<unknown> }>({',
+        'const { logActivity } = proxyLocalActivities<{ logActivity(message: string): Promise<string> }>({',
         "  startToCloseTimeout: '10 seconds',",
         '});',
         '',
@@ -247,7 +247,7 @@ describe('compileProject with integrations', () => {
       [
         "import { condition, defineSignal, proxyLocalActivities, setHandler } from '@temporalio/workflow';",
         '',
-        'const { logActivity, runActivepiecesAction, telegramSendMessage } = proxyLocalActivities<{ logActivity(message: string): Promise<string>; runActivepiecesAction(credentialId: string, pieceName: string, actionName: string, propsValue: Record<string, unknown>): Promise<unknown>; telegramSendMessage(credentialId: string, chatId: string, text: string): Promise<void> }>({',
+        'const { logActivity, telegramSendMessage } = proxyLocalActivities<{ logActivity(message: string): Promise<string>; telegramSendMessage(credentialId: string, chatId: string, text: string): Promise<void> }>({',
         "  startToCloseTimeout: '10 seconds',",
         '});',
         '',

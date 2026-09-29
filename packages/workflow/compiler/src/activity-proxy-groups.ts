@@ -28,11 +28,13 @@ const RUN_ACTIVEPIECES_ACTION_PROXY: IActivityProxyEntry = {
 /** `IActionDescriptor.activitySignature` is `'<name>(...): Promise<...>'` — the bare name is everything before the first `(`. */
 const parseActivityName = (signature: string): string => signature.slice(0, signature.indexOf('(')).trim();
 
+/** `integrations` should already be only the ones the project uses (see `selectUsedIntegrations`); `includeActivepiecesAction` (default `true`) gates `runActivepiecesAction` the same way. */
 export const collectActivityProxyEntries = (
   integrations: readonly IWorkflowIntegration[],
+  options: { readonly includeActivepiecesAction?: boolean } = {},
 ): readonly IActivityProxyEntry[] => [
   LOG_ACTIVITY_PROXY,
-  RUN_ACTIVEPIECES_ACTION_PROXY,
+  ...((options.includeActivepiecesAction ?? true) ? [RUN_ACTIVEPIECES_ACTION_PROXY] : []),
   ...integrations.flatMap((integration) => [
     ...integration.actions.map((action) => ({
       name: parseActivityName(action.activitySignature),
@@ -117,8 +119,8 @@ export interface IActivityProxyGroup {
  * Groups activity proxy entries by their canonicalized `activityOptions`, one `proxyLocalActivities`/
  * `proxyActivities` destructuring per group — entries with no `activityOptions` (or an
  * options-equivalent explicit one) land in one group together, keyed by `DEFAULT_ACTIVITY_OPTIONS`.
- * `logActivity`/`runActivepiecesAction` are always the first two entries `collectActivityProxyEntries`
- * returns and always default-options, so that group is always non-empty and — since `Map` preserves
+ * `logActivity` is always the first entry `collectActivityProxyEntries` returns and always
+ * default-options, so that group is always non-empty and — since `Map` preserves
  * insertion order — always the first group iterated, without needing to special-case "put the default
  * group first": every other group then follows in the order its first entry appeared.
  */

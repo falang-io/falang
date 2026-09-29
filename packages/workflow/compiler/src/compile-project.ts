@@ -13,7 +13,7 @@ import {
   groupActivityProxyEntries,
 } from './activity-proxy-groups.js';
 import { buildChoiceEmitters } from './choice-emitters.js';
-import { compileActivities } from './compile-activities.js';
+import { collectIntegrationActivityCode, compileActivities } from './compile-activities.js';
 import type { ICompileError } from './compile-errors.js';
 import { ProjectCompileError } from './compile-errors.js';
 import { compileFunction } from './compile-function.js';
@@ -28,6 +28,7 @@ import type { IDebugEmitOptions, TResolveFunctionName } from './node-emitters.js
 import { NodeCompileError } from './node-compile-error.js';
 import { POSITION_RUNTIME_CODE, POSITION_RUNTIME_IMPORTS } from './position-runtime.js';
 import { buildQuestionEmitters } from './question-emitters.js';
+import { selectUsedIntegrations, type IUsedIntegrations } from './used-integrations.js';
 
 export interface ICompileProjectParams {
   /**
@@ -36,7 +37,11 @@ export interface ICompileProjectParams {
    * the pinned `integrations` document, local type metadata) is skipped.
    */
   readonly documents: readonly IProjectDocument[];
-  /** Registered vendor integrations (e.g. Telegram) — see ADR 0006. Defaults to none. */
+  /**
+   * Registered vendor integrations (e.g. Telegram) — see ADR 0006. Defaults to none. Every one is
+   * available for resolving nodes/triggers, but only the ones the documents actually use end up in
+   * the compiled output (activity code and proxies) — see `selectUsedIntegrations`.
+   */
   readonly integrations?: readonly IWorkflowIntegration[];
   /**
    * Instruments every compiled function for live execution-position tracking (the `falang-position`
@@ -56,9 +61,10 @@ export interface ICompileProjectParams {
 }
 
 /**
- * `logActivity` (used by `log` nodes, see node-emitters.ts) and every registered vendor's
- * activity-backed actions (e.g. `telegramSendMessage`) are proxied once at module scope, grouped by
- * their `activityOptions` (see `groupActivityProxyEntries`) — one `proxyLocalActivities`/
+ * `logActivity` (used by `log` nodes, see node-emitters.ts) and the activity-backed actions of every
+ * vendor the project uses (e.g. `telegramSendMessage`, see `selectUsedIntegrations`; plus
+ * `runActivepiecesAction` when an `activepieces-action` node exists) are proxied once at module
+ * scope, grouped by their `activityOptions` (see `groupActivityProxyEntries`) — one `proxyLocalActivities`/
  * `proxyActivities` destructuring per group. The default group (no `activityOptions` anywhere) runs as
  * *local* activities — in-process on the same Worker (no task-queue round trip) but still records a
  * `MarkerRecorded` history event, so `log` stays visible in Temporal Web UI — see
@@ -75,13 +81,15 @@ export interface ICompileProjectParams {
  * §4) needs the cancellation-safe close its `question-emitters.ts` wraps around the wait.
  */
 const buildWorkflowPreamble = (
-  integrations: readonly IWorkflowIntegration[],
+  used: IUsedIntegrations,
   trackPosition: boolean,
   debug: boolean,
   hasStartDelivery: boolean,
   hasCloseableQuestion: boolean,
 ): string => {
-  const groups = groupActivityProxyEntries(collectActivityProxyEntries(integrations));
+  const groups = groupActivityProxyEntries(
+    collectActivityProxyEntries(used.integrations, { includeActivepiecesAction: used.usesActivepiecesAction }),
+  );
   const imports = new Set(['condition', 'defineSignal', 'proxyLocalActivities', 'setHandler']);
   if (groups.some((group) => group.options.kind === 'regular')) imports.add('proxyActivities');
   if (hasStartDelivery) imports.add('workflowInfo');
@@ -140,6 +148,9 @@ export const compileProject = ({
 
   const functionDocuments = documents.filter((document) => document.type === 'function');
   const triggerFunctionDocuments = documents.filter((document) => document.type === TRIGGER_FUNCTION_NAME);
+  // Only vendors some compiled document calls into contribute activity code/proxies — an unused
+  // integration's code (and its imports) never reaches the artifact the runner loads.
+  const used = selectUsedIntegrations([...functionDocuments, ...triggerFunctionDocuments], integrations);
 
   // Determined up front, before any document is actually compiled, by the same body/trigger lookup
   // `compileTriggerFunction` itself does (`findTriggerDescriptor`) — `buildWorkflowPreamble` needs to
@@ -153,7 +164,7 @@ export const compileProject = ({
   });
   // Same "determined up front" reasoning as `hasStartDeliveryTrigger` above, for the
   // `CancellationScope`/`isCancellation` imports `question-emitters.ts`'s close-on-cancel wrapper needs.
-  const hasCloseableQuestion = integrations.some((integration) =>
+  const hasCloseableQuestion = used.integrations.some((integration) =>
     (integration.questions ?? []).some((question) => Boolean(question.closeActivitySignature)),
   );
 
@@ -235,23 +246,11 @@ export const compileProject = ({
     }
   }
 
-  // Each vendor's `sharedActivityCode` (if any) is emitted once, ahead of its own actions'/questions'/
-  // choices' activity code — see `IWorkflowIntegration.sharedActivityCode`'s doc for why this can't
-  // just be folded in per-action/per-question/per-choice (helpers like a credential resolver would
-  // be redeclared and collide once concatenated into one activities.ts module).
-  const extraActivityCode = integrations.flatMap((integration) =>
-    [
-      integration.sharedActivityCode,
-      ...integration.actions.map((action) => action.activityCode),
-      ...(integration.questions ?? []).flatMap((question) => [
-        question.askActivityCode,
-        question.resolveActivityCode,
-        question.closeActivityCode,
-      ]),
-      ...(integration.choices ?? []).map((choice) => choice.activityCode),
-    ].filter((code): code is string => typeof code === 'string'),
-  );
-  const activities = compileActivities(extraActivityCode);
+  // Unused vendors are already filtered out (`used`, above) — see `collectIntegrationActivityCode`.
+  const extraActivityCode = collectIntegrationActivityCode(used.integrations);
+  const activities = compileActivities(extraActivityCode, {
+    includeActivepiecesAction: used.usesActivepiecesAction,
+  });
 
   // Each document's block is wrapped in its own `doc-start`/`doc-end` marker (see
   // `parse-compiled-markers.ts`) before joining, so a diagnostic against the compiled output can
@@ -265,7 +264,7 @@ export const compileProject = ({
   // Always assembled, even when `errors` isn't empty — the successfully-compiled blocks still form
   // valid partial output, carried on `ProjectCompileError` below so a caller can show the user their
   // code alongside the errors instead of nothing at all.
-  const workflows = `${buildWorkflowPreamble(integrations, trackPosition, debug, hasStartDeliveryTrigger, hasCloseableQuestion)}\n\n${content}`;
+  const workflows = `${buildWorkflowPreamble(used, trackPosition, debug, hasStartDeliveryTrigger, hasCloseableQuestion)}\n\n${content}`;
 
   if (errors.length > 0) {
     throw new ProjectCompileError(errors, workflows, activities);
