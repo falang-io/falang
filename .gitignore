@@ -2,6 +2,7 @@ node_modules
 dist
 worker-dist
 out
+!packages/core/scheme/src/icons/out/
 coverage
 coverage-reports
 .stryker-tmp
