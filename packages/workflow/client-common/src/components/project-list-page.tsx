@@ -13,6 +13,7 @@ import { LanguageSwitcher } from './language-switcher.js';
 import { ChangePasswordModal } from './change-password-modal.js';
 import { DefaultPasswordBanner } from './default-password-banner.js';
 import { PersonalAccessTokensModal } from './personal-access-tokens-modal.js';
+import { TopBar } from './top-bar.js';
 
 type TCreateMode = 'empty' | 'file';
 
@@ -29,13 +30,11 @@ const styles: Record<string, React.CSSProperties> = {
     height: '100vh',
     width: '100vw',
     display: 'flex',
-    justifyContent: 'center',
+    flexDirection: 'column',
     background: '#1e1e2e',
     overflow: 'auto',
   },
-  content: { width: 480, padding: '48px 0' },
-  header: { display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 16 },
-  title: { color: '#cdd6f4', margin: 0 },
+  content: { width: 480, maxWidth: '100%', padding: '32px 0', margin: '0 auto' },
   item: { cursor: 'pointer', color: '#cdd6f4' },
   meta: { color: '#6c7086' },
   modeSwitch: { marginBottom: 16 },
@@ -48,7 +47,7 @@ const renderProjectList = (store: ProjectListStore, t: TFunction): React.ReactNo
   if (store.projects.length === 0) return <Empty description={t('client:project-list-page.no-projects')} />;
   return (
     <List
-      dataSource={store.projects.slice()}
+      dataSource={store.sortedProjects}
       renderItem={(project) => (
         <List.Item
           style={styles.item}
@@ -80,7 +79,9 @@ const renderProjectList = (store: ProjectListStore, t: TFunction): React.ReactNo
         >
           <List.Item.Meta
             title={<span style={{ color: '#cdd6f4' }}>{project.name}</span>}
-            description={<span style={styles.meta}>{new Date(project.createdAt).toLocaleString()}</span>}
+            description={
+              <span style={styles.meta}>{new Date(project.lastEditedAt ?? project.createdAt).toLocaleString()}</span>
+            }
           />
         </List.Item>
       )}
@@ -154,53 +155,42 @@ export const ProjectListPage: React.FC = observer(() => {
 
   return (
     <div style={styles.root}>
+      <TopBar title={t('client:project-list-page.title')}>
+        <LanguageSwitcher />
+        {authStore.currentUser && extensions.renderPlanBadge?.(authStore.currentUser)}
+        <Button type="text" onClick={() => navigationStore.goToRuns()}>
+          {t('client:project-list-page.runs')}
+        </Button>
+        <Badge count={tasksStore.openCount} size="small" offset={[-4, 4]}>
+          <Button type="text" onClick={() => navigationStore.goToTasks()}>
+            {t('client:project-list-page.tasks')}
+          </Button>
+        </Badge>
+        {sortExtensionNavItems(extensions.navItems).map((item) => (
+          <Button key={item.key} type="text" icon={item.icon} onClick={() => navigationStore.goToExtension(item.key)}>
+            {item.label}
+          </Button>
+        ))}
+        <Button type="text" onClick={() => setTokensModalOpen(true)}>
+          {t('client:project-list-page.tokens')}
+        </Button>
+        {authStore.currentUser?.role === 'admin' && (
+          <Button type="text" href="/admin">
+            {t('client:project-list-page.admin')}
+          </Button>
+        )}
+        <Button type="text" onClick={() => authStore.setChangePasswordOpen(true)}>
+          {t('client:project-list-page.change-password')}
+        </Button>
+        <Button type="text" onClick={() => authStore.logout()}>
+          {t('client:project-list-page.logout')}
+        </Button>
+        <Button type="text" onClick={() => setModalOpen(true)}>
+          {t('client:project-list-page.new-project')}
+        </Button>
+      </TopBar>
+      <DefaultPasswordBanner />
       <div style={styles.content}>
-        <DefaultPasswordBanner />
-        <div style={styles.header}>
-          <Typography.Title level={3} style={styles.title}>
-            {t('client:project-list-page.title')}
-          </Typography.Title>
-          <div>
-            <LanguageSwitcher />
-            {authStore.currentUser && extensions.renderPlanBadge?.(authStore.currentUser)}
-            {authStore.currentUser?.role === 'admin' && (
-              <a href="/admin" style={{ marginLeft: 8, marginRight: 8 }}>
-                {t('client:project-list-page.admin')}
-              </a>
-            )}
-            <Button onClick={() => setTokensModalOpen(true)} style={{ marginLeft: 8, marginRight: 8 }}>
-              {t('client:project-list-page.tokens')}
-            </Button>
-            <Button onClick={() => authStore.setChangePasswordOpen(true)} style={{ marginRight: 8 }}>
-              {t('client:project-list-page.change-password')}
-            </Button>
-            <Button onClick={() => authStore.logout()} style={{ marginRight: 8 }}>
-              {t('client:project-list-page.logout')}
-            </Button>
-            <Button onClick={() => navigationStore.goToRuns()} style={{ marginRight: 8 }}>
-              {t('client:project-list-page.runs')}
-            </Button>
-            <Badge count={tasksStore.openCount} size="small" offset={[-4, 4]}>
-              <Button onClick={() => navigationStore.goToTasks()} style={{ marginRight: 8 }}>
-                {t('client:project-list-page.tasks')}
-              </Button>
-            </Badge>
-            {sortExtensionNavItems(extensions.navItems).map((item) => (
-              <Button
-                key={item.key}
-                icon={item.icon}
-                onClick={() => navigationStore.goToExtension(item.key)}
-                style={{ marginRight: 8 }}
-              >
-                {item.label}
-              </Button>
-            ))}
-            <Button type="primary" onClick={() => setModalOpen(true)}>
-              {t('client:project-list-page.new-project')}
-            </Button>
-          </div>
-        </div>
-
         {renderProjectList(store, t)}
 
         {store.error && <Typography.Text type="danger">{store.error}</Typography.Text>}

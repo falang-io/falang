@@ -33,6 +33,8 @@ export interface IApiProject {
   readonly name: string;
   readonly ownerId: string;
   readonly createdAt: string;
+  /** Last mutating write to the project's documents/folders; `null` until the first one. */
+  readonly lastEditedAt?: string | null;
 }
 
 /** `IProjectTreeDocument` (`@falang/dto`) plus an optional `lockedUntil` — see ADR 0029 (private)'s "Document locks" decision and `DocumentsService.listTree` on the backend, which computes this alongside the tree listing. */

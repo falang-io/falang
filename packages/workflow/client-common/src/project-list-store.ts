@@ -1,5 +1,7 @@
-import { action, makeObservable, observable, runInAction } from 'mobx';
+import { action, computed, makeObservable, observable, runInAction } from 'mobx';
 import { workflowApi, type IApiProject, type IApiProjectExport } from './api-client.js';
+
+const changedAt = (project: IApiProject): number => Date.parse(project.lastEditedAt ?? project.createdAt) || 0;
 
 export class ProjectListStore {
   readonly projects = observable<IApiProject>([]);
@@ -7,6 +9,11 @@ export class ProjectListStore {
   @observable error: string | null = null;
   @observable isCreating = false;
   @observable deletingId: string | null = null;
+
+  /** Most recently changed first; a never-edited project counts by its creation time. */
+  @computed get sortedProjects(): IApiProject[] {
+    return this.projects.toSorted((a, b) => changedAt(b) - changedAt(a));
+  }
 
   constructor() {
     makeObservable(this);

@@ -8,6 +8,7 @@ import {
   ChangePasswordModal,
   DefaultPasswordBanner,
   LanguageSwitcher,
+  TopBar,
 } from '@falang/workflow-client-common';
 import { adminNavigationStore, type TAdminPage } from '../admin-navigation-store.js';
 import { AgentSettingsPage } from './agent-settings-page.js';
@@ -16,16 +17,7 @@ import { UsersPage } from './users-page.js';
 
 const styles: Record<string, React.CSSProperties> = {
   root: { height: '100vh' },
-  header: {
-    display: 'flex',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    padding: '0 16px',
-    background: '#181825',
-    color: '#cdd6f4',
-  },
-  headerRight: { display: 'flex', alignItems: 'center', gap: 8 },
-  username: { color: '#cdd6f4', marginRight: 8 },
+  username: { color: '#a6adc8', marginRight: 8 },
   content: { padding: 24, overflow: 'auto' },
 };
 
@@ -47,20 +39,19 @@ export const AdminShell: React.FC = observer(() => {
 
   return (
     <Layout style={styles.root}>
-      <Layout.Header style={styles.header}>
-        <Typography.Title level={5} style={{ color: '#cdd6f4', margin: 0 }}>
-          {t('workflow-client-admin:shell.title')}
-        </Typography.Title>
-        <div style={styles.headerRight}>
-          <span style={styles.username}>{authStore.currentUser?.username}</span>
-          <LanguageSwitcher />
-          <a href="/">{t('workflow-client-admin:shell.back-to-app')}</a>
-          <Button onClick={() => authStore.setChangePasswordOpen(true)}>
-            {t('workflow-client-admin:shell.change-password')}
-          </Button>
-          <Button onClick={() => authStore.logout()}>{t('workflow-client-admin:shell.logout')}</Button>
-        </div>
-      </Layout.Header>
+      <TopBar title={t('workflow-client-admin:shell.title')}>
+        <Typography.Text style={styles.username}>{authStore.currentUser?.username}</Typography.Text>
+        <LanguageSwitcher />
+        <Button type="text" href="/">
+          {t('workflow-client-admin:shell.back-to-app')}
+        </Button>
+        <Button type="text" onClick={() => authStore.setChangePasswordOpen(true)}>
+          {t('workflow-client-admin:shell.change-password')}
+        </Button>
+        <Button type="text" onClick={() => authStore.logout()}>
+          {t('workflow-client-admin:shell.logout')}
+        </Button>
+      </TopBar>
       <Layout>
         <Layout.Sider theme="dark" width={220}>
           <Menu

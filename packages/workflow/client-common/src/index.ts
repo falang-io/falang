@@ -18,3 +18,4 @@ export * from './trigger-function-document.js';
 export * from './workflow-store.js';
 export * from './workflow-store-context.js';
 export * from './workflow-types.js';
+export { TopBar, type ITopBarProps } from './components/top-bar.js';
