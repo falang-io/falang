@@ -92,6 +92,7 @@ export default defineConfig({
             'workflow/human-tasks',
             'workflow/media',
             'workflow/ai-agent',
+            'workflow/magic-node',
             'workflow/administration',
             'workflow/debugging',
             'workflow/versioning',
