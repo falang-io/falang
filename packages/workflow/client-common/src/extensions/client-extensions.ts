@@ -1,4 +1,5 @@
 import { createContext, createElement, useContext, type FC, type ReactNode } from 'react';
+import type { IEventTrackerHandler } from '../analytics/event-tracker.js';
 import type { IApiUser } from '../api-client.js';
 
 /** An extra top-level navigation entry, shown in the project-list header after the built-in ones. */
@@ -30,6 +31,8 @@ export interface IClientExtensions {
    * credits"); return `null` to fall back to the default error text. Passed as `renderError` to `AgentChatPanel` by
    * `ProjectRightSidebar`; a returned node replaces the plain error text.
    */
+  /** Analytics handler; `App` installs it into the `eventTracker` singleton. Absent = nothing is tracked anywhere. */
+  eventTracker?: IEventTrackerHandler;
   renderAgentQuotaNotice?: (error: unknown) => ReactNode | null;
 }
 

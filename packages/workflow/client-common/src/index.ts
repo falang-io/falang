@@ -1,4 +1,5 @@
 export * from './app.js';
+export * from './analytics/event-tracker.js';
 export * from './api-client.js';
 export * from './auth-store.js';
 // `LoginPage`/`LanguageSwitcher` cross the package boundary for `@falang/workflow-client-admin` —

@@ -1,5 +1,6 @@
 import { action, makeObservable, observable, runInAction } from 'mobx';
 import { getGlobalI18n } from '@falang/scheme';
+import { eventTracker } from './analytics/event-tracker.js';
 import {
   getAuthToken,
   setAuthToken,
@@ -54,6 +55,7 @@ export class AuthStore {
         this.currentUser = user;
         this.isAuthChecked = true;
       });
+      eventTracker.identify(user.id);
     } catch {
       setAuthToken(null);
       runInAction(() => {
@@ -73,6 +75,8 @@ export class AuthStore {
         this.currentUser = result.user;
         this.isLoggingIn = false;
       });
+      eventTracker.identify(result.user.id);
+      eventTracker.track('login');
     } catch (error) {
       runInAction(() => {
         this.loginError = error instanceof Error ? error.message : 'Login failed';
@@ -103,6 +107,8 @@ export class AuthStore {
         this.currentUser = result.user;
         this.isLoggingIn = false;
       });
+      eventTracker.identify(result.user.id);
+      eventTracker.track('signup');
     } catch (error) {
       runInAction(() => {
         this.loginError = error instanceof Error ? error.message : 'Sign up failed';
@@ -137,6 +143,7 @@ export class AuthStore {
     runInAction(() => {
       this.currentUser = user;
     });
+    eventTracker.identify(user.id);
   }
 }
 

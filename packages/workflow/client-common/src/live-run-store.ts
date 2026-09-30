@@ -1,3 +1,4 @@
+import { eventTracker } from './analytics/event-tracker.js';
 import { action, computed, makeObservable, observable, runInAction } from 'mobx';
 import type { IExecutionLocation, IExecutionPositionSource } from '@falang/scheme';
 import {
@@ -81,6 +82,7 @@ export class LiveRunStore implements IExecutionPositionSource {
     try {
       if (!(await this.hooks.ensureDevBuilt())) return false;
       const started = await workflowApi.startDevRun(this.projectId, { functionName, args: [...args] });
+      eventTracker.track('run_started');
       this.watch({
         workflowId: started.workflowId,
         runId: started.runId,
