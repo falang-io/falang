@@ -21,6 +21,8 @@ export interface INodeKindDescription {
   readonly haveOut?: boolean;
   readonly outType?: string;
   readonly notes?: string;
+  /** Mod-only kinds this kind accepts in its `mods` array (at most one of each; ADR 0049 (private)). */
+  readonly mods?: string[];
 }
 
 /**
@@ -46,6 +48,10 @@ export interface INodeKindDescription {
  * buttons rather than text to match against.
  */
 const NODE_KIND_NOTES: Record<string, string> = {
+  timer: [
+    "A side annotation (a DRAKON timer/pause) attached through a host's `mods` array — never a statement:",
+    'it cannot be a child of any body. A host takes at most one; hosts that accept it list it in `mods`.',
+  ].join(' '),
   if: [
     'Its two children are positional, not named by branch: `children[0]` is always drawn continuing',
     'straight down (the main path) and `children[1]` to the side. Which one actually runs when the',
@@ -158,7 +164,9 @@ export const getAllowedChildNames = (parentName: string, stack: NodesStack): str
     // nested inside an option.
     const { listed, slots } = getStructuralNames(stack);
     const statements = [...stack.configsMap.values()]
-      .filter((c) => !c.documentRootOnly && !slots.has(c.name) && !listed.has(c.name))
+      .filter(
+        (c) => !c.documentRootOnly && !stack.modKindNames.has(c.name) && !slots.has(c.name) && !listed.has(c.name),
+      )
       .map((c) => c.name);
     return statements.length === 0 && listed.has(parentName) ? [parentName] : statements;
   }
@@ -179,6 +187,7 @@ export const describeNodeKind = (name: string, stack: NodesStack): INodeKindDesc
   const base = {
     children: classifyChildren(cfg),
     haveOut: cfg.haveOut,
+    ...(cfg.mods && cfg.mods.length > 0 ? { mods: [...cfg.mods] } : {}),
     name: cfg.name,
     notes,
     outType: cfg.outType,

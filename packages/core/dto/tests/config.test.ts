@@ -14,7 +14,7 @@ describe('Base config test', () => {
 
   it('create and parse', () => {
     const group = new NodesGroup([
-      action('action', stringType),
+      action('action', stringType, { mods: ['mod1'] }),
       action('action2', numberType),
       action('action3', numberType),
       action('mod1', numberType),

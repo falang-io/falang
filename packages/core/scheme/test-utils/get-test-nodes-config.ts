@@ -20,7 +20,7 @@ export const getTestNodesConfig = () => {
     default: () => 0,
   } as const satisfies IDataInfo;
   return new NodesGroup([
-    action('action', stringType),
+    action('action', stringType, { mods: ['mod1'] }),
     action('action2', numberType),
     action('action3', numberType),
     action('mod1', numberType),

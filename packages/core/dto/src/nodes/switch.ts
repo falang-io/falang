@@ -1,12 +1,14 @@
 import type z from 'zod';
 import { nanoid } from 'nanoid';
 import type { INodeConfig, IDataInfo } from '../types.js';
+import type { INodeBuilderOptions } from './action.js';
 
 export const switchCfg = <TName extends string, TData extends z.ZodType, ToptionData extends z.ZodType>({
   name,
   data,
   optionData,
-}: {
+  mods,
+}: INodeBuilderOptions & {
   name: TName;
   data: IDataInfo<TData>;
   optionData: IDataInfo<ToptionData>;
@@ -15,6 +17,7 @@ export const switchCfg = <TName extends string, TData extends z.ZodType, Toption
     {
       name,
       data,
+      ...(mods ? { mods } : {}),
       children: [`${name}-option` as `${typeof name}-option`],
       factory: () => ({
         id: nanoid(),
