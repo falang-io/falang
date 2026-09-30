@@ -30,6 +30,7 @@ import type {
   IApiSchedule,
   IApiStartedDebugSession,
   IApiStartedRun,
+  IApiSupportMessage,
   IApiTask,
   IApiUser,
   IApiVendorData,
@@ -479,4 +480,15 @@ export const workflowApi = {
   /** `400` if `answer` isn't one of the task's own `options[].label`, or `data` doesn't match that option's `dataType`; `409` if the task isn't `open` any more. */
   resolveTask: (id: string, input: { answer: string; data?: string | number | boolean }) =>
     request<IApiTask>(`/tasks/${id}/resolve`, { method: 'POST', body: JSON.stringify(input) }),
+
+  /** The signed-in user's own support thread; `after` (ISO) returns only messages created strictly after it. */
+  listSupportMessages: (after?: string | null) =>
+    request<IApiSupportMessage[]>(`/support/messages${after ? `?after=${encodeURIComponent(after)}` : ''}`),
+
+  sendSupportMessage: (text: string) =>
+    request<IApiSupportMessage>('/support/messages', { method: 'POST', body: JSON.stringify({ text }) }),
+
+  markSupportRead: () => request<null>('/support/messages/read', { method: 'POST' }),
+
+  getSupportUnread: () => request<{ count: number }>('/support/unread'),
 };

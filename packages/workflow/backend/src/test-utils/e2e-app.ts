@@ -33,6 +33,8 @@ import { TreeModule } from '../domains/projects/tree/tree.module.js';
 import { ProjectBlob } from '../domains/projects/versioning/project-blob.entity.js';
 import { ProjectCommit } from '../domains/projects/versioning/project-commit.entity.js';
 import { VersioningModule } from '../domains/projects/versioning/versioning.module.js';
+import { SupportMessage } from '../domains/support/support-message.entity.js';
+import { SupportModule } from '../domains/support/support.module.js';
 import { User } from '../domains/users/users/user.entity.js';
 import { UsersModule } from '../domains/users/users/users.module.js';
 
@@ -70,6 +72,7 @@ export const buildTestAppImports = (extraModules: TAppImport[] = []) => [
       UserLimits,
       File,
       AgentUsage,
+      SupportMessage,
     ],
   }),
   UsersModule,
@@ -84,6 +87,7 @@ export const buildTestAppImports = (extraModules: TAppImport[] = []) => [
   IntegrationsModule,
   AdminModule,
   AgentChatModule,
+  SupportModule,
   FilesModule,
   GatewayModule.forRoot([], noopDiscoveryPort),
   ...extraModules,

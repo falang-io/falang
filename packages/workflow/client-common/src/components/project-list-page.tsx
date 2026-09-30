@@ -14,6 +14,7 @@ import { ChangePasswordModal } from './change-password-modal.js';
 import { DefaultPasswordBanner } from './default-password-banner.js';
 import { PersonalAccessTokensModal } from './personal-access-tokens-modal.js';
 import { TopBar } from './top-bar.js';
+import { SupportButton } from './support-button.js';
 
 type TCreateMode = 'empty' | 'file';
 
@@ -171,6 +172,7 @@ export const ProjectListPage: React.FC = observer(() => {
             {item.label}
           </Button>
         ))}
+        <SupportButton />
         <Button type="text" onClick={() => setTokensModalOpen(true)}>
           {t('client:project-list-page.tokens')}
         </Button>

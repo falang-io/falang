@@ -362,6 +362,13 @@
     "default-password-banner": {
       "message": "The default admin password is in use — change it.",
       "action": "Change password"
+    },
+    "support": {
+      "button": "Support",
+      "title": "Support",
+      "placeholder": "Write to the administrator… (Enter to send, Shift+Enter for a new line)",
+      "send": "Send",
+      "empty": "No messages yet. Ask us anything."
     }
   },
   "version-history": {

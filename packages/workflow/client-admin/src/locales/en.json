@@ -7,7 +7,8 @@
       "agent-settings-menu": "AI agent",
       "back-to-app": "← Back to app",
       "logout": "Logout",
-      "change-password": "Change password"
+      "change-password": "Change password",
+      "support-menu": "User support"
     },
     "forbidden": {
       "title": "403",
@@ -94,6 +95,16 @@
       "load-failed": "Failed to load AI agent settings",
       "save-failed": "Failed to save AI agent settings",
       "delete-failed": "Failed to reset AI agent settings"
+    },
+    "support": {
+      "title": "User support",
+      "threads": "Conversations",
+      "select": "Select a conversation on the left.",
+      "placeholder": "Reply… (Enter to send, Shift+Enter for a new line)",
+      "send": "Send",
+      "empty": "No messages.",
+      "you": "Administrator",
+      "no-threads": "No conversations yet."
     }
   }
 }
