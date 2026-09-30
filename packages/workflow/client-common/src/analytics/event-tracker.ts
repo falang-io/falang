@@ -29,7 +29,7 @@ export class EventTracker {
     try {
       this.handler?.track(event, props);
     } catch (error) {
-      // eslint-disable-next-line no-console
+      // oxlint-disable-next-line no-console -- a tracker failure must never reach product code
       console.warn('[event-tracker] track failed', error);
     }
   }
@@ -38,7 +38,7 @@ export class EventTracker {
     try {
       this.handler?.identify?.(userId);
     } catch (error) {
-      // eslint-disable-next-line no-console
+      // oxlint-disable-next-line no-console -- a tracker failure must never reach product code
       console.warn('[event-tracker] identify failed', error);
     }
   }

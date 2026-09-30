@@ -26,13 +26,13 @@ export interface IClientExtensions {
   views?: IClientExtensionView[];
   /** Shown in the project-list header next to the built-in controls. */
   renderPlanBadge?: (user: IApiUser) => ReactNode;
+  /** Analytics handler; `App` installs it into the `eventTracker` singleton. Absent = nothing is tracked anywhere. */
+  eventTracker?: IEventTrackerHandler;
   /**
    * Called with the original thrown value of a failed agent turn (cloud: `AgentQuotaError` for HTTP 402 -> "buy
    * credits"); return `null` to fall back to the default error text. Passed as `renderError` to `AgentChatPanel` by
    * `ProjectRightSidebar`; a returned node replaces the plain error text.
    */
-  /** Analytics handler; `App` installs it into the `eventTracker` singleton. Absent = nothing is tracked anywhere. */
-  eventTracker?: IEventTrackerHandler;
   renderAgentQuotaNotice?: (error: unknown) => ReactNode | null;
 }
 
