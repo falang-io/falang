@@ -28,6 +28,8 @@ export interface IConvertContext {
    * children (e.g. `from_to_cycle`) can recurse back into `convertStatement`/`convertBodyAndExit`.
    */
   convertLeaf(old: IOldIcon, ctx: IConvertContext): INode;
+  /** Text domain only: old `leftSide` (the timer) → `INode.mods`; unset elsewhere (leftSide ignored). */
+  convertLeftSide?(leftSide: IOldIcon, host: INode): INode[];
 }
 
 const metaOf = (entries: Record<string, boolean | number | null>): INodeMeta | null => {
@@ -238,7 +240,7 @@ const convertSwitchStatement = (old: IOldIcon, ctx: IConvertContext): INode[] =>
   return [{ id: old.id, name: 'switch', data: ctx.conditionText(old.block, old.id), children: optionNodes }];
 };
 
-export const convertStatement = (old: IOldIcon, ctx: IConvertContext): INode[] => {
+const convertStatementWithoutMods = (old: IOldIcon, ctx: IConvertContext): INode[] => {
   switch (old.alias) {
     case 'if': {
       return convertIfStatement(old, ctx);
@@ -286,4 +288,13 @@ export const convertStatement = (old: IOldIcon, ctx: IConvertContext): INode[] =
       return [ctx.convertLeaf(old, ctx)];
     }
   }
+};
+
+/** `convertStatementWithoutMods` plus the host's `leftSide` as `mods`. */
+export const convertStatement = (old: IOldIcon, ctx: IConvertContext): INode[] => {
+  const nodes = convertStatementWithoutMods(old, ctx);
+  if (!old.leftSide || !ctx.convertLeftSide) return nodes;
+  const [host, ...rest] = nodes;
+  if (!host) return nodes;
+  return [{ ...host, mods: ctx.convertLeftSide(old.leftSide, host) }, ...rest];
 };

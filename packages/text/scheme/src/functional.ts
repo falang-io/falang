@@ -26,6 +26,7 @@ import {
   getContourIconNodeConfig,
   IconsTransferModule,
   getPseudoBlockConfig,
+  CELL_SIZE_2,
   CELL_SIZE_4,
   outIconConfig,
   emptyShape,
@@ -39,6 +40,9 @@ import {
   buildSwitchTrueFalseMenu,
   BlockResizeModule,
   CoreLocalesModule,
+  sideIconConfig,
+  timerShape,
+  buildModsMenu,
 } from '@falang/scheme';
 import { getTextGroup } from '@falang/text-dto';
 import { AntContextMenuModule, AntModsSelectorModule } from '@falang/antd';
@@ -99,6 +103,12 @@ const getTestInfrastructure = () => {
       functionReturn: contourFunctionFooterBlockConfig,
       header: block,
     }),
+    timer: {
+      block: { ...block, defaultWidth: CELL_SIZE_2 },
+      icon: sideIconConfig,
+      shape: timerShape,
+      mod: { placement: 'left' },
+    },
     throw: {
       block,
       icon: outIconConfig,
@@ -274,6 +284,7 @@ class TextFunctionalModule implements IModule {
       }
     });
     contextMenuService.registerBuilderForIcon(buildSwitchTrueFalseMenu);
+    contextMenuService.registerBuilderForIcon(buildModsMenu);
   }
 }
 
