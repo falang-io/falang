@@ -6,6 +6,7 @@ import { schemeFactory } from '../scheme/scheme-factory.js';
 import { insertNode } from './insert-node.js';
 import { setOutNode } from './set-out-node.js';
 import { deleteNode } from './delete-node.js';
+import { EVENT_NODE_DELETED, type IEventDataNodeDeleted } from '../scheme/scheme-events.js';
 
 describe('deleteNode action', () => {
   // oxlint-disable-next-line init-declarations
@@ -88,5 +89,72 @@ describe('deleteNode action', () => {
       containerNode.children.map((c) => c.id),
       [sibling.id],
     );
+  });
+
+  describe('mods', () => {
+    const insertHostWithMod = () => {
+      const host = scheme.infra.structure.factory('action');
+      insertNode({ index: 0, node: host, parentId: bodyId }, scheme);
+      const mod = scheme.infra.structure.factory('mod1');
+      (mod as { data: unknown }).data = 42;
+      insertNode({ index: 0, node: mod, parentId: host.id, slot: 'mods' }, scheme);
+      return { host, mod };
+    };
+    const recordDeleted = (): IEventDataNodeDeleted[] => {
+      const events: IEventDataNodeDeleted[] = [];
+      scheme.events.subscribeEvent(EVENT_NODE_DELETED, (e) => {
+        events.push(e);
+        return false;
+      });
+      return events;
+    };
+
+    it('removes a mod from parent.mods with slot "mods" and its full DTO', () => {
+      const { host, mod } = insertHostWithMod();
+      const events = recordDeleted();
+      deleteNode({ id: mod.id }, scheme);
+
+      assert.equal(scheme.nodes.getNode(host.id).mods.length, 0);
+      assert.equal(scheme.nodes.getNode(host.id).children.length, 0);
+      assert.isNull(scheme.nodes.getNodeSafe(mod.id));
+      assert.isNull(scheme.icons.getIconSafe(mod.id));
+      assert.equal(scheme.icons.getIcon(host.id).mods.length, 0);
+      assert.equal(events.length, 1);
+      assert.equal(events[0].slot, 'mods');
+      assert.equal(events[0].index, 0);
+      assert.equal(events[0].parentId, host.id);
+      assert.equal(events[0].node.data, 42);
+    });
+
+    it('removes a host together with its mod and keeps the mod in the event DTO', () => {
+      const { host, mod } = insertHostWithMod();
+      const events = recordDeleted();
+      deleteNode({ id: host.id }, scheme);
+
+      assert.isNull(scheme.nodes.getNodeSafe(host.id));
+      assert.isNull(scheme.nodes.getNodeSafe(mod.id));
+      assert.isNull(scheme.icons.getIconSafe(host.id));
+      assert.isNull(scheme.icons.getIconSafe(mod.id));
+      assert.equal(events[0].slot, 'children');
+      assert.deepEqual(
+        events[0].node.mods?.map((m) => m.id),
+        [mod.id],
+      );
+    });
+
+    it('reports slot "children" for a regular child', () => {
+      const node = scheme.infra.structure.factory('action2');
+      insertNode({ index: 0, node, parentId: bodyId }, scheme);
+      const events = recordDeleted();
+      deleteNode({ id: node.id }, scheme);
+      assert.equal(events[0].slot, 'children');
+    });
+
+    it('throws when the node is in none of the parent lists', () => {
+      const node = scheme.infra.structure.factory('action2');
+      insertNode({ index: 0, node, parentId: bodyId }, scheme);
+      scheme.nodes.getNode(bodyId).children.clear();
+      assert.throws(() => deleteNode({ id: node.id }, scheme));
+    });
   });
 });

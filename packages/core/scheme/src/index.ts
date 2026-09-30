@@ -77,3 +77,7 @@ export * from './modules/debugger/debug-session.store.js';
 export * from './modules/history/history.module.js';
 export * from './modules/history/history.store.js';
 export * from './modules/history/history.store.token.js';
+export * from './utils/build-mods-menu.js';
+export * from './icons/side/side.icon.js';
+export * from './icons/side/side.icon.config.js';
+export * from './shapes/timer.js';

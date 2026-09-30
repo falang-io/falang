@@ -77,6 +77,19 @@ describe('Read-only scheme', () => {
       assert.equal(onChangeCount, 0);
     });
 
+    it('blocks CMD_INSERT_NODE into the mods slot', () => {
+      const mod = scheme.infra.structure.factory('mod1');
+      const result = scheme.commands.dispatchCommand(CMD_INSERT_NODE, {
+        index: 0,
+        node: mod,
+        parentId: seededNodeId,
+        slot: 'mods',
+      });
+      assert.isTrue(result);
+      assert.equal(scheme.nodes.getNode(seededNodeId).mods.length, 0);
+      assert.equal(onChangeCount, 0);
+    });
+
     it('blocks CMD_DELETE_NODE and fires no event', () => {
       const result = scheme.commands.dispatchCommand(CMD_DELETE_NODE, { id: seededNodeId });
       assert.isTrue(result);

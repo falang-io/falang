@@ -4,6 +4,7 @@ import {
   functionCfg,
   getOutConfigSimple,
   ifCfg,
+  modCfg,
   NodesGroup,
   switchCfg,
   zod,
@@ -23,10 +24,10 @@ export const getTestNodesConfig = () => {
     action('action', stringType, { mods: ['mod1'] }),
     action('action2', numberType),
     action('action3', numberType),
-    action('mod1', numberType),
+    modCfg('mod1', numberType),
     getOutConfigSimple('out', 'return'),
     getOutConfigSimple('out-break', 'break'),
-    cycle('cycle', numberType),
+    cycle('cycle', numberType, { mods: ['mod1'] }),
     ...switchCfg({
       name: 'switch',
       data: numberType,
@@ -39,6 +40,6 @@ export const getTestNodesConfig = () => {
       header: stringType,
     }),
     ...ifCfg('if', stringType),
-    cycle('while', stringType),
+    cycle('while', stringType, { mods: ['mod1'] }),
   ]);
 };
