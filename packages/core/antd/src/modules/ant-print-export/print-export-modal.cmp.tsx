@@ -35,7 +35,7 @@ export const PrintExportModal: React.FC<IPrintExportModalProps> = observer(({ st
       onOk={print}
       onCancel={onClose}
       destroyOnHidden
-      data-testid="print-export-modal"
+      modalRender={(node) => <div data-testid="print-export-modal">{node}</div>}
     >
       <Typography.Paragraph type="secondary">{t('print-export:hint')}</Typography.Paragraph>
       <Space style={{ marginBottom: 8 }}>

@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it } from 'vitest';
-import { countourNodeConfig, NodesGroup, zod, type IDataInfo, type INode } from '@falang/dto';
+import { countourNodeConfig, mindTreeCfg, NodesGroup, zod, type IDataInfo, type INode } from '@falang/dto';
 import type { Scheme } from '../scheme/scheme.js';
 import { getTestInfrastructure } from '../../test-utils/get-test-infrastructure.js';
 import { getTestEmptyDoc } from '../../test-utils/get-test-empty-doc.js';
@@ -8,6 +8,7 @@ import { SchemeInfrastructure } from '../scheme/scheme-infrastructure.js';
 import { IconsGroup } from '../scheme/icons-group.js';
 import { insertNode } from '../actions/insert-node.js';
 import { getContourIconNodeConfig } from '../icons/contour/contour.icon.config.js';
+import { getMindTreeIconConfig } from '../icons/mind-tree/mind-tree.icon.config.js';
 import { emptyBlockConfig } from './empty-block.js';
 import { getSchemeBounds } from './get-scheme-bounds.js';
 
@@ -91,5 +92,42 @@ describe('getSchemeBounds', () => {
     const bounds = getSchemeBounds(scheme);
     if (!root || !bounds) throw new Error('Root not built');
     expect(bounds.height).toBeGreaterThan(root.header.height);
+  });
+});
+
+describe('getSchemeBounds: layouts that draw outside the root icon box', () => {
+  it('covers mind-tree threads whose wide blocks stick out left of the root (declared left = 0)', () => {
+    const str = { type: zod.string(), default: () => '' } as const satisfies IDataInfo;
+    const nodes = new NodesGroup(mindTreeCfg({ name: 'tree', header: str, body: str, thread: str, child: str }));
+    const wide = { ...emptyBlockConfig, defaultWidth: 300 };
+    const icons = new IconsGroup(
+      nodes,
+      getMindTreeIconConfig({
+        name: 'tree',
+        header: emptyBlockConfig,
+        body: emptyBlockConfig,
+        thread: wide,
+        child: wide,
+      }),
+    );
+    const infra = new SchemeInfrastructure([icons]);
+    const scheme = schemeFactory({
+      infra,
+      document: { id: 't', name: 'tree-doc', root: infra.structure.factory('tree') },
+    });
+    try {
+      const root = scheme.rootIcon;
+      const bounds = getSchemeBounds(scheme);
+      if (!root || !bounds) throw new Error('Root not built');
+      expect(root.left).toBe(0);
+      const leftmost = Math.min(
+        ...scheme.icons.all.map((icon) => icon.x + icon.blockPosition.x - icon.config.shape.paddings.left),
+      );
+      expect(leftmost).toBeLessThan(0);
+      expect(bounds.left).toBeGreaterThanOrEqual(-leftmost);
+      expect(bounds.width).toBe(bounds.left + bounds.right);
+    } finally {
+      scheme.dispose();
+    }
   });
 });
