@@ -21,7 +21,8 @@
     "@playwright/test": "^1.61.1",
     "@temporalio/client": "^1.13.0",
     "@types/node": "^24.12.2",
-    "monocart-coverage-reports": "^2.13.0"
+    "monocart-coverage-reports": "^2.13.0",
+    "pdf-lib": "^1.17.1"
   },
   "files": [
     "src",

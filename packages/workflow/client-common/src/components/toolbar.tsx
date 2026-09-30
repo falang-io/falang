@@ -8,16 +8,15 @@ import {
   CarryOutOutlined,
   CodeOutlined,
   DownOutlined,
-  ExportOutlined,
   FolderOutlined,
   HistoryOutlined,
   RobotOutlined,
   ThunderboltOutlined,
 } from '@ant-design/icons';
 import { getGlobalI18n, type TFunction } from '@falang/scheme';
-import { workflowApi } from '../api-client.js';
 import { navigationStore } from '../navigation-store.js';
 import { useWorkflowStore } from '../workflow-store-context.js';
+import { ExportButtons } from './export-buttons.cmp.js';
 import { BuildErrorsModal } from './build-errors-modal.js';
 import { CodeViewerModal } from './code-viewer-modal.js';
 import { LiveRunControls } from './live-run-controls.js';
@@ -146,8 +145,6 @@ export const Toolbar: React.FC = observer(() => {
   const [versionsOpen, setVersionsOpen] = useState(false);
   const [runOpen, setRunOpen] = useState(false);
   const [buildErrorsOpen, setBuildErrorsOpen] = useState(false);
-  const [isExporting, setIsExporting] = useState(false);
-  const [exportError, setExportError] = useState<string | null>(null);
   const activeDocument = store.activeTabId ? store.getDocument(store.activeTabId) : null;
   const initialFunctionName = activeDocument?.type === 'function' ? activeDocument.name : null;
 
@@ -156,26 +153,6 @@ export const Toolbar: React.FC = observer(() => {
   useEffect(() => {
     if (store.buildErrors.length > 0) setBuildErrorsOpen(true);
   }, [store.buildErrors]);
-
-  const handleExport = async () => {
-    setIsExporting(true);
-    setExportError(null);
-    try {
-      const payload = await workflowApi.exportProject(store.projectId);
-      const fileName = `${(navigationStore.selectedProjectName ?? 'project').replaceAll(/[^a-z0-9-_]+/gi, '-')}.json`;
-      const blob = new Blob([JSON.stringify(payload, null, 2)], { type: 'application/json' });
-      const url = URL.createObjectURL(blob);
-      const link = document.createElement('a');
-      link.href = url;
-      link.download = fileName;
-      link.click();
-      URL.revokeObjectURL(url);
-    } catch (error) {
-      setExportError(error instanceof Error ? error.message : t('client:toolbar.export-failed'));
-    } finally {
-      setIsExporting(false);
-    }
-  };
 
   const handleProdToggle = async () => {
     const wasRunning = store.prodRunning;
@@ -283,17 +260,7 @@ export const Toolbar: React.FC = observer(() => {
       >
         {t('client:toolbar.history')}
       </Button>
-      <Button
-        icon={<ExportOutlined />}
-        style={S.btn}
-        loading={isExporting}
-        onClick={() => {
-          handleExport();
-        }}
-      >
-        {isExporting ? t('client:toolbar.exporting') : t('client:toolbar.export')}
-      </Button>
-      {exportError && <span style={S.error}>{exportError}</span>}
+      <ExportButtons buttonStyle={S.btn} errorStyle={S.error} />
       <LiveRunControls />
       <Dropdown menu={{ items: devMenuItems }} trigger={['click']}>
         <Button style={S.btn}>

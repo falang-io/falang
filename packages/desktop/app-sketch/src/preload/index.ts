@@ -149,6 +149,11 @@ const falangApi = {
     restore: (dir: string, commitId: string): Promise<ICommitInfo> =>
       ipcRenderer.invoke(IPC.versioningRestore, dir, commitId),
   },
+  print: {
+    // Native save dialog + `webContents.printToPDF` in `main` (ADR 0048 (private)).
+    toPdf: (params: { suggestedFileName: string }): Promise<{ canceled: true } | { path: string }> =>
+      ipcRenderer.invoke(IPC.printToPdf, params),
+  },
   menu: {
     onNewProject: subscribe(IPC.menuNewProject),
     onOpenProject: subscribe(IPC.menuOpenProject) as (listener: (recentPath?: string) => void) => () => void,
@@ -161,6 +166,7 @@ const falangApi = {
     onOpenLanguageSettings: subscribe(IPC.menuOpenLanguageSettings),
     onToggleVersionHistory: subscribe(IPC.menuToggleVersionHistory),
     onToggleAgent: subscribe(IPC.menuToggleAgent),
+    onExportPdf: subscribe(IPC.menuExportPdf),
   },
   app: {
     // `main`'s graceful-close flow (see `main/index.ts`) — the window's `close` event is intercepted

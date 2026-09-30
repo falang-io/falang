@@ -33,7 +33,9 @@ import {
 import { OBJECTS_STRUCTURE_NAME } from '@falang/typescript-dto';
 import { container, resolveService, type DependencyContainer } from '@falang/di';
 import type { INodeTreeDiff, ISnapshotDocument } from '@falang/versioning';
-import { AgentChatSessionStore, VersionHistoryStore } from '@falang/antd';
+import { AgentChatSessionStore, PrintExportStore, VersionHistoryStore } from '@falang/antd';
+import { navigationStore } from './navigation-store.js';
+import { createPrintExportHost } from './print/create-print-export-host.js';
 import { MAGIC_NAME, TRIGGER_FUNCTION_NAME, type TTriggerFunctionBodyData } from '@falang/workflow-dto';
 import type { IIntegrationInstance } from '@falang/workflow-integrations-common';
 import { SCHEDULE_VENDOR } from '@falang/workflow-integrations-schedule';
@@ -133,6 +135,8 @@ export class WorkflowStore {
   /** Every magic node's AI run, confirm dialog and popup-editor target (ADR 0046 (private)). */
   readonly magicRuns: MagicRunStore;
   @observable diffModalOpen = false;
+  /** The PDF print export's selection/preview state (ADR 0048 (private)); `null` while closed. */
+  @observable.ref printExport: PrintExportStore | null = null;
   /**
    * The project's uploaded/produced files (ADR 0038 (private) §7) — no
    * project-specific construction needed (unlike e.g. `scheduleStatus`), so this is a plain class-field
@@ -713,7 +717,30 @@ export class WorkflowStore {
     });
   }
 
+  /** The toolbar's "PDF" button: opens the selection modal (a fresh `PrintExportStore` each time). */
+  @action openPrintExport(): void {
+    this.printExport?.dispose();
+    this.printExport = new PrintExportStore(
+      createPrintExportHost({
+        projectId: this.projectId,
+        projectName: () => navigationStore.selectedProjectName ?? 'project',
+        container: this.container,
+        folders: () => this.folders,
+        documents: () => this.documents,
+        activeTabId: () => this.activeTabId,
+        getLiveScheme: (id) => this.schemes.get(id),
+        getCredentialInstances: () => getIntegrationInstances(this.documents),
+      }),
+    );
+  }
+
+  @action closePrintExport(): void {
+    this.printExport?.dispose();
+    this.printExport = null;
+  }
+
   dispose(): void {
+    this.printExport?.dispose();
     this.magicRuns.dispose();
     this.agentSettings.dispose();
     this.followRunDisposer();

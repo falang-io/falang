@@ -59,6 +59,7 @@ export * from './modules/editor/editor.service.token.js';
 export * from './hooks/container.context.js';
 export * from './scheme/scheme-events.js';
 export * from './utils/get-dto.js';
+export * from './utils/get-scheme-bounds.js';
 export * from './utils/node-store-adapter.js';
 export * from './types/computed-value.js';
 export * from './store/i18n.store.js';

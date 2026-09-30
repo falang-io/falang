@@ -46,6 +46,9 @@ export const IPC = {
   menuOpenLanguageSettings: 'menu:open-language-settings',
   menuToggleVersionHistory: 'menu:toggle-version-history',
   menuToggleAgent: 'menu:toggle-agent',
+  // Print / export to PDF (ADR 0048 (private)).
+  menuExportPdf: 'menu:export-pdf',
+  printToPdf: 'print:to-pdf',
   menuSaveDocument: 'menu:save-document',
   menuOpenExportConfig: 'menu:open-export-config',
   menuExportCode: 'menu:export-code',

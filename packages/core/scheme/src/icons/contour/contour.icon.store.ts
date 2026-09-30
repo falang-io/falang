@@ -59,8 +59,10 @@ export class ContourIconStore extends IconStore implements IIconStoreWithFixedCh
   }
   @computed get height(): number {
     return (
-      this.header?.height ??
-      0 + this.blockFullHeight + CELL_SIZE + Math.max(this.finish?.height ?? 0, this.body?.height ?? 0)
+      (this.header?.height ?? 0) +
+      this.blockFullHeight +
+      CELL_SIZE +
+      Math.max(this.finish?.height ?? 0, this.body?.height ?? 0)
     );
   }
 

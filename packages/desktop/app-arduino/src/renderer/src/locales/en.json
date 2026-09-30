@@ -109,5 +109,20 @@
     "folder-kind-removed": "Removed",
     "folder-kind-renamed": "Renamed",
     "folder-kind-moved": "Moved"
+  },
+  "print-export": {
+    "title": "Export to PDF",
+    "hint": "One page per document. The page format (A4–A1) is chosen per scheme.",
+    "all": "All",
+    "active-only": "Active document only",
+    "print": "Print",
+    "cancel": "Cancel",
+    "nothing": "No documents to print",
+    "save-pdf": "Save as PDF",
+    "close": "Close",
+    "measuring": "Measuring…",
+    "timeout": "Layout did not settle",
+    "portrait": "portrait",
+    "landscape": "landscape"
   }
 }

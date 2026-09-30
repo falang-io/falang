@@ -52,13 +52,15 @@ import type { ICodeExportResult } from '@falang/simple-code-export';
 import type { IDocumentLock, IProjectChangeEvent } from '@falang/desktop-project-fs';
 import { container, resolveService, type DependencyContainer } from '@falang/di';
 import type { INodeTreeDiff, ISnapshotDocument } from '@falang/versioning';
-import { AgentChatSessionStore, VersionHistoryStore } from '@falang/antd';
+import type { IPrintExportHost } from '@falang/antd';
+import { AgentChatSessionStore, PrintExportStore, VersionHistoryStore } from '@falang/antd';
 import { generateUuid } from './generate-uuid.js';
 import { ExportProgressStore } from './export-progress-store.js';
 import { reportError } from '../../shared/report-error.js';
 import { ElectronAgentSessionStore } from './agent/electron-agent-session-store.js';
 import { ElectronLlmClient } from './agent/electron-llm-client.js';
 import { buildReadOnlySchemeForDiff as buildReadOnlySchemeForDiffImpl } from './versioning/build-read-only-scheme-for-diff.js';
+import { createPrintExportHost } from './print/create-print-export-host.js';
 import { ElectronVersionStore } from './versioning/electron-version-store.js';
 import { allowedDocumentTypesFor } from '../../shared/project-types.js';
 
@@ -238,6 +240,8 @@ export class DesktopProjectStore {
   /** Which project-level panel the right sidebar shows, or neither — see `toggleRightPanel`. */
   @observable rightPanel: 'agent' | 'history' | null = null;
   @observable diffModalOpen = false;
+  /** The PDF export flow (ADR 0048 (private)), `null` while closed. */
+  @observable.ref printExport: PrintExportStore | null = null;
 
   /** Document types this project may create — see `../../shared/project-types.ts`. An unknown/legacy `falang.json` `type` (e.g. every project this app created before this feature existed, which always wrote `'text'` regardless of content) falls back to every document type rather than erroring. */
   @computed get allowedDocumentTypes(): DocumentType[] {
@@ -920,6 +924,29 @@ export class DesktopProjectStore {
     }
   }
 
+  /** Opens the PDF export modal (native menu "Export PDF…") — ADR 0048 (private). */
+  @action openPrintExport(): void {
+    this.printExport?.dispose();
+    this.printExport = new PrintExportStore(this.buildPrintExportHost());
+  }
+
+  @action closePrintExport(): void {
+    this.printExport?.dispose();
+    this.printExport = null;
+  }
+
+  private buildPrintExportHost(): IPrintExportHost {
+    return createPrintExportHost({
+      projectDir: this.projectDir,
+      container: this.container,
+      folders: () => this.folders,
+      documents: () => this.documents,
+      activeTabId: () => this.activeTabId,
+      getLiveScheme: (id) => this.schemes.get(id),
+      isPrintable: (doc) => doc.type in DOCUMENT_TYPES,
+    });
+  }
+
   @action openDiffModal(): void {
     this.diffModalOpen = true;
   }
@@ -959,6 +986,7 @@ export class DesktopProjectStore {
 
   dispose(): void {
     this.agentSession.cancel();
+    this.printExport?.dispose();
     this.disposeRegistrySync();
     this.disposeFunctionsRegistrySync();
     this.disposeExternalApiRegistrySync();
