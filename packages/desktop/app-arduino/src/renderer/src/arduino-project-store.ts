@@ -178,7 +178,9 @@ export class ArduinoProjectStore {
         this.reloadAfterRestore().catch((error: unknown) => reportError('Failed to reload after restore', error));
       },
     });
-    this.agentChat = new AgentChatSessionStore(new ElectronAgentSessionStore(projectDir));
+    this.agentChat = new AgentChatSessionStore(new ElectronAgentSessionStore(projectDir), {
+      allowQuestionsStorageKey: `falang:agent-allow-questions:${projectDir}`,
+    });
     this.agentChat.loadSessions();
     this.agentSession = new AgentSession(
       null,

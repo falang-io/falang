@@ -9,6 +9,9 @@ const str = (params: Record<string, unknown> | null, key: string): string =>
 const num = (params: Record<string, unknown> | null, key: string): string =>
   params && typeof params[key] === 'number' ? String(params[key]) : `?${key}`;
 
+const describeOther = (call: ILlmToolCall, params: Record<string, unknown> | null): string =>
+  call.name === 'ask_user' ? `Asked: ${str(params, 'question')}` : call.name;
+
 /** A short, human-readable one-liner for a tool call — what the agent chat's step trace shows instead of the
  *  bare tool name, e.g. "Insert 'action' into n3 at index 2" rather than just "insert_node". */
 export const describeToolCall = (call: ILlmToolCall): string => {
@@ -54,7 +57,7 @@ export const describeToolCall = (call: ILlmToolCall): string => {
       return 'Finished';
     }
     default: {
-      return call.name;
+      return describeOther(call, params);
     }
   }
 };

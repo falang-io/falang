@@ -91,6 +91,7 @@ export default defineConfig({
             'workflow/databases',
             'workflow/human-tasks',
             'workflow/media',
+            'workflow/ai-agent',
             'workflow/administration',
             'workflow/debugging',
             'workflow/versioning',

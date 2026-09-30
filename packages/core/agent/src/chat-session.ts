@@ -1,3 +1,4 @@
+import type { IAgentQuestion } from './ask-user.js';
 import type { IAgentStep, IAgentUsageTotal } from './agent-session.js';
 
 /** One user message + the run it produced, as persisted inside a chat session. */
@@ -9,8 +10,12 @@ export interface IChatTurn {
   readonly request: string;
   readonly steps: readonly IAgentStep[];
   readonly message: string;
-  readonly status: 'done' | 'error';
+  readonly status: 'done' | 'error' | 'awaiting-answer';
   readonly error?: string;
+  /** Set on an `'awaiting-answer'` turn: the clarifying question the run ended with (ADR 0047). */
+  readonly question?: IAgentQuestion;
+  /** Set on a turn whose request is the answer to an earlier `'awaiting-answer'` turn (that turn's id). */
+  readonly answersTurnId?: string;
   /** Token usage summed over this turn's LLM calls; absent when the vendor reported none. */
   readonly usage?: IAgentUsageTotal;
   readonly createdAt: string;

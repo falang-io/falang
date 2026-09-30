@@ -5,9 +5,24 @@ import type {
   IChatSession,
   IChatSessionSummary,
   IChatTurn,
+  TAgentQuestionAnswer,
   TLlmMessage,
 } from '@falang/agent';
+import { buildQuestionAnswerText } from '@falang/agent';
 import { generateId } from './generate-id.js';
+import {
+  buildPriorMessages,
+  countConsecutiveQuestions,
+  readAllowQuestions,
+  writeAllowQuestions,
+} from './agent-chat-helpers.js';
+
+export { buildPriorMessages, countConsecutiveQuestions } from './agent-chat-helpers.js';
+
+export interface IAgentChatStoreOptions {
+  /** `localStorage` key persisting the per-project "Don't ask, just do" toggle. */
+  readonly allowQuestionsStorageKey?: string;
+}
 
 export interface IAgentChatSendParams {
   /** The project's one `AgentSession` (ADR 0036 (private)) —
@@ -20,18 +35,6 @@ export interface IAgentChatSendParams {
    *  `IChatTurn.documentId` as-is. */
   readonly activeDocumentId: string | null;
 }
-
-/** Condensed prior turns for `AgentSession.run`'s `priorMessages` — the conversational thread only, not the
- *  intermediate tool-call/tool-result messages (the system prompt already resends a fresh tree every run). */
-const buildPriorMessages = (turns: readonly IChatTurn[]): TLlmMessage[] =>
-  turns.flatMap((turn): TLlmMessage[] => [
-    { content: turn.request, role: 'user' },
-    {
-      content: turn.status === 'done' ? turn.message : `(failed: ${turn.error ?? 'unknown error'})`,
-      role: 'assistant',
-      toolCalls: [],
-    },
-  ]);
 
 /**
  * Drives `AgentChatPanel` (ADR 0033 (private)) over one host-supplied
@@ -58,19 +61,39 @@ export class AgentChatSessionStore {
   /** Raw errors of failed turns by turn id — in-memory only; the persisted `IChatTurn` keeps just the message string. */
   private readonly turnErrors = new Map<string, unknown>();
 
-  private readonly store: IAgentSessionStore;
+  /** Whether the agent may ask clarifying questions (ADR 0047); the panel's "Don't ask, just do" toggle is its inverse. */
+  @observable allowQuestions = true;
 
-  constructor(store: IAgentSessionStore) {
+  /** Id of the awaiting turn whose full message list the host's `AgentSession` still holds in memory. */
+  private pendingMessagesTurnId: string | null = null;
+
+  private readonly store: IAgentSessionStore;
+  private readonly options: IAgentChatStoreOptions;
+
+  constructor(store: IAgentSessionStore, options: IAgentChatStoreOptions = {}) {
     this.store = store;
+    this.options = options;
+    this.allowQuestions = readAllowQuestions(options.allowQuestionsStorageKey);
     makeObservable(this);
   }
 
-  /** Loads the session list and, if nothing is selected yet, the most recently updated session. */
+  /** The active session's last turn if it is waiting for the user's answer to a clarifying question. */
+  get awaitingTurn(): IChatTurn | null {
+    const last = this.activeSession?.turns.at(-1);
+    return last?.status === 'awaiting-answer' ? last : null;
+  }
+
+  @action setAllowQuestions(value: boolean): void {
+    this.allowQuestions = value;
+    writeAllowQuestions(this.options.allowQuestionsStorageKey, value);
+  }
+
   /** The original thrown value of a turn that failed in this page's lifetime, or `null` (e.g. a reloaded session). */
   getTurnError(turnId: string): unknown {
     return this.turnErrors.get(turnId) ?? null;
   }
 
+  /** Loads the session list and, if nothing is selected yet, the most recently updated session. */
   async loadSessions(): Promise<void> {
     await this.runMutation(async () => {
       const listed = await this.store.listSessions();
@@ -140,7 +163,35 @@ export class AgentChatSessionStore {
     if (!this.activeSession) await this.createSession();
     const session = this.activeSession;
     if (!session) return;
+    await this.runTurn(session, text, params, {
+      priorMessages: buildPriorMessages(session.turns),
+      consecutiveQuestions: 0,
+    });
+  }
 
+  /** Answers the open clarifying question (ADR 0047): the answer is the next user message of a new run, on the
+   *  full in-memory conversation when this page still holds it, else on the condensed history. */
+  async answer(answer: TAgentQuestionAnswer, params: IAgentChatSendParams): Promise<void> {
+    const session = this.activeSession;
+    const last = this.awaitingTurn;
+    if (!session || !last) return;
+    const held = params.agentSession.pendingMessages;
+    const priorMessages =
+      held !== null && this.pendingMessagesTurnId === last.id ? [...held] : buildPriorMessages(session.turns);
+    await this.runTurn(session, buildQuestionAnswerText(answer), params, {
+      priorMessages,
+      consecutiveQuestions: countConsecutiveQuestions(session.turns),
+      answersTurnId: last.id,
+    });
+  }
+
+  /** Runs the agent, then persists the outcome as one `IChatTurn` (shared by `send` and `answer`). */
+  private async runTurn(
+    session: IChatSession,
+    text: string,
+    params: IAgentChatSendParams,
+    run: { priorMessages: TLlmMessage[]; consecutiveQuestions: number; answersTurnId?: string },
+  ): Promise<void> {
     runInAction(() => {
       this.sending = true;
       this.pendingRequest = text;
@@ -148,21 +199,33 @@ export class AgentChatSessionStore {
       this.rawError = null;
     });
     try {
-      const priorMessages = buildPriorMessages(session.turns);
-      await params.agentSession.run(text, { activeDocumentId: params.activeDocumentId, priorMessages });
+      const { agentSession } = params;
+      await agentSession.run(text, {
+        activeDocumentId: params.activeDocumentId,
+        allowQuestions: this.allowQuestions,
+        consecutiveQuestions: run.consecutiveQuestions,
+        priorMessages: run.priorMessages,
+      });
+      const awaiting = agentSession.status === 'awaiting-answer' && agentSession.question !== null;
+      let status: IChatTurn['status'] = 'done';
+      if (awaiting) status = 'awaiting-answer';
+      else if (agentSession.status === 'error') status = 'error';
       const turn: IChatTurn = {
         createdAt: new Date().toISOString(),
         documentId: params.activeDocumentId,
         id: generateId(),
-        message: params.agentSession.message,
+        message: awaiting ? '' : agentSession.message,
         request: text,
-        status: params.agentSession.status === 'error' ? 'error' : 'done',
-        steps: params.agentSession.steps,
-        ...(params.agentSession.error ? { error: params.agentSession.error } : {}),
-        ...(params.agentSession.usage.calls > 0 ? { usage: params.agentSession.usage } : {}),
+        status,
+        steps: agentSession.steps,
+        ...(awaiting && agentSession.question ? { question: agentSession.question } : {}),
+        ...(run.answersTurnId ? { answersTurnId: run.answersTurnId } : {}),
+        ...(agentSession.error ? { error: agentSession.error } : {}),
+        ...(agentSession.usage.calls > 0 ? { usage: agentSession.usage } : {}),
       };
-      if (turn.status === 'error' && params.agentSession.rawError !== null) {
-        this.turnErrors.set(turn.id, params.agentSession.rawError);
+      this.pendingMessagesTurnId = awaiting ? turn.id : null;
+      if (turn.status === 'error' && agentSession.rawError !== null) {
+        this.turnErrors.set(turn.id, agentSession.rawError);
       }
       await this.store.appendTurn(session.id, turn);
       const updatedAt = turn.createdAt;

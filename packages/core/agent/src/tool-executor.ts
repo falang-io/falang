@@ -11,6 +11,7 @@ import {
 } from '@falang/scheme';
 import type { ILlmToolCall } from './llm-client.js';
 import type { IAgentNodeKindFilter } from './node-kind-filter.js';
+import { executeAskUser } from './ask-user.js';
 import { executeInsertNodes } from './insert-nodes.js';
 import { describeFirstChildOutError, describeNotAllowedError } from './node-errors.js';
 import { describeNodeKinds, getAllowedChildNames } from './node-kinds.js';
@@ -250,6 +251,9 @@ export const executeToolCall = (
     }
     case 'finish': {
       return executeFinish(call.input);
+    }
+    case 'ask_user': {
+      return executeAskUser(call.input);
     }
     default: {
       return fail(`Unknown tool: ${call.name}`);

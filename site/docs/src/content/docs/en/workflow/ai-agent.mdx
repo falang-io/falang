@@ -1,0 +1,79 @@
+---
+title: AI agent
+description: The editor's built-in AI agent — describe what to build in plain language, let it edit your project, and answer its clarifying questions
+head:
+  - tag: meta
+    attrs:
+      name: keywords
+      content: 'ai agent, assistant, chat, clarifying questions, workflow'
+---
+
+<p>
+  The <b>AI agent</b> builds and edits your project from a plain-language description. It works through the same
+  actions you use by hand — inserting, moving and deleting nodes, changing their fields — so everything it does is
+  visible on the canvas and can be undone like any other edit.
+</p>
+
+#### Opening the agent
+
+<p>
+  Click <b>Agent</b> in the editor toolbar. The chat opens in the right-hand sidebar, next to <b>History</b> (only one
+  of the two is shown at a time). The panel belongs to the whole project, not to a single document: switching tabs does
+  not interrupt a request that is running.
+</p>
+<p>
+  The agent has to be configured once for the whole deployment by an administrator — see
+  <a href="../administration/#ai-agent"> AI agent in Administration</a>. Until then the panel shows a "not configured,
+  ask an administrator" notice.
+</p>
+
+#### Chat sessions
+
+<p>
+  Conversations are kept as sessions per project. You can start a new session, switch between them, rename or delete
+  them, and export a session as a JSON file. Under each reply the panel shows how many tokens the turn used, and the
+  individual steps the agent took can be expanded.
+</p>
+
+#### What it can change
+
+<ul>
+  <li>Edit the document that is open, or any other function or trigger document of the project.</li>
+  <li>Create new documents, and integration instances (credentials may be left blank for you to fill in later).</li>
+  <li>Work in a project with no documents at all — describe what you need and it creates them as it goes.</li>
+</ul>
+<p>
+  <b>Undo.</b> One request is one undo step per document it touched. Press <b>Undo</b> in the panel (or Ctrl+Z in the
+  document) to roll the whole request back in one go. Your own manual edits made afterwards are separate steps.
+</p>
+
+#### Clarifying questions
+
+<p>
+  When a request is ambiguous in a way that changes the structure of the result — for example, which integration to use
+  — the agent stops and asks instead of guessing. Details it can reasonably fill in itself, it does not ask about.
+</p>
+<ul>
+  <li>
+    It asks <b>one question at a time</b>, with two to four suggested options, each with a short description.
+  </li>
+  <li>
+    Click an option to answer, choose <b>Other…</b> to type your own answer, or click <b>Decide yourself</b> to let the
+    agent pick.
+  </li>
+  <li>
+    While a question is waiting, the main message box is disabled — answer the question first. Your answer continues
+    the same conversation.
+  </li>
+  <li>
+    The agent asks at most <b>three questions in a row</b>; after that it decides on its own.
+  </li>
+  <li>
+    A question splits one request into two undo steps: the work done before the question, and the work done after your
+    answer.
+  </li>
+</ul>
+<p>
+  If you'd rather not be asked at all, turn on the <b>Don't ask, just do</b> switch in the chat panel header. The agent
+  then makes its own choices. The switch is remembered per project in your browser.
+</p>

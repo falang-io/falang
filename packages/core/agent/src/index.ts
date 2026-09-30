@@ -10,6 +10,7 @@ export * from './node-kinds.js';
 export * from './node-kind-filter.js';
 export * from './serialize.js';
 export * from './tools.js';
+export * from './ask-user.js';
 export * from './tool-executor.js';
 export * from './describe-tool-call.js';
 export * from './agent-session.js';

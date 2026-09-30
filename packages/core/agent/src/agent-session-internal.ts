@@ -1,10 +1,14 @@
-import type { Scheme } from '@falang/scheme';
+import type { HistoryStore, Scheme } from '@falang/scheme';
+import { TOKEN_HISTORY } from '@falang/scheme';
+import { resolveService } from '@falang/di';
 import type { IAgentContextProvider, IAgentRunContext } from './context-provider.js';
 import type { IAgentDocumentResolver } from './document-resolver.js';
 import type { IAgentNodeKindFilter } from './node-kind-filter.js';
 import type { ILlmToolCall, ILlmUsage, TLlmMessage } from './llm-client.js';
 import type { IAgentToolProvider } from './tool-provider.js';
 import type { TToolExecutionResult } from './tool-executor.js';
+import type { IQuestionPolicy } from './ask-user.js';
+import { buildAskUserPrompt } from './ask-user.js';
 
 /** `AgentSession.run`'s options — split out here (from `agent-session.ts`, re-exported from there
  *  unchanged) purely to keep that file's own line count under this repo's `max-lines` oxlint budget; no
@@ -23,6 +27,12 @@ export interface IAgentRunOptions {
    *  run — nothing about a host's "active document" changing mid-run (e.g. because `onOpenDocument` opened
    *  a new tab) can retarget an already-running turn. */
   readonly activeDocumentId?: string | null;
+  /** Offer the `ask_user` tool (ADR 0047). Defaults to true; false also tells the prompt to decide alone. */
+  readonly allowQuestions?: boolean;
+  /** Defaults to `DEFAULT_MAX_CONSECUTIVE_QUESTIONS`. */
+  readonly maxConsecutiveQuestions?: number;
+  /** How many questions in a row preceded this run (counted by the host). Defaults to 0. */
+  readonly consecutiveQuestions?: number;
 }
 
 /** `AgentSession`'s constructor `extra` options — see `IAgentRunOptions`'s own doc comment on why this
@@ -77,6 +87,7 @@ export const FOCUS_PAUSE_MS = 300;
 export const buildSystemPrompt = (
   context: IAgentRunContext,
   contextProviders: readonly IAgentContextProvider[],
+  questionPolicy?: IQuestionPolicy,
 ): string => {
   const extraContext = contextProviders.map((provider) => provider.describe(context)).filter(Boolean);
   const activeLine =
@@ -100,6 +111,7 @@ export const buildSystemPrompt = (
       'which kind it is before writing it.',
     activeLine,
   ];
+  if (questionPolicy) sections.push(buildAskUserPrompt(questionPolicy));
   if (extraContext.length > 0) sections.push(extraContext.join('\n'));
   return sections.join('\n\n');
 };
@@ -136,3 +148,37 @@ export const addUsage = (total: IAgentUsageTotal, usage: ILlmUsage): IAgentUsage
   promptTokens: total.promptTokens + usage.promptTokens,
   totalTokens: total.totalTokens + usage.totalTokens,
 });
+
+/** A call's `documentId` when given, otherwise the run's effective active document id — either way passed
+ *  through `resolver.resolve` (ADR 0036). No id at all → `{ error }` before calling the resolver. A resolver
+ *  throw (unknown/non-editable id) becomes `{ error }` too — the LLM's mistake to recover from. */
+export const resolveTargetScheme = (
+  resolver: IAgentDocumentResolver,
+  call: ILlmToolCall,
+  activeDocumentId: string | null,
+): { scheme: Scheme } | { error: string } => {
+  const targetId = getDocumentIdInput(call) ?? activeDocumentId;
+  if (targetId === null) return { error: 'documentId is required — no document is open in the editor' };
+  try {
+    return { scheme: resolver.resolve(targetId) };
+  } catch (error) {
+    return { error: error instanceof Error ? error.message : String(error) };
+  }
+};
+
+const resolveHistory = (targetScheme: Scheme): HistoryStore => {
+  try {
+    return resolveService(TOKEN_HISTORY, targetScheme.container);
+  } catch {
+    throw new Error('AgentModule requires HistoryModule to be registered');
+  }
+};
+
+/** Opens (once) the undo group for `targetScheme` on first touch this run — throws if that scheme has no
+ *  `HistoryModule` registered (fatal to the run, as ADR 0034 always treated it). */
+export const ensureGroupOpen = (targetScheme: Scheme, openGroups: Map<Scheme, HistoryStore>): void => {
+  if (openGroups.has(targetScheme)) return;
+  const history = resolveHistory(targetScheme);
+  history.beginGroup();
+  openGroups.set(targetScheme, history);
+};

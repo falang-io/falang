@@ -130,3 +130,49 @@ describe('AgentChatPanel renderError', () => {
     expect(seen[0]).toBe(thrown);
   });
 });
+
+describe('AgentChatPanel clarifying questions', () => {
+  const askedSetup = async () => {
+    const store = new AgentChatSessionStore(new FakeAgentSessionStore());
+    const client = new ScriptedLlmClient([
+      (): ILlmResponse => ({
+        text: '',
+        toolCalls: [
+          {
+            id: 'q',
+            input: {
+              question: 'Which vendor?',
+              options: [{ label: 'Telegram', description: 'chat bot' }, { label: 'Email' }],
+            },
+            name: 'ask_user',
+          },
+        ],
+      }),
+    ]);
+    const scheme = schemeFactory({
+      document: { ...getTestEmptyDoc(), type: 'function' },
+      infra: getTestInfrastructure(),
+      modules: [new HistoryModule(), new AgentModule({ llmClient: client })],
+    });
+    const agentSession = resolveService(TOKEN_AGENT_SESSION, scheme.container);
+    await store.send('build', { agentSession, activeDocumentId: null });
+    return { agentSession, store };
+  };
+  const props = {
+    history: null,
+    getActiveDocumentId: () => null,
+    configured: true,
+    configuredLoading: false,
+    model: 'm',
+  };
+
+  it('renders option buttons and disables the input while a question is open', async () => {
+    const { agentSession, store } = await askedSetup();
+    const html = render({ ...props, agentSession, store });
+    expect(html).toContain('Which vendor?');
+    expect(html).toContain('Telegram');
+    expect(html).toContain('chat bot');
+    expect(html).toContain('Email');
+    expect(html).toMatch(/<textarea[^>]*disabled/);
+  });
+});

@@ -2,12 +2,19 @@ import type React from 'react';
 import type { ReactNode } from 'react';
 import { useState } from 'react';
 import { observer } from 'mobx-react-lite';
-import { Alert, Button, Collapse, Input, Space, Tag, Typography } from 'antd';
+import { Alert, Button, Collapse, Input, Space, Switch, Tag, Tooltip, Typography } from 'antd';
 import { RedoOutlined, SendOutlined, StopOutlined, UndoOutlined } from '@ant-design/icons';
-import { describeToolCall, type AgentSession, type IAgentStep, type IChatTurn } from '@falang/agent';
+import {
+  describeToolCall,
+  type AgentSession,
+  type IAgentStep,
+  type IChatTurn,
+  type TAgentQuestionAnswer,
+} from '@falang/agent';
 import type { HistoryStore } from '@falang/scheme';
 import { useAgentChatT } from './use-agent-chat-t.js';
 import type { AgentChatSessionStore } from './agent-chat.store.js';
+import { QuestionView } from './question-view.cmp.js';
 import { SessionPickerHeader } from './session-picker-header.cmp.js';
 
 const { TextArea } = Input;
@@ -15,6 +22,7 @@ const { TextArea } = Input;
 const statusTagColor = (status: AgentSession['status']): string => {
   if (status === 'running') return 'processing';
   if (status === 'error') return 'error';
+  if (status === 'awaiting-answer') return 'warning';
   return 'default';
 };
 
@@ -25,6 +33,8 @@ const styles: Record<string, React.CSSProperties> = {
   request: { fontWeight: 500 },
   reply: { whiteSpace: 'pre-wrap' },
   usage: { fontSize: 11 },
+  options: { display: 'flex', flexDirection: 'column', gap: 4, alignItems: 'stretch' },
+  optionButton: { height: 'auto', textAlign: 'left', whiteSpace: 'normal' },
   stepDetail: { fontSize: 11, whiteSpace: 'pre-wrap', wordBreak: 'break-word' },
 };
 
@@ -93,17 +103,21 @@ const TurnView: React.FC<{
   readonly turn: IChatTurn;
   readonly rawError?: unknown;
   readonly renderError?: (error: unknown) => ReactNode | null;
-}> = ({ turn, rawError, renderError }) => {
+  /** Set only for the open question's turn while nothing is running. */
+  readonly onAnswer?: ((answer: TAgentQuestionAnswer) => void) | null;
+}> = ({ turn, rawError, renderError, onAnswer }) => {
   const t = useAgentChatT();
   return (
     <div style={styles.turn}>
       <Typography.Text style={styles.request}>{turn.request}</Typography.Text>
       <StepsCollapse steps={turn.steps} />
+      {turn.status === 'awaiting-answer' && turn.question ? (
+        <QuestionView question={turn.question} onAnswer={onAnswer ?? null} />
+      ) : null}
       {turn.status === 'error' ? (
         <ErrorNotice error={rawError} text={turn.error || t('agent-chat:failed')} renderError={renderError} />
-      ) : (
-        <Typography.Text style={styles.reply}>{turn.message}</Typography.Text>
-      )}
+      ) : null}
+      {turn.status === 'done' ? <Typography.Text style={styles.reply}>{turn.message}</Typography.Text> : null}
       {turn.usage ? (
         <Typography.Text type="secondary" style={styles.usage}>
           {t('agent-chat:tokens', { count: turn.usage.totalTokens })}
@@ -167,13 +181,18 @@ export const AgentChatPanel: React.FC<IAgentChatPanelProps> = observer(
     const [request, setRequest] = useState('');
 
     const isRunning = store.sending || agentSession.status === 'running';
-    const canSend = configured && !configuredLoading && Boolean(request.trim()) && !isRunning;
+    const awaitingTurn = store.awaitingTurn;
+    const canSend = configured && !configuredLoading && Boolean(request.trim()) && !isRunning && !awaitingTurn;
 
     const send = (): void => {
       if (!canSend) return;
       const text = request.trim();
       setRequest('');
       store.send(text, { agentSession, activeDocumentId: getActiveDocumentId() }).catch(() => null);
+    };
+
+    const answer = (value: TAgentQuestionAnswer): void => {
+      store.answer(value, { agentSession, activeDocumentId: getActiveDocumentId() }).catch(() => null);
     };
 
     const activeSession = store.activeSession;
@@ -205,22 +224,40 @@ export const AgentChatPanel: React.FC<IAgentChatPanelProps> = observer(
           >
             {t('agent-chat:redo')}
           </Button>
+          <Tooltip title={t('agent-chat:dont-ask-tooltip')}>
+            <Space size={4}>
+              <Switch
+                size="small"
+                checked={!store.allowQuestions}
+                onChange={(checked) => store.setAllowQuestions(!checked)}
+              />
+              <Typography.Text type="secondary" style={{ fontSize: 12 }}>
+                {t('agent-chat:dont-ask')}
+              </Typography.Text>
+            </Space>
+          </Tooltip>
         </Space>
 
         {store.error && <ErrorNotice error={store.rawError} text={store.error} renderError={renderError} />}
 
         <div style={styles.messages}>
           {(activeSession?.turns ?? []).map((turn) => (
-            <TurnView key={turn.id} turn={turn} rawError={store.getTurnError(turn.id)} renderError={renderError} />
+            <TurnView
+              key={turn.id}
+              turn={turn}
+              rawError={store.getTurnError(turn.id)}
+              renderError={renderError}
+              onAnswer={awaitingTurn?.id === turn.id && !isRunning ? answer : null}
+            />
           ))}
           {pendingRequest !== null && <RunningTurnView agentSession={agentSession} request={pendingRequest} />}
         </div>
 
         <TextArea
           rows={3}
-          placeholder={t('agent-chat:input-placeholder')}
+          placeholder={awaitingTurn ? t('agent-chat:question-answer-hint') : t('agent-chat:input-placeholder')}
           value={request}
-          disabled={isRunning || !configured || configuredLoading}
+          disabled={isRunning || !configured || configuredLoading || Boolean(awaitingTurn)}
           onChange={(event) => setRequest(event.target.value)}
           onKeyDown={(event) => {
             if (event.key === 'Enter' && (event.metaKey || event.ctrlKey)) send();

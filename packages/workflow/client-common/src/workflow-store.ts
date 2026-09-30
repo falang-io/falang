@@ -224,7 +224,9 @@ export class WorkflowStore {
         if ('window' in globalThis) location.reload();
       },
     });
-    this.agentChat = new AgentChatSessionStore(new IndexedDbAgentSessionStore(projectId));
+    this.agentChat = new AgentChatSessionStore(new IndexedDbAgentSessionStore(projectId), {
+      allowQuestionsStorageKey: `falang:agent-allow-questions:${projectId}`,
+    });
     this.agentChat.loadSessions();
     this.agentSession = new AgentSession(
       null,

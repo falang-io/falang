@@ -414,6 +414,13 @@
     "undo": "Undo",
     "redo": "Redo",
     "input-placeholder": "Describe what the agent should change, or ask a question…",
+    "question-other": "Other…",
+    "question-other-placeholder": "Your own answer",
+    "question-other-submit": "Answer",
+    "question-decide-yourself": "Decide yourself",
+    "question-answer-hint": "Answer the question above to continue",
+    "dont-ask": "Don't ask, just do",
+    "dont-ask-tooltip": "The agent won't ask clarifying questions and will pick the most reasonable option itself.",
     "send": "Send",
     "stop": "Stop"
   }
