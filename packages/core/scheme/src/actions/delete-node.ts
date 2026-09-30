@@ -2,26 +2,8 @@ import { getDto } from '../utils/get-dto.js';
 import type { Scheme } from '../scheme/scheme.js';
 import { syncIcon } from '../utils/sync-icon.js';
 import { EVENT_NODE_DELETED } from '../scheme/scheme-events.js';
-import type { NodeStore } from '../store/node.store.js';
+import { deleteNodeStore } from '../utils/delete-node-store.js';
 import { setOutNode } from './set-out-node.js';
-
-const collectSubtreeIds = (node: NodeStore, ids: string[] = []): string[] => {
-  ids.push(node.id);
-  node.children.forEach((child) => collectSubtreeIds(child, ids));
-  node.mods.forEach((mod) => collectSubtreeIds(mod, ids));
-  if (node.out) collectSubtreeIds(node.out, ids);
-  return ids;
-};
-
-/** Drops the node and everything hanging off it (children, mods, out) from the scheme's indexes. */
-const removeSubtree = (node: NodeStore, scheme: Scheme): void => {
-  const ids = collectSubtreeIds(node);
-  node.dispose();
-  ids.forEach((nodeId) => {
-    scheme.nodes.delete(nodeId);
-    scheme.icons.delete(nodeId);
-  });
-};
 
 export interface IDeleteNodeCommandParams {
   id: string;
@@ -51,7 +33,7 @@ export const deleteNode = ({ id }: IDeleteNodeCommandParams, scheme: Scheme): bo
       parentId: parent.id,
       slot: 'mods',
     });
-    removeSubtree(deletingMod, scheme);
+    deleteNodeStore(deletingMod, scheme, { withIcons: true });
     return true;
   }
 
@@ -73,7 +55,7 @@ export const deleteNode = ({ id }: IDeleteNodeCommandParams, scheme: Scheme): bo
     slot: 'children',
   });
 
-  removeSubtree(deletingNode, scheme);
+  deleteNodeStore(deletingNode, scheme, { withIcons: true });
 
   return true;
 };
