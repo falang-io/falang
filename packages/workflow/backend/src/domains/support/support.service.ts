@@ -90,16 +90,15 @@ export class SupportService {
       .getRawMany<{ userId: string; unread: string | number | null }>();
     if (grouped.length === 0) return [];
     const allUsers = await this.users.findAll();
-    const usernames = new Map(allUsers.map((u) => [u.id, u.username]));
+    const usersById = new Map(allUsers.map((u) => [u.id, u]));
     const threads = await Promise.all(
       grouped.map(async (row): Promise<IApiSupportThread | null> => {
         const last = await this.messages.findOne({ where: { userId: row.userId }, order: { createdAt: 'DESC' } });
         if (!last) return null;
         return {
           userId: row.userId,
-          username: usernames.get(row.userId) ?? row.userId,
-          // TODO(P2): the `User` entity gains an `email` column on another branch; return it here then.
-          email: null,
+          username: usersById.get(row.userId)?.username ?? row.userId,
+          email: usersById.get(row.userId)?.email ?? null,
           lastMessageAt: new Date(last.createdAt).toISOString(),
           lastMessagePreview: last.text.slice(0, PREVIEW_LENGTH),
           unreadCount: Number(row.unread ?? 0),
