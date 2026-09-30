@@ -164,7 +164,13 @@ head:
   In the Admin app the <b>User support</b> page lists the threads on the left (newest activity first, with an unread
   count per thread and a total on the menu entry) and the selected conversation on the right; type a reply and press
   Enter to send (Shift+Enter inserts a line break). Opening a thread marks the user's messages as read. The lists
-  refresh by polling every few seconds — there is no push channel, and no e-mail notification yet.
+  refresh by polling every few seconds — there is no push channel.
+</p>
+<p>
+  With SMTP configured (see "E-mail" above), administrators also get an e-mail when a user writes (every admin
+  with an e-mail address, or the addresses in <code>SUPPORT_NOTIFY_EMAILS</code> if that variable is set), and a user
+  whose e-mail is confirmed gets one when an administrator replies — at most one e-mail per conversation per
+  direction every 10 minutes, with a link back to the app.
 </p>
 
 #### Admin app

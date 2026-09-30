@@ -113,3 +113,59 @@ export const resetPasswordMail = (language: string | undefined, url: string): IM
     ]),
   };
 };
+
+const excerpt = (text: string): string => (text.length > 500 ? `${text.slice(0, 500)}…` : text);
+
+export const supportNewMessageMail = (
+  language: string | undefined,
+  info: { username: string; text: string; adminUrl: string },
+): IMailContent => {
+  const body = excerpt(info.text);
+  if (pickLang(language) === 'ru') {
+    return {
+      subject: `Новое сообщение в поддержку от ${info.username}`,
+      text: `Пользователь ${info.username} написал в поддержку:\n\n${body}\n\nОтветить: ${info.adminUrl}`,
+      html: wrapHtml([
+        `Пользователь ${escapeHtml(info.username)} написал в поддержку:`,
+        escapeHtml(body).replaceAll('\n', '<br>'),
+        `Ответить: ${link(info.adminUrl)}`,
+      ]),
+    };
+  }
+  return {
+    subject: `New support message from ${info.username}`,
+    text: `${info.username} wrote to support:\n\n${body}\n\nReply: ${info.adminUrl}`,
+    html: wrapHtml([
+      `${escapeHtml(info.username)} wrote to support:`,
+      escapeHtml(body).replaceAll('\n', '<br>'),
+      `Reply: ${link(info.adminUrl)}`,
+    ]),
+  };
+};
+
+export const supportReplyMail = (
+  language: string | undefined,
+  info: { text: string; clientUrl: string },
+): IMailContent => {
+  const body = excerpt(info.text);
+  if (pickLang(language) === 'ru') {
+    return {
+      subject: 'Администратор ответил на ваше обращение',
+      text: `Администратор ответил на ваше обращение в поддержку:\n\n${body}\n\nОткрыть чат: ${info.clientUrl}`,
+      html: wrapHtml([
+        'Администратор ответил на ваше обращение в поддержку:',
+        escapeHtml(body).replaceAll('\n', '<br>'),
+        `Открыть чат: ${link(info.clientUrl)}`,
+      ]),
+    };
+  }
+  return {
+    subject: 'An administrator replied to your support request',
+    text: `An administrator replied to your support request:\n\n${body}\n\nOpen the chat: ${info.clientUrl}`,
+    html: wrapHtml([
+      'An administrator replied to your support request:',
+      escapeHtml(body).replaceAll('\n', '<br>'),
+      `Open the chat: ${link(info.clientUrl)}`,
+    ]),
+  };
+};

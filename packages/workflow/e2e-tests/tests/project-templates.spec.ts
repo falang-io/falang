@@ -54,7 +54,11 @@ test.describe('project templates', () => {
 
       const dialog = page.getByRole('dialog');
       await dialog.getByTestId('template-name').fill(templateName);
-      await dialog.getByTestId('template-source-project').click();
+      // The admin owns many projects and antd's Select dropdown is virtualized (only ~10 options are in the DOM),
+      // so filter by typing the name first instead of waiting for the option to render.
+      const sourceSelect = dialog.getByTestId('template-source-project');
+      await sourceSelect.click();
+      await sourceSelect.locator('input').fill(sourceName);
       await page
         .locator('.ant-select-dropdown:not(.ant-select-dropdown-hidden)')
         .getByTitle(sourceName, { exact: true })

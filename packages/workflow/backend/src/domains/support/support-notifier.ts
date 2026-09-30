@@ -4,8 +4,6 @@ import type { IApiSupportMessage } from './support.types.js';
  * Notification seam for the support chat. The community default does nothing (`NoopSupportNotifier`); an
  * edition that e-mails admins/users provides its own `SUPPORT_NOTIFIER` (same pattern as `AGENT_USAGE_SINK`:
  * `SupportService` injects it `@Optional()`).
- *
- * TODO(P2): e-mail notifications via MailService, debounced 10 min per thread.
  */
 export interface ISupportNotifier {
   notifyAdminsOfUserMessage: (userId: string, message: IApiSupportMessage) => Promise<void>;

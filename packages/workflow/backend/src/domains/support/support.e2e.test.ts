@@ -2,7 +2,10 @@
 import type { INestApplication } from '@nestjs/common';
 import request from 'supertest';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
+import type { CapturingMailTransport } from '../../test-utils/capturing-mail-transport.js';
 import { auth, createTestApp, login } from '../../test-utils/e2e-app.js';
+import { MAIL_TRANSPORT } from '../mail/mail.service.js';
+import { UsersService } from '../users/users/users.service.js';
 
 describe('support chat (e2e)', () => {
   let app: INestApplication;
@@ -113,5 +116,30 @@ describe('support chat (e2e)', () => {
           .send({ text: 'a'.repeat(4000) })
       ).status,
     ).toBe(201);
+  });
+
+  it('lists the real e-mail and mails a verified user about an admin reply', async () => {
+    await app.get(UsersService).create({
+      username: 'carol',
+      password: 'password123',
+      email: 'carol@x.test',
+      emailVerifiedAt: new Date(),
+      language: 'ru',
+    });
+    const carolToken = await login(app, 'carol', 'password123');
+    await http().post('/support/messages').set(auth(carolToken)).send({ text: 'question' });
+    const threads = await http().get('/admin/support/threads').set(auth(adminToken));
+    const carol = (threads.body as { username: string; email: string | null; userId: string }[]).find(
+      (t) => t.username === 'carol',
+    )!;
+    expect(carol.email).toBe('carol@x.test');
+    await http()
+      .post(`/admin/support/threads/${carol.userId}/messages`)
+      .set(auth(adminToken))
+      .send({ text: 'the answer' });
+    const transport = app.get<CapturingMailTransport>(MAIL_TRANSPORT);
+    const mails = transport.to('carol@x.test');
+    expect(mails).toHaveLength(1);
+    expect(mails[0]?.text).toContain('the answer');
   });
 });
