@@ -1,3 +1,4 @@
+import { eventTracker } from './analytics/event-tracker.js';
 import { action, computed, makeObservable, observable, runInAction } from 'mobx';
 import { workflowApi, type IApiProject, type IApiProjectExport } from './api-client.js';
 
@@ -44,6 +45,7 @@ export class ProjectListStore {
         this.projects.push(project);
         this.isCreating = false;
       });
+      eventTracker.track('project_created', { fromTemplate: false });
       return project;
     } catch (error) {
       runInAction(() => {

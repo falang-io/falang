@@ -1,6 +1,8 @@
 import type React from 'react';
+import { useEffect } from 'react';
 import { observer } from 'mobx-react-lite';
 import { ConfigProvider, Spin, theme as antdTheme } from 'antd';
+import { eventTracker } from './analytics/event-tracker.js';
 import { authStore } from './auth-store.js';
 import { navigationStore } from './navigation-store.js';
 import { LoginPage } from './components/login-page.js';
@@ -24,6 +26,11 @@ const styles: Record<string, React.CSSProperties> = {
 
 export const App: React.FC = observer(() => {
   const extensions = useClientExtensions();
+  const trackerHandler = extensions.eventTracker ?? null;
+  useEffect(() => {
+    eventTracker.setHandler(trackerHandler);
+    return () => eventTracker.setHandler(null);
+  }, [trackerHandler]);
   const content = (() => {
     if (!authStore.isAuthChecked) {
       return (

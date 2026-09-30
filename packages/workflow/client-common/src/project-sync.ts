@@ -1,3 +1,4 @@
+import { eventTracker } from './analytics/event-tracker.js';
 // oxlint-disable max-lines -- one class owning every kind of backend I/O for one open project
 // (tree/documents CRUD, debounced content saves now lock-aware per ADR 0029 (private), build/run/
 // publish/prod); splitting it defeats the "one place to see everything a project sync does" point
@@ -321,6 +322,7 @@ export class ProjectSync {
         this.lastPublishedVersion = version;
         this.hasVersions = true;
       });
+      eventTracker.track('version_published');
     } catch (error) {
       runInAction(() => {
         this.isPublishing = false;
