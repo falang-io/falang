@@ -6,7 +6,7 @@ import type { IAgentContextProvider } from './context-provider.js';
 import type { IAgentDocumentResolver } from './document-resolver.js';
 import { createHomeOnlyDocumentResolver } from './document-resolver.js';
 import { getFocusTargetId } from './focus-target.js';
-import { AGENT_TOOLS } from './tools.js';
+import { AGENT_TOOLS, READ_ONLY_CORE_TOOLS } from './tools.js';
 import type { IAgentToolProvider } from './tool-provider.js';
 import type { TToolExecutionResult } from './tool-executor.js';
 import { executeFinish, executeToolCall } from './tool-executor.js';
@@ -280,7 +280,7 @@ export class AgentSession {
     if ('error' in resolved) return fail(resolved.error);
     const targetScheme = resolved.scheme;
     this.onOpenDocument?.(targetScheme);
-    ensureGroupOpen(targetScheme, openGroups);
+    if (!READ_ONLY_CORE_TOOLS.has(call.name)) ensureGroupOpen(targetScheme, openGroups);
 
     const focusId = getFocusTargetId(call, targetScheme);
     if (focusId) {

@@ -1,3 +1,4 @@
+// oxlint-disable max-lines -- grew past 300 with the `allowedTools` narrowing (ADR 0046 (private)); one provider, one file.
 import type { ILlmToolCall, ILlmToolDefinition, TToolExecutionResult } from '@falang/agent';
 import type { IAgentToolProvider } from '@falang/agent';
 import { isValidFunctionName } from '@falang/dto';
@@ -166,15 +167,19 @@ const TOOLS: readonly ILlmToolDefinition[] = [
  * (and its `ProjectSync`-backed autosave) the human "+" flow already uses.
  */
 export class DocumentToolProvider implements IAgentToolProvider {
-  readonly tools = TOOLS;
+  readonly tools: readonly ILlmToolDefinition[];
 
   private readonly store: WorkflowStore;
 
-  constructor(store: WorkflowStore) {
+  /** `allowedTools` narrows the offered tools (ADR 0046 (private): a magic run gets `list_types` only —
+   *  no document creation); omitted means all of them. */
+  constructor(store: WorkflowStore, allowedTools?: readonly string[]) {
     this.store = store;
+    this.tools = allowedTools ? TOOLS.filter((tool) => allowedTools.includes(tool.name)) : TOOLS;
   }
 
   execute(call: ILlmToolCall): TToolExecutionResult {
+    if (!this.tools.some((tool) => tool.name === call.name)) return fail(`Unknown tool: ${call.name}`);
     switch (call.name) {
       case 'create_document': {
         return this.createDocument(call.input);

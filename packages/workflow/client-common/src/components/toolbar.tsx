@@ -3,7 +3,7 @@
 import type React from 'react';
 import { useEffect, useState } from 'react';
 import { observer } from 'mobx-react-lite';
-import { Badge, Button, Dropdown, notification, type MenuProps } from 'antd';
+import { Badge, Button, Dropdown, notification, Tooltip, type MenuProps } from 'antd';
 import {
   CarryOutOutlined,
   CodeOutlined,
@@ -12,6 +12,7 @@ import {
   FolderOutlined,
   HistoryOutlined,
   RobotOutlined,
+  ThunderboltOutlined,
 } from '@ant-design/icons';
 import { getGlobalI18n, type TFunction } from '@falang/scheme';
 import { workflowApi } from '../api-client.js';
@@ -112,6 +113,27 @@ const buildProdMenuItems = (
     onClick: onVersions,
   },
 ];
+
+/** The per-user "Magic insert" toggle (ADR 0046 (private)); disabled until an admin configured the agent. */
+const MagicInsertButton: React.FC = observer(() => {
+  const t = getGlobalI18n().t;
+  const store = useWorkflowStore();
+  const configured = store.agentSettings.configured;
+  return (
+    <Tooltip title={t(configured ? 'client:toolbar.magic-insert-tooltip' : 'client:toolbar.magic-insert-disabled')}>
+      <Button
+        icon={<ThunderboltOutlined />}
+        style={S.btn}
+        data-testid="toolbar-magic-insert"
+        disabled={!configured}
+        type={toggleButtonType(configured && store.magicInsert.enabled)}
+        onClick={() => store.magicInsert.setEnabled(!store.magicInsert.enabled)}
+      >
+        {t('client:toolbar.magic-insert')}
+      </Button>
+    </Tooltip>
+  );
+});
 
 export const Toolbar: React.FC = observer(() => {
   const t = getGlobalI18n().t;
@@ -252,6 +274,7 @@ export const Toolbar: React.FC = observer(() => {
       >
         {t('client:toolbar.agent')}
       </Button>
+      <MagicInsertButton />
       <Button
         icon={<HistoryOutlined />}
         style={S.btn}

@@ -72,7 +72,10 @@
       "run": "Run",
       "run-starting": "Starting…",
       "debug": "Debug",
-      "runs": "Runs"
+      "runs": "Runs",
+      "magic-insert": "Magic insert",
+      "magic-insert-tooltip": "A click on a valence point inserts a magic node: describe the step in words and the agent builds it",
+      "magic-insert-disabled": "Magic insert needs the AI agent to be configured by an administrator"
     },
     "run-function-modal": {
       "title": "Run function",
@@ -362,6 +365,25 @@
     "default-password-banner": {
       "message": "The default admin password is in use — change it.",
       "action": "Change password"
+    },
+    "magic": {
+      "title": "Magic node",
+      "spell-label": "Text of the step",
+      "ok": "OK",
+      "cancel": "Cancel",
+      "generating": "The agent is building the steps…",
+      "cancel-run": "Cancel generation",
+      "asking": "The agent has a question",
+      "failed": "The agent failed: {{error}}",
+      "retry": "Retry",
+      "idle": "Edit the steps of this node",
+      "hand-edited": "Edited by hand",
+      "note": "Agent's note",
+      "confirm-update-title": "Update the steps to match the new text?",
+      "confirm-update-ok": "Update with AI",
+      "confirm-keep": "Keep as is",
+      "confirm-regenerate-title": "Regenerate the steps with AI?",
+      "confirm-regenerate-ok": "Regenerate"
     }
   },
   "version-history": {

@@ -13,6 +13,8 @@ import { TabsBar } from './tabs-bar.js';
 import { SchemeView } from './scheme-view.js';
 import { FilesTab } from './files-tab.js';
 import { IntegrationsEditor } from './integrations-editor.js';
+import { MagicConfirmModal } from './magic-confirm-modal.js';
+import { MagicEditorModal } from './magic-editor-modal.js';
 import { ProjectRightSidebar } from './project-right-sidebar.js';
 import { Sidebar } from './sidebar.js';
 import { TasksPage } from './tasks-page.js';
@@ -185,6 +187,8 @@ export const ProjectWorkspace: React.FC<Props> = observer(({ projectId }) => {
           <ProjectRightSidebar />
         </div>
       </div>
+      <MagicEditorModal />
+      <MagicConfirmModal />
       <VersionDiffModal
         open={store.diffModalOpen}
         store={store.versionHistory}

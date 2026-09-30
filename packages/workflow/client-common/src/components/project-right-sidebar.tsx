@@ -1,8 +1,6 @@
 import type React from 'react';
-import { useEffect, useState } from 'react';
 import { observer } from 'mobx-react-lite';
 import { AgentChatPanel, ResizeHandle, useResizablePanelWidth } from '@falang/antd';
-import { workflowApi } from '../api-client.js';
 import { useClientExtensions } from '../extensions/client-extensions.js';
 import { useWorkflowStore } from '../workflow-store-context.js';
 import { DebuggerPanel } from './debugger-panel.js';
@@ -24,42 +22,6 @@ const styles: Record<string, React.CSSProperties> = {
   runSection: { flex: 1, minHeight: 0, display: 'flex', flexDirection: 'column' },
 };
 
-/** `GET /agent/settings` once for the lifetime of the project workspace — the app-wide admin config
- *  status (ADR 0031 (private)), unrelated to which document/session is open. Lives here rather than
- *  in the old per-tab `Sidebar` so it's fetched once per project, not refetched on every tab switch
- *  (ADR 0036 (private)). */
-const useAgentSettings = (): {
-  readonly configured: boolean;
-  readonly loading: boolean;
-  readonly model: string | null;
-} => {
-  const [loading, setLoading] = useState(true);
-  const [configured, setConfigured] = useState(false);
-  const [model, setModel] = useState<string | null>(null);
-  useEffect(() => {
-    let cancelled = false;
-    workflowApi
-      .getAgentSettings()
-      .then((status) => {
-        if (cancelled) return;
-        setConfigured(status.configured);
-        setModel(status.model);
-      })
-      .catch(() => {
-        if (cancelled) return;
-        setConfigured(false);
-        setModel(null);
-      })
-      .finally(() => {
-        if (!cancelled) setLoading(false);
-      });
-    return () => {
-      cancelled = true;
-    };
-  }, []);
-  return { configured, loading, model };
-};
-
 /**
  * The project-level right sidebar (ADR 0036 (private) §3) — a sibling of the tabs+content column,
  * outside any scheme's `ContainerContext`, so a tab switch (or switching to a non-scheme view like
@@ -79,7 +41,7 @@ export const ProjectRightSidebar: React.FC = observer(() => {
   const extensions = useClientExtensions();
   const hasRun = store.liveRun.watchedRun !== null;
   const hasDebugSession = store.debugSession.status !== 'idle';
-  const agentSettings = useAgentSettings();
+  const agentSettings = store.agentSettings;
   const [width, onResizeStart] = useResizablePanelWidth('falang:panel-width:right-sidebar', 350, {
     min: 260,
     max: 700,
