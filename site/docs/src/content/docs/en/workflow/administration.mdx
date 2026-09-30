@@ -77,18 +77,95 @@ head:
   "Change password" button; it disappears as soon as the password is changed. Change it before exposing the instance to
   the internet.
 </p>
-<p>Two backend settings control public signup:</p>
+<p>
+  <b>E-mail.</b> The backend can send mail over plain SMTP — e-mail confirmation, password reset, the beta-application
+  flow below and account-activation mails all depend on it. Without it every one of those simply does nothing (no
+  error), passwords are reset by an admin as described above, and only the <code>off</code>/<code>open</code> signup
+  modes make sense.
+</p>
 <ul>
   <li>
-    <code>SELF_SERVICE_SIGNUP</code> — <code>false</code> by default. When <code>false</code>, the signup endpoint
-    refuses with <code>403</code> and the login page shows no "Create an account" link. Set it to <code>true</code> to
-    let anyone register (the hosted product does; the local Docker Compose stack does too).
+    <code>SMTP_URL</code> — <code>smtp://user:password@host:587</code> or <code>smtps://user:password@host:465</code>.
+    Unset = mail not configured.
+  </li>
+  <li>
+    <code>MAIL_FROM</code> — the sender address (default <code>noreply@localhost</code>).
+  </li>
+  <li>
+    <code>CLIENT_PUBLIC_URL</code> — the public URL of the client app; every link in a mail (confirm e-mail, reset
+    password) points at it. Falls back to the origin of <code>BACKEND_PUBLIC_URL</code>.
+  </li>
+</ul>
+<p>Public signup is controlled by these backend settings:</p>
+<ul>
+  <li>
+    <code>SIGNUP_MODE</code> — <code>off</code> (default: the signup endpoint answers <code>403</code> and the login
+    page shows no "Create an account" link), <code>open</code> (anyone registers with a username and password; an
+    optional e-mail can be given and is confirmed via a link, but nothing is blocked until it is — a small "e-mail not
+    confirmed" banner with a "send again" button is all), or <code>application</code> (a closed beta: the form asks for
+    an e-mail, a company name and what automation the applicant is interested in — no password; see "Applications
+    and activation" below). The older <code>SELF_SERVICE_SIGNUP=true</code> still works and means <code>open</code>.
+    The local Docker Compose stack runs <code>open</code>.
   </li>
   <li>
     <code>TERMS_URL</code> — optional. When set, signup shows a required "I accept the terms" checkbox linking to this
     URL, the backend rejects a signup without acceptance, and the acceptance time is recorded on the account.
   </li>
+  <li>
+    <code>CAPTCHA_PROVIDER</code> — <code>none</code> (default) or <code>recaptcha</code> (Google reCAPTCHA v2
+    checkbox, with <code>CAPTCHA_SITE_KEY</code> and <code>CAPTCHA_SECRET</code> registered for your domain in the
+    Google console). The captcha guards signup and "Forgot password?"; if Google can't be reached the request fails
+    with <code>503</code> rather than passing.
+  </li>
 </ul>
+<p>
+  With mail configured, the login page also offers "Forgot password?": the user enters their e-mail and, if an
+  activated account with that confirmed e-mail exists, receives a one-hour reset link. The response is the same either
+  way, so the form can't be used to find out whether an address is registered.
+</p>
+
+#### Applications and activation
+
+<p>
+  In <code>SIGNUP_MODE=application</code> nobody creates their own account. A visitor submits an <b>application</b>
+  (e-mail, company, the automation they're interested in, the captcha and the terms checkbox), is told to follow the
+  link in the e-mail, and must confirm the address — an unconfirmed application is never shown as ready. Once the
+  e-mail is confirmed, every admin with an e-mail address gets a "new application" mail, and the applicant sees
+  "Awaiting activation" when they try to sign in.
+</p>
+<ul>
+  <li>
+    On the Users page an application shows its e-mail, company and an <b>Activated</b> column ("no", or an
+    "e-mail not confirmed" tag while the link hasn't been followed). The "only pending activation" switch filters the
+    table down to applications waiting for you; "Details" opens the full card (e-mail, status, company, interest,
+    signup source, the registration/confirmation/activation dates).
+  </li>
+  <li>
+    <b>Activate</b> generates the account's password (the same generator "Create user" uses), marks the account
+    active and e-mails "your beta account is activated" with the login (the e-mail address) and that password, plus
+    the advice to change it. If the mail can't be sent (mail not configured or the SMTP server refused), the password
+    is shown to you once in a dialog instead — hand it over yourself.
+  </li>
+  <li>
+    Until activation, signing in answers "your account is awaiting activation" — not "wrong password". An account
+    created by an admin with "Create user" is active immediately, as before; an optional e-mail can be given there and
+    counts as confirmed.
+  </li>
+</ul>
+
+#### User support
+
+<p>
+  Every signed-in user has a <b>Support</b> button (project list, Runs and Tasks pages, and the editor toolbar) that
+  opens a text chat with the deployment's administrators; a badge on it counts unread replies. There is one thread per
+  user, text only, no attachments.
+</p>
+<p>
+  In the Admin app the <b>User support</b> page lists the threads on the left (newest activity first, with an unread
+  count per thread and a total on the menu entry) and the selected conversation on the right; type a reply and press
+  Enter to send (Shift+Enter inserts a line break). Opening a thread marks the user's messages as read. The lists
+  refresh by polling every few seconds — there is no push channel, and no e-mail notification yet.
+</p>
 
 #### Admin app
 
