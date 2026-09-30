@@ -29,6 +29,8 @@ import { FoldersModule } from '../domains/projects/folders/folders.module.js';
 import { AgentUsage } from '../domains/agent-chat/agent-usage.entity.js';
 import { Project } from '../domains/projects/projects/project.entity.js';
 import { ProjectsModule } from '../domains/projects/projects/projects.module.js';
+import { ProjectTemplate } from '../domains/projects/templates/project-template.entity.js';
+import { ProjectTemplatesModule } from '../domains/projects/templates/project-templates.module.js';
 import { TreeModule } from '../domains/projects/tree/tree.module.js';
 import { ProjectBlob } from '../domains/projects/versioning/project-blob.entity.js';
 import { ProjectCommit } from '../domains/projects/versioning/project-commit.entity.js';
@@ -70,11 +72,13 @@ export const buildTestAppImports = (extraModules: TAppImport[] = []) => [
       UserLimits,
       File,
       AgentUsage,
+      ProjectTemplate,
     ],
   }),
   UsersModule,
   AuthModule,
   PersonalAccessTokensModule,
+  ProjectTemplatesModule,
   ProjectsModule,
   FoldersModule,
   DocumentsModule,

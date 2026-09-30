@@ -38,6 +38,18 @@ export interface IAdminAgentSettings {
   readonly updatedAt: string | null;
 }
 
+/** `GET /admin/project-templates` row — see `ProjectTemplatesService`. */
+export interface IAdminProjectTemplate {
+  readonly id: string;
+  readonly name: string;
+  readonly description: string;
+  readonly enabled: boolean;
+  readonly sortOrder: number;
+  readonly sourceProjectId: string | null;
+  readonly createdBy: string | null;
+  readonly updatedAt: string;
+}
+
 /**
  * `GET`/`PUT /admin/users/:id/limits` row shape — per-user file/quota overrides. See
  * ADR 0038 (private) §2.
@@ -97,6 +109,37 @@ export const adminApi = {
     }),
 
   deleteAgentSettings: () => apiRequest<null>('/admin/settings/agent', { method: 'DELETE' }),
+
+  listProjectTemplates: () => apiRequest<IAdminProjectTemplate[]>('/admin/project-templates'),
+
+  createProjectTemplate: (input: { name: string; description: string; sourceProjectId: string }) =>
+    apiRequest<IAdminProjectTemplate>('/admin/project-templates', { method: 'POST', body: JSON.stringify(input) }),
+
+  updateProjectTemplate: (
+    id: string,
+    patch: { name?: string; description?: string; enabled?: boolean; sortOrder?: number },
+  ) =>
+    apiRequest<IAdminProjectTemplate>(`/admin/project-templates/${id}`, {
+      method: 'PATCH',
+      body: JSON.stringify(patch),
+    }),
+
+  refreshProjectTemplate: (id: string, sourceProjectId: string) =>
+    apiRequest<IAdminProjectTemplate>(`/admin/project-templates/${id}/refresh`, {
+      method: 'POST',
+      body: JSON.stringify({ sourceProjectId }),
+    }),
+
+  /** `payload` is a project export (`GET /projects/:id/export` shape). */
+  uploadProjectTemplatePayload: (id: string, payload: unknown) =>
+    apiRequest<IAdminProjectTemplate>(`/admin/project-templates/${id}/payload`, {
+      method: 'PUT',
+      body: JSON.stringify(payload),
+    }),
+
+  exportProjectTemplate: (id: string) => apiRequest<unknown>(`/admin/project-templates/${id}/export`),
+
+  deleteProjectTemplate: (id: string) => apiRequest<null>(`/admin/project-templates/${id}`, { method: 'DELETE' }),
 
   getUserLimits: (id: string) => apiRequest<IUserLimitsResponse>(`/admin/users/${id}/limits`),
 

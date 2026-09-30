@@ -22,6 +22,7 @@ import type {
   IApiLoginResult,
   IApiPersonalAccessToken,
   IApiProject,
+  IApiProjectTemplate,
   IApiProjectDocument,
   IApiProjectExport,
   IApiProjectTree,
@@ -183,6 +184,11 @@ export const workflowApi = {
   deleteProject: (projectId: string) => request<null>(`/projects/${projectId}`, { method: 'DELETE' }),
 
   exportProject: (projectId: string) => request<IApiProjectExport>(`/projects/${projectId}/export`),
+
+  listProjectTemplates: () => request<IApiProjectTemplate[]>('/project-templates'),
+
+  createProjectFromTemplate: (templateId: string, name: string) =>
+    request<IApiProject>(`/projects/from-template/${templateId}`, { method: 'POST', body: JSON.stringify({ name }) }),
 
   importProject: (payload: IApiProjectExport) =>
     request<IApiProject>('/projects/import', { method: 'POST', body: JSON.stringify(payload) }),
