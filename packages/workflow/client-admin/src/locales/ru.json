@@ -7,7 +7,8 @@
       "agent-settings-menu": "ИИ-агент",
       "back-to-app": "← Вернуться в приложение",
       "logout": "Выйти",
-      "change-password": "Сменить пароль"
+      "change-password": "Сменить пароль",
+      "project-templates-menu": "Шаблоны проектов"
     },
     "forbidden": {
       "title": "403",
@@ -94,6 +95,41 @@
       "load-failed": "Не удалось загрузить настройки ИИ-агента",
       "save-failed": "Не удалось сохранить настройки ИИ-агента",
       "delete-failed": "Не удалось сбросить настройки ИИ-агента"
+    },
+    "project-templates-page": {
+      "title": "Шаблоны проектов",
+      "create": "Новый шаблон",
+      "name-column": "Название",
+      "description-column": "Описание",
+      "enabled-column": "Включён",
+      "order-column": "Порядок",
+      "source-column": "Исходный проект",
+      "updated-column": "Обновлён",
+      "actions-column": "Действия",
+      "enable": "Включить",
+      "disable": "Отключить",
+      "refresh": "Обновить из проекта",
+      "upload": "Загрузить JSON",
+      "download": "Скачать",
+      "delete": "Удалить",
+      "delete-title": "Удалить шаблон",
+      "delete-description": "Удалить шаблон «{{name}}»? Уже созданные из него проекты не затрагиваются.",
+      "modal-title": "Новый шаблон",
+      "refresh-title": "Обновить «{{name}}» из проекта",
+      "name-label": "Название",
+      "description-label": "Описание",
+      "source-label": "Исходный проект",
+      "source-hint": "Сейчас будет сделан снимок проекта; секреты учётных данных очищаются. Чтобы изменить шаблон позже, отредактируйте исходный проект и нажмите «Обновить из проекта».",
+      "save": "Сохранить",
+      "cancel": "Отмена",
+      "not-set": "—",
+      "load-failed": "Не удалось загрузить шаблоны",
+      "save-failed": "Не удалось сохранить шаблон",
+      "upload-failed": "Не удалось загрузить файл",
+      "invalid-json": "Выбранный файл — не валидный JSON",
+      "download-failed": "Не удалось скачать шаблон",
+      "delete-failed": "Не удалось удалить шаблон",
+      "projects-load-failed": "Не удалось загрузить ваши проекты"
     }
   }
 }

@@ -7,7 +7,8 @@
       "agent-settings-menu": "AI agent",
       "back-to-app": "← Back to app",
       "logout": "Logout",
-      "change-password": "Change password"
+      "change-password": "Change password",
+      "project-templates-menu": "Project templates"
     },
     "forbidden": {
       "title": "403",
@@ -94,6 +95,41 @@
       "load-failed": "Failed to load AI agent settings",
       "save-failed": "Failed to save AI agent settings",
       "delete-failed": "Failed to reset AI agent settings"
+    },
+    "project-templates-page": {
+      "title": "Project templates",
+      "create": "New template",
+      "name-column": "Name",
+      "description-column": "Description",
+      "enabled-column": "Enabled",
+      "order-column": "Order",
+      "source-column": "Source project",
+      "updated-column": "Updated",
+      "actions-column": "Actions",
+      "enable": "Enable",
+      "disable": "Disable",
+      "refresh": "Refresh from project",
+      "upload": "Upload JSON",
+      "download": "Download",
+      "delete": "Delete",
+      "delete-title": "Delete template",
+      "delete-description": "Delete template \"{{name}}\"? Projects already created from it are not affected.",
+      "modal-title": "New template",
+      "refresh-title": "Refresh \"{{name}}\" from project",
+      "name-label": "Name",
+      "description-label": "Description",
+      "source-label": "Source project",
+      "source-hint": "A snapshot of the project is taken now; credential secrets are blanked out. To edit a template later, edit the source project and use \"Refresh from project\".",
+      "save": "Save",
+      "cancel": "Cancel",
+      "not-set": "—",
+      "load-failed": "Failed to load templates",
+      "save-failed": "Failed to save template",
+      "upload-failed": "Failed to upload the file",
+      "invalid-json": "The selected file is not valid JSON",
+      "download-failed": "Failed to download the template",
+      "delete-failed": "Failed to delete template",
+      "projects-load-failed": "Failed to load your projects"
     }
   }
 }

@@ -33,6 +33,7 @@ import { FoldersModule } from './domains/projects/folders/folders.module.js';
 import { HealthModule } from './domains/health/health.module.js';
 import { Project } from './domains/projects/projects/project.entity.js';
 import { ProjectsModule } from './domains/projects/projects/projects.module.js';
+import { ProjectTemplatesModule } from './domains/projects/templates/project-templates.module.js';
 import { TreeModule } from './domains/projects/tree/tree.module.js';
 import { VersioningModule } from './domains/projects/versioning/versioning.module.js';
 import { RunsModule } from './domains/runs/runs.module.js';
@@ -73,6 +74,7 @@ const buildBuiltInImports = (): TAppImport[] => [
   UsersModule,
   AuthModule,
   PersonalAccessTokensModule,
+  ProjectTemplatesModule,
   ProjectsModule,
   FoldersModule,
   DocumentsModule,

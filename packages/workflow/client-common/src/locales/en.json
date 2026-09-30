@@ -27,6 +27,7 @@
       "mode-empty": "Empty project",
       "mode-file": "From file",
       "file-hint": "Select a project export (.json) file created with \"Export\" in the project toolbar.",
+      "template-placeholder": "Template (optional)",
       "name-placeholder": "Project name",
       "create": "Create",
       "import": "Import",

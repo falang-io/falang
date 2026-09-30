@@ -28,6 +28,13 @@ export interface IApiLoginResult {
   readonly user: IApiUser;
 }
 
+/** `GET /project-templates` row — an enabled template offered by "New project". */
+export interface IApiProjectTemplate {
+  readonly id: string;
+  readonly name: string;
+  readonly description: string;
+}
+
 export interface IApiProject {
   readonly id: string;
   readonly name: string;
