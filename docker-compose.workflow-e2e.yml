@@ -390,6 +390,10 @@ services:
   mailpit:
     image: axllent/mailpit
     container_name: falang-workflow-e2e-mailpit
+    # Web UI/HTTP API host-published for the workflow-tier auth-email spec run from the host
+    # (`MAILPIT_URL` defaults to this port); the e2e-tests container uses http://mailpit:8025.
+    ports:
+      - '8026:8025'
     networks: [falang-workflow-e2e-network]
 
   client:
@@ -440,6 +444,7 @@ services:
       - BACKEND_URL=http://backend:4000
       - TEMPORAL_ADDRESS=temporal:7233
       - MOCKS_URL=http://mocks:4100
+      - MAILPIT_URL=http://mailpit:8025
       # `media`'s own job API — for a future workflow-tier media spec to drive/inspect jobs
       # directly, mirroring `MOCKS_URL` above. See ADR 0041 (private).
       - MEDIA_URL=http://media:4200

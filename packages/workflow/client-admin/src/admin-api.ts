@@ -11,6 +11,13 @@ export interface IAdminUser {
   readonly language: string;
   readonly createdAt: string;
   readonly projectsCount: number;
+  readonly email: string | null;
+  readonly status: 'pending_email' | 'pending_activation' | 'active';
+  readonly companyName: string | null;
+  readonly automationInterest: string | null;
+  readonly signupSource: 'admin' | 'self-service';
+  readonly emailVerifiedAt: string | null;
+  readonly activatedAt: string | null;
 }
 
 /**
@@ -67,11 +74,17 @@ export const adminApi = {
     apiRequest<IAdminUser>(`/admin/users/${id}/role`, { method: 'PATCH', body: JSON.stringify({ role }) }),
 
   /** The plaintext `password` comes back exactly once — the backend keeps only a hash. */
-  createUser: (username: string) =>
+  createUser: (username: string, email = '') =>
     apiRequest<{ id: string; username: string; password: string }>('/admin/users', {
       method: 'POST',
-      body: JSON.stringify({ username }),
+      body: JSON.stringify(email ? { username, email } : { username }),
     }),
+
+  getUser: (id: string) => apiRequest<IAdminUser>(`/admin/users/${id}`),
+
+  /** `{ sent: true }` when the login+password mail went out; otherwise `password` comes back once for manual hand-over. */
+  activateUser: (id: string) =>
+    apiRequest<{ sent: true } | { sent: false; password: string }>(`/admin/users/${id}/activate`, { method: 'POST' }),
 
   resetUserPassword: (id: string) =>
     apiRequest<{ password: string }>(`/admin/users/${id}/reset-password`, { method: 'POST' }),
