@@ -9,3 +9,4 @@ export * from './modules/ant-agent-chat/agent-chat.store.js';
 export * from './modules/ant-agent-chat/agent-chat-panel.cmp.js';
 export * from './modules/ant-resizable-panel/use-resizable-panel-width.js';
 export * from './modules/ant-resizable-panel/resize-handle.cmp.js';
+export * from './modules/ant-print-export/index.js';
