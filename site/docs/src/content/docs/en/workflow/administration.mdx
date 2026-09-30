@@ -217,3 +217,32 @@ head:
   <code>call-ai-choice</code> nodes inside a workflow — that credential is unaffected and still configured per project,
   same as any other integration.
 </p>
+
+#### Project templates
+
+<p>
+  "New project" offers a template picker: a template is a snapshot of a whole project (folders, documents, the
+  integrations document with every credential's secret fields blanked) that a new project is created from — the same
+  format the project export/import feature uses. Templates live in the database and are managed from the Admin app's
+  <b>Project templates</b> page; a fresh deployment seeds exactly one, "Blank project", so the picker is never empty.
+  Picking no template creates an empty project, exactly as before.
+</p>
+<ul>
+  <li>
+    <b>Create</b> — name, description, and one of your own projects as the source. The snapshot is taken at that
+    moment; later edits to the source project don't change the template until you click <b>Refresh from project</b>.
+    "Editing" a template therefore means: edit the source project in the normal editor, then refresh.
+  </li>
+  <li>
+    <b>Enable / Disable</b> — a disabled template stays in the admin table but is hidden from the picker. The order in
+    the picker follows the template's sort order, then its name.
+  </li>
+  <li>
+    <b>Upload JSON / Download</b> — replace a template's content with an export file produced by the project export
+    feature (validated the same way an import is), or download the current content as one. Uploading detaches the
+    template from its source project.
+  </li>
+  <li>
+    <b>Delete</b> — removes the template; projects already created from it are unaffected.
+  </li>
+</ul>
