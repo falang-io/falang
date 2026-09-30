@@ -28,11 +28,10 @@ const stripOAuth2ClientFields = (piece: IActivepiecesPieceCatalogEntry): IActive
  * since those vendors are deliberately never added to that constant — adding a piece to the
  * service's allowlist must not require a code change here.
  *
- * Fetch-once-cache-forever for this pass (matches this codebase's existing "no scanning/refresh yet"
- * MVP posture elsewhere) — a process restart
- * picks up a changed allowlist. Fails soft (empty list, not thrown) when the service is unreachable
- * or unconfigured, since ordinary document reads/writes route through this for *every* `integrations`
- * document, not just ActivePieces ones — they must not break because a separate service is down.
+ * Fetch-once-cache-forever for this pass (a process restart picks up a changed allowlist) — but only
+ * once a fetch has succeeded, see `getPieces`. Fails soft (empty list, not thrown) when the service
+ * is unreachable or unconfigured, since ordinary document reads/writes route through this for *every*
+ * `integrations` document, not just ActivePieces ones — they must not break because a separate service is down.
  */
 @Injectable()
 export class ActivepiecesCatalogService {
@@ -48,9 +47,22 @@ export class ActivepiecesCatalogService {
     this.oauthCredentials = oauthCredentials;
   }
 
+  /**
+   * Only a successful fetch is cached. A failed one (service still starting, briefly down) yields an
+   * empty list for this call and is retried on the next — caching it would hide every ActivePieces
+   * integration until the backend restarts.
+   */
   getPieces(): Promise<readonly IActivepiecesPieceCatalogEntry[]> {
-    this.cachedPieces ??= this.fetchPieces();
-    return this.cachedPieces;
+    if (this.cachedPieces) return this.cachedPieces;
+    const pending = this.fetchPieces().then((pieces) => {
+      if (pieces === null) {
+        if (this.cachedPieces === pending) this.cachedPieces = null;
+        return [];
+      }
+      return pieces;
+    });
+    this.cachedPieces = pending;
+    return pending;
   }
 
   /**
@@ -79,7 +91,8 @@ export class ActivepiecesCatalogService {
     return pieces.map((piece) => pieceToCredentialIntegration(stripOAuth2ClientFields(piece)));
   }
 
-  private async fetchPieces(): Promise<readonly IActivepiecesPieceCatalogEntry[]> {
+  /** `null` means the fetch failed and must not be cached; an unconfigured service is a definitive (cacheable) `[]`. */
+  private async fetchPieces(): Promise<readonly IActivepiecesPieceCatalogEntry[] | null> {
     const baseUrl = this.config.get<string>('ACTIVEPIECES_SERVICE_URL');
     const secret = this.config.get<string>('ACTIVEPIECES_SERVICE_SECRET');
     if (!baseUrl || !secret) return [];
@@ -88,7 +101,7 @@ export class ActivepiecesCatalogService {
       if (!response.ok) throw new Error(`status ${response.status}`);
       return (await response.json()) as readonly IActivepiecesPieceCatalogEntry[];
     } catch {
-      return [];
+      return null;
     }
   }
 }

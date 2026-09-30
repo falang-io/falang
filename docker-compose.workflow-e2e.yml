@@ -151,11 +151,17 @@ services:
     depends_on:
       minio:
         condition: service_healthy
+    # `mc alias set` is retried: Bitnami's `minio` image first runs a temporary server to create
+    # `MINIO_DEFAULT_BUCKETS`, then stops and restarts it — the healthcheck can pass on the temporary
+    # one, and a single attempt landing in that restart gap fails with "connection refused".
     command:
       - /bin/sh
       - -c
       - >
-        mc alias set local http://minio:9000 falang falangfalang &&
+        attempt=0;
+        until mc alias set local http://minio:9000 falang falangfalang; do
+        attempt=$$((attempt + 1)); [ $$attempt -ge 30 ] && exit 1; sleep 1;
+        done &&
         mc mb --ignore-existing local/falang-files
     networks: [falang-workflow-e2e-network]
 
