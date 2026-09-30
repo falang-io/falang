@@ -276,6 +276,12 @@ services:
       - ADMIN_USERNAMES=
       # Off by default in the backend; the e2e specs register users through POST /auth/register.
       - SELF_SERVICE_SIGNUP=true
+      # Mail: captured by Mailpit; specs register username+password, so signup stays `open`.
+      - SMTP_URL=smtp://mailpit:1025
+      - MAIL_FROM=noreply@falang.local
+      - CLIENT_PUBLIC_URL=http://client:5175
+      - SIGNUP_MODE=open
+      - CAPTCHA_PROVIDER=none
       # OAuth2 callback redirect_uri base — see ADR 0015 (private). Reachable
       # by both `backend` itself and the `e2e-tests` container's browser, since that browser runs
       # *inside* this compose network too (see header note), not on the host.
@@ -381,6 +387,15 @@ services:
       retries: 20
     networks: [falang-workflow-e2e-network]
 
+  mailpit:
+    image: axllent/mailpit
+    container_name: falang-workflow-e2e-mailpit
+    # Web UI/HTTP API host-published for the workflow-tier auth-email spec run from the host
+    # (`MAILPIT_URL` defaults to this port); the e2e-tests container uses http://mailpit:8025.
+    ports:
+      - '8026:8025'
+    networks: [falang-workflow-e2e-network]
+
   client:
     build:
       context: .
@@ -429,6 +444,7 @@ services:
       - BACKEND_URL=http://backend:4000
       - TEMPORAL_ADDRESS=temporal:7233
       - MOCKS_URL=http://mocks:4100
+      - MAILPIT_URL=http://mailpit:8025
       # `media`'s own job API — for a future workflow-tier media spec to drive/inspect jobs
       # directly, mirroring `MOCKS_URL` above. See ADR 0041 (private).
       - MEDIA_URL=http://media:4200

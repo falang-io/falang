@@ -11,7 +11,37 @@
       "have-account": "I already have an account",
       "terms-prefix": "I accept the",
       "terms-link": "terms",
-      "terms-required": "You must accept the terms"
+      "terms-required": "You must accept the terms",
+      "email": "E-mail",
+      "email-optional": "E-mail (optional)",
+      "company": "Company",
+      "interest": "What would you like to automate?",
+      "apply-title": "Apply for early access",
+      "apply-intro": "Falang is in closed beta. Tell us a little about yourself; we will activate your account after reviewing the application.",
+      "apply-submit": "Send application",
+      "captcha-required": "Please confirm you are not a robot",
+      "check-email-title": "Check your e-mail",
+      "check-email-text": "We sent an e-mail to {{email}} — follow the link in it to confirm your address.",
+      "resend": "Send again",
+      "resent": "Sent",
+      "back-to-signin": "Back to sign in",
+      "forgot-link": "Forgot password?",
+      "forgot-title": "Reset password",
+      "forgot-submit": "Send reset link",
+      "forgot-sent": "If the address exists, a mail has been sent.",
+      "reset-title": "New password",
+      "new-password": "New password",
+      "repeat-password": "Repeat password",
+      "passwords-differ": "Passwords do not match",
+      "reset-submit": "Save password",
+      "reset-done": "Password changed. You can sign in now.",
+      "verified-title": "E-mail confirmation",
+      "verified-pending": "E-mail confirmed. Your application is under review; the activation mail will arrive at your address.",
+      "verified-active": "E-mail confirmed, you can sign in.",
+      "verify-failed-title": "Confirmation failed",
+      "verify-failed": "The link is invalid or has expired.",
+      "error-not-activated": "Your account has not been activated yet. We will e-mail you when it is.",
+      "error-email-not-verified": "Confirm your e-mail first — follow the link in the mail we sent you."
     },
     "project-list-page": {
       "title": "Projects",
@@ -363,6 +393,11 @@
     "default-password-banner": {
       "message": "The default admin password is in use — change it.",
       "action": "Change password"
+    },
+    "email-not-verified-banner": {
+      "message": "Your e-mail {{email}} is not confirmed yet.",
+      "action": "Send again",
+      "sent": "Sent"
     }
   },
   "version-history": {

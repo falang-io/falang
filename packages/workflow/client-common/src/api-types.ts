@@ -15,12 +15,38 @@ export interface IApiUser {
   readonly role: 'user' | 'admin';
   /** `true` only for the seeded `admin` account while its password is still `admin` — drives the warning banner. */
   readonly defaultPasswordInUse?: boolean;
+  readonly email?: string | null;
+  /** `false` for a self-registered address not yet confirmed via the mailed link. */
+  readonly emailVerified?: boolean;
+  readonly activatedAt?: string | null;
+  readonly companyName?: string | null;
 }
 
 /** `GET /auth/config` (public) — what the login page needs before anyone is signed in. */
 export interface IApiAuthConfig {
   readonly selfServiceSignup: boolean;
   readonly termsUrl: string | null;
+  /** Absent on an older backend — derive from `selfServiceSignup` then. */
+  readonly signupMode?: 'off' | 'open' | 'application';
+  readonly captcha?: { readonly provider: 'recaptcha'; readonly siteKey: string } | null;
+  readonly mailConfigured?: boolean;
+}
+
+/** `POST /auth/register` body in `application` mode (closed beta). */
+export interface IApiApplicationInput {
+  readonly email: string;
+  readonly companyName: string;
+  readonly automationInterest: string;
+  readonly acceptTerms: boolean;
+  readonly captchaToken: string;
+}
+
+/** `POST /auth/register` body in `open` mode. */
+export interface IApiOpenSignupInput {
+  readonly username: string;
+  readonly password: string;
+  readonly email?: string;
+  readonly acceptTerms?: boolean;
 }
 
 export interface IApiLoginResult {

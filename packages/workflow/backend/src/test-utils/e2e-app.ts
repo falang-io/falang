@@ -13,6 +13,9 @@ import { UserLimits } from '../domains/admin/user-limits/user-limits.entity.js';
 import { AgentChatModule } from '../domains/agent-chat/agent-chat.module.js';
 import { AuthModule } from '../domains/auth/auth/auth.module.js';
 import { JwtAuthGuard } from '../domains/auth/auth/jwt-auth.guard.js';
+import { AuthToken } from '../domains/auth/auth-tokens/auth-token.entity.js';
+import { MAIL_TRANSPORT } from '../domains/mail/mail.service.js';
+import { CapturingMailTransport } from './capturing-mail-transport.js';
 import { PersonalAccessToken } from '../domains/auth/personal-access-tokens/personal-access-token.entity.js';
 import { PersonalAccessTokensModule } from '../domains/auth/personal-access-tokens/personal-access-tokens.module.js';
 import { FILE_STORAGE } from '../domains/files/file-storage.js';
@@ -73,6 +76,7 @@ export const buildTestAppImports = (extraModules: TAppImport[] = []) => [
       File,
       AgentUsage,
       ProjectTemplate,
+      AuthToken,
     ],
   }),
   UsersModule,
@@ -112,6 +116,7 @@ export const buildTestAppImports = (extraModules: TAppImport[] = []) => [
 export const createTestApp = async (
   beforeInit?: (app: INestApplication) => void | Promise<void>,
 ): Promise<INestApplication> => {
+  // `SIGNUP_MODE` (per-test via `vi.stubEnv` before this call) wins over this legacy flag.
   // Signup is off by default in production; most suites register users through the API, so the
   // harness opts in unless a test explicitly set the flag first (`vi.stubEnv` after this call wins).
   process.env.SELF_SERVICE_SIGNUP ??= 'true';
@@ -125,6 +130,9 @@ export const createTestApp = async (
     // See ADR 0038 (private) §2.
     .overrideProvider(FILE_STORAGE)
     .useValue(new InMemoryFileStorage())
+    // Mail goes to a capturing fake (`app.get(MAIL_TRANSPORT)`), never to SMTP.
+    .overrideProvider(MAIL_TRANSPORT)
+    .useValue(new CapturingMailTransport())
     .compile();
 
   // `rawBody: true` — matches `main.ts`'s own bootstrap option, so `req.rawBody` is populated the

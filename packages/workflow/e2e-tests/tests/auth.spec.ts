@@ -34,4 +34,17 @@ test.describe('auth', () => {
     await page.reload();
     await expect(page.getByRole('heading', { name: 'Sign in' })).toBeVisible();
   });
+
+  test('signing up with an e-mail shows the "e-mail not confirmed" banner', async ({ page }) => {
+    const suffix = Date.now().toString(36);
+    const email = `banner${suffix}@example.test`;
+    await page.goto('/');
+    await page.getByRole('button', { name: 'Create an account' }).click();
+    await page.getByLabel('Username').fill(`banner${suffix}`);
+    await page.getByLabel('E-mail (optional)').fill(email);
+    await page.getByLabel('Password').fill('banner-password-1');
+    await page.getByRole('button', { name: 'Sign up' }).click();
+    await expect(page.getByRole('heading', { name: 'Projects' })).toBeVisible();
+    await expect(page.getByText(`Your e-mail ${email} is not confirmed yet.`)).toBeVisible();
+  });
 });
