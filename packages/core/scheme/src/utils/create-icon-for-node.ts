@@ -15,7 +15,7 @@ export const createIconForNode = (node: NodeStore, scheme: Scheme): IconStore =>
     dataNode: node,
     nodeConfig,
   });
-  if (node.children.length > 0) {
+  if (node.children.length > 0 && !checker.hidesChildren(icon)) {
     const childIcons = node.children.map((child) => createIconForNode(child, scheme));
     if (checker.isWithList(icon)) {
       icon.list.push(...childIcons);

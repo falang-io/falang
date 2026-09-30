@@ -51,6 +51,10 @@ export const checker = {
   isContour(icon?: IconStore | null): icon is ContourIconStore {
     return hasFlag(icon, IconFlags.Contour);
   },
+  /** The icon draws none of its node's descendants (no icons are created for them); see `resolveVisibleIconId`. */
+  hidesChildren(icon?: IconStore | null): boolean {
+    return hasFlag(icon, IconFlags.HidesChildren);
+  },
   isOut(icon?: IconStore | null): icon is OutIconStore {
     return hasFlag(icon, IconFlags.Out);
   },

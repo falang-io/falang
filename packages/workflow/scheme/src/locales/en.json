@@ -29,5 +29,21 @@
       "last": "last {{time}}",
       "skipped": "skipped {{count}}"
     }
+  },
+  "magic": {
+    "placeholder": "Describe the step…",
+    "start": "Start",
+    "end": "End",
+    "status": {
+      "generating": "Generating steps…",
+      "asking": "The assistant is asking a question",
+      "failed": "Generation failed",
+      "handEdited": "Modified by hand"
+    },
+    "menu": {
+      "edit-steps": "Edit steps…",
+      "regenerate": "Regenerate",
+      "unwrap": "Unwrap"
+    }
   }
 }

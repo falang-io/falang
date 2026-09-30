@@ -14,6 +14,34 @@ const isChangedIds = (ids1: string[], ids2: string[]): boolean => {
   return false;
 };
 
+const removeDescendantIcons = (node: NodeStore, scheme: Scheme): void => {
+  node.children.forEach((child) => {
+    removeDescendantIcons(child, scheme);
+    const childIcon = scheme.icons.getIconSafe(child.id);
+    if (childIcon) {
+      childIcon.dispose();
+      scheme.icons.delete(child.id);
+    }
+  });
+  if (node.out) {
+    const outIcon = scheme.icons.getIconSafe(node.out.id);
+    if (outIcon) {
+      outIcon.dispose();
+      scheme.icons.delete(node.out.id);
+    }
+  }
+};
+
+/** Whether `node` lies strictly inside an icon that hides its descendants (`IconFlags.HidesChildren`) — it has no icon and neither do its parents up to that one. */
+const isInsideHiddenIcon = (node: NodeStore, scheme: Scheme): boolean => {
+  let current = node.parent;
+  while (current) {
+    if (checker.hidesChildren(scheme.icons.getIconSafe(current.id))) return true;
+    current = current.parent;
+  }
+  return false;
+};
+
 const updateList = (node: NodeStore, icon: IIconWithList, scheme: Scheme): void => {
   const currentIds = icon.list.iconsIds;
   const newIds = node.children.map((n) => n.id);
@@ -32,6 +60,8 @@ const updateList = (node: NodeStore, icon: IIconWithList, scheme: Scheme): void 
       const toDeleteIcon = scheme.icons.getIcon(toDeleteId);
       toDeleteIcon.dispose();
       scheme.icons.delete(toDeleteIcon.id);
+      // A node moved into an icon that hides its children keeps no icons at all: drop the whole subtree's.
+      removeDescendantIcons(deletedNode, scheme);
     }
   }
   const newIcons = newIds.map((newId) => scheme.icons.getIcon(newId));
@@ -103,6 +133,8 @@ const syncMods = (node: NodeStore, icon: IconStore, scheme: Scheme): void => {
 
 export const syncIcon = (id: string, scheme: Scheme): void => {
   const node = scheme.nodes.getNode(id);
+  // Everything below a hiding icon (e.g. inside a `magic` node) has no icons to keep in sync.
+  if (isInsideHiddenIcon(node, scheme)) return;
   const icon = scheme.icons.getIconSafe(id);
   if (!icon) {
     createIcon(node, scheme);

@@ -3,6 +3,7 @@ import { reaction } from 'mobx';
 import { TOKEN_CSS_CLASSES } from '../../di-tokens.js';
 import type { Scheme } from '../../scheme/scheme.js';
 import type { IModule } from '../../utils/i-module.js';
+import { resolveVisibleIconId } from '../../utils/resolve-visible-icon-id.js';
 import { scrollToNode } from '../../utils/scroll-to-node.js';
 import { TOKEN_CONTEXT_MENU } from '../context-menu/context-menu.service.token.js';
 import { BREAKPOINT_DOT_SIZE, BreakpointsLayer } from './breakpoints.layer.js';
@@ -98,9 +99,11 @@ export class DebuggerModule implements IModule {
       reaction(
         () => service.currentNodeId,
         (nodeId, previousNodeId) => {
-          if (previousNodeId) cssClasses.removeBlockClass(previousNodeId, DEBUG_CURRENT_BLOCK_CLASS);
+          if (previousNodeId) {
+            cssClasses.removeBlockClass(resolveVisibleIconId(scheme, previousNodeId), DEBUG_CURRENT_BLOCK_CLASS);
+          }
           if (!nodeId) return;
-          cssClasses.addBlockClass(nodeId, DEBUG_CURRENT_BLOCK_CLASS);
+          cssClasses.addBlockClass(resolveVisibleIconId(scheme, nodeId), DEBUG_CURRENT_BLOCK_CLASS);
           scrollToNode(scheme, nodeId);
         },
         { fireImmediately: true },

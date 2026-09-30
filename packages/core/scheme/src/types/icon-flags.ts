@@ -29,6 +29,8 @@ export enum IconFlags {
   WithFixedChildren = 1 << 23,
   WithOwnLines = 1 << 24,
   WithLines = 1 << 25,
+  /** The icon draws none of its node's descendants; see `resolveVisibleIconId`. */
+  HidesChildren = 1 << 26,
 }
 
 export const addFlag = (flag: IconFlags | undefined, ...toAdd: IconFlags[]): IconFlags => {
