@@ -41,6 +41,7 @@
       "export": "Export",
       "exporting": "Exporting…",
       "export-failed": "Failed to export project",
+      "export-pdf": "PDF",
       "versions": "Versions",
       "files": "Files",
       "tasks": "Tasks",
@@ -423,5 +424,20 @@
     "dont-ask-tooltip": "The agent won't ask clarifying questions and will pick the most reasonable option itself.",
     "send": "Send",
     "stop": "Stop"
+  },
+  "print-export": {
+    "title": "Export to PDF",
+    "hint": "One page per document. Format is chosen per scheme (A4–A1).",
+    "all": "All",
+    "active-only": "Active document only",
+    "print": "Print",
+    "cancel": "Cancel",
+    "nothing": "No documents to print",
+    "save-pdf": "Save as PDF",
+    "close": "Close",
+    "measuring": "Measuring…",
+    "timeout": "Layout did not settle",
+    "portrait": "portrait",
+    "landscape": "landscape"
   }
 }

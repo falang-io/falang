@@ -4,7 +4,7 @@ import { reaction } from 'mobx';
 import { observer } from 'mobx-react-lite';
 import { ContainerContext, getGlobalI18n } from '@falang/scheme';
 import { message } from 'antd';
-import { ResizeHandle, useResizablePanelWidth, VersionDiffModal } from '@falang/antd';
+import { PrintExportModal, PrintLayer, ResizeHandle, useResizablePanelWidth, VersionDiffModal } from '@falang/antd';
 import { INTEGRATIONS_DOCUMENT_TYPE } from '@falang/workflow-integrations-common';
 import { WorkflowStore } from '../workflow-store.js';
 import { WorkflowStoreContext } from '../workflow-store-context.js';
@@ -191,6 +191,18 @@ export const ProjectWorkspace: React.FC<Props> = observer(({ projectId }) => {
         buildReadOnlyScheme={store.buildReadOnlySchemeForDiff}
         onClose={() => store.closeDiffModal()}
       />
+      {store.printExport && (
+        <>
+          <PrintExportModal
+            store={store.printExport}
+            open={store.printExport.stage === 'select'}
+            onClose={() => {
+              if (store.printExport?.stage === 'select') store.closePrintExport();
+            }}
+          />
+          <PrintLayer store={store.printExport} onClose={() => store.closePrintExport()} />
+        </>
+      )}
     </WorkflowStoreContext>
   );
 });
