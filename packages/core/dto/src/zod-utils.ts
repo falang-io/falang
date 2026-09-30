@@ -20,13 +20,16 @@ export const createZodUnion = (groups: readonly INodesGroupLike[]): z.ZodUnion =
   // the unfiltered `union` below via `getDocumentZod`, but must never be accepted as a nested child.
   // Built lazily (and memoized) since `validatorsMap` isn't fully populated until every entry of
   // `allNodes` below has been visited once.
-  let statementUnion: z.ZodUnion | null = null;
-  const getStatementUnion = (): z.ZodUnion => {
-    if (!statementUnion) {
-      statementUnion = z.discriminatedUnion(
+  // `excludeChildren` (a per-config list) narrows it further; one memoized union per distinct exclusion set.
+  const statementUnions = new Map<string, z.ZodUnion>();
+  const getStatementUnion = (exclude: readonly string[] = []): z.ZodUnion => {
+    const key = exclude.toSorted().join('\u0000');
+    let cached = statementUnions.get(key);
+    if (!cached) {
+      cached = z.discriminatedUnion(
         'name',
         allNodes
-          .filter((nodeConfig) => !nodeConfig.documentRootOnly)
+          .filter((nodeConfig) => !nodeConfig.documentRootOnly && !exclude.includes(nodeConfig.name))
           .map((nodeConfig) => {
             const item = validatorsMap.get(nodeConfig.name);
             if (!item) throw new Error(`Node not found in map: ${nodeConfig.name}`);
@@ -34,8 +37,9 @@ export const createZodUnion = (groups: readonly INodesGroupLike[]): z.ZodUnion =
           }) as unknown as [z.core.$ZodTypeDiscriminable],
         // zod >=4.6: a ZodDiscriminatedUnion is no longer assignable to ZodUnion; the cast keeps our public type.
       ) as unknown as z.ZodUnion;
+      statementUnions.set(key, cached);
     }
-    return statementUnion;
+    return cached;
   };
   const union = z.discriminatedUnion(
     'name',
@@ -52,7 +56,7 @@ export const createZodUnion = (groups: readonly INodesGroupLike[]): z.ZodUnion =
       }
       if (nodeConfig.children === true) {
         validator = validator.extend({
-          children: z.array(z.lazy(() => getStatementUnion())),
+          children: z.array(z.lazy(() => getStatementUnion(nodeConfig.excludeChildren))),
         });
       } else if (Array.isArray(nodeConfig.children)) {
         const children = nodeConfig.children;

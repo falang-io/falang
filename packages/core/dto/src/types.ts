@@ -78,6 +78,13 @@ export interface INodeConfig<
    */
   readonly documentRootOnly?: boolean;
 
+  /**
+   * With `children: true`: node kinds that are NOT accepted as children of this node (e.g. `magic`
+   * inside `magic`). Enforced by `createZodUnion` and honoured by `@falang/mcp-core`'s
+   * `getAllowedChildNames`. Meaningless for other children policies.
+   */
+  readonly excludeChildren?: readonly string[];
+
   readonly factory?: () => INode;
 }
 

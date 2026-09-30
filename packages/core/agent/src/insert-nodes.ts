@@ -202,6 +202,42 @@ const buildNode = (raw: unknown, ctx: IBuildContext, path: string): TBuildResult
   return { node, ok: true };
 };
 
+/** Validates `specs` as the complete children list for the existing node `parentId` and builds them into
+ *  fresh `INode`s (new ids) — the same checks `insert_nodes` applies to a subtree's children: each spec's node
+ *  kind must be allowed under the parent (`getAllowedChildNames`; a fixed-tuple parent is therefore rejected
+ *  here, its slots are not replaceable), `data` is validated against the kind's schema, `children`/`out` are
+ *  validated recursively, JSON-encoded specs are decoded leniently, and the first-child-out rule is enforced
+ *  (`children[0]` may not carry an `out`). Atomic: nothing is touched on the scheme, and the first error
+ *  (depth-first spec order) is returned with its path, e.g. `children[1].children[0]: …`. The caller applies
+ *  the result itself (e.g. by deleting the old children and dispatching `CMD_INSERT_NODE` per node). */
+export const validateNodeSpecs = (
+  scheme: Scheme,
+  parentId: string,
+  specs: unknown[],
+  nodeKindFilter?: IAgentNodeKindFilter,
+): { ok: true; nodes: INode[] } | { ok: false; error: string } => {
+  const parent = scheme.nodes.getNodeSafe(parentId);
+  if (!parent) return fail(`Node not found: ${parentId}`);
+  const stack = scheme.infra.structure;
+  const allowedNames = getAllowedChildNames(parent.name, stack);
+  const ctx: IBuildContext = { nodeKindFilter, stack };
+  const nodes: INode[] = [];
+  for (const [i, entry] of specs.entries()) {
+    const path = `children[${i}]`;
+    const rec = asNodeSpec(decodeJsonString(entry));
+    if (!rec) return fail(`${path}: must be an object`);
+    if (typeof rec.name !== 'string') return fail(`${path}.name: must be a string`);
+    if (!allowedNames.includes(rec.name)) {
+      return fail(`${path}: ${describeNotAllowedError(rec.name, parent.name, stack, nodeKindFilter)}`);
+    }
+    const built = buildNode(rec, ctx, path);
+    if (!built.ok) return built;
+    if (i === 0 && built.node.out) return fail(describeFirstChildOutError(parent.name, `${path}.out`));
+    nodes.push(built.node);
+  }
+  return { nodes, ok: true };
+};
+
 export const executeInsertNodes = (
   input: unknown,
   scheme: Scheme,

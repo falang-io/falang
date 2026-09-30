@@ -46,6 +46,13 @@ export interface INodeKindDescription {
  * buttons rather than text to match against.
  */
 const NODE_KIND_NOTES: Record<string, string> = {
+  magic: [
+    'A transparent group: `data.spell` is a human, plain-language description of the step (shown as the',
+    'only thing on the canvas), its children are the real nodes and compile inlined, as if they stood in the',
+    'parent directly — variables they create are visible after the group. When editing a document, edit',
+    'inside the group or unwrap it (move its children out) rather than deleting it wholesale. When you',
+    'create a group yourself, set `spell` to describe it. A magic node cannot contain another magic node.',
+  ].join(' '),
   if: [
     'Its two children are positional, not named by branch: `children[0]` is always drawn continuing',
     'straight down (the main path) and `children[1]` to the side. Which one actually runs when the',
@@ -158,7 +165,10 @@ export const getAllowedChildNames = (parentName: string, stack: NodesStack): str
     // nested inside an option.
     const { listed, slots } = getStructuralNames(stack);
     const statements = [...stack.configsMap.values()]
-      .filter((c) => !c.documentRootOnly && !slots.has(c.name) && !listed.has(c.name))
+      .filter(
+        (c) =>
+          !c.documentRootOnly && !cfg.excludeChildren?.includes(c.name) && !slots.has(c.name) && !listed.has(c.name),
+      )
       .map((c) => c.name);
     return statements.length === 0 && listed.has(parentName) ? [parentName] : statements;
   }

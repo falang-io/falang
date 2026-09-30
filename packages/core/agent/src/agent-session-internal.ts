@@ -27,6 +27,14 @@ export interface IAgentRunOptions {
    *  run — nothing about a host's "active document" changing mid-run (e.g. because `onOpenDocument` opened
    *  a new tab) can retarget an already-running turn. */
   readonly activeDocumentId?: string | null;
+  /** The node this run is about (ADR 0046); captured once at `run()` start and exposed to context providers
+   *  as `IAgentRunContext.focusNodeId`. */
+  readonly focusNodeId?: string;
+  /** A host-supplied system prompt (ADR 0046). Replaces the default base text (the "you edit a project…"
+   *  intro, the code-fields paragraph and the "currently open document" line); still appended after it, exactly
+   *  as for the default prompt: the `ask_user` rules (when `ask_user` is offered) and every context provider's
+   *  `describe` output. */
+  readonly systemPrompt?: string;
   /** Offer the `ask_user` tool (ADR 0047). Defaults to true; false also tells the prompt to decide alone. */
   readonly allowQuestions?: boolean;
   /** Defaults to `DEFAULT_MAX_CONSECUTIVE_QUESTIONS`. */
@@ -60,6 +68,10 @@ export interface IAgentSessionExtraOptions {
   readonly toolProviders?: readonly IAgentToolProvider[];
   /** Trims what `get_node_kinds` lists (never what insertion accepts) — see `IAgentNodeKindFilter`. */
   readonly nodeKindFilter?: IAgentNodeKindFilter;
+  /** Allowlist over `AGENT_TOOLS` names (ADR 0046): when set, only these core tools are offered; `finish` is
+   *  always kept, `ask_user` stays governed by `allowQuestions`, provider tools are unaffected. A call to a
+   *  filtered-out core tool runs nothing and gets an error result. */
+  readonly coreTools?: readonly string[];
 }
 
 /**
@@ -88,29 +100,33 @@ export const buildSystemPrompt = (
   context: IAgentRunContext,
   contextProviders: readonly IAgentContextProvider[],
   questionPolicy?: IQuestionPolicy,
+  systemPromptOverride?: string,
 ): string => {
   const extraContext = contextProviders.map((provider) => provider.describe(context)).filter(Boolean);
   const activeLine =
     context.activeDocumentId === null
       ? 'No document is open in the editor.'
       : `The user currently has document ${context.activeDocumentId} open in the editor — "this document"/"here" means it.`;
-  const sections = [
-    'You edit a project made of documents, each a tree of typed nodes, by calling the provided tools, one ' +
-      'action per call. Before editing a document, call get_tree and get_node_kinds with its documentId if ' +
-      'you are not sure what is already in it or which node kinds/data shapes are valid at a given point in ' +
-      'its tree. Finish every run by calling the `finish` tool with a direct, first-person reply to the ' +
-      'user — the message they will read in the chat, not a report about what you did.',
-    'Fields on a node that hold code — expressions, conditions, action bodies — are real TypeScript ' +
-      'source, not the literal text an end user will see. Message-text fields (a `data` string whose schema ' +
-      'description says it is template text, e.g. a chat message) are different: they are the *body* of a ' +
-      'template literal whose backticks are added automatically — `Done in ${count} steps` is stored ' +
-      "without any backticks or quotes around it, and `${count}` is substituted with that variable's value " +
-      "at runtime, it does not print literally. Don't read either kind as plain display text — judge the " +
-      '`${...}` parts as TypeScript, and only flag a wording issue for the literal characters outside of ' +
-      "any `${...}`. Always check a string field's schema `description` (from get_node_kinds) to know " +
-      'which kind it is before writing it.',
-    activeLine,
-  ];
+  const sections =
+    typeof systemPromptOverride === 'string'
+      ? [systemPromptOverride]
+      : [
+          'You edit a project made of documents, each a tree of typed nodes, by calling the provided tools, one ' +
+            'action per call. Before editing a document, call get_tree and get_node_kinds with its documentId if ' +
+            'you are not sure what is already in it or which node kinds/data shapes are valid at a given point in ' +
+            'its tree. Finish every run by calling the `finish` tool with a direct, first-person reply to the ' +
+            'user — the message they will read in the chat, not a report about what you did.',
+          'Fields on a node that hold code — expressions, conditions, action bodies — are real TypeScript ' +
+            'source, not the literal text an end user will see. Message-text fields (a `data` string whose schema ' +
+            'description says it is template text, e.g. a chat message) are different: they are the *body* of a ' +
+            'template literal whose backticks are added automatically — `Done in ${count} steps` is stored ' +
+            "without any backticks or quotes around it, and `${count}` is substituted with that variable's value " +
+            "at runtime, it does not print literally. Don't read either kind as plain display text — judge the " +
+            '`${...}` parts as TypeScript, and only flag a wording issue for the literal characters outside of ' +
+            "any `${...}`. Always check a string field's schema `description` (from get_node_kinds) to know " +
+            'which kind it is before writing it.',
+          activeLine,
+        ];
   if (questionPolicy) sections.push(buildAskUserPrompt(questionPolicy));
   if (extraContext.length > 0) sections.push(extraContext.join('\n'));
   return sections.join('\n\n');
@@ -182,3 +198,26 @@ export const ensureGroupOpen = (targetScheme: Scheme, openGroups: Map<Scheme, Hi
   history.beginGroup();
   openGroups.set(targetScheme, history);
 };
+
+/** Whether a core tool is offered under a `coreTools` allowlist (`null` = no allowlist); `finish` always is. */
+export const isCoreToolOffered = (allowlist: ReadonlySet<string> | null, name: string): boolean =>
+  name === 'finish' || allowlist === null || allowlist.has(name);
+
+/** The `IAgentRunContext` handed to context providers: `activeDocumentId`/`focusNodeId` captured at run start,
+ *  and a lazy, uncached resolution of the active document (a resolver throw yields `null`). */
+export const buildRunContext = (
+  activeDocumentId: string | null,
+  focusNodeId: string | undefined,
+  resolver: IAgentDocumentResolver,
+): IAgentRunContext => ({
+  activeDocumentId,
+  focusNodeId,
+  getActiveScheme: () => {
+    if (activeDocumentId === null) return null;
+    try {
+      return resolver.resolve(activeDocumentId);
+    } catch {
+      return null;
+    }
+  },
+});

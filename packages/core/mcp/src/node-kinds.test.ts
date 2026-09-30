@@ -177,3 +177,31 @@ describe('node-kinds', () => {
     ).toBe(true);
   });
 });
+
+describe('magic node kind (ADR 0046 (private))', () => {
+  const magicStack = () =>
+    new NodesStack([
+      functionNodesGroup,
+      new NodesGroup([
+        {
+          name: 'magic',
+          data: { type: zod.object({ spell: zod.string() }), default: () => ({ spell: '' }) },
+          children: true,
+          excludeChildren: ['magic'],
+          haveOut: true,
+        },
+      ]),
+    ]);
+
+  it('getAllowedChildNames honours excludeChildren', () => {
+    const stack = magicStack();
+    expect(getAllowedChildNames('function-body', stack)).toContain('magic');
+    const inside = getAllowedChildNames('magic', stack);
+    expect(inside).not.toContain('magic');
+    expect(inside).toContain('action');
+  });
+
+  it('describeNodeKind attaches the magic notes', () => {
+    expect(describeNodeKind('magic', magicStack()).notes).toContain('transparent group');
+  });
+});

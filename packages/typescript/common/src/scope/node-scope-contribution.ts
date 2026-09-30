@@ -21,6 +21,18 @@ export type TScopeContributor = (data: unknown) => IScopeVariable | undefined;
 interface IScopeContributionSource {
   readonly name: string;
   readonly data?: unknown;
+  readonly children?: readonly IScopeContributionSource[];
+}
+
+/** A transparent group node kind (ADR 0046 (private)): its children's contributions are its own, in order. */
+const TRANSPARENT_GROUP_NODE_NAMES = new Set(['magic']);
+
+/**
+ * Structural, not imported from `@falang/workflow-dto` — the popup-only `magic-function-body` carries
+ * the variables in scope where the edited magic node sits as `data.outerScope`.
+ */
+interface IMagicFunctionBodyScopeData {
+  readonly outerScope: readonly IScopeVariable[];
 }
 
 type TCreateVarData = zod.infer<typeof createVarDto>;
@@ -105,6 +117,19 @@ export const getScopeContribution = (node: IScopeContributionSource): IScopeVari
 };
 
 /**
+ * Like `getScopeContribution`, but plural: a transparent group (`magic`) contributes every one of its
+ * children's contributions, recursively and in order (its own `data` is never a variable); any other
+ * node is `[getScopeContribution(node)]` or `[]`. Use this wherever siblings are walked.
+ */
+export const getScopeContributions = (node: IScopeContributionSource): IScopeVariable[] => {
+  if (TRANSPARENT_GROUP_NODE_NAMES.has(node.name)) {
+    return (node.children ?? []).flatMap((child) => getScopeContributions(child));
+  }
+  const contribution = getScopeContribution(node);
+  return contribution ? [contribution] : [];
+};
+
+/**
  * Registry of node kinds that introduce variables into the scope of THEIR OWN CHILDREN, keyed by
  * node name — distinct from `SCOPE_CONTRIBUTORS` above, which reads a variable a node contributes
  * to its *siblings'* scope. `function-body` carries its function's parameters directly on itself
@@ -151,6 +176,7 @@ const CONTAINER_SCOPE_CONTRIBUTORS: Record<string, (data: unknown) => IScopeVari
     const { dataType, variable } = data as ICallAiChoiceOptionScopeData;
     return [{ name: variable, type: { ...dataType, constant: true } }];
   },
+  'magic-function-body': (data) => [...((data as IMagicFunctionBodyScopeData).outerScope ?? [])],
 };
 
 /** A `CONTAINER_SCOPE_CONTRIBUTORS`-shaped function, registerable at runtime for node kinds this package knows nothing about — see `registerContainerScopeContributor`. */

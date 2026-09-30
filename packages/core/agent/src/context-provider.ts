@@ -12,6 +12,9 @@ export interface IAgentRunContext {
   /** The document open in the editor when this run started, or `null` if none — the same id
    *  `AgentSession` falls back to for a documentId-less tool call. */
   readonly activeDocumentId: string | null;
+  /** The node the run is focused on (`IAgentRunOptions.focusNodeId`, ADR 0046), if any — e.g. the insertion
+   *  point of a magic node. Resolve it against `getActiveScheme()`. */
+  readonly focusNodeId?: string;
   /** Resolves `activeDocumentId` to its `Scheme`, lazily and on every call (not cached) — `null` when
    *  there's no active document, or when resolving it fails (a resolver throw is swallowed here, not
    *  surfaced to the provider). */
