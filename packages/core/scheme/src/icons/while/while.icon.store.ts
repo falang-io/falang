@@ -54,10 +54,10 @@ export class WhileIconStore extends CycleIconStore {
   }
 
   @computed get left(): number {
-    return Math.max(Math.round(this.blockWidth / 2) + CELL_SIZE * 2, this.skewer.left + CELL_SIZE);
+    return Math.max(Math.round(this.blockWidth / 2) + CELL_SIZE * 2, this.skewer.left + CELL_SIZE) + this.modsLeft;
   }
   @computed get right(): number {
-    return Math.max(Math.round(this.blockWidth / 2) + CELL_SIZE, this.skewer.right);
+    return Math.max(Math.round(this.blockWidth / 2) + CELL_SIZE, this.skewer.right) + this.modsRight;
   }
   @computed get height(): number {
     return this.skewer.height + this.blockFullHeight + (this.hasBreak ? CELL_SIZE : 0);

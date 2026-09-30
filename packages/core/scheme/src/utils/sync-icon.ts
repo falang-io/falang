@@ -118,9 +118,8 @@ const syncMods = (node: NodeStore, icon: IconStore, scheme: Scheme): void => {
     }
   }
   for (const toDeleteId of toDelete) {
-    const deletedNode = scheme.nodes.getNodeSafe(toDeleteId);
-    if (!deletedNode) {
-      const toDeleteIcon = scheme.icons.getIcon(toDeleteId);
+    const toDeleteIcon = scheme.icons.getIconSafe(toDeleteId);
+    if (toDeleteIcon) {
       scheme.icons.delete(toDeleteIcon.id);
       toDeleteIcon.dispose();
     }

@@ -63,7 +63,16 @@ export interface INodeConfig<
    */
   readonly childTuple?: TTuple;
 
+  /** @deprecated Unused; declare the allowed mod kinds with `mods` instead (ADR 0049 (private)). */
   readonly haveMods?: boolean;
+
+  /**
+   * Names of the mod-only node kinds this host accepts in its `INode.mods` array (at most one of each
+   * kind). Every kind named in any config's `mods` becomes mod-only: valid only inside a host's
+   * `mods`, never as a `children` statement (see `NodesStack.modKindNames`). A host without this
+   * accepts no mods at all.
+   */
+  readonly mods?: readonly string[];
   readonly haveOut?: boolean;
   readonly outType?: IOutType;
 
@@ -134,11 +143,15 @@ export type NodeFromConfigItem<TList extends readonly INodeConfig[], C extends T
           }
         : { readonly children?: readonly INode[] }) &
   /* ---------- mods ---------- */
-  (C extends { haveMods: true }
+  (C extends { mods: readonly (infer M extends NodeName<TList>)[] }
     ? {
-        readonly mods: readonly NodesFromConfig<TList>[];
+        readonly mods?: readonly Extract<NodesFromConfig<TList>, { name: M }>[];
       }
-    : { readonly mods?: readonly INode[] }) &
+    : C extends { haveMods: true }
+      ? {
+          readonly mods: readonly NodesFromConfig<TList>[];
+        }
+      : { readonly mods?: readonly INode[] }) &
   /* ---------- out ---------- */
   (C extends { haveOut: true }
     ? {

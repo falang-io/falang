@@ -8,6 +8,9 @@ export const IconView: React.FC<{ icon: IconStore }> = observer(({ icon }) => {
     <>
       <IconComponent icon={icon} />
       {checker.isWithChildren(icon) ? icon.children.map((child) => <IconView key={child.id} icon={child} />) : null}
+      {icon.mods.map((mod) => (
+        <IconView key={mod.id} icon={mod} />
+      ))}
     </>
   );
 });

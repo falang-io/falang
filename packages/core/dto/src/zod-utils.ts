@@ -1,5 +1,6 @@
 import z from 'zod';
 import type { INodesGroupLike } from './nodes-stack.js';
+import { buildModsField, checkUniqueMods, collectModKindNames, modKindLeafFields } from './zod-mods.js';
 
 const zodMeta = z.record(
   z.string(),
@@ -15,6 +16,12 @@ export const zodNodeBase = z.object({
 export const createZodUnion = (groups: readonly INodesGroupLike[]): z.ZodUnion => {
   const allNodes = groups.flatMap((g) => g.list);
   const validatorsMap = new Map<string, z.ZodType>();
+  const modKindNames = collectModKindNames(allNodes);
+  const lookupValidator = (name: string): z.ZodType => {
+    const item = validatorsMap.get(name);
+    if (!item) throw new Error(`Node not found in map: ${name}`);
+    return item;
+  };
   // `children: true` means "any *statement* node", not "any node in the stack" — a `documentRootOnly`
   // kind (e.g. `function`, `trigger-function`) may still be the document's own `root`, validated against
   // the unfiltered `union` below via `getDocumentZod`, but must never be accepted as a nested child.
@@ -29,7 +36,10 @@ export const createZodUnion = (groups: readonly INodesGroupLike[]): z.ZodUnion =
       cached = z.discriminatedUnion(
         'name',
         allNodes
-          .filter((nodeConfig) => !nodeConfig.documentRootOnly && !exclude.includes(nodeConfig.name))
+          .filter(
+            (nodeConfig) =>
+              !nodeConfig.documentRootOnly && !modKindNames.has(nodeConfig.name) && !exclude.includes(nodeConfig.name),
+          )
           .map((nodeConfig) => {
             const item = validatorsMap.get(nodeConfig.name);
             if (!item) throw new Error(`Node not found in map: ${nodeConfig.name}`);
@@ -88,10 +98,16 @@ export const createZodUnion = (groups: readonly INodesGroupLike[]): z.ZodUnion =
           ),
         });
       }
-      validator = validator.extend({
-        mods: z.optional(z.array(z.lazy(() => union))),
-        out: z.optional(z.lazy(() => union)),
-      });
+      if (modKindNames.has(nodeConfig.name)) {
+        // A mod kind is a leaf annotation: no children, no out, no mods of its own (ADR 0049 (private)).
+        validator = validator.extend(modKindLeafFields);
+      } else {
+        validator = validator.extend({
+          mods: buildModsField(nodeConfig, lookupValidator),
+          out: z.optional(z.lazy(() => union)),
+        });
+        if (nodeConfig.mods && nodeConfig.mods.length > 0) validator = validator.check(checkUniqueMods);
+      }
       // Universal rule: whatever the children policy (`children: true`, a named array, or a
       // `childTuple`), `children[0]` must never carry an `out` node (break/continue/return/throw).
       // This is exactly what the renderer already does — `SkewerStore.isFirst` (`@falang/scheme`'s

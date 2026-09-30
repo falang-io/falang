@@ -61,7 +61,7 @@ export const MCP_TOOLS: readonly IMcpToolDefinition[] = [
       'Creates a new document of the given type. root is optional — call get_node_kinds first if you intend ' +
       "to pass one; when omitted, the document type's own default (blank) tree is used, ready for a follow-up " +
       'set_document. A passed root is validated the same way set_document validates one (see its own ' +
-      'description for the first-child/out rule).',
+      'description for the first-child/out rule and for `mods`).',
     inputSchema: zod.object({
       folderId: zod.string().nullable().optional(),
       name: zod.string(),
@@ -82,7 +82,9 @@ export const MCP_TOOLS: readonly IMcpToolDefinition[] = [
       'straight down as the main path and can never itself carry an out (break/continue/return/throw) — move ' +
       'the branch that needs the jump to a later position instead (for `if`, swap the two branches and flip ' +
       '`meta.trueOnRight`, which keeps the exact same semantics). Appending the out-type node as a plain last ' +
-      'child compiles the same, but the editor only draws the jump line for a real `out`.',
+      'child compiles the same, but the editor only draws the jump line for a real `out`. A node may carry ' +
+      "side annotations in its `mods` array, but only kinds listed in that node kind's own `mods` (see " +
+      'get_node_kinds), at most one of each kind, and a mod-only kind can never be a child.',
     inputSchema: zod.object({ documentId: zod.string(), root: zod.unknown() }),
     name: 'set_document',
   },

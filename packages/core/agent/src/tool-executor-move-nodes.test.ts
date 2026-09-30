@@ -1,6 +1,6 @@
 import { beforeEach, describe, expect, it } from 'vitest';
 import type { Scheme } from '@falang/scheme';
-import { schemeFactory } from '@falang/scheme';
+import { CMD_INSERT_NODE, schemeFactory } from '@falang/scheme';
 import { getTestInfrastructure } from '@falang/scheme/test-utils/get-test-infrastructure.js';
 import { getTestEmptyDoc } from '@falang/scheme/test-utils/get-test-empty-doc.js';
 import type { ILlmToolCall } from './llm-client.js';
@@ -110,5 +110,16 @@ describe('move_nodes validation', () => {
     expect(errorOf(move(bodyId, 0, switchId, 0, { nodeKindFilter: hideOptions }))).toMatch(
       /allowed: \(\+1 not listed — create an integration first\)$/,
     );
+  });
+
+  it("does not accept a node living in a parent's mods as a move source", () => {
+    const host = insert(bodyId, 0, 'action', 'h');
+    const target = insert(bodyId, 1, 'while', 'c');
+    const mod = scheme.infra.structure.factory('mod1');
+    scheme.commands.dispatchCommand(CMD_INSERT_NODE, { index: 0, node: mod, parentId: host, slot: 'mods' });
+
+    expect(move(host, 0, target, 0).ok).toBe(false);
+    expect(scheme.nodes.getNode(host).mods.map((m) => m.id)).toEqual([mod.id]);
+    expect(scheme.nodes.getNode(target).children).toHaveLength(0);
   });
 });

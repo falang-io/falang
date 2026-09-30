@@ -7,6 +7,7 @@ import {
   EVENT_NODE_DELETED,
   EVENT_NODE_INSERTED,
   EVENT_NODES_MOVED,
+  type TNodeSlot,
 } from '../../scheme/scheme-events.js';
 import { insertNode } from '../../actions/insert-node.js';
 import { deleteNode } from '../../actions/delete-node.js';
@@ -19,7 +20,7 @@ import { setMeta } from '../../actions/set-meta.js';
 export const registerHistoryHandlers = (scheme: Scheme) => {
   let isHistoryActionInProcess = false;
 
-  scheme.events.subscribeEvent(EVENT_NODE_DELETED, ({ index, node, parentId }) => {
+  scheme.events.subscribeEvent(EVENT_NODE_DELETED, ({ index, node, parentId, slot }) => {
     if (isHistoryActionInProcess) return false;
     resolveService(TOKEN_HISTORY, scheme.container).add({
       back: () => {
@@ -29,6 +30,7 @@ export const registerHistoryHandlers = (scheme: Scheme) => {
             index,
             parentId: parentId,
             node,
+            slot,
           },
           scheme,
         );
@@ -55,7 +57,12 @@ export const registerHistoryHandlers = (scheme: Scheme) => {
       logger.warn(`Parent node not found for ${node.id}`);
       return false;
     }
-    const index = parent.children.findIndex((n) => n.id === node.id);
+    let slot: TNodeSlot = 'children';
+    let index = parent.children.findIndex((n) => n.id === node.id);
+    if (index === -1) {
+      slot = 'mods';
+      index = parent.mods.findIndex((n) => n.id === node.id);
+    }
     if (index === -1) {
       logger.warn(`Not found index for ${node.id} in parent ${parent.id}`);
       return false;
@@ -69,6 +76,7 @@ export const registerHistoryHandlers = (scheme: Scheme) => {
             index,
             node: nodeDto,
             parentId: parent.id,
+            slot,
           },
           scheme,
         );

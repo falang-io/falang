@@ -84,3 +84,7 @@ export * from './modules/editor/constants.js';
 export * from './modules/editor/editor.service.js';
 export * from './cmp/base.icon.cmp.js';
 export * from './scheme/scheme-commands.service.js';
+export * from './utils/build-mods-menu.js';
+export * from './icons/side/side.icon.js';
+export * from './icons/side/side.icon.config.js';
+export * from './shapes/timer.js';

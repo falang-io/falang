@@ -51,6 +51,8 @@ export const asNodeSpec = (raw: unknown): Record<string, unknown> | null => {
   return asNodeSpec({ ...outer, ...inner });
 };
 
+const MODS_UNSUPPORTED = 'mods are not supported by insert_nodes; use set_document';
+
 type TBuildResult = { ok: true; node: INode } | { ok: false; error: string };
 
 /** What `buildNode`/`buildChildren` need besides the spec: the stack to validate against and the host's
@@ -72,6 +74,7 @@ const buildOutNode = (raw: unknown, stack: NodesStack, path: string): TBuildResu
   if (typeof name !== 'string') return fail(`${path}.out.name: must be a string`);
   if (!stack.configsMap.has(name)) return fail(`${path}.out: ${describeUnknownKind(name)}`);
   const cfg = stack.getConfig(name);
+  if ('mods' in rec) return fail(`${path}.out.mods: ${MODS_UNSUPPORTED}`);
   if (!cfg.outType) return fail(`${path}.out: node kind "${name}" cannot be used as an out-node (no outType)`);
   let node = stack.factory(name);
   if ('data' in rec) {
@@ -177,6 +180,7 @@ const buildNode = (raw: unknown, ctx: IBuildContext, path: string): TBuildResult
   if (typeof name !== 'string') return fail(`${path}.name: must be a string`);
   if (!stack.configsMap.has(name)) return fail(`${path}: ${describeUnknownKind(name)}`);
   const cfg = stack.getConfig(name);
+  if ('mods' in rec) return fail(`${path}.mods: ${MODS_UNSUPPORTED}`);
 
   let node = stack.factory(name);
   if ('data' in rec) {

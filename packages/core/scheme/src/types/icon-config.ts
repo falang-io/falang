@@ -18,6 +18,12 @@ export interface IIconNodeConfig<TData = unknown, TIcon extends IconStore = Icon
    * If true, title of icon will be 'icon:{name}'
    */
   title?: string | true;
+  /**
+   * Marks this node kind as a mod (ADR 0049): it lives in a host's `mods` list instead of `children`.
+   * `left`/`right` mods widen the host's block (`IconStore.modsLeft`/`modsRight`); `badge` is reserved
+   * for on-block markers and takes no room yet. Must agree with `NodesStack.modKindNames`.
+   */
+  mod?: { placement: 'left' | 'right' | 'badge' };
   // title?: string | true | ((icon: TIcon) => string);
 }
 

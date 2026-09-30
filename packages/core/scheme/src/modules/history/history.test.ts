@@ -8,6 +8,7 @@ import { afterEach } from 'node:test';
 import { insertNode } from '../../actions/insert-node.js';
 import { TOKEN_HISTORY } from './history.store.token.js';
 import { schemeFactory } from '../../scheme/scheme-factory.js';
+import { getDto } from '../../utils/get-dto.js';
 import { getTestEmptyDoc } from '../../../test-utils/get-test-empty-doc.js';
 import { runInAction } from 'mobx';
 import { deleteNode } from '../../actions/delete-node.js';
@@ -427,5 +428,70 @@ describe('History module test', () => {
     assert.deepEqual(bodyNode.meta, meta1);
     history.forward();
     assert.deepEqual(bodyNode.meta, meta2);
+  });
+
+  describe('mods', () => {
+    it('add mod -> back -> forward -> set data -> back -> delete -> back -> forward', () => {
+      const bodyId = scheme.rootNode?.children[1].id;
+      if (!bodyId) throw new Error('Root not set');
+      const history = resolveService(TOKEN_HISTORY, scheme.container);
+      const host = scheme.infra.structure.factory('action');
+      insertNode({ index: 0, node: host, parentId: bodyId }, scheme);
+      history.clear();
+      const dto = () => getDto(host.id, scheme);
+      const modExists = (id: string) => scheme.icons.getIconSafe(id) !== null;
+
+      const mod = scheme.infra.structure.factory('mod1');
+      insertNode({ index: 0, node: mod, parentId: host.id, slot: 'mods' }, scheme);
+      const withMod = dto();
+      assert.deepEqual(
+        withMod.mods?.map((m) => m.id),
+        [mod.id],
+      );
+      assert.isTrue(modExists(mod.id));
+
+      history.back();
+      assert.notExists(dto().mods?.length);
+      assert.isFalse(modExists(mod.id));
+      history.forward();
+      assert.deepEqual(dto(), withMod);
+      assert.isTrue(modExists(mod.id));
+
+      setData({ id: mod.id, data: 7 }, scheme);
+      const withData = dto();
+      history.back();
+      assert.deepEqual(dto(), withMod);
+      history.forward();
+      assert.deepEqual(dto(), withData);
+
+      deleteNode({ id: mod.id }, scheme);
+      assert.notExists(dto().mods?.length);
+      assert.isFalse(modExists(mod.id));
+      history.back();
+      assert.deepEqual(dto(), withData);
+      assert.isTrue(modExists(mod.id));
+      history.forward();
+      assert.notExists(dto().mods?.length);
+      assert.isFalse(modExists(mod.id));
+    });
+
+    it('deleting a host with a mod and undoing restores both', () => {
+      const bodyId = scheme.rootNode?.children[1].id;
+      if (!bodyId) throw new Error('Root not set');
+      const history = resolveService(TOKEN_HISTORY, scheme.container);
+      const host = scheme.infra.structure.factory('action');
+      insertNode({ index: 0, node: host, parentId: bodyId }, scheme);
+      const mod = scheme.infra.structure.factory('mod1');
+      insertNode({ index: 0, node: mod, parentId: host.id, slot: 'mods' }, scheme);
+      const before = getDto(host.id, scheme);
+      history.clear();
+
+      deleteNode({ id: host.id }, scheme);
+      assert.isNull(scheme.icons.getIconSafe(mod.id));
+      history.back();
+      assert.deepEqual(getDto(host.id, scheme), before);
+      assert.isNotNull(scheme.icons.getIconSafe(mod.id));
+      assert.strictEqual(scheme.icons.getIcon(mod.id).parent, scheme.icons.getIcon(host.id));
+    });
   });
 });

@@ -102,6 +102,8 @@ export interface IOldIcon {
   gaps?: number[];
   trueOnRight?: boolean;
   trueIsMain?: boolean;
+  /** Text-domain "side icon" (the timer): `{ id, alias, block: { text } }`, see ADR 0049 (private). */
+  leftSide?: IOldIcon;
   // function
   header?: IOldBlock;
   footer?: IOldBlock;

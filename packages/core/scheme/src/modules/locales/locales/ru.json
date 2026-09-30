@@ -12,6 +12,7 @@
     "return": "Возврат",
     "parallel": "Параллельно",
     "parallel-thread": "Поток",
+    "timer": "Таймер",
     "pseudo-cycle": "Цикл"
   },
   "base": {
