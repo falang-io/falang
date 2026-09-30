@@ -233,6 +233,9 @@ services:
       # upload — see ADR 0038 (private) §2.
       minio-init:
         condition: service_completed_successfully
+      # Must be listed here: `docker compose run e2e-tests` starts only the depends_on closure.
+      mailpit:
+        condition: service_started
     # Overrides `docker/backend.Dockerfile`'s own `CMD ["npm", "run", "start"]` (untouched, still
     # used by `docker-compose.workflow.yml`'s normal dev stack) for this e2e stack only. `npm run
     # start` was confirmed to NOT forward `SIGTERM` to the `tsx`-run Node process it spawns (a
@@ -387,6 +390,8 @@ services:
       retries: 20
     networks: [falang-workflow-e2e-network]
 
+  # NOTE: must stay in `backend`'s depends_on — `docker compose run e2e-tests` only starts the
+  # dependency closure of e2e-tests, so an unreferenced service would never start.
   mailpit:
     image: axllent/mailpit
     container_name: falang-workflow-e2e-mailpit

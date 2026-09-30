@@ -202,6 +202,8 @@ services:
         condition: service_started
       app-postgres:
         condition: service_started
+      mailpit:
+        condition: service_started
       # Ensures the `falang-files` bucket exists before `backend` (or anything that pokes it) ever
       # tries to upload — see ADR 0038 (private) §2.
       minio-init:
