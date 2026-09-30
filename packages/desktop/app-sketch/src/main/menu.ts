@@ -57,6 +57,10 @@ export const buildApplicationMenu = async (mainWindow: BrowserWindow): Promise<v
         accelerator: 'CmdOrCtrl+Shift+E',
         click: () => mainWindow.webContents.send(IPC.menuExportCode),
       },
+      {
+        label: l.exportPdf,
+        click: () => mainWindow.webContents.send(IPC.menuExportPdf),
+      },
       { type: 'separator' },
       // Separate from "Export Code" above (the `logic` domain's export, gated on its own
       // configuration): a `code`-only project has nothing configured there and would show an
