@@ -389,3 +389,14 @@ export interface IApiTask {
  * is what actually interprets a vendor's own keys into struct types.
  */
 export type IApiVendorData = Record<string, Record<string, unknown>>;
+
+/** A message of the user ↔ administrator support chat (`/support/messages`, `/admin/support/threads/:userId/messages`). */
+export interface IApiSupportMessage {
+  readonly id: string;
+  readonly userId: string;
+  readonly authorRole: 'user' | 'admin';
+  readonly authorId: string;
+  readonly text: string;
+  readonly createdAt: string;
+  readonly readAt: string | null;
+}

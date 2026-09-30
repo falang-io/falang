@@ -25,6 +25,7 @@ import { IntegrationsModule } from './domains/integrations/integrations.module.j
 import { REGISTERED_INTEGRATIONS } from './domains/integrations/registered-integrations.js';
 import { ProjectTokenModule } from './domains/internal-auth/project-token.module.js';
 import { ProjectTokenService } from './domains/internal-auth/project-token.service.js';
+import { SupportModule } from './domains/support/support.module.js';
 import { McpModule } from './domains/mcp/mcp.module.js';
 import { Document } from './domains/projects/documents/document.entity.js';
 import { DocumentsModule } from './domains/projects/documents/documents.module.js';
@@ -79,6 +80,7 @@ const buildBuiltInImports = (): TAppImport[] => [
   FoldersModule,
   DocumentsModule,
   AgentChatModule,
+  SupportModule,
   ProjectExportModule,
   TreeModule,
   VersioningModule,

@@ -7,6 +7,7 @@ export * from './auth-store.js';
 export * from './components/change-password-modal.js';
 export * from './components/default-password-banner.js';
 export * from './components/login-page.js';
+export * from './support-store.js';
 export * from './components/language-switcher.js';
 export * from './extensions/client-extensions.js';
 export * from './generate-uuid.js';

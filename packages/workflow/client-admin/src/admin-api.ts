@@ -77,6 +77,27 @@ export interface IUserLimitsResponse {
   readonly overrides: Partial<IUserLimits>;
 }
 
+/** A message of a user's support thread (`/admin/support/threads/:userId/messages`). */
+export interface IAdminSupportMessage {
+  readonly id: string;
+  readonly userId: string;
+  readonly authorRole: 'user' | 'admin';
+  readonly authorId: string;
+  readonly text: string;
+  readonly createdAt: string;
+  readonly readAt: string | null;
+}
+
+/** `GET /admin/support/threads` row — `unreadCount` counts the user's messages no admin has read yet. */
+export interface IAdminSupportThread {
+  readonly userId: string;
+  readonly username: string;
+  readonly email: string | null;
+  readonly lastMessageAt: string;
+  readonly lastMessagePreview: string;
+  readonly unreadCount: number;
+}
+
 /** Thin typed wrappers over `apiRequest` for the `/admin/*` routes — see the ADR's "Admin domain". */
 export const adminApi = {
   listUsers: () => apiRequest<IAdminUser[]>('/admin/users'),
@@ -161,4 +182,20 @@ export const adminApi = {
       method: 'PUT',
       body: JSON.stringify(overrides),
     }),
+
+  listSupportThreads: () => apiRequest<IAdminSupportThread[]>('/admin/support/threads'),
+
+  listSupportMessages: (userId: string) =>
+    apiRequest<IAdminSupportMessage[]>(`/admin/support/threads/${userId}/messages`),
+
+  replyToSupportThread: (userId: string, text: string) =>
+    apiRequest<IAdminSupportMessage>(`/admin/support/threads/${userId}/messages`, {
+      method: 'POST',
+      body: JSON.stringify({ text }),
+    }),
+
+  markSupportThreadRead: (userId: string) =>
+    apiRequest<null>(`/admin/support/threads/${userId}/read`, { method: 'POST' }),
+
+  getSupportUnread: () => apiRequest<{ count: number }>('/admin/support/unread'),
 };

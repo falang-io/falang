@@ -398,6 +398,13 @@
       "message": "Your e-mail {{email}} is not confirmed yet.",
       "action": "Send again",
       "sent": "Sent"
+    },
+    "support": {
+      "button": "Support",
+      "title": "Support",
+      "placeholder": "Write to the administrator… (Enter to send, Shift+Enter for a new line)",
+      "send": "Send",
+      "empty": "No messages yet. Ask us anything."
     }
   },
   "version-history": {

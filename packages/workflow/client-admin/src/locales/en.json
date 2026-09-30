@@ -8,7 +8,8 @@
       "back-to-app": "← Back to app",
       "logout": "Logout",
       "change-password": "Change password",
-      "project-templates-menu": "Project templates"
+      "project-templates-menu": "Project templates",
+      "support-menu": "User support"
     },
     "forbidden": {
       "title": "403",
@@ -159,6 +160,16 @@
       "download-failed": "Failed to download the template",
       "delete-failed": "Failed to delete template",
       "projects-load-failed": "Failed to load your projects"
+    },
+    "support": {
+      "title": "User support",
+      "threads": "Conversations",
+      "select": "Select a conversation on the left.",
+      "placeholder": "Reply… (Enter to send, Shift+Enter for a new line)",
+      "send": "Send",
+      "empty": "No messages.",
+      "you": "Administrator",
+      "no-threads": "No conversations yet."
     }
   }
 }
