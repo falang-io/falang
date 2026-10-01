@@ -3,6 +3,7 @@ import type { Scheme } from './scheme.js';
 import logger from '../utils/logger.js';
 import {
   EVENT_DATA_UPDATED,
+  EVENT_META_UPDATED,
   EVENT_MODE_CHANGED,
   EVENT_NODE_DELETED,
   EVENT_NODE_INSERTED,
@@ -21,6 +22,8 @@ const onChangeEvents = new Set<string>([
   EVENT_NODE_INSERTED.type,
   EVENT_NODES_MOVED.type,
   EVENT_DATA_UPDATED.type,
+  // A meta-only edit (block width, if/while direction, a magic node's flags) must reach autosave too.
+  EVENT_META_UPDATED.type,
   EVENT_OUT_UPDATED.type,
   EVENT_MODE_CHANGED.type,
 ]);

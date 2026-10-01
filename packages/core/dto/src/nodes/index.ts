@@ -8,3 +8,4 @@ export * from './pseudo-cycle.js';
 export * from './contour.js';
 export * from './out.js';
 export * from './mind-tree.js';
+export * from './mod.js';

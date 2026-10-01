@@ -15,6 +15,7 @@ interface IMenuLabels {
   /** The right sidebar's "Agent" toggle (ADR 0036 (private)) — distinct from `agent` above, which
    *  opens the Settings → Agent… configuration modal. */
   agentPanel: string;
+  exportPdf: string;
   edit: string;
   undo: string;
   redo: string;
@@ -47,6 +48,7 @@ const EN: IMenuLabels = {
   buildUpload: 'Build & Upload…',
   versionHistory: 'Version History',
   agentPanel: 'Agent',
+  exportPdf: 'Export PDF…',
   edit: 'Edit',
   undo: 'Undo',
   redo: 'Redo',
@@ -79,6 +81,7 @@ const RU: IMenuLabels = {
   buildUpload: 'Сборка и загрузка…',
   versionHistory: 'История версий',
   agentPanel: 'Агент',
+  exportPdf: 'Экспорт в PDF…',
   edit: 'Правка',
   undo: 'Отменить',
   redo: 'Повторить',

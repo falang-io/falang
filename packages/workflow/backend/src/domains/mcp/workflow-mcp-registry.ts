@@ -1,7 +1,12 @@
 import { NodesGroup, NodesStack } from '@falang/dto';
 import { createDefaultDocumentStackRegistry, type DocumentStackRegistry } from '@falang/mcp-core';
 import { functionNodesGroup } from '@falang/typescript-dto';
-import { activepiecesActionNodesGroup, triggerFunctionNodesGroup, TRIGGER_FUNCTION_NAME } from '@falang/workflow-dto';
+import {
+  activepiecesActionNodesGroup,
+  magicNodesGroup,
+  triggerFunctionNodesGroup,
+  TRIGGER_FUNCTION_NAME,
+} from '@falang/workflow-dto';
 import {
   getChoiceNodeConfigs,
   getIntegrationNodeConfigs,
@@ -36,6 +41,7 @@ export const buildWorkflowMcpRegistry = (integrations: readonly IWorkflowIntegra
   const stack = new NodesStack([
     functionNodesGroup,
     new NodesGroup(triggerFunctionNodesGroup),
+    new NodesGroup(magicNodesGroup),
     new NodesGroup(activepiecesActionNodesGroup),
     new NodesGroup(getIntegrationNodeConfigs(integrations)),
     new NodesGroup(getQuestionNodeConfigs(questions)),

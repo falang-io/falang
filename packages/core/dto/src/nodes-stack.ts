@@ -1,5 +1,6 @@
 import type { NodesGroup } from './nodes-group.js';
 import type z from 'zod';
+import { collectModKindNames } from './zod-mods.js';
 import { createZodUnion, getDocumentZod } from './zod-utils.js';
 import type { INode, INodeConfig, INodeMeta } from './types.js';
 import { defaultFactory } from './default-factory.js';
@@ -10,12 +11,15 @@ export type INodesGroupLike = Pick<NodesGroup<readonly INodeConfig[]>, 'list'>;
 export class NodesStack {
   readonly groups: readonly INodesGroupLike[];
   readonly configsMap = new Map<string, INodeConfig>();
+  /** Mod-only kinds: the union of every config's `mods` (ADR 0049 (private)). */
+  readonly modKindNames: ReadonlySet<string>;
 
   private nodesZodUnion: z.ZodUnion;
   private documentsZod: z.ZodType;
 
   constructor(groups: readonly INodesGroupLike[]) {
     this.groups = groups;
+    this.modKindNames = collectModKindNames(groups.flatMap((g) => g.list));
     this.nodesZodUnion = createZodUnion(groups);
     this.documentsZod = getDocumentZod(this.nodesZodUnion);
     groups

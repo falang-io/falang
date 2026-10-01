@@ -1,6 +1,7 @@
 import { resolveService } from '@falang/di';
 import { TOKEN_CSS_CLASSES, TOKEN_SELECTION } from '../di-tokens.js';
 import type { Scheme } from '../scheme/scheme.js';
+import { resolveVisibleIconId } from './resolve-visible-icon-id.js';
 import { scrollToNode } from './scroll-to-node.js';
 
 /**
@@ -14,7 +15,8 @@ import { scrollToNode } from './scroll-to-node.js';
  * additionally drives a few container icon types' own line/border rendering (cycle, function, …)
  * that reads `isInSelected` directly instead of going through the shared block-class mechanism.
  */
-export const focusNode = (scheme: Scheme, nodeId: string): boolean => {
+export const focusNode = (scheme: Scheme, requestedNodeId: string): boolean => {
+  const nodeId = resolveVisibleIconId(scheme, requestedNodeId);
   if (!scheme.icons.getIconSafe(nodeId)) return false;
 
   const cssClasses = resolveService(TOKEN_CSS_CLASSES, scheme.container);

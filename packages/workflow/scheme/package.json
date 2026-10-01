@@ -22,6 +22,7 @@
     "@falang/workflow-dto": "*",
     "@falang/workflow-integrations-activepieces": "*",
     "@falang/workflow-integrations-common": "*",
+    "nanoid": "^3.3.11",
     "@types/react": "^19.2.14",
     "antd": "^6.4.4",
     "mobx": "^6.15.0",

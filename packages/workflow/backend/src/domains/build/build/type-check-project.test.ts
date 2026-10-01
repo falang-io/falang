@@ -79,3 +79,39 @@ describe('typeCheckProject', () => {
     expect(errors[0].documentName).toBe('(generated code)');
   });
 });
+
+describe('typeCheckProject — magic node (ADR 0046 (private))', () => {
+  it('a variable created inside a magic node is visible after it (children compile inlined)', () => {
+    const functionNode: INode = {
+      id: 'doc-1',
+      name: 'function',
+      children: [
+        { id: 'doc-1-header', name: 'function-header', data: '' },
+        {
+          id: 'doc-1-body',
+          name: 'function-body',
+          data: { parameters: [] },
+          children: [
+            {
+              id: 'm1',
+              name: 'magic',
+              data: { spell: 'count' },
+              children: [
+                {
+                  id: 'v1',
+                  name: 'create-var',
+                  data: { name: 'total', variableType: { type: 'number', numberType: { type: 'any' } } },
+                },
+              ],
+            },
+            { id: 'l1', name: 'log', data: '`${total}`' },
+          ],
+        },
+        { id: 'doc-1-footer', name: 'function-footer', data: '' },
+      ],
+    };
+    const document: IProjectDocument = { id: 'doc-1', type: 'function', name: 'run', root: functionNode };
+    const compiled = compileProject({ documents: [document] });
+    expect(typeCheckProject(compiled.workflows, compiled.activities)).toEqual([]);
+  });
+});

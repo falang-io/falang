@@ -79,6 +79,7 @@ export default defineConfig({
         'icons',
         'basics',
         'text',
+        'pdf-export',
         { label: LOGIC_GROUP_LABEL[locale], items: ['logic', 'logic/examples'] },
         {
           label: WORKFLOW_GROUP_LABEL[locale],
@@ -92,6 +93,7 @@ export default defineConfig({
             'workflow/human-tasks',
             'workflow/media',
             'workflow/ai-agent',
+            'workflow/magic-node',
             'workflow/administration',
             'workflow/debugging',
             'workflow/versioning',

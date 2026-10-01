@@ -2,11 +2,11 @@ import { makeObservable, observable, runInAction } from 'mobx';
 import type { HistoryStore, Scheme } from '@falang/scheme';
 import { focusNode } from '@falang/scheme';
 import type { ILlmClient, ILlmToolCall, ILlmToolResult, TLlmMessage } from './llm-client.js';
-import type { IAgentContextProvider, IAgentRunContext } from './context-provider.js';
+import type { IAgentContextProvider } from './context-provider.js';
 import type { IAgentDocumentResolver } from './document-resolver.js';
 import { createHomeOnlyDocumentResolver } from './document-resolver.js';
 import { getFocusTargetId } from './focus-target.js';
-import { AGENT_TOOLS } from './tools.js';
+import { AGENT_TOOLS, READ_ONLY_CORE_TOOLS } from './tools.js';
 import type { IAgentToolProvider } from './tool-provider.js';
 import type { TToolExecutionResult } from './tool-executor.js';
 import { executeFinish, executeToolCall } from './tool-executor.js';
@@ -21,8 +21,10 @@ import {
   EMPTY_USAGE,
   DEFAULT_MAX_STEPS,
   FOCUS_PAUSE_MS,
+  buildRunContext,
   ensureGroupOpen,
   getFinishMessage,
+  isCoreToolOffered,
   resolveTargetScheme,
   type IAgentRunOptions,
   type IAgentSessionExtraOptions,
@@ -55,8 +57,7 @@ export class AgentSession {
   /** The raw thrown value behind `error` (in-memory only, never persisted) — lets a host render a typed failure, e.g. a 402. */
   @observable.ref rawError: unknown = null;
 
-  /** Single-scheme fallback (ADR 0036): default `activeDocumentId` and default resolver target; `null` for a
-   *  project-level session that always passes `activeDocumentId` explicitly. */
+  /** Single-scheme fallback (ADR 0036): default active document / resolver target; `null` for project-level. */
   private readonly defaultScheme: Scheme | null;
   private readonly client: ILlmClient;
   private readonly contextProviders: readonly IAgentContextProvider[];
@@ -65,6 +66,7 @@ export class AgentSession {
   private readonly onRunFinished?: () => void;
   private readonly toolProviders: readonly IAgentToolProvider[];
   private readonly nodeKindFilter?: IAgentNodeKindFilter;
+  private readonly coreToolAllowlist: ReadonlySet<string> | null;
   private askOffered = true;
   private abortController: AbortController | null = null;
 
@@ -82,6 +84,7 @@ export class AgentSession {
     this.onRunFinished = extra.onRunFinished;
     this.toolProviders = extra.toolProviders ?? [];
     this.nodeKindFilter = extra.nodeKindFilter;
+    this.coreToolAllowlist = extra.coreTools ? new Set(extra.coreTools) : null;
     makeObservable(this);
   }
 
@@ -112,8 +115,11 @@ export class AgentSession {
     const messages: TLlmMessage[] = [...(options.priorMessages ?? []), { content: request, role: 'user' }];
     // One undo group per document touched (ADR 0034), opened lazily, all closed in `finally`.
     const openGroups = new Map<Scheme, HistoryStore>();
-    const providerTools = this.toolProviders.flatMap((provider) => provider.tools);
-    const tools = [...AGENT_TOOLS, ...(offerAskUser ? [ASK_USER_TOOL] : []), ...providerTools];
+    const tools = [
+      ...AGENT_TOOLS.filter((tool) => isCoreToolOffered(this.coreToolAllowlist, tool.name)),
+      ...(offerAskUser ? [ASK_USER_TOOL] : []),
+      ...this.toolProviders.flatMap((provider) => provider.tools),
+    ];
 
     try {
       for (let i = 0; i < maxSteps; i += 1) {
@@ -238,7 +244,11 @@ export class AgentSession {
     }
     if (call.name === 'finish') return Promise.resolve(executeFinish(call.input));
     if (call.name === 'ask_user') return Promise.resolve(executeAskUser(call.input, this.askOffered));
-    if (CORE_TOOL_NAMES.has(call.name)) return this.executeCoreCall(call, activeDocumentId, openGroups);
+    if (CORE_TOOL_NAMES.has(call.name)) {
+      if (!isCoreToolOffered(this.coreToolAllowlist, call.name))
+        return Promise.resolve(fail(`Tool ${call.name} is not available in this run`));
+      return this.executeCoreCall(call, activeDocumentId, openGroups);
+    }
     return this.executeProviderCall(call);
   }
 
@@ -250,22 +260,12 @@ export class AgentSession {
     offerAskUser: boolean;
   } {
     const activeDocumentId = options.activeDocumentId ?? this.defaultScheme?.id ?? null;
-    const context: IAgentRunContext = {
-      activeDocumentId,
-      getActiveScheme: () => {
-        if (activeDocumentId === null) return null;
-        try {
-          return this.documentResolver.resolve(activeDocumentId);
-        } catch {
-          return null;
-        }
-      },
-    };
+    const context = buildRunContext(activeDocumentId, options.focusNodeId, this.documentResolver);
     const policy = resolveQuestionPolicy(options);
     return {
       activeDocumentId,
       offerAskUser: policy.offered,
-      system: buildSystemPrompt(context, this.contextProviders, policy),
+      system: buildSystemPrompt(context, this.contextProviders, policy, options.systemPrompt),
     };
   }
 
@@ -280,7 +280,7 @@ export class AgentSession {
     if ('error' in resolved) return fail(resolved.error);
     const targetScheme = resolved.scheme;
     this.onOpenDocument?.(targetScheme);
-    ensureGroupOpen(targetScheme, openGroups);
+    if (!READ_ONLY_CORE_TOOLS.has(call.name)) ensureGroupOpen(targetScheme, openGroups);
 
     const focusId = getFocusTargetId(call, targetScheme);
     if (focusId) {

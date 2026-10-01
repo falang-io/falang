@@ -4,7 +4,7 @@ import { reaction } from 'mobx';
 import { observer } from 'mobx-react-lite';
 import { ContainerContext, getGlobalI18n } from '@falang/scheme';
 import { message } from 'antd';
-import { ResizeHandle, useResizablePanelWidth, VersionDiffModal } from '@falang/antd';
+import { PrintExportModal, PrintLayer, ResizeHandle, useResizablePanelWidth, VersionDiffModal } from '@falang/antd';
 import { INTEGRATIONS_DOCUMENT_TYPE } from '@falang/workflow-integrations-common';
 import { WorkflowStore } from '../workflow-store.js';
 import { WorkflowStoreContext } from '../workflow-store-context.js';
@@ -13,6 +13,8 @@ import { TabsBar } from './tabs-bar.js';
 import { SchemeView } from './scheme-view.js';
 import { FilesTab } from './files-tab.js';
 import { IntegrationsEditor } from './integrations-editor.js';
+import { MagicConfirmModal } from './magic-confirm-modal.js';
+import { MagicEditorModal } from './magic-editor-modal.js';
 import { ProjectRightSidebar } from './project-right-sidebar.js';
 import { Sidebar } from './sidebar.js';
 import { TasksPage } from './tasks-page.js';
@@ -185,12 +187,26 @@ export const ProjectWorkspace: React.FC<Props> = observer(({ projectId }) => {
           <ProjectRightSidebar />
         </div>
       </div>
+      <MagicEditorModal />
+      <MagicConfirmModal />
       <VersionDiffModal
         open={store.diffModalOpen}
         store={store.versionHistory}
         buildReadOnlyScheme={store.buildReadOnlySchemeForDiff}
         onClose={() => store.closeDiffModal()}
       />
+      {store.printExport && (
+        <>
+          <PrintExportModal
+            store={store.printExport}
+            open={store.printExport.stage === 'select'}
+            onClose={() => {
+              if (store.printExport?.stage === 'select') store.closePrintExport();
+            }}
+          />
+          <PrintLayer store={store.printExport} onClose={() => store.closePrintExport()} />
+        </>
+      )}
     </WorkflowStoreContext>
   );
 });

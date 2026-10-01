@@ -30,7 +30,8 @@ import {
 import type { IDocumentLock, IProjectChangeEvent } from '@falang/desktop-project-fs';
 import { container, resolveService, type DependencyContainer } from '@falang/di';
 import type { INodeTreeDiff, ISnapshotDocument } from '@falang/versioning';
-import { AgentChatSessionStore, VersionHistoryStore } from '@falang/antd';
+import type { IPrintExportHost } from '@falang/antd';
+import { AgentChatSessionStore, PrintExportStore, VersionHistoryStore } from '@falang/antd';
 import { generateUuid } from './generate-uuid.js';
 import { ElectronAgentSessionStore } from './agent/electron-agent-session-store.js';
 import { ElectronLlmClient } from './agent/electron-llm-client.js';
@@ -38,10 +39,11 @@ import { ARDUINO_BUILTIN_DECLARATIONS } from '../../shared/arduino-builtins.js';
 import { DEFAULT_BOARD_FQBN } from '../../shared/board.js';
 import { DEVICES_DOCUMENT_TYPE, type IDevicesDocumentData } from '../../shared/devices-document.js';
 import { reportError } from '../../shared/report-error.js';
-import { isArduinoPinnedDocument } from './pinned-documents.js';
 import { createArduinoDebugSession } from './create-arduino-debug-session.js';
 import * as folderActions from './folder-actions.js';
 import { arduinoSchemeFactory } from './arduino-scheme-factory.js';
+import { createPrintExportHost } from './print/create-print-export-host.js';
+import { isArduinoPinnedDocument, REQUIRED_ROOT_DOCUMENT_NAMES } from './pinned-documents.js';
 import { buildReadOnlySchemeForDiff as buildReadOnlySchemeForDiffImpl } from './versioning/build-read-only-scheme-for-diff.js';
 import { ElectronVersionStore } from './versioning/electron-version-store.js';
 
@@ -128,6 +130,8 @@ export class ArduinoProjectStore {
   /** Which project-level panel the right sidebar shows, or neither — see `toggleRightPanel`. */
   @observable rightPanel: 'agent' | 'history' | null = null;
   @observable diffModalOpen = false;
+  /** The PDF export flow (ADR 0048 (private)), `null` while closed. */
+  @observable.ref printExport: PrintExportStore | null = null;
 
   /** Active locks keyed by `documentId` — see ADR 0029 (private)'s "Document locks" decision. Every lock here is treated as foreign: this store never acquires one itself in v1. */
   readonly locks = observable.map<string, IDocumentLock>();
@@ -690,6 +694,42 @@ export class ArduinoProjectStore {
     }
   }
 
+  /** Opens the PDF export modal (native menu "Export PDF…") — ADR 0048 (private). */
+  @action openPrintExport(): void {
+    this.printExport?.dispose();
+    this.printExport = new PrintExportStore(this.buildPrintExportHost());
+  }
+
+  @action closePrintExport(): void {
+    this.printExport?.dispose();
+    this.printExport = null;
+  }
+
+  private buildPrintExportHost(): IPrintExportHost {
+    return createPrintExportHost({
+      projectDir: this.projectDir,
+      container: this.container,
+      folders: () => this.folders,
+      documents: () => this.documents,
+      activeTabId: () => this.activeTabId,
+      getLiveScheme: (id) => this.schemes.get(id),
+      // Every scheme document; never the `Devices` custom document.
+      isPrintable: (doc) => doc.type !== DEVICES_DOCUMENT_TYPE,
+      // Same root-level order as `ProjectTree`: pinned `setup`, `loop` first, then the rest in insertion order.
+      orderLevel: (docs, parentId) => {
+        if (parentId !== null) return docs;
+        const pinned = docs
+          .filter((doc) => isArduinoPinnedDocument(doc))
+          .toSorted(
+            (a, b) =>
+              (REQUIRED_ROOT_DOCUMENT_NAMES as readonly string[]).indexOf(a.name) -
+              (REQUIRED_ROOT_DOCUMENT_NAMES as readonly string[]).indexOf(b.name),
+          );
+        return [...pinned, ...docs.filter((doc) => !isArduinoPinnedDocument(doc))];
+      },
+    });
+  }
+
   @action openDiffModal(): void {
     this.diffModalOpen = true;
   }
@@ -754,6 +794,7 @@ export class ArduinoProjectStore {
 
   dispose(): void {
     this.agentSession.cancel();
+    this.printExport?.dispose();
     this.disposeFunctionsRegistrySync();
     this.disposeDebugSession();
     this.disposeProjectChangedSubscription();

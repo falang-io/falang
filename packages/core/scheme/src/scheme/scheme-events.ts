@@ -5,10 +5,14 @@ import type { IMoveNodesCommandParams } from '../actions/move-nodes.js';
 
 export const createEvent = <T>(type: string): SchemeEvent<T> => ({ type });
 
+export type TNodeSlot = 'children' | 'mods';
+
 export interface IEventDataNodeDeleted {
   node: INode;
   parentId: string;
   index: number;
+  /** Which list of the parent the node was removed from. */
+  slot: TNodeSlot;
 }
 export const EVENT_NODE_DELETED = createEvent<IEventDataNodeDeleted>('NODE_DELETED');
 

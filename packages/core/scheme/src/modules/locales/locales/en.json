@@ -12,6 +12,7 @@
     "return": "Return",
     "parallel": "Parallel",
     "parallel-thread": "Thread",
+    "timer": "Timer",
     "pseudo-cycle": "Cycle"
   },
   "base": {

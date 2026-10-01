@@ -3,6 +3,7 @@ import type { ContourIconStore } from './icons/contour/contour.icon.store.js';
 import type { CycleIconStore } from './icons/cycle/cycle.icon.store.js';
 import type { FunctionBodyIconStore } from './icons/function/function-body.icon.store.js';
 import type { IfIconStore } from './icons/if/if.icon.store.js';
+import type { SideIconStore } from './icons/side/side.icon.js';
 import type { OutIconStore } from './icons/out/out.icon.store.js';
 import type { WhileIconStore } from './icons/while/while.icon.store.js';
 import type { IconWithSkewerStore } from './skewer/icon-with-skewer.store.js';
@@ -51,8 +52,15 @@ export const checker = {
   isContour(icon?: IconStore | null): icon is ContourIconStore {
     return hasFlag(icon, IconFlags.Contour);
   },
+  /** The icon draws none of its node's descendants (no icons are created for them); see `resolveVisibleIconId`. */
+  hidesChildren(icon?: IconStore | null): boolean {
+    return hasFlag(icon, IconFlags.HidesChildren);
+  },
   isOut(icon?: IconStore | null): icon is OutIconStore {
     return hasFlag(icon, IconFlags.Out);
+  },
+  isSide(icon?: IconStore | null): icon is SideIconStore {
+    return hasFlag(icon, IconFlags.Side);
   },
   isIf(icon?: IconStore | null): icon is IfIconStore {
     return hasFlag(icon, IconFlags.If);

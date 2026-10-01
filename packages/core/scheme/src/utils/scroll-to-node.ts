@@ -1,4 +1,5 @@
 import type { Scheme } from '../scheme/scheme.js';
+import { resolveVisibleIconId } from './resolve-visible-icon-id.js';
 
 /**
  * Pans the view so `nodeId`'s icon is centered in the viewport, without touching the selection —
@@ -15,7 +16,8 @@ import type { Scheme } from '../scheme/scheme.js';
  * cross-document agent switching tabs mid-run, then coming back to mutate the document it started
  * on).
  */
-export const scrollToNode = (scheme: Scheme, nodeId: string): boolean => {
+export const scrollToNode = (scheme: Scheme, requestedNodeId: string): boolean => {
+  const nodeId = resolveVisibleIconId(scheme, requestedNodeId);
   const icon = scheme.icons.getIconSafe(nodeId);
   if (!icon) return false;
   if (globalThis.document && !globalThis.document.querySelector(`#${scheme.rootDivId}`)) return false;

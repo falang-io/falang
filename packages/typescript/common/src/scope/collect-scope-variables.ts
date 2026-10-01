@@ -1,9 +1,9 @@
 import type { NodeStore } from '@falang/scheme';
-import { getContainerScopeContribution, getScopeContribution } from './node-scope-contribution.js';
+import { getContainerScopeContribution, getScopeContributions } from './node-scope-contribution.js';
 import type { IScopeVariable } from './scope-variable.js';
 
-/** Both plain functions and workflow `trigger-function`s stop the upward walk at their own body. */
-const FUNCTION_BOUNDARY_NODE_NAMES = new Set(['function-body', 'trigger-function-body']);
+/** Plain functions, workflow `trigger-function`s and the popup-only `magic-function` stop the upward walk at their own body. */
+const FUNCTION_BOUNDARY_NODE_NAMES = new Set(['function-body', 'trigger-function-body', 'magic-function-body']);
 
 /**
  * Walks up the node tree from `node`, collecting every scope-introducing sibling declared before
@@ -11,6 +11,8 @@ const FUNCTION_BOUNDARY_NODE_NAMES = new Set(['function-body', 'trigger-function
  * parameters, loop `item`/`index`). Which node kinds introduce what is decided by
  * `getScopeContribution`/`getContainerScopeContribution` (`@falang/typescript-common`), not
  * duplicated here.
+ * A `magic` parent is transparent: the walk collects its earlier children like any other siblings and
+ * continues upward (it has no container contribution and is no boundary).
  * The result is ordered from outermost (function parameters) to innermost declaration.
  */
 export const collectScopeVariables = (node: NodeStore): IScopeVariable[] => {
@@ -23,8 +25,7 @@ export const collectScopeVariables = (node: NodeStore): IScopeVariable[] => {
     const index = siblings.indexOf(current);
     const localVars: IScopeVariable[] = [];
     for (let i = 0; i < index; i += 1) {
-      const contribution = getScopeContribution(siblings[i]);
-      if (contribution) localVars.push(contribution);
+      localVars.push(...getScopeContributions(siblings[i]));
     }
     scopes.push(localVars);
     scopes.push(getContainerScopeContribution(parent));

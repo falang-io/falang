@@ -217,9 +217,11 @@ const buildOutsMenu = (scheme: Scheme, parent: IconStore, builder: ContextMenuBu
 
 class TypescriptFunctionalModule implements IModule {
   private readonly extraInsertableItems: readonly string[];
+  private readonly defaultInsertNodeName: () => string;
 
-  constructor(extraInsertableItems: readonly string[] = []) {
+  constructor(extraInsertableItems: readonly string[] = [], defaultInsertNodeName: () => string = () => 'action') {
     this.extraInsertableItems = extraInsertableItems;
+    this.defaultInsertNodeName = defaultInsertNodeName;
   }
 
   register(scheme: Scheme) {
@@ -227,7 +229,7 @@ class TypescriptFunctionalModule implements IModule {
       const parentIcon = scheme.icons.getIcon(vp.parentId);
       const nodeConfig = scheme.infra.structure.configsMap.get(parentIcon.name);
       if (!nodeConfig) return false;
-      const childName = Array.isArray(nodeConfig.children) ? nodeConfig.children[0] : 'action';
+      const childName = Array.isArray(nodeConfig.children) ? nodeConfig.children[0] : this.defaultInsertNodeName();
       const newNode = scheme.infra.structure.factory(childName);
       scheme.commands.dispatchCommand(CMD_INSERT_NODE, {
         index: vp.index,
@@ -309,6 +311,11 @@ export interface IFunctionStructureSchemeFactoryParams extends Omit<ISchemeFacto
   extraIconsGroups?: IconsGroup[];
   /** Extra node-kind names appended to the valence-point "add node" menu, alongside the built-in ones. */
   extraInsertableItems?: string[];
+  /**
+   * Name of the node kind a plain valence-point click inserts under a `children: true` parent (read on every
+   * click). Defaults to `'action'`. See ADR 0046 (private) — the magic node.
+   */
+  defaultInsertNodeName?: () => string;
 }
 
 export const functionalSchemeFactory = ({
@@ -316,6 +323,7 @@ export const functionalSchemeFactory = ({
   extraModules,
   extraIconsGroups,
   extraInsertableItems,
+  defaultInsertNodeName,
   ...props
 }: IFunctionStructureSchemeFactoryParams) => {
   const usedInfra =
@@ -336,7 +344,7 @@ export const functionalSchemeFactory = ({
       new BlockResizeModule(),
       new CoreLocalesModule(),
       new TypescriptSchemeLocalesModule(),
-      new TypescriptFunctionalModule(extraInsertableItems),
+      new TypescriptFunctionalModule(extraInsertableItems, defaultInsertNodeName),
       ...(extraModules ?? []),
     ],
     parentContainer,

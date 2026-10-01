@@ -33,13 +33,20 @@ import {
 import { OBJECTS_STRUCTURE_NAME } from '@falang/typescript-dto';
 import { container, resolveService, type DependencyContainer } from '@falang/di';
 import type { INodeTreeDiff, ISnapshotDocument } from '@falang/versioning';
-import { AgentChatSessionStore, VersionHistoryStore } from '@falang/antd';
-import { TRIGGER_FUNCTION_NAME, type TTriggerFunctionBodyData } from '@falang/workflow-dto';
+import { AgentChatSessionStore, PrintExportStore, VersionHistoryStore } from '@falang/antd';
+import { navigationStore } from './navigation-store.js';
+import { createPrintExportHost } from './print/create-print-export-host.js';
+import { MAGIC_NAME, TRIGGER_FUNCTION_NAME, type TTriggerFunctionBodyData } from '@falang/workflow-dto';
 import type { IIntegrationInstance } from '@falang/workflow-integrations-common';
 import { SCHEDULE_VENDOR } from '@falang/workflow-integrations-schedule';
 import { TOKEN_SCHEDULE_STATUS, workflowFunctionalSchemeFactory } from '@falang/workflow-scheme';
 import { workflowApi } from './api-client.js';
 import { AgentLockTracker } from './agent/agent-lock-tracker.js';
+import { AgentSettingsStore } from './agent/agent-settings-store.js';
+import { MagicInsertSetting } from './agent/magic-insert-setting.js';
+import { MagicRunStore } from './agent/magic-run-store.js';
+import { authStore } from './auth-store.js';
+import { buildMagicPopup, type IMagicPopup } from './magic/build-magic-popup.js';
 import { createAgentDocumentResolver, isAgentEditableType } from './agent/create-agent-document-resolver.js';
 import { DocumentToolProvider } from './agent/document-tool-provider.js';
 import { createWorkflowNodeKindFilter } from './agent/integration-catalog.js';
@@ -121,7 +128,15 @@ export class WorkflowStore {
   /** Which project-level right-sidebar panel is open — replaces the old per-panel `historyPanelOpen`
    *  boolean (ADR 0036 (private) §3): at most one of Agent/History shows at a time. */
   @observable rightPanel: 'agent' | 'history' | null = null;
+  /** `GET /agent/settings` once per project (ADR 0031 (private)) — shared by the chat panel and the magic-insert gate. */
+  readonly agentSettings = new AgentSettingsStore();
+  /** The per-user "Magic insert" toolbar toggle (ADR 0046 (private)). */
+  readonly magicInsert: MagicInsertSetting;
+  /** Every magic node's AI run, confirm dialog and popup-editor target (ADR 0046 (private)). */
+  readonly magicRuns: MagicRunStore;
   @observable diffModalOpen = false;
+  /** The PDF print export's selection/preview state (ADR 0048 (private)); `null` while closed. */
+  @observable.ref printExport: PrintExportStore | null = null;
   /**
    * The project's uploaded/produced files (ADR 0038 (private) §7) — no
    * project-specific construction needed (unlike e.g. `scheduleStatus`), so this is a plain class-field
@@ -251,6 +266,18 @@ export class WorkflowStore {
         ),
       },
     );
+    this.agentSettings.load();
+    this.magicInsert = new MagicInsertSetting(authStore.currentUser?.id);
+    this.magicRuns = new MagicRunStore({
+      createContextProviders: () => [new ScopeVariablesContextProvider()],
+      createLlmClient: () => new HttpLlmClient(projectId),
+      createToolProviders: () => [new IntegrationToolProvider(this), new DocumentToolProvider(this, ['list_types'])],
+      getAllowQuestions: () => this.agentChat.allowQuestions,
+      getScheme: (documentId) => this.getMagicHostScheme(documentId),
+      nodeKindFilter: createWorkflowNodeKindFilter(REGISTERED_INTEGRATIONS, () =>
+        getIntegrationInstances(this.documents),
+      ),
+    });
     this.sync = new ProjectSync(
       projectId,
       lockHooks,
@@ -664,7 +691,58 @@ export class WorkflowStore {
       getCredentialInstances: () => getIntegrationInstances(this.documents),
     });
 
+  /** The main scheme of a function/trigger-function document for a magic run, `null` for anything else. */
+  private getMagicHostScheme(documentId: string): Scheme | null {
+    const doc = this.getDocument(documentId);
+    if (!doc || doc.pinned || !(doc.type === 'function' || doc.type === TRIGGER_FUNCTION_NAME)) return null;
+    return this.getScheme(documentId);
+  }
+
+  /** A transient popup scheme for one magic node (`MagicEditorModal`); the caller disposes it. */
+  buildMagicPopup(
+    documentId: string,
+    nodeId: string,
+    onHeaderSpellCommitted: (prev: string, next: string) => void,
+  ): IMagicPopup | null {
+    const mainScheme = this.getMagicHostScheme(documentId);
+    if (!mainScheme) return null;
+    return buildMagicPopup({
+      container: this.container,
+      getCredentialInstances: () => getIntegrationInstances(this.documents),
+      mainScheme,
+      nodeId,
+      onHeaderSpellCommitted,
+      projectId: this.projectId,
+      theme: darkTheme,
+    });
+  }
+
+  /** The toolbar's "PDF" button: opens the selection modal (a fresh `PrintExportStore` each time). */
+  @action openPrintExport(): void {
+    this.printExport?.dispose();
+    this.printExport = new PrintExportStore(
+      createPrintExportHost({
+        projectId: this.projectId,
+        projectName: () => navigationStore.selectedProjectName ?? 'project',
+        container: this.container,
+        folders: () => this.folders,
+        documents: () => this.documents,
+        activeTabId: () => this.activeTabId,
+        getLiveScheme: (id) => this.schemes.get(id),
+        getCredentialInstances: () => getIntegrationInstances(this.documents),
+      }),
+    );
+  }
+
+  @action closePrintExport(): void {
+    this.printExport?.dispose();
+    this.printExport = null;
+  }
+
   dispose(): void {
+    this.printExport?.dispose();
+    this.magicRuns.dispose();
+    this.agentSettings.dispose();
     this.followRunDisposer();
     this.persistBreakpointsDisposer();
     this.liveRun.dispose();
@@ -705,6 +783,8 @@ export class WorkflowStore {
           getFieldOptionsProvider: () => createFieldOptionsProvider(this.projectId),
           getActivepiecesCatalogProvider: () => createActivepiecesCatalogProvider(),
           getActivepiecesFieldOptionsProvider: () => createActivepiecesFieldOptionsProvider(this.projectId),
+          defaultInsertNodeName: () =>
+            this.agentSettings.configured && this.magicInsert.enabled ? MAGIC_NAME : 'action',
         })
       : objectsStructureSchemeFactory({
           id: doc.id,
@@ -713,6 +793,7 @@ export class WorkflowStore {
           parentContainer: this.container,
         });
     scheme.theme.setTheme(darkTheme);
+    if (isFunctionDoc) this.magicRuns.registerHost(doc.id, scheme);
     // Safe to narrow: `getScheme` already rejects pinned (non-schemable) documents before this runs.
     const rootNode = doc.data ?? scheme.infra.structure.factory(ROOT_NODE[doc.type as DocumentType]);
     const rootStore = createNodeStoreFromNode(rootNode, scheme);

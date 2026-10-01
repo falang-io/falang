@@ -1,0 +1,45 @@
+{
+  "id": "TimerDoc0000000000001",
+  "schemeVersion": 2,
+  "name": "Timer",
+  "type": "function",
+  "description": "",
+  "root": {
+    "id": "TimerRoot000000000001",
+    "alias": "function",
+    "block": {
+      "width": 160,
+      "text": "Wait for the kettle"
+    },
+    "children": [
+      {
+        "alias": "action",
+        "id": "TimerAction0000000001",
+        "block": {
+          "width": 160,
+          "text": "Boil water"
+        },
+        "leftSide": {
+          "id": "TimerSide000000000001",
+          "alias": "timer",
+          "block": {
+            "width": 80,
+            "text": "5 minutes"
+          }
+        }
+      },
+      {
+        "alias": "action",
+        "id": "PlainAction000000000001",
+        "block": {
+          "width": 160,
+          "text": "Pour tea"
+        }
+      }
+    ],
+    "footer": {
+      "width": 160,
+      "text": "Done"
+    }
+  }
+}

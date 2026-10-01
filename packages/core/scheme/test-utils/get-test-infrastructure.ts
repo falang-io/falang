@@ -10,6 +10,8 @@ import {
   getIfIconConfig,
   getWhileIconNodeConfig,
   IconsGroup,
+  sideIconConfig,
+  timerShape,
 } from '../src/index.js';
 
 export const getTestInfrastructure = () => {
@@ -41,7 +43,7 @@ export const getTestInfrastructure = () => {
       name: 'if',
       block: emptyBlockConfig,
     }),
-    mod1: commonIconConfig,
+    mod1: { ...commonIconConfig, icon: sideIconConfig, shape: timerShape, mod: { placement: 'left' as const } },
     out: outNodeIconConfig,
     'out-break': outNodeIconConfig,
     switch: commonIconConfig,

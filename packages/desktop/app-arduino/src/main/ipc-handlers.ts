@@ -99,6 +99,25 @@ export const registerIpcHandlers = (
   rebuildMenu: () => void,
   driverRegistry: IDriverRegistry,
 ): void => {
+  ipcMain.handle(IPC.printToPdf, async (event, params: { suggestedFileName: string }) => {
+    const window = getMainWindow();
+    if (!window) return { canceled: true };
+    const save = await dialog.showSaveDialog(window, {
+      defaultPath: path.join(app.getPath('documents'), params.suggestedFileName),
+      filters: [{ name: 'PDF', extensions: ['pdf'] }],
+    });
+    if (save.canceled || !save.filePath) return { canceled: true };
+    // `preferCSSPageSize`: each print sheet declares its own named `@page` size (A4…A1), without it
+    // Chromium flattens every page to Letter. Margins are already 0 in the page CSS.
+    const pdf = await event.sender.printToPDF({
+      preferCSSPageSize: true,
+      printBackground: true,
+      margins: { top: 0, bottom: 0, left: 0, right: 0 },
+    });
+    await fs.writeFile(save.filePath, pdf);
+    return { path: save.filePath };
+  });
+
   ipcMain.handle(IPC.dialogOpenProjectFolder, async () => {
     const window = getMainWindow();
     if (!window) return null;

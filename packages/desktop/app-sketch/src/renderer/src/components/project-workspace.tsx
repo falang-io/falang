@@ -2,7 +2,7 @@ import type React from 'react';
 import { useEffect, useState } from 'react';
 import { observer } from 'mobx-react-lite';
 import { ContainerContext } from '@falang/scheme';
-import { ResizeHandle, useResizablePanelWidth, VersionDiffModal } from '@falang/antd';
+import { PrintExportModal, PrintLayer, ResizeHandle, useResizablePanelWidth, VersionDiffModal } from '@falang/antd';
 import { DesktopProjectStore } from '../desktop-project-store.js';
 import { DesktopProjectStoreContext } from '../desktop-project-store-context.js';
 import { setActiveProjectStore } from '../active-project-store.js';
@@ -146,6 +146,12 @@ export const ProjectWorkspace: React.FC<Props> = observer(({ projectDir, project
     return unsubscribe;
   }, [store]);
 
+  useEffect(() => {
+    if (!store) return;
+    const unsubscribe = globalThis.falang.menu.onExportPdf(() => store.openPrintExport());
+    return unsubscribe;
+  }, [store]);
+
   const [treeWidth, onTreeResizeStart] = useResizablePanelWidth('falang:panel-width:project-tree', 220, {
     min: 160,
     max: 480,
@@ -209,6 +215,19 @@ export const ProjectWorkspace: React.FC<Props> = observer(({ projectDir, project
       />
       <DocumentConflictModal />
       <ExportProgressModal />
+      {store.printExport && (
+        <>
+          <PrintExportModal
+            store={store.printExport}
+            open={store.printExport.stage === 'select'}
+            // Cancel only: "Print" has already switched the store to its preview stage, which `PrintLayer` owns.
+            onClose={() => {
+              if (store.printExport?.stage === 'select') store.closePrintExport();
+            }}
+          />
+          <PrintLayer store={store.printExport} onClose={() => store.closePrintExport()} />
+        </>
+      )}
       <VersionDiffModal
         open={store.diffModalOpen}
         store={store.versionHistory}

@@ -25,7 +25,20 @@ const convertLeaf = (old: IOldIcon): INode => {
   throw new Error(`Unsupported old icon alias for a text-domain project: "${old.alias}" (node ${old.id})`);
 };
 
+/** Node kinds of the text stack that accept a `timer` mod (keep in step with `@falang/text-dto`). */
+const TIMER_HOSTS = new Set(['action', 'link', 'if', 'switch', 'foreach', 'while']);
+
+const convertLeftSide = (leftSide: IOldIcon, host: INode): INode[] => {
+  if (!TIMER_HOSTS.has(host.name)) {
+    throw new Error(
+      `Old node ${host.id} ("${host.name}") has a side icon, which only ${[...TIMER_HOSTS].join('/')} support`,
+    );
+  }
+  return [{ id: leftSide.id, name: 'timer', data: textLeaf(leftSide.block, leftSide.id) }];
+};
+
 const context: IConvertContext = {
+  convertLeftSide,
   conditionText: textLeaf,
   foreachData: textLeaf,
   // No structured "returnValue" convention in the text domain (no create-var/assign-var statement
