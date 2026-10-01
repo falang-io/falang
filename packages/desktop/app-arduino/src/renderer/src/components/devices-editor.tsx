@@ -28,7 +28,7 @@ import {
 } from '../../../shared/devices-document.js';
 import type { ArduinoProjectStore } from '../arduino-project-store.js';
 import { DevicesDocumentStore } from '../devices-document-store.js';
-import { getDriverConfigs } from '../driver-nodes/driver-registry-cache.js';
+import { getDriverConfigs } from '@falang/desktop-arduino-scheme';
 import { appTheme } from '../theme.js';
 
 const { Title, Text } = Typography;

@@ -38,7 +38,7 @@ const BASE_FILES = [
 
 /** Runtime assets outside `src/` a published consumer needs, keyed by package name. */
 const EXTRA_FILES = {
-  '@falang/desktop-app-arduino': ['resources/drivers'],
+  '@falang/desktop-arduino-drivers': ['drivers'], // the bundled device drivers (data), see BUNDLED_DRIVERS_DIR
   '@falang/scheme': ['test-utils'], // imported by other packages' tests as `@falang/scheme/test-utils/...`
   '@falang/desktop-mcp': ['dist'], // `bin` target (built by `npm run build`)
 };

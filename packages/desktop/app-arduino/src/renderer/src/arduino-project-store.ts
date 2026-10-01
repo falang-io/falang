@@ -41,7 +41,7 @@ import { DEVICES_DOCUMENT_TYPE, type IDevicesDocumentData } from '../../shared/d
 import { reportError } from '../../shared/report-error.js';
 import { createArduinoDebugSession } from './create-arduino-debug-session.js';
 import * as folderActions from './folder-actions.js';
-import { arduinoSchemeFactory } from './arduino-scheme-factory.js';
+import { arduinoSchemeFactory } from '@falang/desktop-arduino-scheme';
 import { createPrintExportHost } from './print/create-print-export-host.js';
 import { isArduinoPinnedDocument, REQUIRED_ROOT_DOCUMENT_NAMES } from './pinned-documents.js';
 import { buildReadOnlySchemeForDiff as buildReadOnlySchemeForDiffImpl } from './versioning/build-read-only-scheme-for-diff.js';

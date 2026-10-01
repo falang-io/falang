@@ -6,20 +6,20 @@ directories:
   buildResources: resources
 files:
   - out/**/*
-  - resources/drivers/**
   - package.json
   - '!**/*.{ts,tsx,map}'
-# Pre-bundled device drivers (ADR 0023 (private)) are read from the real filesystem at runtime
-# (driver-registry.ts scans the directory, copies source files into the built sketch) — asar's virtual
-# fs makes plain reads transparent, but stays unpacked here so relative paths resolved against a
-# driver's own folder (sourceFiles/includes) behave identically to the dev filesystem.
-asarUnpack:
-  - resources/**
 # The bundled `@falang/desktop-mcp` stdio server (ADR 0029 (private), phase E) — `mcp-server-path.ts`
 # runs `<resourcesPath>/mcp-server/index.js` with the app's own binary in Node mode, so it must land
 # unpacked at exactly that path. Built by the `prebuild:*` npm hooks below (`npm run build -w
 # @falang/desktop-mcp`) before electron-builder runs; not part of this app's own `out/` output.
 extraResources:
+  # Pre-bundled device drivers (ADR 0023 (private)) — the data of `@falang/desktop-arduino-drivers` (ADR 0051 (private)),
+  # read from the real filesystem at runtime (`bundled-drivers-dir.ts` -> `<resourcesPath>/drivers`; the driver registry
+  # scans the directory and copies source files into the built sketch). A real directory outside `app.asar`, so the driver
+  # folders' relative `sourceFiles`/`includes` paths and the AppImage staging in `mcp-server-path.ts` behave exactly like
+  # the dev filesystem.
+  - from: ../arduino-drivers/drivers
+    to: drivers
   - from: ../mcp/dist/index.js
     to: mcp-server/index.js
   # The bundled sketch-compile worker (ADR 0020 (private)'s "Implementation notes (compile worker

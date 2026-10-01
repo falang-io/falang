@@ -1,7 +1,7 @@
 import type { DependencyContainer } from '@falang/di';
 import type { INode } from '@falang/dto';
 import { createNodeStoreFromNode, setRootNodeForScheme, type IModule, type Scheme } from '@falang/scheme';
-import { arduinoSchemeFactory } from '../arduino-scheme-factory.js';
+import { arduinoSchemeFactory } from '@falang/desktop-arduino-scheme';
 import { DEVICES_DOCUMENT_TYPE } from '../../../shared/devices-document.js';
 
 export interface IBuildReadOnlySchemeParams {

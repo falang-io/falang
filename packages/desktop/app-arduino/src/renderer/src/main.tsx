@@ -4,7 +4,7 @@ import '@falang/typescript-scheme/src/browser.js';
 import { StrictMode } from 'react';
 import { createRoot } from 'react-dom/client';
 import { App } from './app.js';
-import { initializeDriverRegistry } from './driver-nodes/driver-registry-cache.js';
+import { initializeDriverRegistry } from '@falang/desktop-arduino-scheme';
 import { reportError } from '../../shared/report-error.js';
 
 const rootElement = document.querySelector('#root');

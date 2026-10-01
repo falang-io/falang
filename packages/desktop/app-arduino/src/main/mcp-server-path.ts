@@ -2,6 +2,7 @@ import { promises as fs } from 'node:fs';
 import * as path from 'node:path';
 import { app } from 'electron';
 import { electronNodeCommand, stageCopy } from '@falang/desktop-worker-process';
+import { bundledDriversDir, PACKAGED_BUNDLED_DRIVERS_SUBDIR } from './bundled-drivers-dir.js';
 
 export interface IMcpServerCommand {
   command: string;
@@ -9,18 +10,6 @@ export interface IMcpServerCommand {
   env?: Record<string, string>;
 }
 
-/**
- * Same relative computation `main/index.ts` already uses for `loadDriverRegistry` (bundled drivers
- * ship under this app's own `resources/drivers/`, see `electron-builder.yml`'s `files`/`asarUnpack`)
- * — duplicated here rather than imported, since `main/index.ts` doesn't export it and the two call
- * sites' only shared concern is this one path, not worth a new module for. `import.meta.dirname` is
- * always `<app>/out/main` in both dev and packaged builds (electron-vite compiles `main` into one
- * output regardless of which source file the code was written in — see this file's own doc comment
- * below for the same invariant relied on for the repo-root walk-up).
- */
-const bundledDriversDir = (): string => path.join(import.meta.dirname, '../../resources/drivers');
-/** Packaged builds: the bundled drivers as real files, relative to `process.resourcesPath` (`electron-builder.yml`'s `asarUnpack: resources/**` puts them under `app.asar.unpacked`) — a plain-Node copy/read never has to go through asar. */
-const PACKAGED_BUNDLED_DRIVERS_DIR = path.join('app.asar.unpacked', 'resources', 'drivers');
 /** A user's own custom drivers (ADR 0023 (private)'s Phase C) — installed once per app install, not per project. */
 const userDriversDir = (): string => path.join(app.getPath('userData'), 'drivers');
 
@@ -71,7 +60,7 @@ export const resolveMcpServerCommand = async (): Promise<IMcpServerCommand> => {
   if (app.isPackaged) {
     const serverDir = await stablePackagedPath(path.join(process.resourcesPath, 'mcp-server'), 'mcp-server');
     const driversDir = await stablePackagedPath(
-      path.join(process.resourcesPath, PACKAGED_BUNDLED_DRIVERS_DIR),
+      path.join(process.resourcesPath, PACKAGED_BUNDLED_DRIVERS_SUBDIR),
       'drivers',
     );
     const { command, args, env } = electronNodeCommand(

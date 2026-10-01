@@ -13,7 +13,7 @@ import {
 } from '@falang/desktop-arduino-cli';
 import type { TArduinoBuildOutcome } from '../shared/arduino-build-outcome.js';
 import type { TArduinoDebugUploadOutcome } from '../shared/arduino-debug-outcome.js';
-import { FALANG_DEBUG_HEADER_FILENAME } from './arduino-compiler/compile-arduino-project.js';
+import { FALANG_DEBUG_HEADER_FILENAME } from '@falang/desktop-arduino-compiler';
 import type { ILoadedDriver } from './drivers/driver-registry.js';
 import { runCompileJob } from './compile-worker/run-compile-job.js';
 

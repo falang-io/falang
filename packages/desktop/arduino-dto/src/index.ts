@@ -9,3 +9,4 @@ export * from './driver-node-configs.js';
 export * from './driver-registry.js';
 export * from './devices-document.js';
 export * from './pinned-documents.js';
+export * from './arduino-builtins.js';
