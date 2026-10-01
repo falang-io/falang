@@ -7,7 +7,7 @@
 # `client`'s browser here is Playwright's Chromium running *inside* the `e2e-tests` container, on
 # this compose file's own internal network — so, unlike the dev stack (whose browser runs on the
 # host), `client` is configured with `VITE_BACKEND_URL=http://backend:4000` (the internal service
-# name/port), not a host-published one. The published host ports below (4001/5176/7234/8081/5433)
+# name/port), not a host-published one. The published host ports below (4001/5176/7234/5433; no Temporal UI since ADR 0050 (private), see `temporal` below)
 # exist purely so a developer can inspect this stack from outside Docker while it runs (now also
 # 4103 for `activepieces`).
 #
@@ -165,45 +165,79 @@ services:
         mc mb --ignore-existing local/falang-files
     networks: [falang-workflow-e2e-network]
 
-  temporal:
-    image: temporalio/auto-setup:1.29.1
-    container_name: falang-workflow-e2e-temporal
+  # Temporal 1.32 with JWT authorization, one namespace per project, internal-frontend and
+  # cross-namespace commands off — ADR 0050 (private). The `auto-setup` image ended at 1.29.7, so
+  # this is the plain `temporalio/server` image + static config (docker/temporal/server.yaml,
+  # dynamicconfig.yaml) + two one-shot jobs on `admin-tools` (DB schema, namespace `default`).
+  # Host port 7234 -> frontend 7233 (runner pods in `kind` reach it as ${KIND_GATEWAY_IP}:7234,
+  # with a project JWT). internal-frontend 7236 has NO authorization: never published, never
+  # reachable from runner pods. Temporal UI is removed (it can't authenticate against the JWT
+  # authorizer); use `docker compose ... run --rm temporal-admin-tools temporal ...` (profile
+  # `tools`, talks to 7236) to poke the server by hand.
+  temporal-schema:
+    image: temporalio/admin-tools:1.32.0
+    container_name: falang-workflow-e2e-temporal-schema
     depends_on: [postgresql]
+    restart: 'no'
+    entrypoint: ['/bin/sh', '-c']
+    command:
+      - |
+        set -e
+        T="temporal-sql-tool --plugin postgres12 --ep postgresql -u temporal --pw temporal -p 5432"
+        until $$T --db temporal create-database 2>/dev/null; do sleep 1; done
+        $$T --db temporal setup-schema -v 0.0
+        $$T --db temporal update-schema -d /etc/temporal/schema/postgresql/v12/temporal/versioned
+        $$T --db temporal_visibility create-database
+        $$T --db temporal_visibility setup-schema -v 0.0
+        $$T --db temporal_visibility update-schema -d /etc/temporal/schema/postgresql/v12/visibility/versioned
+    networks: [falang-workflow-e2e-network]
+
+  temporal:
+    image: temporalio/server:1.32.0
+    container_name: falang-workflow-e2e-temporal
+    depends_on:
+      temporal-schema:
+        condition: service_completed_successfully
     environment:
-      - DB=postgres12
-      - DB_PORT=5432
-      - POSTGRES_USER=temporal
-      - POSTGRES_PWD=temporal
-      - POSTGRES_SEEDS=postgresql
-      - DYNAMIC_CONFIG_FILE_PATH=config/dynamicconfig/development-sql.yaml
-      - TEMPORAL_ADDRESS=temporal:7233
-      - TEMPORAL_CLI_ADDRESS=temporal:7233
+      - TEMPORAL_SERVER_CONFIG_FILE_PATH=/cfg/server.yaml
+    entrypoint:
+      - temporal-server
+      - start
+      - --service=frontend
+      - --service=internal-frontend
+      - --service=history
+      - --service=matching
+      - --service=worker
     ports:
       - '7234:7233'
     volumes:
-      - ./docker/temporal-dynamicconfig:/etc/temporal/config/dynamicconfig
+      - ./docker/temporal:/cfg:ro
+    networks: [falang-workflow-e2e-network]
+
+  # Creates the `default` namespace (no longer created by the image) via internal-frontend. Per-project
+  # namespaces are created by `backend` itself; `default` only holds legacy/shared-mode data and is
+  # what the legacy-schedule sweep looks at.
+  temporal-setup:
+    image: temporalio/admin-tools:1.32.0
+    container_name: falang-workflow-e2e-temporal-setup
+    depends_on: [temporal]
+    restart: 'no'
+    environment:
+      - TEMPORAL_ADDRESS=temporal:7236
+    entrypoint: ['/bin/sh', '-c']
+    command:
+      - |
+        until temporal operator namespace describe default >/dev/null 2>&1 || temporal operator namespace create --retention 24h default; do sleep 2; done
+        echo "namespace default ready"
     networks: [falang-workflow-e2e-network]
 
   temporal-admin-tools:
-    image: temporalio/admin-tools:1.29.1-tctl-1.18.4-cli-1.5.0
+    image: temporalio/admin-tools:1.32.0
     container_name: falang-workflow-e2e-temporal-admin-tools
+    profiles: [tools]
     depends_on: [temporal]
     environment:
-      - TEMPORAL_ADDRESS=temporal:7233
-      - TEMPORAL_CLI_ADDRESS=temporal:7233
-    stdin_open: true
-    tty: true
-    networks: [falang-workflow-e2e-network]
-
-  temporal-ui:
-    image: temporalio/ui:2.34.0
-    container_name: falang-workflow-e2e-temporal-ui
-    depends_on: [temporal]
-    environment:
-      - TEMPORAL_ADDRESS=temporal:7233
-      - TEMPORAL_CORS_ORIGINS=http://localhost:5176
-    ports:
-      - '8081:8080'
+      - TEMPORAL_ADDRESS=temporal:7236
     networks: [falang-workflow-e2e-network]
 
   mocks:
@@ -223,8 +257,9 @@ services:
       dockerfile: docker/backend.Dockerfile
     container_name: falang-workflow-e2e-backend
     depends_on:
-      temporal:
-        condition: service_started
+      # Namespace `default` exists and the server is accepting requests.
+      temporal-setup:
+        condition: service_completed_successfully
       app-postgres:
         condition: service_started
       mocks:
@@ -248,6 +283,14 @@ services:
       - TSX_TSCONFIG_PATH=../../../tsconfig.base.json
       - TEMPORAL_ADDRESS=temporal:7233
       - TEMPORAL_NAMESPACE=default
+      # ADR 0050 (private): a namespace per project + JWT. The RS256 key is generated by
+      # `scripts/temporal-e2e-env.sh` (sourced by `npm run test-e2e`/`coverage:e2e` before compose) into a
+      # gitignored file and exported — the workflow-tier spec temporal-isolation reads the very same
+      # TEMPORAL_JWT_PRIVATE_KEY from its host environment to mint tokens. Temporal fetches the JWKS from
+      # `backend`'s internal port (docker/temporal/server.yaml).
+      - TEMPORAL_TENANT_ISOLATION=per-project
+      - TEMPORAL_JWT_PRIVATE_KEY=${TEMPORAL_JWT_PRIVATE_KEY:-}
+      - PROJECT_TOKEN_SECRET=e2e-project-token-secret-at-least-32-chars
       # Runner pods live on the `kind` docker network below, not this one — same reachability
       # requirement as docker-compose.workflow.yml's `backend`, see its comments for the full
       # explanation. Host ports differ here (this stack's own `temporal`/`backend`/`activepieces`
@@ -416,8 +459,8 @@ services:
         condition: service_started
       client:
         condition: service_started
-      temporal:
-        condition: service_started
+      temporal-setup:
+        condition: service_completed_successfully
       mocks:
         condition: service_started
       activepieces:

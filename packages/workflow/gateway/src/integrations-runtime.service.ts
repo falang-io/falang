@@ -70,8 +70,6 @@ export interface IIntegrationsRuntimeParams {
   readonly signalWorkflowWithStart: TSignalWorkflowWithStart;
   /** Base URL this process is externally reachable at (e.g. `https://bots.example.com`) — omit for the polling fallback. See ADR 0006. */
   readonly publicHost?: string;
-  readonly temporalAddress?: string;
-  readonly namespace?: string;
   /**
    * Backs `ctx.getInternalProjectToken()` — see `@falang/workflow-integrations-common`'s
    * `IIntegrationBackendContext` doc comment and ADR 0016 (private)'s
@@ -116,8 +114,6 @@ export class IntegrationsRuntimeService implements OnModuleInit, OnModuleDestroy
   private readonly discovery: IIntegrationsDiscoveryPort;
   private readonly signalWorkflowWithStart: TSignalWorkflowWithStart;
   private readonly publicHost: string | undefined;
-  private readonly temporalAddress: string | undefined;
-  private readonly namespace: string | undefined;
   private readonly getInternalProjectToken: ((projectId: string) => string) | undefined;
   private readonly scheduleClient: IScheduleClientPort | undefined;
   private readonly fileUpload: IFileUploadPort | undefined;
@@ -146,8 +142,6 @@ export class IntegrationsRuntimeService implements OnModuleInit, OnModuleDestroy
     this.discovery = params.discovery;
     this.signalWorkflowWithStart = params.signalWorkflowWithStart;
     this.publicHost = params.publicHost;
-    this.temporalAddress = params.temporalAddress;
-    this.namespace = params.namespace;
     this.getInternalProjectToken = params.getInternalProjectToken;
     this.scheduleClient = params.scheduleClient;
     this.fileUpload = params.fileUpload;
@@ -474,8 +468,7 @@ export class IntegrationsRuntimeService implements OnModuleInit, OnModuleDestroy
         await this.signalWorkflowWithStart({
           ...signal,
           taskQueue,
-          temporalAddress: this.temporalAddress,
-          namespace: this.namespace,
+          projectId: target.projectId,
         });
       },
       getDocumentsByType: (type) => this.discovery.getDocumentsByType(target.projectId, type),
@@ -492,9 +485,9 @@ export class IntegrationsRuntimeService implements OnModuleInit, OnModuleDestroy
           projectId: target.projectId,
           env: target.env,
         }),
-      pauseSchedule: (scheduleId, note) => this.requireScheduleClient().pause(scheduleId, note),
-      deleteSchedule: (scheduleId) => this.requireScheduleClient().delete(scheduleId),
-      listSchedules: () => this.requireScheduleClient().list(taskQueue),
+      pauseSchedule: (scheduleId, note) => this.requireScheduleClient().pause(target.projectId, scheduleId, note),
+      deleteSchedule: (scheduleId) => this.requireScheduleClient().delete(target.projectId, scheduleId),
+      listSchedules: () => this.requireScheduleClient().list(target.projectId, taskQueue),
       uploadFile: (source, meta) => this.requireFileUploadPort().upload(target.projectId, source, meta),
     });
 

@@ -1,11 +1,13 @@
+import type { ITemporalTenancy } from './temporal-tenancy.js';
+
 export interface ISignalWorkflowWithStartParams {
   readonly taskQueue: string;
   readonly workflowId: string;
   readonly workflowType: string;
   readonly signalName: string;
   readonly signalArgs: readonly unknown[];
-  readonly temporalAddress?: string;
-  readonly namespace?: string;
+  /** Resolves the namespace (and the client) through `ITemporalTenancy` — see ADR 0050 (private). */
+  readonly projectId: string;
 }
 
 /**
@@ -22,3 +24,20 @@ export interface ISignalWorkflowWithStartParams {
  * implementation lives in `gateway.module.ts`.
  */
 export type TSignalWorkflowWithStart = (params: ISignalWorkflowWithStartParams) => Promise<void>;
+
+/**
+ * The real `TSignalWorkflowWithStart`: resolves the project's namespace and a pooled, authenticated
+ * client through `ITemporalTenancy` (ADR 0050 (private)) — the shared connection is never closed per call.
+ */
+export const createSignalWorkflowWithStart =
+  (tenancy: ITemporalTenancy): TSignalWorkflowWithStart =>
+  async ({ signalArgs, signalName, taskQueue, projectId, workflowId, workflowType }) => {
+    const client = await tenancy.getClient(projectId);
+    await client.workflow.signalWithStart(workflowType, {
+      workflowId,
+      taskQueue,
+      signal: signalName,
+      signalArgs: [...signalArgs],
+      args: [],
+    });
+  };

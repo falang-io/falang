@@ -5,6 +5,7 @@
  */
 export const MIN_SECRET_LENGTH = 32;
 export const DEV_JWT_SECRET = 'dev-secret-change-me';
+export const DEV_PROJECT_TOKEN_SECRET = 'dev-project-token-secret-change-me';
 
 // oxlint-disable-next-line no-console
 const defaultWarn = (message: string): void => console.warn(message);
@@ -16,7 +17,7 @@ export interface ISecretsValidationResult {
   problems: string[];
 }
 
-const SECRET_NAMES = ['JWT_SECRET', 'DB_PASSWORD', 'CREDENTIALS_ENCRYPTION_KEY'] as const;
+const SECRET_NAMES = ['JWT_SECRET', 'DB_PASSWORD', 'CREDENTIALS_ENCRYPTION_KEY', 'PROJECT_TOKEN_SECRET'] as const;
 
 const WEAK_PATTERNS: RegExp[] = [
   /^dev[-_]/i,
@@ -28,7 +29,7 @@ const WEAK_PATTERNS: RegExp[] = [
 
 const isWeakKnownValue = (value: string): boolean => WEAK_PATTERNS.some((pattern) => pattern.test(value.trim()));
 
-/** Pure check: which of the three secrets are unacceptable for a production deployment. */
+/** Pure check: which of the secrets are unacceptable for a production deployment. */
 export const findSecretProblems = (env: TEnv): ISecretsValidationResult => {
   const problems: string[] = [];
   for (const name of SECRET_NAMES) {
@@ -65,4 +66,15 @@ export const resolveJwtSecret = (value: string | undefined, nodeEnv: string | un
   if (value) return value;
   if (nodeEnv === 'production') throw new Error('JWT_SECRET is not set');
   return DEV_JWT_SECRET;
+};
+
+/**
+ * The one place `PROJECT_TOKEN_SECRET` (the HMAC key every per-project internal token is derived from,
+ * ADR 0050 (private)) is read. No silent default in production; elsewhere a well-known dev value
+ * (`validateSecrets` warns about the missing variable at boot).
+ */
+export const resolveProjectTokenSecret = (value: string | undefined, nodeEnv: string | undefined): string => {
+  if (value) return value;
+  if (nodeEnv === 'production') throw new Error('PROJECT_TOKEN_SECRET is not set');
+  return DEV_PROJECT_TOKEN_SECRET;
 };

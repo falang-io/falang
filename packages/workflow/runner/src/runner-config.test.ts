@@ -45,6 +45,25 @@ describe('readRunnerConfigFromEnv', () => {
     expect(config.buildId).toBeUndefined();
   });
 
+  it('reads the per-project Temporal token URL and TLS flag (ADR 0050 (private))', () => {
+    const env = {
+      ARTIFACT_BASE_URL: 'http://backend:3001',
+      PROJECT_ID: 'p1',
+      INTERNAL_PROJECT_TOKEN: 't',
+      TASK_QUEUE: 'workflow-p1',
+      TEMPORAL_NAMESPACE: 'falang-p1',
+      TEMPORAL_TOKEN_URL: 'http://backend:3001/internal/projects/p1/temporal-token',
+      TEMPORAL_TLS: 'false',
+    };
+
+    expect(readRunnerConfigFromEnv(env)).toMatchObject({
+      namespace: 'falang-p1',
+      temporalTokenUrl: 'http://backend:3001/internal/projects/p1/temporal-token',
+      temporalTls: false,
+    });
+    expect(readRunnerConfigFromEnv({ ...env, TEMPORAL_TLS: 'true' }).temporalTls).toBe(true);
+  });
+
   it('throws listing every missing required variable', () => {
     expect(() => readRunnerConfigFromEnv({})).toThrow(
       /ARTIFACT_BASE_URL.*PROJECT_ID.*INTERNAL_PROJECT_TOKEN.*TASK_QUEUE/,

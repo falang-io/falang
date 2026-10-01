@@ -1,5 +1,5 @@
 // oxlint-disable max-lines -- over the default cap because of `onModuleInit`'s new `ensureRunnerRunning` wiring (ADR 0016 (private)'s Phase 2 "Scale-to-zero" follow-up); the constructor's already-long DI list (unchanged) accounts for most of the file, not accumulated complexity.
-import { ConflictException, Inject, Injectable, NotFoundException, type OnModuleInit } from '@nestjs/common';
+import { ConflictException, Inject, Injectable, Logger, NotFoundException, type OnModuleInit } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { getFunctionSignature, type IFunctionSignature } from '@falang/workflow-compiler';
 import { IntegrationsRuntimeService, SCHEDULE_CLIENT_PORT, type IScheduleClientPort } from '@falang/workflow-gateway';
@@ -67,6 +67,7 @@ export interface IStartedDevRun extends IStartedRun {
  */
 @Injectable()
 export class BuildService implements OnModuleInit {
+  private readonly logger = new Logger(BuildService.name);
   private readonly documentsService: DocumentsService;
   private readonly projectsService: ProjectsService;
   private readonly runnerProcessManager: RunnerProcessManager;
@@ -176,7 +177,7 @@ export class BuildService implements OnModuleInit {
     this.devArtifacts.set(projectId, { workflowBundle, activitiesSource, debugMap });
 
     const taskQueue = devTaskQueue(projectId);
-    const terminatedExecutionsCount = await this.workflowRunService.terminateRunningOn(taskQueue);
+    const terminatedExecutionsCount = await this.workflowRunService.terminateRunningOn(projectId, taskQueue);
     await this.runnerProcessManager.start({
       taskQueue,
       projectId,
@@ -247,7 +248,7 @@ export class BuildService implements OnModuleInit {
 
     const taskQueue = input.target === 'dev' ? devTaskQueue(projectId) : prodTaskQueue(projectId);
     this.runnerProcessManager.touch(taskQueue);
-    return this.workflowRunService.run(taskQueue, input.functionName, input.args);
+    return this.workflowRunService.run(projectId, taskQueue, input.functionName, input.args);
   }
 
   /**
@@ -282,17 +283,16 @@ export class BuildService implements OnModuleInit {
 
     const taskQueue = devTaskQueue(projectId);
     await ensureRunnerRunning(this.ensureRunnerDeps(), projectId, 'dev', taskQueue);
-    const terminatedExecutionsCount = await this.workflowRunService.terminateRunningOn(taskQueue);
-    const started = await this.workflowRunService.start(taskQueue, input.functionName, resolution.args ?? input.args);
+    const terminatedExecutionsCount = await this.workflowRunService.terminateRunningOn(projectId, taskQueue);
+    const started = await this.workflowRunService.start(projectId, taskQueue, input.functionName, resolution.args ?? input.args);
     return { ...started, terminatedExecutionsCount };
   }
 
   /** Backs `GET /projects/:id/schedules` — every Temporal Schedule reconciled for this project's `trigger-function` documents, dev and prod alike. See ADR 0037 (private) §7. */
   async listSchedules(projectId: string, ownerId: string): Promise<IApiSchedule[]> {
     await this.projectsService.getOwnedProject(projectId, ownerId);
-    const schedules = await this.scheduleClient.listAll();
+    const schedules = await this.scheduleClient.listForProject(projectId);
     return schedules
-      .filter((schedule) => schedule.projectId === projectId)
       .map((schedule) => toApiSchedule(schedule))
       .filter((schedule): schedule is IApiSchedule => schedule !== null);
   }
@@ -311,7 +311,7 @@ export class BuildService implements OnModuleInit {
     runId: string,
   ): Promise<IWorkflowPosition> {
     await this.projectsService.getOwnedProject(projectId, ownerId);
-    const position = await this.workflowRunService.getPosition(workflowId, runId);
+    const position = await this.workflowRunService.getPosition(projectId, workflowId, runId);
     const env = ((): 'dev' | 'prod' | null => {
       if (position?.taskQueue === devTaskQueue(projectId)) return 'dev';
       if (position?.taskQueue === prodTaskQueue(projectId)) return 'prod';
@@ -376,7 +376,7 @@ export class BuildService implements OnModuleInit {
         buildId,
         workflowEnv: 'prod',
       });
-      await this.deploymentCli.setCurrentVersionWithRetry(taskQueue, buildId);
+      await this.deploymentCli.setCurrentVersionWithRetry(projectId, taskQueue, buildId);
     }
 
     return toVersionSummary(version);
@@ -393,7 +393,7 @@ export class BuildService implements OnModuleInit {
     const version = await this.getOwnedVersion(projectId, ownerId, versionNumber);
     const taskQueue = prodTaskQueue(projectId);
     await this.startVersionRunnerIfNeeded(projectId, taskQueue, version);
-    await this.deploymentCli.setCurrentVersionWithRetry(taskQueue, version.buildId);
+    await this.deploymentCli.setCurrentVersionWithRetry(projectId, taskQueue, version.buildId);
   }
 
   /** Explicitly retires a published version's runner pod. No drainage check — see ADR 0004 (private)'s open follow-ups. */
@@ -416,7 +416,7 @@ export class BuildService implements OnModuleInit {
 
     const taskQueue = prodTaskQueue(projectId);
     await this.startVersionRunnerIfNeeded(projectId, taskQueue, latest);
-    await this.deploymentCli.setCurrentVersionWithRetry(taskQueue, latest.buildId);
+    await this.deploymentCli.setCurrentVersionWithRetry(projectId, taskQueue, latest.buildId);
     this.gatewayRuntime.resumeProjectIntegrations(projectId, 'prod');
   }
 
@@ -482,6 +482,12 @@ export class BuildService implements OnModuleInit {
 
     await this.runnerProcessManager.stopAll(prodTaskQueue(projectId));
     this.gatewayRuntime.stopProjectIntegrations(projectId, 'prod');
+
+    // Timers must stop firing now, not when the (24 h-delayed, ADR 0050 (private)) namespace sweep
+    // finally deletes the project's Temporal namespace. Best-effort: Temporal being down must not block deletion.
+    await this.scheduleClient.deleteAllForProject(projectId).catch((error: unknown) => {
+      this.logger.error(`Failed to delete schedules of deleted project ${projectId}`, error instanceof Error ? error.stack : error);
+    });
 
     await this.versions.delete({ projectId });
     // Removes the project's S3 objects before the row itself goes away — `files.project_id`'s FK

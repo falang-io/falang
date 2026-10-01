@@ -29,7 +29,10 @@ class FakeTaskRepo {
   save = vi.fn((task: Task): Promise<Task> => {
     const dupe = this.rows.find(
       (row) =>
-        row.id !== task.id && row.workflowId === task.workflowId && row.runId === task.runId && row.nodeId === task.nodeId,
+        row.id !== task.id &&
+        row.workflowId === task.workflowId &&
+        row.runId === task.runId &&
+        row.nodeId === task.nodeId,
     );
     if (dupe) return Promise.reject(new Error('duplicate key value violates unique constraint'));
     const stored = { ...task, createdAt: task.createdAt ?? new Date() };
@@ -38,7 +41,9 @@ class FakeTaskRepo {
   });
 
   update = vi.fn((criteria: Partial<Task>, partial: Partial<Task>): Promise<{ affected: number }> => {
-    const matches = this.rows.filter((row) => Object.entries(criteria).every(([key, value]) => (row as never)[key] === value));
+    const matches = this.rows.filter((row) =>
+      Object.entries(criteria).every(([key, value]) => (row as never)[key] === value),
+    );
     for (const row of matches) Object.assign(row, partial);
     return Promise.resolve({ affected: matches.length });
   });
@@ -46,7 +51,8 @@ class FakeTaskRepo {
   find = vi.fn((): Promise<Task[]> => Promise.resolve([...this.rows]));
 }
 
-const project = (id: string, ownerId: string, name = 'Project One'): Project => ({ id, name, ownerId, createdAt: new Date(), lastEditedAt: null }) as Project;
+const project = (id: string, ownerId: string, name = 'Project One'): Project =>
+  ({ id, name, ownerId, createdAt: new Date(), lastEditedAt: null }) as Project;
 
 const options: ITaskOption[] = [
   { label: 'Approve', dataType: 'void' },
@@ -116,7 +122,12 @@ describe('TasksService.createOrGet', () => {
     // Simulate a race: `findOneBy` finds nothing (both attempts miss the initial read), but by the
     // time this attempt's `save()` runs, the other attempt's row is already there.
     repo.findOneBy.mockImplementationOnce(() => Promise.resolve(null));
-    const winner = repo.create({ id: randomUUID(), ...createInput(), projectId: 'p1', status: 'open' } as Partial<Task>);
+    const winner = repo.create({
+      id: randomUUID(),
+      ...createInput(),
+      projectId: 'p1',
+      status: 'open',
+    } as Partial<Task>);
     repo.rows.push(winner as Task);
 
     const result = await service.createOrGet('p1', createInput());
@@ -176,12 +187,13 @@ describe('TasksService.resolve', () => {
     expect(callOrder).toEqual(['ensureRunnerRunning', 'signalWorkflow']);
     expect(ensureRunnerRunning).toHaveBeenCalledWith('p1', 'dev', 'workflow-dev-p1');
     expect(signalWorkflow).toHaveBeenCalledWith(
+      'p1',
       'wf-1',
       'run-1',
       'humanTaskAnswer',
       expect.objectContaining({ messageId: taskId, value: 'Approve', resolvedBy: 'user-1' }),
     );
-    const payload = signalWorkflow.mock.calls[0]?.[3] as Record<string, unknown>;
+    const payload = signalWorkflow.mock.calls[0]?.[4] as Record<string, unknown>;
     expect(payload).not.toHaveProperty('data');
   });
 
@@ -193,6 +205,7 @@ describe('TasksService.resolve', () => {
 
     expect(result.answerData).toBe('too expensive');
     expect(signalWorkflow).toHaveBeenCalledWith(
+      'p1',
       'wf-1',
       'run-1',
       'humanTaskAnswer',
@@ -204,7 +217,9 @@ describe('TasksService.resolve', () => {
     const { service } = makeService();
     const { taskId } = await service.createOrGet('p1', createInput());
 
-    await expect(service.resolve('owner-1', taskId, { answer: 'Nope' }, 'user-1')).rejects.toBeInstanceOf(BadRequestException);
+    await expect(service.resolve('owner-1', taskId, { answer: 'Nope' }, 'user-1')).rejects.toBeInstanceOf(
+      BadRequestException,
+    );
   });
 
   it("rejects data that doesn't match the option's dataType", async () => {
@@ -221,13 +236,17 @@ describe('TasksService.resolve', () => {
     const { taskId } = await service.createOrGet('p1', createInput());
     await service.resolve('owner-1', taskId, { answer: 'Approve' }, 'user-1');
 
-    await expect(service.resolve('owner-1', taskId, { answer: 'Approve' }, 'user-2')).rejects.toBeInstanceOf(ConflictException);
+    await expect(service.resolve('owner-1', taskId, { answer: 'Approve' }, 'user-2')).rejects.toBeInstanceOf(
+      ConflictException,
+    );
   });
 
   it('flips to orphaned with the error message when the signal hits WorkflowNotFoundError', async () => {
     const { service, signalWorkflow } = makeService();
     const { taskId } = await service.createOrGet('p1', createInput());
-    signalWorkflow.mockImplementation(() => Promise.reject(new WorkflowNotFoundError('workflow not found', 'wf-1', 'run-1')));
+    signalWorkflow.mockImplementation(() =>
+      Promise.reject(new WorkflowNotFoundError('workflow not found', 'wf-1', 'run-1')),
+    );
 
     const result = await service.resolve('owner-1', taskId, { answer: 'Approve' }, 'user-1');
 

@@ -1,9 +1,13 @@
 // oxlint-disable max-lines, init-declarations, no-await-in-loop, no-inline-comments, no-undefined, no-useless-undefined -- raw-RPC isolation probe: shared connections are assigned in beforeAll, deliberately sequential awaits, undefined used for swallowed cleanup errors.
-import { createSign, generateKeyPairSync, randomUUID } from 'node:crypto';
+import { generateKeyPairSync, randomUUID } from 'node:crypto';
 import { Connection } from '@temporalio/client';
+import { msNumberToTs } from '@temporalio/common/lib/time';
 import { temporal } from '@temporalio/proto';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { WORKFLOW_E2E_TEMPORAL_ADDRESS } from '../../test-utils/workflow-e2e-client.js';
+import type { ITemporalJwtConfig } from './temporal-config.js';
+import { temporalNamespaceFor } from './temporal-namespace.js';
+import { TemporalTokenService } from './temporal-token.service.js';
 
 /**
  * Temporal tenant isolation — phase 0 "red" test of ADR 0050 (private): one namespace per project
@@ -21,56 +25,35 @@ import { WORKFLOW_E2E_TEMPORAL_ADDRESS } from '../../test-utils/workflow-e2e-cli
  *
  * Env:
  *  - `TEMPORAL_ADDRESS` — frontend (shared with every workflow-tier spec, default `localhost:7234`);
- *  - `TEMPORAL_JWT_PRIVATE_KEY` — PEM (PKCS#8) RSA key whose public half is served by the stack's JWKS, `kid` in
- *    `TEMPORAL_JWT_KID` (default `falang-1`), audience in `TEMPORAL_JWT_AUDIENCE` (default `falang-temporal`).
- *    TODO (phase 2/3): replace `signJwt` below with the real `TemporalTokenService` of `backend` and read the key
- *    from the e2e container's env exactly like `backend` does. Unset => a throwaway key (tokens unverifiable, which is
- *    fine against an authorizer-less stack: it ignores them, and that is exactly why this spec is red there).
+ *  - `TEMPORAL_JWT_PRIVATE_KEY` — PEM (PKCS#8) RSA key whose public half is served by `backend`'s JWKS (the same env
+ *    `backend` has; tokens are minted by the real `TemporalTokenService`, `kid` defaults to the key's thumbprint exactly
+ *    like the JWKS publishes it, `TEMPORAL_JWT_KEY_ID` overrides), audience in `TEMPORAL_JWT_AUDIENCE` (default
+ *    `falang-temporal`). Unset => a throwaway key (tokens unverifiable, which is fine against an authorizer-less stack:
+ *    it ignores them, and that is exactly why this spec is red there).
  *  - `TEMPORAL_TLS` — `true` to connect with TLS (default plaintext, matching the compose/kind stacks).
  */
 
 const AUDIENCE = process.env.TEMPORAL_JWT_AUDIENCE ?? 'falang-temporal';
-const KID = process.env.TEMPORAL_JWT_KID ?? 'falang-1';
 const USE_TLS = process.env.TEMPORAL_TLS === 'true';
-const THROWAWAY_KEY = generateKeyPairSync('rsa', { modulusLength: 2048 }).privateKey.export({
-  type: 'pkcs8',
-  format: 'pem',
-}) as string;
-const PRIVATE_KEY = process.env.TEMPORAL_JWT_PRIVATE_KEY ?? THROWAWAY_KEY;
+const generatePrivateKeyPem = (): string =>
+  generateKeyPairSync('rsa', { modulusLength: 2048 }).privateKey.export({ type: 'pkcs8', format: 'pem' }) as string;
+const PRIVATE_KEY = process.env.TEMPORAL_JWT_PRIVATE_KEY ?? generatePrivateKeyPem();
+const KEY_ID = process.env.TEMPORAL_JWT_KEY_ID;
 
-const base64Url = (input: Buffer | string): string => Buffer.from(input).toString('base64url');
+/** The production token signer (same code `backend` runs), so the spec exercises exactly what pods and the backend get. */
+const tokenService = (overrides: Partial<ITemporalJwtConfig> = {}): TemporalTokenService =>
+  new TemporalTokenService({
+    privateKeyPem: PRIVATE_KEY,
+    keyId: KEY_ID,
+    ttlSeconds: 300,
+    audience: AUDIENCE,
+    ...overrides,
+  });
 
-interface ISignJwtParams {
-  readonly sub: string;
-  readonly permissions: readonly string[];
-  readonly ttlSeconds?: number;
-  readonly audience?: string;
-  readonly privateKeyPem?: string;
-}
-
-/** Minimal RS256 signer (no `jose` dependency in this package). */
-const signJwt = (params: ISignJwtParams): string => {
-  const now = Math.floor(Date.now() / 1000);
-  const header = { alg: 'RS256', typ: 'JWT', kid: KID };
-  const payload = {
-    iss: 'falang-backend',
-    aud: params.audience ?? AUDIENCE,
-    sub: params.sub,
-    iat: now,
-    exp: now + (params.ttlSeconds ?? 300),
-    permissions: params.permissions,
-  };
-  const signingInput = `${base64Url(JSON.stringify(header))}.${base64Url(JSON.stringify(payload))}`;
-  const signature = createSign('RSA-SHA256')
-    .update(signingInput)
-    .sign(params.privateKeyPem ?? PRIVATE_KEY);
-  return `${signingInput}.${base64Url(signature)}`;
-};
-
-const namespaceFor = (projectId: string): string => `falang-${projectId}`;
-const projectToken = (namespace: string, ttlSeconds?: number): string =>
-  signJwt({ sub: `project:${namespace}`, permissions: [`${namespace}:write`], ttlSeconds });
-const adminToken = (): string => signJwt({ sub: 'falang-backend', permissions: ['temporal-system:admin'] });
+const namespaceFor = temporalNamespaceFor;
+const projectToken = (projectId: string, ttlSeconds?: number): string =>
+  tokenService(ttlSeconds ? { ttlSeconds } : {}).mintProjectToken(projectId).token;
+const adminToken = (): string => tokenService().mintAdminToken().token;
 
 const connect = (token?: string): Promise<Connection> =>
   Connection.connect({
@@ -151,7 +134,7 @@ describe('temporal tenant isolation (workflow tier)', () => {
 
   beforeAll(async () => {
     admin = await connect(adminToken());
-    asA = await connect(projectToken(nsA));
+    asA = await connect(projectToken(projectA));
     anonymous = await connect();
     // Namespaces are created by the privileged side (backend's TemporalTenancyService in phase 1+).
     for (const namespace of [nsA, nsB]) {
@@ -238,7 +221,7 @@ describe('temporal tenant isolation (workflow tier)', () => {
         scheduleId,
         requestId: randomUUID(),
         schedule: {
-          spec: { interval: [{ interval: { seconds: 3600 } }] },
+          spec: { interval: [{ interval: msNumberToTs(3_600_000) }] },
           action: {
             startWorkflow: {
               workflowId: `sched-run-${scheduleId}`,
@@ -254,7 +237,7 @@ describe('temporal tenant isolation (workflow tier)', () => {
           scheduleId: `evil-${Date.now()}`,
           requestId: randomUUID(),
           schedule: {
-            spec: { interval: [{ interval: { seconds: 60 } }] },
+            spec: { interval: [{ interval: msNumberToTs(60_000) }] },
             action: {
               startWorkflow: {
                 workflowId: 'evil',
@@ -489,17 +472,13 @@ describe('temporal tenant isolation (workflow tier)', () => {
 
   describe('(9) token validity', () => {
     it('refuses an expired token, a token for another audience and a token signed with an unknown key', async () => {
-      const expired = connectLazy(projectToken(nsA, 2));
+      const expired = connectLazy(projectToken(projectA, 2));
       await sleep(4000);
       await expectDenied('expired token', () => expired.workflowService.describeNamespace({ namespace: nsA }));
-      const wrongAudience = connectLazy(signJwt({ sub: 'x', permissions: [`${nsA}:write`], audience: 'someone-else' }));
+      const wrongAudience = connectLazy(tokenService({ audience: 'someone-else' }).mintProjectToken(projectA).token);
       await expectDenied('wrong audience', () => wrongAudience.workflowService.describeNamespace({ namespace: nsA }));
-      const foreignKey = generateKeyPairSync('rsa', { modulusLength: 2048 }).privateKey.export({
-        type: 'pkcs8',
-        format: 'pem',
-      }) as string;
       const forged = connectLazy(
-        signJwt({ sub: 'x', permissions: ['temporal-system:admin'], privateKeyPem: foreignKey }),
+        tokenService({ privateKeyPem: generatePrivateKeyPem(), keyId: undefined }).mintAdminToken().token,
       );
       await expectDenied('token signed with a foreign key claiming temporal-system:admin', () =>
         forged.workflowService.listNamespaces({}),
@@ -508,9 +487,10 @@ describe('temporal tenant isolation (workflow tier)', () => {
     }, 30_000);
   });
 
-  // TODO (ADR 0050, phase 3): the stack-level cases need real projects — publish A and B through backend, assert
-  // the runner pod's Worker (token from `POST /internal/projects/:id/temporal-token`) keeps working past
-  // `TEMPORAL_JWT_TTL_SECONDS=20` (spike result: NativeConnection.setApiKey refresh works, no refresh => the worker
-  // stops after the TTL), and that `TemporalTokenService` mints the tokens used above.
+  // The tokens above come from the real `TemporalTokenService`. Still open (stack-level, needs real projects): publish
+  // A and B through backend and assert the runner pod's Worker (token from `POST /internal/projects/:projectId/temporal-token`,
+  // refreshed at half TTL by `start-runner.ts`) keeps working past `TEMPORAL_JWT_TTL_SECONDS=20` (spike result:
+  // NativeConnection.setApiKey refresh works, no refresh => the worker stops after the TTL). The refresh logic itself is
+  // unit-tested in `@falang/workflow-runner`'s `temporal-token-refresher.test.ts`.
   it.todo('a runner pod keeps executing workflows after 2x token TTL (needs the backend token endpoint)');
 });

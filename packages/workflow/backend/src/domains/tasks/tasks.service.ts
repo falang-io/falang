@@ -1,4 +1,5 @@
 import { BadRequestException, ConflictException, NotFoundException } from '@nestjs/common';
+import { isNamespaceNotFoundError } from '@falang/workflow-gateway';
 import { WorkflowNotFoundError } from '@temporalio/client';
 import { In, type QueryDeepPartialEntity, type Repository } from 'typeorm';
 import type { ProjectsService } from '../projects/projects/projects.service.js';
@@ -11,8 +12,14 @@ import {
   type ITasksFilters,
 } from './task.types.js';
 
-/** Sends one signal to a known, already-running execution — never `signalWithStart` (see `TasksService.resolve`'s doc comment for why). Connect-per-call, same posture as every other Temporal-touching function in `backend` (`workflow-debug-client-impl.ts`'s `sendDebugSignal`). */
-export type TSignalWorkflow = (workflowId: string, runId: string, signalName: string, payload: unknown) => Promise<void>;
+/** Sends one signal to a known, already-running execution — never `signalWithStart` (see `TasksService.resolve`'s doc comment for why). `projectId` picks the namespace the run lives in (ADR 0050 (private)). */
+export type TSignalWorkflow = (
+  projectId: string,
+  workflowId: string,
+  runId: string,
+  signalName: string,
+  payload: unknown,
+) => Promise<void>;
 
 export interface ITasksServiceParams {
   readonly tasks: Pick<Repository<Task>, 'find' | 'findOneBy' | 'create' | 'save' | 'update'>;
@@ -128,7 +135,9 @@ export class TasksService {
   /** Every task of every project `ownerId` owns — `projectId` only narrows within that set, exactly like `RunsService.listRuns`. */
   async list(ownerId: string, filters: ITasksFilters = {}): Promise<IApiTask[]> {
     const ownedProjects = await this.projectsService.list(ownerId);
-    const projects = filters.projectId ? ownedProjects.filter((project) => project.id === filters.projectId) : ownedProjects;
+    const projects = filters.projectId
+      ? ownedProjects.filter((project) => project.id === filters.projectId)
+      : ownedProjects;
     if (projects.length === 0) return [];
 
     const projectNameById = new Map(projects.map((project) => [project.id, project.name]));
@@ -181,7 +190,7 @@ export class TasksService {
 
     try {
       await this.ensureRunnerRunning(row.projectId, row.env, row.taskQueue);
-      await this.signalWorkflow(row.workflowId, row.runId, HUMAN_TASK_ANSWER_SIGNAL_NAME, {
+      await this.signalWorkflow(row.projectId, row.workflowId, row.runId, HUMAN_TASK_ANSWER_SIGNAL_NAME, {
         messageId: row.id,
         value: input.answer,
         ...(option.dataType === 'void' ? {} : { data: input.data }),
@@ -189,8 +198,8 @@ export class TasksService {
         resolvedAt: resolvedAt.toISOString(),
       });
     } catch (error) {
-      if (error instanceof WorkflowNotFoundError) {
-        await this.tasks.update({ id: row.id }, { status: 'orphaned', orphanReason: error.message });
+      if (error instanceof WorkflowNotFoundError || isNamespaceNotFoundError(error)) {
+        await this.tasks.update({ id: row.id }, { status: 'orphaned', orphanReason: (error as Error).message });
       } else {
         const reopenedFields = {
           status: 'open',

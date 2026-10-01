@@ -1,7 +1,8 @@
-import { NativeConnection, Worker, type WorkerOptions } from '@temporalio/worker';
+import { Worker, type WorkerOptions } from '@temporalio/worker';
 import { fetchArtifact } from './fetch-artifact.js';
 import { loadCjsModuleFromSource } from './load-cjs-module-from-source.js';
 import type { IRunnerConfig } from './runner-config.js';
+import { connectRunnerToTemporal } from './temporal-connection.js';
 
 /**
  * Starts a Temporal Worker for a single compiled workflow. Per
@@ -15,9 +16,8 @@ import type { IRunnerConfig } from './runner-config.js';
  * the pre-k8s version of this function, which read `workflowsPath`/`activitiesPath` off local disk.
  */
 export const startRunner = async (config: IRunnerConfig): Promise<void> => {
-  const connection = config.temporalAddress
-    ? await NativeConnection.connect({ address: config.temporalAddress })
-    : null;
+  // Tokenless in `shared` mode, otherwise authenticated for this project's namespace only and kept fresh — see `temporal-connection.ts`.
+  const temporal = await connectRunnerToTemporal(config);
 
   const { workflowBundle, activitiesSource } = await fetchArtifact({
     artifactBaseUrl: config.artifactBaseUrl,
@@ -36,8 +36,8 @@ export const startRunner = async (config: IRunnerConfig): Promise<void> => {
     workflowBundle: { code: workflowBundle },
     activities,
   };
-  if (connection) {
-    workerOptions.connection = connection;
+  if (temporal) {
+    workerOptions.connection = temporal.connection;
   }
   if (config.deploymentName && config.buildId) {
     // PINNED (not AUTO_UPGRADE): an execution stays on the version it started on for its whole
@@ -54,6 +54,6 @@ export const startRunner = async (config: IRunnerConfig): Promise<void> => {
     const worker = await Worker.create(workerOptions);
     await worker.run();
   } finally {
-    await connection?.close();
+    await temporal?.close();
   }
 };

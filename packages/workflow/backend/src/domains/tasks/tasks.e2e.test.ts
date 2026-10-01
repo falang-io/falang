@@ -41,9 +41,15 @@ describe('tasks (e2e)', () => {
   // oxlint-disable-next-line init-declarations
   let app: INestApplication;
   // oxlint-disable-next-line init-declarations
-  let ensureRunnerRunning: ReturnType<typeof vi.fn<(projectId: string, env: 'dev' | 'prod', taskQueue: string) => Promise<void>>>;
+  let ensureRunnerRunning: ReturnType<
+    typeof vi.fn<(projectId: string, env: 'dev' | 'prod', taskQueue: string) => Promise<void>>
+  >;
   // oxlint-disable-next-line init-declarations
-  let signalWorkflow: ReturnType<typeof vi.fn<(workflowId: string, runId: string, signalName: string, payload: unknown) => Promise<void>>>;
+  let signalWorkflow: ReturnType<
+    typeof vi.fn<
+      (projectId: string, workflowId: string, runId: string, signalName: string, payload: unknown) => Promise<void>
+    >
+  >;
 
   beforeEach(async () => {
     // This suite signs users up through POST /auth/register.
@@ -95,7 +101,9 @@ describe('tasks (e2e)', () => {
   });
 
   const registerAndLogin = async (username: string): Promise<{ token: string; userId: string }> => {
-    const response = await request(app.getHttpServer()).post('/auth/register').send({ username, password: 'password123' });
+    const response = await request(app.getHttpServer())
+      .post('/auth/register')
+      .send({ username, password: 'password123' });
     return { token: response.body.accessToken as string, userId: response.body.user.id as string };
   };
 
@@ -183,6 +191,7 @@ describe('tasks (e2e)', () => {
 
     expect(ensureRunnerRunning).toHaveBeenCalledWith(projectId, 'dev', `workflow-dev-${projectId}`);
     expect(signalWorkflow).toHaveBeenCalledWith(
+      projectId,
       'wf-1',
       'run-1',
       'humanTaskAnswer',
@@ -190,7 +199,10 @@ describe('tasks (e2e)', () => {
     );
 
     // Already resolved — a second resolve loses the optimistic race.
-    const again = await request(app.getHttpServer()).post(`/tasks/${taskId}/resolve`).set(auth(token)).send({ answer: 'Approve' });
+    const again = await request(app.getHttpServer())
+      .post(`/tasks/${taskId}/resolve`)
+      .set(auth(token))
+      .send({ answer: 'Approve' });
     expect(again.status).toBe(409);
   });
 
@@ -202,7 +214,9 @@ describe('tasks (e2e)', () => {
     // First task: resolve races a dead workflow.
     const orphanCandidate = await internalCreate(projectId, projectToken, { nodeId: 'node-orphan' });
     const orphanTaskId = orphanCandidate.body.taskId as string;
-    signalWorkflow.mockImplementationOnce(() => Promise.reject(new WorkflowNotFoundError('workflow not found', 'wf-1', 'run-1')));
+    signalWorkflow.mockImplementationOnce(() =>
+      Promise.reject(new WorkflowNotFoundError('workflow not found', 'wf-1', 'run-1')),
+    );
 
     const resolved = await request(app.getHttpServer())
       .post(`/tasks/${orphanTaskId}/resolve`)

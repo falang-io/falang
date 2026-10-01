@@ -1,0 +1,57 @@
+# Dynamic config for the self-hosted Temporal server (temporalio/server 1.32.x) — mounted next to
+# server.yaml / server.noauth.yaml (`dynamicConfigClient.filepath: /cfg/dynamicconfig.yaml`, re-read
+# every 10s). Used by docker-compose.workflow.yml (dev/self-host) and docker-compose.workflow-e2e.yml.
+# See ADR 0050 (private): tenant isolation in Temporal.
+
+# Dev setup only. Please don't turn this on in production.
+system.forceSearchAttributesCacheRefreshOnRead:
+  - value: true
+    constraints: {}
+
+# Namespace names are `falang-<projectId>` (a uuid, 43 chars); 255 is the server default, set explicitly.
+limit.maxIDLength:
+  - value: 255
+    constraints: {}
+
+# A tenant's workflow code must never be able to signal / start children in / cancel workflows of
+# another namespace. 1.32 defaults to false; pinned explicitly so a changed default can't silently
+# reopen it. Do NOT remove — tenant isolation is considered not achieved without it.
+system.enableCrossNamespaceCommands:
+  - value: false
+    constraints: {}
+
+# Conservative per-namespace limits (one namespace == one project in `per-project` mode): a noisy
+# project is throttled by its own namespace budget instead of starving the others. In `shared`
+# mode every project lives in the single `default` namespace, so these simply cap the whole
+# deployment. Keys verified against `temporal-server validate-dynamic-config` of 1.32.0.
+frontend.namespaceRPS:
+  - value: 1000
+    constraints: {}
+frontend.namespaceBurstRatio:
+  - value: 2
+    constraints: {}
+# Max concurrent long-poll requests per namespace (default 1200).
+frontend.namespaceCount:
+  - value: 400
+    constraints: {}
+limit.blobSize.error: # one payload (input/result/signal), bytes — 2 MiB, the server default
+  - value: 2097152
+    constraints: {}
+limit.historyCount.error: # events per workflow history
+  - value: 51200
+    constraints: {}
+limit.historySize.error: # bytes per workflow history — 50 MiB
+  - value: 52428800
+    constraints: {}
+limit.numPendingActivities.error:
+  - value: 500
+    constraints: {}
+limit.numPendingChildExecutions.error:
+  - value: 500
+    constraints: {}
+limit.numPendingSignals.error:
+  - value: 500
+    constraints: {}
+limit.numPendingCancelRequests.error:
+  - value: 500
+    constraints: {}

@@ -1,18 +1,31 @@
 import { describe, expect, it, vi } from 'vitest';
-import { findSecretProblems, resolveJwtSecret, validateSecrets } from './validate-secrets.js';
+import {
+  findSecretProblems,
+  resolveJwtSecret,
+  resolveProjectTokenSecret,
+  validateSecrets,
+} from './validate-secrets.js';
 
 const STRONG = 'k9Zr2pQwXv7LmN4bT8yHc1Ud5Fg3JsAe6';
-const good = { JWT_SECRET: STRONG, DB_PASSWORD: `${STRONG}x`, CREDENTIALS_ENCRYPTION_KEY: `${STRONG}y` };
+const good = {
+  JWT_SECRET: STRONG,
+  DB_PASSWORD: `${STRONG}x`,
+  CREDENTIALS_ENCRYPTION_KEY: `${STRONG}y`,
+  PROJECT_TOKEN_SECRET: `${STRONG}z`,
+};
 
 describe('validateSecrets', () => {
   it('accepts strong secrets in production', () => {
     expect(() => validateSecrets({ ...good, NODE_ENV: 'production' })).not.toThrow();
   });
 
-  it.each(['JWT_SECRET', 'DB_PASSWORD', 'CREDENTIALS_ENCRYPTION_KEY'])('rejects a missing %s in production', (name) => {
-    const env: Record<string, string> = { ...good, NODE_ENV: 'production', [name]: '' };
-    expect(() => validateSecrets(env)).toThrow(new RegExp(`${name} is not set`));
-  });
+  it.each(['JWT_SECRET', 'DB_PASSWORD', 'CREDENTIALS_ENCRYPTION_KEY', 'PROJECT_TOKEN_SECRET'])(
+    'rejects a missing %s in production',
+    (name) => {
+      const env: Record<string, string> = { ...good, NODE_ENV: 'production', [name]: '' };
+      expect(() => validateSecrets(env)).toThrow(new RegExp(`${name} is not set`));
+    },
+  );
 
   it.each([
     'dev-secret-change-me',
@@ -35,8 +48,8 @@ describe('validateSecrets', () => {
   it('only warns outside production', () => {
     const warn = vi.fn();
     validateSecrets({ NODE_ENV: 'development' }, warn);
-    expect(warn).toHaveBeenCalledTimes(3);
-    expect(findSecretProblems({}).problems).toHaveLength(3);
+    expect(warn).toHaveBeenCalledTimes(4);
+    expect(findSecretProblems({}).problems).toHaveLength(4);
   });
 });
 
@@ -49,5 +62,22 @@ describe('resolveJwtSecret', () => {
   });
   it('throws in production without a value', () => {
     expect(() => resolveJwtSecret('', 'production')).toThrow();
+  });
+});
+
+describe('resolveProjectTokenSecret', () => {
+  it('returns the configured value', () => {
+    expect(resolveProjectTokenSecret(STRONG, 'production')).toBe(STRONG);
+  });
+  it('falls back to a dev value outside production', () => {
+    expect(resolveProjectTokenSecret('', 'test')).toBe('dev-project-token-secret-change-me');
+  });
+  it('throws in production without a value', () => {
+    expect(() => resolveProjectTokenSecret('', 'production')).toThrow(/PROJECT_TOKEN_SECRET/);
+  });
+  it('is rejected as a known dev value in production by validateSecrets', () => {
+    expect(() =>
+      validateSecrets({ ...good, PROJECT_TOKEN_SECRET: 'dev-project-token-secret-change-me', NODE_ENV: 'production' }),
+    ).toThrow(/PROJECT_TOKEN_SECRET is a known development/);
   });
 });

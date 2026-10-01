@@ -29,6 +29,7 @@ import { FoldersModule } from '../domains/projects/folders/folders.module.js';
 import { AgentUsage } from '../domains/agent-chat/agent-usage.entity.js';
 import { Project } from '../domains/projects/projects/project.entity.js';
 import { ProjectsModule } from '../domains/projects/projects/projects.module.js';
+import { TemporalModule } from '../domains/temporal/temporal.module.js';
 import { TreeModule } from '../domains/projects/tree/tree.module.js';
 import { ProjectBlob } from '../domains/projects/versioning/project-blob.entity.js';
 import { ProjectCommit } from '../domains/projects/versioning/project-commit.entity.js';
@@ -85,6 +86,7 @@ export const buildTestAppImports = (extraModules: TAppImport[] = []) => [
   AdminModule,
   AgentChatModule,
   FilesModule,
+  TemporalModule,
   GatewayModule.forRoot([], noopDiscoveryPort),
   ...extraModules,
 ];

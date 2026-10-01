@@ -1,14 +1,13 @@
 // oxlint-disable unicorn/prefer-module -- this package is CommonJS (package.json "type"); __dirname is the correct tool here, not ESM's import.meta.
 // oxlint-disable max-lines -- grew past 300 lines from ADR 0025 (private)'s VersioningModule wiring and ADR 0029 (private)'s McpModule consumers landing in the same merge; both additions are a handful of lines each, not accumulated complexity.
-import { execFile } from 'node:child_process';
 import { join } from 'node:path';
-import { promisify } from 'node:util';
 import { AppsV1Api, KubeConfig } from '@kubernetes/client-node';
 import { Module } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { TypeOrmModule } from '@nestjs/typeorm';
 import { POSITION_QUERY_NAME, type IWorkflowPositionFrame } from '@falang/workflow-compiler';
-import { Client, Connection, WorkflowNotFoundError } from '@temporalio/client';
+import { WorkflowNotFoundError } from '@temporalio/client';
+import { TEMPORAL_TENANCY, type ITemporalTenancy } from '@falang/workflow-gateway';
 import { arrayFromPayloads, defaultPayloadConverter } from '@temporalio/common';
 import { temporal } from '@temporalio/proto';
 import { DebugController } from '../debug/debug.controller.js';
@@ -24,7 +23,7 @@ import { VersioningModule } from '../../projects/versioning/versioning.module.js
 import { BuildController } from './build.controller.js';
 import { UserLimitsModule } from '../../admin/user-limits/user-limits.module.js';
 import { BuildService, BUILD_OUTPUT_DIR } from './build.service.js';
-import { DeploymentCliService, type TRunTemporalCli } from './deployment-cli.service.js';
+import { DeploymentCliService } from './deployment-cli.service.js';
 import { DevArtifactStore } from './dev-artifact-store.service.js';
 import { InternalArtifactsController } from './internal-artifacts.controller.js';
 import { InternalCoverageController } from './internal-coverage.controller.js';
@@ -42,8 +41,6 @@ import {
   type TTerminateRunningExecutions,
 } from './workflow-run.service.js';
 
-const execFileAsync = promisify(execFile);
-
 /**
  * How long a `falang-position` query may wait for the Worker before `getWorkflowPosition` reports
  * `'unavailable'` — a query is dispatched as a task to the execution's Worker, so with the runner pod
@@ -52,9 +49,6 @@ const execFileAsync = promisify(execFile);
  */
 const POSITION_QUERY_DEADLINE_MS = 3000;
 
-const connect = (temporalAddress: string | undefined): Promise<Connection> =>
-  temporalAddress ? Connection.connect({ address: temporalAddress }) : Connection.connect();
-
 // Must live inside this repo's node_modules-resolvable tree: Temporal's workflow bundler does
 // standard Node module resolution from the compiled file's own directory upward to find
 // `@temporalio/workflow` — an arbitrary OS temp dir (outside the repo) can't resolve it. Only the
@@ -62,47 +56,28 @@ const connect = (temporalAddress: string | undefined): Promise<Connection> =>
 // removes it in `finally`; nothing persistent lives here) — see the security audit's P0-7.
 const BUILD_OUTPUT_DIR_PATH = join(__dirname, '..', '..', '..', '..', '.builds');
 
-// `temporal` CLI must be on PATH — bundled into the backend Docker image (see
-// docker/backend.Dockerfile); required locally for `publish`/`activate` to work outside Docker.
-const runTemporalCli: TRunTemporalCli = (args, env) => execFileAsync('temporal', args, { env });
+// Every closure resolves the project's own namespace client through `ITemporalTenancy` — a shared,
+// pooled connection that is never closed per call (ADR 0050 (private); it used to connect fresh per call).
+const createStartAndAwaitWorkflow =
+  (tenancy: ITemporalTenancy): TStartAndAwaitWorkflow =>
+  async ({ projectId, taskQueue, workflowId, functionName, args }) => {
+    try {
+      const client = await tenancy.getClient(projectId);
+      const handle = await client.workflow.start(functionName, { taskQueue, workflowId, args: [...args] });
+      const result = await handle.result();
+      return { status: 'completed', result };
+    } catch (error) {
+      return { status: 'failed', message: error instanceof Error ? error.message : String(error) };
+    }
+  };
 
-// Connects fresh per manual run rather than holding a long-lived `Client` — a "Run" click is
-// infrequent enough (a person clicking a button) that the connection setup cost doesn't matter,
-// and it avoids adding module-lifecycle (`OnModuleDestroy`) teardown for the MVP.
-const startAndAwaitWorkflow: TStartAndAwaitWorkflow = async ({
-  taskQueue,
-  workflowId,
-  functionName,
-  args,
-  temporalAddress,
-  namespace,
-}) => {
-  const connection = temporalAddress
-    ? await Connection.connect({ address: temporalAddress })
-    : await Connection.connect();
-  try {
-    const client = new Client({ connection, namespace });
-    const handle = await client.workflow.start(functionName, { taskQueue, workflowId, args: [...args] });
-    const result = await handle.result();
-    return { status: 'completed', result };
-  } catch (error) {
-    return { status: 'failed', message: error instanceof Error ? error.message : String(error) };
-  } finally {
-    await connection.close();
-  }
-};
-
-// Same connect-per-call posture as `startAndAwaitWorkflow` above.
-const startWorkflow: TStartWorkflow = async ({ taskQueue, workflowId, functionName, args, temporalAddress, namespace }) => {
-  const connection = await connect(temporalAddress);
-  try {
-    const client = new Client({ connection, namespace });
+const createStartWorkflow =
+  (tenancy: ITemporalTenancy): TStartWorkflow =>
+  async ({ projectId, taskQueue, workflowId, functionName, args }) => {
+    const client = await tenancy.getClient(projectId);
     const handle = await client.workflow.start(functionName, { taskQueue, workflowId, args: [...args] });
     return { runId: handle.firstExecutionRunId };
-  } finally {
-    await connection.close();
-  }
-};
+  };
 
 const decodePayloads = (payloads: temporal.api.common.v1.IPayloads | null | undefined): unknown => {
   if (!payloads?.payloads || payloads.payloads.length === 0) return null;
@@ -114,14 +89,12 @@ const decodePayloads = (payloads: temporal.api.common.v1.IPayloads | null | unde
  * See `IWorkflowPosition` for the contract. A running execution is asked live via the compiled
  * runtime's `falang-position` query (bounded by `POSITION_QUERY_DEADLINE_MS` — a query with no
  * Worker polling would otherwise block); a failed one is read from its `WorkflowExecutionFailed`
- * event's failure details, no Worker involved; anything else has no position to report. Connects
- * per call like its siblings — the client polls this about once a second while a run is watched,
- * which is still "a person looking at a screen", not a hot path.
+ * event's failure details, no Worker involved; anything else has no position to report.
  */
-const getWorkflowPosition: TGetWorkflowPosition = async ({ workflowId, runId, temporalAddress, namespace }) => {
-  const connection = await connect(temporalAddress);
-  try {
-    const client = new Client({ connection, namespace });
+const createGetWorkflowPosition =
+  (tenancy: ITemporalTenancy): TGetWorkflowPosition =>
+  async ({ projectId, workflowId, runId }) => {
+    const client = await tenancy.getClient(projectId);
     const handle = client.workflow.getHandle(workflowId, runId);
     const description = await handle.describe().catch((error: unknown) => {
       if (error instanceof WorkflowNotFoundError) return null;
@@ -132,7 +105,7 @@ const getWorkflowPosition: TGetWorkflowPosition = async ({ workflowId, runId, te
 
     if (description.status.name === 'RUNNING') {
       try {
-        const stack = await connection.withDeadline(Date.now() + POSITION_QUERY_DEADLINE_MS, () =>
+        const stack = await client.connection.withDeadline(Date.now() + POSITION_QUERY_DEADLINE_MS, () =>
           handle.query<IWorkflowPositionFrame[]>(POSITION_QUERY_NAME),
         );
         return { ...base, source: 'query', stack };
@@ -157,10 +130,7 @@ const getWorkflowPosition: TGetWorkflowPosition = async ({ workflowId, runId, te
     }
 
     return { ...base, source: 'none', stack: null };
-  } finally {
-    await connection.close();
-  }
-};
+  };
 
 // Default for `DEV_EXECUTION_CANCEL_GRACE_MS` — see `createTerminateRunningExecutions`'s doc comment
 // and ADR 0040 (private) §4/§5.
@@ -172,60 +142,51 @@ const DEFAULT_DEV_EXECUTION_CANCEL_GRACE_MS = 10_000;
 //
 // Builds the real `TTerminateRunningExecutions` closure `WorkflowRunService.terminateRunningOn`
 // calls through, over `terminateRunningExecutionsWith`'s cancel-then-grace-then-terminate logic (see
-// its own doc comment and ADR 0040 (private) §4/§5) — connect-per-call
-// like every other closure in this file, so the whole cancel→wait→terminate sequence for one call
-// happens inside one Temporal connection. `graceMs` is bound once per process (from
+// its own doc comment and ADR 0040 (private) §4/§5) — like every other closure in this file — namespace-bound client from `ITemporalTenancy`. `graceMs` is bound once per process (from
 // `DEV_EXECUTION_CANCEL_GRACE_MS`, see the `WorkflowRunService` provider below), not threaded through
 // `ITerminateRunningExecutionsParams` — it's a deployment-wide constant, not something that varies
-// per call the way `taskQueue`/`temporalAddress`/`namespace` do.
-const createTerminateRunningExecutions = (graceMs: number): TTerminateRunningExecutions =>
-  async function terminateRunningExecutions({ taskQueue, temporalAddress, namespace }) {
-    const connection = temporalAddress
-      ? await Connection.connect({ address: temporalAddress })
-      : await Connection.connect();
-    try {
-      const client = new Client({ connection, namespace });
-      return await terminateRunningExecutionsWith(
-        {
-          listRunning: async (queue) => {
-            const handles: ITerminatableWorkflowHandle[] = [];
-            for await (const execution of client.workflow.list({
-              query: `TaskQueue = '${queue}' AND ExecutionStatus = 'Running'`,
-            })) {
-              const handle = client.workflow.getHandle(execution.workflowId, execution.runId);
-              handles.push({
-                async cancel() {
-                  try {
-                    await handle.cancel();
-                  } catch (error) {
-                    if (!(error instanceof WorkflowNotFoundError)) throw error;
-                  }
-                },
-                async isRunning() {
-                  const description = await handle.describe().catch((error: unknown) => {
-                    if (error instanceof WorkflowNotFoundError) return null;
-                    throw error;
-                  });
-                  return description?.status.name === 'RUNNING';
-                },
-                async terminate(reason) {
-                  try {
-                    await handle.terminate(reason);
-                  } catch (error) {
-                    if (!(error instanceof WorkflowNotFoundError)) throw error;
-                  }
-                },
-              });
-            }
-            return handles;
-          },
+// per call the way `taskQueue`/`projectId` do.
+const createTerminateRunningExecutions = (graceMs: number, tenancy: ITemporalTenancy): TTerminateRunningExecutions =>
+  async function terminateRunningExecutions({ projectId, taskQueue }) {
+    const client = await tenancy.getClient(projectId);
+    return await terminateRunningExecutionsWith(
+      {
+        listRunning: async (queue) => {
+          const handles: ITerminatableWorkflowHandle[] = [];
+          for await (const execution of client.workflow.list({
+            query: `TaskQueue = '${queue}' AND ExecutionStatus = 'Running'`,
+          })) {
+            const handle = client.workflow.getHandle(execution.workflowId, execution.runId);
+            handles.push({
+              async cancel() {
+                try {
+                  await handle.cancel();
+                } catch (error) {
+                  if (!(error instanceof WorkflowNotFoundError)) throw error;
+                }
+              },
+              async isRunning() {
+                const description = await handle.describe().catch((error: unknown) => {
+                  if (error instanceof WorkflowNotFoundError) return null;
+                  throw error;
+                });
+                return description?.status.name === 'RUNNING';
+              },
+              async terminate(reason) {
+                try {
+                  await handle.terminate(reason);
+                } catch (error) {
+                  if (!(error instanceof WorkflowNotFoundError)) throw error;
+                }
+              },
+            });
+          }
+          return handles;
         },
-        taskQueue,
-        graceMs,
-      );
-    } finally {
-      await connection.close();
-    }
+      },
+      taskQueue,
+      graceMs,
+    );
   };
 
 @Module({
@@ -268,8 +229,8 @@ const createTerminateRunningExecutions = (graceMs: number): TTerminateRunningExe
     },
     {
       provide: RunnerProcessManager,
-      inject: [ConfigService],
-      useFactory: (config: ConfigService) => {
+      inject: [ConfigService, TEMPORAL_TENANCY],
+      useFactory: (config: ConfigService, tenancy: ITemporalTenancy) => {
         // `loadFromDefault()` reads `KUBECONFIG` (falling back to `~/.kube/config`, or in-cluster
         // service-account credentials when running as a pod itself) — the same convention every
         // other k8s tool (`kubectl`, Helm, …) follows, so no bespoke config surface for it here.
@@ -290,6 +251,10 @@ const createTerminateRunningExecutions = (graceMs: number): TTerminateRunningExe
           // needs setting where they don't.
           temporalAddress: config.get<string>('RUNNER_TEMPORAL_ADDRESS') ?? config.get<string>('TEMPORAL_ADDRESS'),
           namespace: config.get<string>('TEMPORAL_NAMESPACE'),
+          // Namespace-per-project isolation (ADR 0050 (private)): in `per-project` mode the pod's own
+          // namespace, its token URL and TLS flag are derived from this instead of `namespace` above.
+          tenancy,
+          temporalTls: config.get<string>('TEMPORAL_TLS') === 'true',
           // Must be reachable from *inside* the k8s cluster (a cluster-internal Service DNS name
           // in a real deployment; a docker-network-reachable host address for local `kind`) — unlike
           // when `runner` was a same-host child process, `localhost` no longer resolves to `backend`
@@ -324,36 +289,30 @@ const createTerminateRunningExecutions = (graceMs: number): TTerminateRunningExe
     },
     {
       provide: DeploymentCliService,
-      inject: [ConfigService],
-      useFactory: (config: ConfigService) =>
-        new DeploymentCliService({
-          runCli: runTemporalCli,
-          temporalAddress: config.get<string>('TEMPORAL_ADDRESS'),
-          namespace: config.get<string>('TEMPORAL_NAMESPACE'),
-        }),
+      inject: [TEMPORAL_TENANCY],
+      useFactory: (tenancy: ITemporalTenancy) => new DeploymentCliService({ tenancy }),
     },
     {
       provide: WorkflowRunService,
-      inject: [ConfigService],
-      useFactory: (config: ConfigService) =>
+      inject: [ConfigService, TEMPORAL_TENANCY],
+      useFactory: (config: ConfigService, tenancy: ITemporalTenancy) =>
         new WorkflowRunService({
-          startAndAwaitWorkflow,
+          startAndAwaitWorkflow: createStartAndAwaitWorkflow(tenancy),
           // How long a cancelled dev execution gets to actually finish (its own `finally`/
           // `CancellationScope.nonCancellable` close-on-cancel, ADR 0040 (private) §4/§5) before
           // `createTerminateRunningExecutions` falls back to a hard `terminate()` — see its own
           // doc comment above.
           terminateRunningExecutions: createTerminateRunningExecutions(
             config.get<number>('DEV_EXECUTION_CANCEL_GRACE_MS', DEFAULT_DEV_EXECUTION_CANCEL_GRACE_MS),
+            tenancy,
           ),
-          startWorkflow,
-          getWorkflowPosition,
-          temporalAddress: config.get<string>('TEMPORAL_ADDRESS'),
-          namespace: config.get<string>('TEMPORAL_NAMESPACE'),
+          startWorkflow: createStartWorkflow(tenancy),
+          getWorkflowPosition: createGetWorkflowPosition(tenancy),
         }),
     },
     {
       provide: DebugService,
-      inject: [DocumentsService, DevArtifactStore, WorkflowRunService, BuildService, ConfigService],
+      inject: [DocumentsService, DevArtifactStore, WorkflowRunService, BuildService, TEMPORAL_TENANCY],
       useFactory: createDebugService,
     },
   ],

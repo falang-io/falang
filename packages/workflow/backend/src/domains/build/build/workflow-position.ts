@@ -33,8 +33,7 @@ export interface IWorkflowPosition {
 export interface IGetWorkflowPositionParams {
   readonly workflowId: string;
   readonly runId: string;
-  readonly temporalAddress?: string;
-  readonly namespace?: string;
+  readonly projectId: string;
 }
 
 /** Resolves an execution's position, or `null` if Temporal has no such execution — see the real implementation in `build.module.ts`. */

@@ -73,5 +73,5 @@ export const ensureRunnerRunning = async (
   // Nothing published yet.
   if (!latest) return;
   await deps.startVersionRunnerIfNeeded(projectId, taskQueue, latest);
-  await deps.deploymentCli.setCurrentVersionWithRetry(taskQueue, latest.buildId);
+  await deps.deploymentCli.setCurrentVersionWithRetry(projectId, taskQueue, latest.buildId);
 };

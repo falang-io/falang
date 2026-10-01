@@ -11,6 +11,13 @@ const TASK_QUEUE_LABEL = 'falang.dev/task-queue';
 const ENV_LABEL = 'falang.dev/env';
 const DEPLOYMENT_KEY_LABEL = 'falang.dev/deployment-key';
 
+/** The slice of `ITemporalTenancy` the runner manager needs — see `IRunnerProcessManagerParams.tenancy`. */
+export interface IRunnerTenancy {
+  readonly mode: 'shared' | 'per-project';
+  namespaceFor(projectId: string): string;
+  ensureNamespace(projectId: string): Promise<void>;
+}
+
 export interface IRunnerProcessManagerParams {
   readonly deploymentsClient: IK8sDeploymentsClient;
   /** k8s namespace runner Deployments are created in — distinct from Temporal's own `namespace` concept below. */
@@ -22,6 +29,15 @@ export interface IRunnerProcessManagerParams {
   /** Fallback Temporal connection settings applied when `start()` doesn't override them — e.g. the address `backend` itself was configured with. */
   readonly temporalAddress?: string;
   readonly namespace?: string;
+  /**
+   * Namespace-per-project tenant isolation (ADR 0050 (private)). Absent or `mode: 'shared'`: pods get
+   * `namespace` above (or nothing) exactly as before. `'per-project'`: every pod gets its own
+   * `TEMPORAL_NAMESPACE`, a `TEMPORAL_TOKEN_URL` to fetch/refresh its Temporal JWT from (needs `internalApiUrl`)
+   * and `TEMPORAL_TLS`, and the namespace is registered before the pod is created.
+   */
+  readonly tenancy?: IRunnerTenancy;
+  /** `TEMPORAL_TLS` handed to per-project pods — `true` only when the Temporal frontend terminates TLS (default plaintext). */
+  readonly temporalTls?: boolean;
   /**
    * Base URL a runner pod fetches its artifact from (`internal-artifacts.controller.ts`) and, at
    * activity-execution time, resolves credentials against (`internal/credentials/resolve` — see
@@ -144,6 +160,8 @@ export class RunnerProcessManager {
     workflowEnv,
   }: IStartRunnerParams): Promise<void> {
     const name = deploymentNameFor(taskQueue, buildId);
+    // The pod's Worker needs its namespace to exist before it first polls (`ensureNamespace` is a no-op in `shared` mode).
+    await this.params.tenancy?.ensureNamespace(projectId);
     const env = buildRunnerEnv(this.params, {
       taskQueue,
       projectId,

@@ -280,8 +280,6 @@ describe('IntegrationsRuntimeService', () => {
       integrations: [buildIntegration(registerBackend)],
       discovery,
       signalWorkflowWithStart,
-      temporalAddress: 'temporal:7233',
-      namespace: 'default',
     });
 
     await runtime.onModuleInit();
@@ -295,8 +293,7 @@ describe('IntegrationsRuntimeService', () => {
       signalName: 'telegramMessage',
       signalArgs: [{ text: 'hi' }],
       taskQueue: 'workflow-dev-project-1',
-      temporalAddress: 'temporal:7233',
-      namespace: 'default',
+      projectId: 'project-1',
     });
 
     await runtime.onModuleDestroy();
@@ -493,6 +490,8 @@ describe('IntegrationsRuntimeService', () => {
         delete: vi.fn().mockResolvedValue(undefined),
         list: vi.fn().mockResolvedValue([]),
         listAll: vi.fn().mockResolvedValue([]),
+        listForProject: vi.fn().mockResolvedValue([]),
+        deleteAllForProject: vi.fn().mockResolvedValue([]),
       };
       const registerBackend = vi.fn().mockImplementation(async (ctx: IIntegrationBackendContext) => {
         await ctx.upsertSchedule({
@@ -529,9 +528,9 @@ describe('IntegrationsRuntimeService', () => {
           env: 'dev',
         }),
       );
-      expect(scheduleClient.pause).toHaveBeenCalledWith('sched-dev-doc-1', 'stopped');
-      expect(scheduleClient.delete).toHaveBeenCalledWith('sched-dev-doc-1');
-      expect(scheduleClient.list).toHaveBeenCalledWith('workflow-dev-project-1');
+      expect(scheduleClient.pause).toHaveBeenCalledWith('project-1', 'sched-dev-doc-1', 'stopped');
+      expect(scheduleClient.delete).toHaveBeenCalledWith('project-1', 'sched-dev-doc-1');
+      expect(scheduleClient.list).toHaveBeenCalledWith('project-1', 'workflow-dev-project-1');
 
       await runtime.onModuleDestroy();
     });

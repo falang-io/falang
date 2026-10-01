@@ -134,7 +134,7 @@ describe('integrations (workflow tier): Webhook', () => {
         if (body.status === 200) return body;
       }, 60_000);
 
-      const result = await workflowE2eAwaitWorkflowResult(`webhook-${triggerId}`);
+      const result = await workflowE2eAwaitWorkflowResult(`webhook-${triggerId}`, projectId);
       expect(result).toBe(JSON.stringify(payload));
 
       await workflowE2eApi().post(`/projects/${projectId}/stop`).set(workflowE2eAuth(token)).expect(204);

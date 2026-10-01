@@ -1,7 +1,7 @@
 # MVP stack for the workflow engine (see ADRs 0001, 0002, 0003 and 0016 (private)).
 #
-# Services: a self-hosted Temporal server (postgres-backed `auto-setup` image, matching
-# https://github.com/temporalio/docker-compose), its admin CLI and web UI, a separate Postgres
+# Services: a self-hosted Temporal server (1.32, postgres-backed, static config in docker/temporal/),
+# its schema/namespace setup jobs, admin CLI and web UI, a separate Postgres
 # instance for `@falang/workflow-backend`'s own persistence (users/projects/folders/documents —
 # unrelated to Temporal's own postgres above), `backend` itself (NestJS + TypeORM), and
 # `@falang/workflow-client`. There is no separate `runner`/`compiler` container here: `backend`
@@ -148,35 +148,87 @@ services:
         mc mb --ignore-existing local/falang-files
     networks: [falang-workflow-network]
 
-  temporal:
-    image: temporalio/auto-setup:1.29.1
-    container_name: falang-workflow-temporal
-    restart: on-failure
+  # Temporal 1.32 (ADR 0050 (private)). The `auto-setup` image ended at 1.29.7, so the server is the plain
+  # `temporalio/server` image with a static config (docker/temporal/*.yaml) and two one-shot jobs
+  # on `admin-tools` below: DB schema and the `default` namespace.
+  #
+  # Two isolation modes, picked per run (no files to edit):
+  #   - `shared` (default): `docker/temporal/server.noauth.yaml` — no authorization, every project
+  #     lives in the `default` namespace. Simplest for local dev and a single-owner self-host.
+  #   - `per-project`: TEMPORAL_SERVER_CONFIG=server.yaml TEMPORAL_TENANT_ISOLATION=per-project
+  #     TEMPORAL_JWT_PRIVATE_KEY="$(openssl genpkey -algorithm RSA -pkeyopt rsa_keygen_bits:2048)"
+  #     (JWT authorization, one namespace `falang-<projectId>` per project, JWKS served by `backend`;
+  #     see site/docs "Workflow → Local setup"). In this mode `temporal-ui` below cannot log in.
+  temporal-schema:
+    image: temporalio/admin-tools:1.32.0
+    container_name: falang-workflow-temporal-schema
     depends_on:
       postgresql:
         condition: service_healthy
+    restart: 'no'
+    entrypoint: ['/bin/sh', '-c']
+    command:
+      - |
+        set -e
+        T="temporal-sql-tool --plugin postgres12 --ep postgresql -u temporal --pw ${TEMPORAL_DB_PASSWORD:-temporal} -p 5432"
+        # idempotent: an existing volume (previous `auto-setup` run) just gets update-schema'd
+        $$T --db temporal create-database 2>/dev/null || true
+        $$T --db temporal setup-schema -v 0.0 2>/dev/null || true
+        $$T --db temporal update-schema -d /etc/temporal/schema/postgresql/v12/temporal/versioned
+        $$T --db temporal_visibility create-database 2>/dev/null || true
+        $$T --db temporal_visibility setup-schema -v 0.0 2>/dev/null || true
+        $$T --db temporal_visibility update-schema -d /etc/temporal/schema/postgresql/v12/visibility/versioned
+    networks: [falang-workflow-network]
+
+  temporal:
+    image: temporalio/server:1.32.0
+    container_name: falang-workflow-temporal
+    restart: on-failure
+    depends_on:
+      temporal-schema:
+        condition: service_completed_successfully
     environment:
-      - DB=postgres12
-      - DB_PORT=5432
-      - POSTGRES_USER=temporal
-      - POSTGRES_PWD=temporal
-      - POSTGRES_SEEDS=postgresql
-      - DYNAMIC_CONFIG_FILE_PATH=config/dynamicconfig/development-sql.yaml
-      - TEMPORAL_ADDRESS=temporal:7233
-      - TEMPORAL_CLI_ADDRESS=temporal:7233
+      - TEMPORAL_SERVER_CONFIG_FILE_PATH=/cfg/${TEMPORAL_SERVER_CONFIG:-server.noauth.yaml}
+    # `internal-frontend` (7236) must be listed explicitly. It has no authorization and is NOT
+    # published to the host: only Temporal's own system worker, the setup job and admin-tools use it.
+    entrypoint:
+      - temporal-server
+      - start
+      - --service=frontend
+      - --service=internal-frontend
+      - --service=history
+      - --service=matching
+      - --service=worker
     ports:
       - '7233:7233'
     volumes:
-      - ./docker/temporal-dynamicconfig:/etc/temporal/config/dynamicconfig
+      - ./docker/temporal:/cfg:ro
     networks: [falang-workflow-network]
 
+  # Creates the `default` namespace (the 1.32 image no longer does it itself) — used by `shared` mode and
+  # by the legacy-schedule sweep in `per-project` mode. Goes through internal-frontend (no auth).
+  temporal-setup:
+    image: temporalio/admin-tools:1.32.0
+    container_name: falang-workflow-temporal-setup
+    depends_on: [temporal]
+    restart: 'no'
+    environment:
+      - TEMPORAL_ADDRESS=temporal:7236
+    entrypoint: ['/bin/sh', '-c']
+    command:
+      - |
+        until temporal operator namespace describe default >/dev/null 2>&1 || temporal operator namespace create --retention 72h default; do sleep 2; done
+        echo "namespace default ready"
+    networks: [falang-workflow-network]
+
+  # Admin CLI (see "Run" step 6). Talks to internal-frontend, which needs no token in either mode;
+  # in `per-project` mode use `--namespace falang-<projectId>` for a project's workflows.
   temporal-admin-tools:
-    image: temporalio/admin-tools:1.29.1-tctl-1.18.4-cli-1.5.0
+    image: temporalio/admin-tools:1.32.0
     container_name: falang-workflow-temporal-admin-tools
     depends_on: [temporal]
     environment:
-      - TEMPORAL_ADDRESS=temporal:7233
-      - TEMPORAL_CLI_ADDRESS=temporal:7233
+      - TEMPORAL_ADDRESS=temporal:7236
     stdin_open: true
     tty: true
     networks: [falang-workflow-network]
@@ -198,8 +250,8 @@ services:
       dockerfile: docker/backend.Dockerfile
     container_name: falang-workflow-backend
     depends_on:
-      temporal:
-        condition: service_started
+      temporal-setup:
+        condition: service_completed_successfully
       app-postgres:
         condition: service_started
       # Ensures the `falang-files` bucket exists before `backend` (or anything that pokes it) ever
@@ -212,6 +264,12 @@ services:
       - INTERNAL_PORT=3001
       - TEMPORAL_ADDRESS=temporal:7233
       - TEMPORAL_NAMESPACE=default
+      # ADR 0050 (private): `shared` (default, every project in `default`) or `per-project` (a
+      # `falang-<projectId>` namespace per project + JWT; also needs TEMPORAL_SERVER_CONFIG=server.yaml
+      # on `temporal` above — set both on the command line, see the comment there).
+      - TEMPORAL_TENANT_ISOLATION=${TEMPORAL_TENANT_ISOLATION:-shared}
+      - TEMPORAL_JWT_PRIVATE_KEY=${TEMPORAL_JWT_PRIVATE_KEY:-}
+      - PROJECT_TOKEN_SECRET=${PROJECT_TOKEN_SECRET:-dev-project-token-secret-change-me-32chars}
       # Runner pods live on the `kind` docker network below, not this one — they can't resolve
       # `temporal` by docker-internal DNS name, so they need the address above overridden to
       # something reachable from inside `kind` instead. `KIND_GATEWAY_IP` is that network's own

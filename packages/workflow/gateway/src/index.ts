@@ -2,6 +2,7 @@ export * from './signal-workflow.js';
 export * from './discovery-port.js';
 export * from './schedule-client.js';
 export * from './file-upload-port.js';
+export * from './temporal-tenancy.js';
 export * from './integrations-runtime.service.js';
 export * from './integration-webhook.controller.js';
 export * from './gateway.module.js';

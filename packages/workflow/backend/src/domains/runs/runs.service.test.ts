@@ -1,8 +1,11 @@
+// oxlint-disable max-lines, unicorn/consistent-function-scoping, unicorn/no-array-sort -- test fixtures: explicit "no value" fixtures, fake-timer scaffolding and long per-case suites.
 import { NotFoundException } from '@nestjs/common';
 import { describe, expect, it, vi } from 'vitest';
 import type { Project } from '../projects/projects/project.entity.js';
 import type { ProjectVersion } from '../build/build/project-version.entity.js';
 import {
+  RUNS_LIST_LIMIT,
+  RUNS_QUERY_CONCURRENCY,
   RunsService,
   type IRawWorkflowRun,
   type IRawWorkflowRunDetail,
@@ -25,6 +28,7 @@ const makeService = (
     versions: { find: vi.fn(() => Promise.resolve(versionRows as ProjectVersion[])) },
     listWorkflowRuns: vi.fn(() => Promise.resolve([])),
     describeWorkflowRun: vi.fn(() => Promise.reject(new Error('not stubbed'))),
+    tenancy: { namespaceFor: (projectId: string) => `falang-${projectId}` },
     ...overrides,
   });
 
@@ -54,11 +58,10 @@ describe('RunsService.listRuns', () => {
 
     await service.listRuns('owner-1');
 
-    expect(listWorkflowRuns).toHaveBeenCalledWith(
-      expect.objectContaining({
-        taskQueues: ['workflow-dev-p1', 'workflow-p1', 'workflow-dev-p2', 'workflow-p2'],
-      }),
-    );
+    // One query per namespace (per project here), each scoped to its own project's task queues.
+    expect(listWorkflowRuns).toHaveBeenCalledTimes(2);
+    expect(listWorkflowRuns).toHaveBeenCalledWith({ projectId: 'p1', taskQueues: ['workflow-dev-p1', 'workflow-p1'] });
+    expect(listWorkflowRuns).toHaveBeenCalledWith({ projectId: 'p2', taskQueues: ['workflow-dev-p2', 'workflow-p2'] });
   });
 
   it("narrows to only the filtered project's task queues when projectId is given", async () => {
@@ -73,9 +76,8 @@ describe('RunsService.listRuns', () => {
 
     await service.listRuns('owner-1', { projectId: 'p2' });
 
-    expect(listWorkflowRuns).toHaveBeenCalledWith(
-      expect.objectContaining({ taskQueues: ['workflow-dev-p2', 'workflow-p2'] }),
-    );
+    expect(listWorkflowRuns).toHaveBeenCalledTimes(1);
+    expect(listWorkflowRuns).toHaveBeenCalledWith({ projectId: 'p2', taskQueues: ['workflow-dev-p2', 'workflow-p2'] });
   });
 
   it('returns an empty list without calling Temporal when projectId does not match any owned project', async () => {
@@ -247,6 +249,7 @@ describe('RunsService.getRunDetail', () => {
 
   it("throws NotFound when the run's task queue does not belong to any project", async () => {
     const service = makeService({
+      projectsService: { list: vi.fn(() => Promise.resolve([project('p1', 'Project One')])), getOwnedProject: vi.fn() },
       describeWorkflowRun: vi.fn(() => Promise.resolve({ ...detailBase, taskQueue: 'some-other-queue' })),
     });
 
@@ -257,7 +260,7 @@ describe('RunsService.getRunDetail', () => {
     const getOwnedProject = vi.fn(() => Promise.reject(new NotFoundException()));
     const service = makeService({
       describeWorkflowRun: vi.fn(() => Promise.resolve(detailBase)),
-      projectsService: { list: vi.fn(), getOwnedProject },
+      projectsService: { list: vi.fn(() => Promise.resolve([project('p9', 'Other')])), getOwnedProject },
     });
 
     await expect(service.getRunDetail('owner-1', 'wf-1', 'run-1')).rejects.toThrow(NotFoundException);
@@ -268,7 +271,7 @@ describe('RunsService.getRunDetail', () => {
     const service = makeService({
       describeWorkflowRun: vi.fn(() => Promise.resolve(detailBase)),
       projectsService: {
-        list: vi.fn(),
+        list: vi.fn(() => Promise.resolve([project('p1', 'Project One')])),
         getOwnedProject: vi.fn(() => Promise.resolve(project('p1', 'Project One'))),
       },
     });
@@ -283,7 +286,7 @@ describe('RunsService.getRunDetail', () => {
       {
         describeWorkflowRun: vi.fn(() => Promise.resolve({ ...detailBase, taskQueue: 'workflow-p1', buildId: 'v2' })),
         projectsService: {
-          list: vi.fn(),
+          list: vi.fn(() => Promise.resolve([project('p1', 'Project One')])),
           getOwnedProject: vi.fn(() => Promise.resolve(project('p1', 'Project One'))),
         },
       },
@@ -293,5 +296,139 @@ describe('RunsService.getRunDetail', () => {
     const detail = await service.getRunDetail('owner-1', 'wf-1', 'run-1');
 
     expect(detail).toEqual(expect.objectContaining({ env: 'prod', version: '2' }));
+  });
+});
+
+describe('RunsService across Temporal namespaces', () => {
+  const run = (projectId: string, workflowId: string, startTime: string): IRawWorkflowRun => ({
+    workflowId,
+    runId: `run-${workflowId}`,
+    status: 'COMPLETED',
+    workflowName: 'greet',
+    taskQueue: `workflow-${projectId}`,
+    buildId: 'v1',
+    startTime,
+    closeTime: null,
+  });
+  const ownedProjects = (count: number): Project[] =>
+    Array.from({ length: count }, (_, index) => project(`p${index + 1}`, `Project ${index + 1}`));
+
+  it('merges the per-namespace results, newest first', async () => {
+    const byProject: Record<string, IRawWorkflowRun[]> = {
+      p1: [run('p1', 'a', '2026-07-21T10:00:00.000Z'), run('p1', 'b', '2026-07-21T08:00:00.000Z')],
+      p2: [run('p2', 'c', '2026-07-21T09:00:00.000Z')],
+      p3: [run('p3', 'd', '2026-07-21T11:00:00.000Z')],
+    };
+    const service = makeService({
+      projectsService: { list: vi.fn(() => Promise.resolve(ownedProjects(3))), getOwnedProject: vi.fn() },
+      listWorkflowRuns: vi.fn(({ projectId }) => Promise.resolve(byProject[projectId] ?? [])),
+    });
+
+    const runs = await service.listRuns('owner-1');
+
+    expect(runs.map((entry) => entry.workflowId)).toEqual(['d', 'a', 'c', 'b']);
+  });
+
+  it('queries at most RUNS_QUERY_CONCURRENCY namespaces at once', async () => {
+    let inFlight = 0;
+    let maxInFlight = 0;
+    const listWorkflowRuns = vi.fn(async () => {
+      inFlight += 1;
+      maxInFlight = Math.max(maxInFlight, inFlight);
+      await new Promise((resolve) => {
+        setTimeout(resolve, 5);
+      });
+      inFlight -= 1;
+      return [];
+    });
+    const service = makeService({
+      projectsService: { list: vi.fn(() => Promise.resolve(ownedProjects(25))), getOwnedProject: vi.fn() },
+      listWorkflowRuns,
+    });
+
+    await service.listRuns('owner-1');
+
+    expect(listWorkflowRuns).toHaveBeenCalledTimes(25);
+    expect(maxInFlight).toBeLessThanOrEqual(RUNS_QUERY_CONCURRENCY);
+    expect(maxInFlight).toBeGreaterThan(1);
+  });
+
+  it('caps the merged list at RUNS_LIST_LIMIT, keeping the newest', async () => {
+    const many = (projectId: string, count: number): IRawWorkflowRun[] =>
+      Array.from({ length: count }, (_, index) =>
+        run(projectId, `${projectId}-${index}`, new Date(Date.UTC(2026, 0, 1, 0, 0, index)).toISOString()),
+      );
+    const service = makeService({
+      projectsService: { list: vi.fn(() => Promise.resolve(ownedProjects(2))), getOwnedProject: vi.fn() },
+      listWorkflowRuns: vi.fn(({ projectId }) => Promise.resolve(many(projectId, RUNS_LIST_LIMIT))),
+    });
+
+    const runs = await service.listRuns('owner-1');
+
+    expect(runs).toHaveLength(RUNS_LIST_LIMIT);
+  });
+
+  it('sends one query for all projects when they share a namespace (shared mode)', async () => {
+    const listWorkflowRuns = vi.fn(() => Promise.resolve<IRawWorkflowRun[]>([]));
+    const service = makeService({
+      projectsService: { list: vi.fn(() => Promise.resolve(ownedProjects(3))), getOwnedProject: vi.fn() },
+      listWorkflowRuns,
+      tenancy: { namespaceFor: () => 'default' },
+    });
+
+    await service.listRuns('owner-1');
+
+    expect(listWorkflowRuns).toHaveBeenCalledTimes(1);
+    expect(listWorkflowRuns).toHaveBeenCalledWith({
+      projectId: 'p1',
+      taskQueues: [
+        'workflow-dev-p1',
+        'workflow-p1',
+        'workflow-dev-p2',
+        'workflow-p2',
+        'workflow-dev-p3',
+        'workflow-p3',
+      ],
+    });
+  });
+
+  it('finds a run by probing the owned projects namespaces, and only those', async () => {
+    const detail: IRawWorkflowRunDetail = {
+      ...run('p2', 'wf-1', '2026-07-21T00:00:00.000Z'),
+      input: null,
+      result: null,
+      events: [],
+    };
+    const describeWorkflowRun = vi.fn(({ projectId }: { projectId: string }) =>
+      Promise.resolve(projectId === 'p2' ? detail : null),
+    );
+    const service = makeService({
+      projectsService: {
+        list: vi.fn(() => Promise.resolve(ownedProjects(3))),
+        getOwnedProject: vi.fn(() => Promise.resolve(project('p2', 'Project 2'))),
+      },
+      describeWorkflowRun,
+    });
+
+    const result = await service.getRunDetail('owner-1', 'wf-1', 'run-wf-1');
+
+    expect(result.projectId).toBe('p2');
+    expect(describeWorkflowRun.mock.calls.map(([params]) => params.projectId).sort()).toEqual(['p1', 'p2', 'p3']);
+  });
+
+  it('narrows the probe to the given projectId, and 404s for a project the user does not own', async () => {
+    const describeWorkflowRun = vi.fn(() => Promise.resolve(null));
+    const service = makeService({
+      projectsService: { list: vi.fn(() => Promise.resolve(ownedProjects(3))), getOwnedProject: vi.fn() },
+      describeWorkflowRun,
+    });
+
+    await expect(service.getRunDetail('owner-1', 'wf-1', 'run-1', 'p2')).rejects.toThrow(NotFoundException);
+    expect(describeWorkflowRun).toHaveBeenCalledTimes(1);
+    expect(describeWorkflowRun).toHaveBeenCalledWith({ projectId: 'p2', workflowId: 'wf-1', runId: 'run-1' });
+
+    describeWorkflowRun.mockClear();
+    await expect(service.getRunDetail('owner-1', 'wf-1', 'run-1', 'not-mine')).rejects.toThrow(NotFoundException);
+    expect(describeWorkflowRun).not.toHaveBeenCalled();
   });
 });

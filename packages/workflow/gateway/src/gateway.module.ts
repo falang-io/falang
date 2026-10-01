@@ -1,58 +1,13 @@
 import { type DynamicModule, type FactoryProvider, Module, type ModuleMetadata } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
-import { Client, Connection } from '@temporalio/client';
 import type { IWorkflowIntegration } from '@falang/workflow-integrations-common';
 import type { IIntegrationsDiscoveryPort } from './discovery-port.js';
 import type { IFileUploadPort } from './file-upload-port.js';
 import { IntegrationWebhookController } from './integration-webhook.controller.js';
 import { IntegrationsRuntimeService } from './integrations-runtime.service.js';
-import {
-  createTemporalScheduleClient,
-  SCHEDULE_CLIENT_PORT,
-  type IScheduleClientPort,
-  type IScheduleTemporalClientHandle,
-  type TGetScheduleTemporalClient,
-} from './schedule-client.js';
-import type { ISignalWorkflowWithStartParams, TSignalWorkflowWithStart } from './signal-workflow.js';
-
-// Connects fresh per inbound webhook rather than holding a long-lived `Client` — mirrors
-// `@falang/workflow-backend`'s `startAndAwaitWorkflow` (`build.module.ts`); webhook volume is low
-// enough for now that per-request connection setup isn't a concern, and it avoids module-lifecycle
-// teardown for this pass.
-const signalWorkflowWithStart: TSignalWorkflowWithStart = async (params: ISignalWorkflowWithStartParams) => {
-  const { namespace, signalArgs, signalName, taskQueue, temporalAddress, workflowId, workflowType } = params;
-  const connection = temporalAddress
-    ? await Connection.connect({ address: temporalAddress })
-    : await Connection.connect();
-  try {
-    const client = new Client({ connection, namespace });
-    await client.workflow.signalWithStart(workflowType, {
-      workflowId,
-      taskQueue,
-      signal: signalName,
-      signalArgs: [...signalArgs],
-      args: [],
-    });
-  } finally {
-    await connection.close();
-  }
-};
-
-// Same connect-per-call posture as `signalWorkflowWithStart` above — a fresh `Connection`/`Client` per
-// schedule call, closed right after, rather than one held for the process lifetime. See
-// `createTemporalScheduleClient`'s own doc comment (`schedule-client.ts`) and
-// ADR 0037 (private) §4.
-const getScheduleTemporalClient =
-  (config: ConfigService): TGetScheduleTemporalClient =>
-  async (): Promise<IScheduleTemporalClientHandle> => {
-    const temporalAddress = config.get<string>('TEMPORAL_ADDRESS');
-    const namespace = config.get<string>('TEMPORAL_NAMESPACE');
-    const connection = temporalAddress
-      ? await Connection.connect({ address: temporalAddress })
-      : await Connection.connect();
-    const client = new Client({ connection, namespace });
-    return { client, close: () => connection.close() };
-  };
+import { createTemporalScheduleClient, SCHEDULE_CLIENT_PORT, type IScheduleClientPort } from './schedule-client.js';
+import { createSignalWorkflowWithStart } from './signal-workflow.js';
+import { TEMPORAL_TENANCY, type ITemporalTenancy } from './temporal-tenancy.js';
 
 // Registered once, real and identical for every host (unlike `resolveDiscoveryPort`/
 // `resolveInternalProjectToken`, which vary per host) — exported so a host module can also `@Inject`
@@ -60,8 +15,8 @@ const getScheduleTemporalClient =
 // `IntegrationsRuntimeService`. See `schedule-client.ts`'s `SCHEDULE_CLIENT_PORT` doc comment.
 const scheduleClientPortProvider: FactoryProvider<IScheduleClientPort> = {
   provide: SCHEDULE_CLIENT_PORT,
-  useFactory: (config: ConfigService) => createTemporalScheduleClient(getScheduleTemporalClient(config)),
-  inject: [ConfigService],
+  useFactory: (tenancy: ITemporalTenancy) => createTemporalScheduleClient(tenancy),
+  inject: [TEMPORAL_TENANCY],
 };
 
 type TResolveDiscoveryPort = FactoryProvider<IIntegrationsDiscoveryPort>['useFactory'];
@@ -106,11 +61,11 @@ const buildIntegrationsRuntimeServiceProvider = (
       discoveryLength + dynamicLength + tokenLength,
       discoveryLength + dynamicLength + tokenLength + fileUploadLength,
     ) as Parameters<TResolveFileUploadPort>;
-    // `SCHEDULE_CLIENT_PORT` is always the last injected dependency, fixed regardless of host (unlike
+    // `SCHEDULE_CLIENT_PORT` then `TEMPORAL_TENANCY` are always the last injected dependencies, fixed regardless of host (unlike
     // the categories above, which vary per host) — see `scheduleClientPortProvider`.
-    const [scheduleClient] = allArgs.slice(discoveryLength + dynamicLength + tokenLength + fileUploadLength) as [
-      IScheduleClientPort,
-    ];
+    const [scheduleClient, tenancy] = allArgs.slice(
+      discoveryLength + dynamicLength + tokenLength + fileUploadLength,
+    ) as [IScheduleClientPort, ITemporalTenancy];
     const [discovery, dynamicIntegrations, getInternalProjectToken, fileUpload] = await Promise.all([
       resolveDiscoveryPort(...discoveryArgs),
       resolveDynamicIntegrations(...dynamicArgs),
@@ -122,10 +77,8 @@ const buildIntegrationsRuntimeServiceProvider = (
     return new IntegrationsRuntimeService({
       integrations: [...integrations, ...dynamicIntegrations],
       discovery,
-      signalWorkflowWithStart,
+      signalWorkflowWithStart: createSignalWorkflowWithStart(tenancy),
       publicHost: config.get<string>('GATEWAY_PUBLIC_HOST'),
-      temporalAddress: config.get<string>('TEMPORAL_ADDRESS'),
-      namespace: config.get<string>('TEMPORAL_NAMESPACE'),
       getInternalProjectToken,
       scheduleClient,
       fileUpload,
@@ -138,6 +91,7 @@ const buildIntegrationsRuntimeServiceProvider = (
     ...(internalProjectTokenInject ?? []),
     ...(fileUploadInject ?? []),
     SCHEDULE_CLIENT_PORT,
+    TEMPORAL_TENANCY,
   ],
 });
 
@@ -179,7 +133,7 @@ export interface IGatewayModuleAsyncOptions {
 
 @Module({})
 export class GatewayModule {
-  /** Reads `TEMPORAL_ADDRESS`/`TEMPORAL_NAMESPACE`/`GATEWAY_PUBLIC_HOST` the same way `@falang/workflow-backend`'s `BuildModule` reads its own config. */
+  /** Reads `GATEWAY_PUBLIC_HOST` from config; Temporal access comes from the globally-provided `TEMPORAL_TENANCY` (`@falang/workflow-backend`'s `TemporalModule`). */
   static forRoot(integrations: readonly IWorkflowIntegration[], discovery: IIntegrationsDiscoveryPort): DynamicModule {
     return {
       module: GatewayModule,

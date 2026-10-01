@@ -28,18 +28,18 @@ export interface IRawWorkflowRunDetail extends IRawWorkflowRun {
   readonly events: readonly IWorkflowRunEvent[];
 }
 
+/** `projectId` only selects the namespace (any project of the group will do — they share one); an unknown namespace yields no runs. */
 export type TListWorkflowRuns = (params: {
+  readonly projectId: string;
   readonly taskQueues: readonly string[];
-  readonly temporalAddress?: string;
-  readonly namespace?: string;
 }) => Promise<readonly IRawWorkflowRun[]>;
 
+/** `null` when the execution (or its namespace) doesn't exist in `projectId`'s namespace. */
 export type TDescribeWorkflowRun = (params: {
+  readonly projectId: string;
   readonly workflowId: string;
   readonly runId: string;
-  readonly temporalAddress?: string;
-  readonly namespace?: string;
-}) => Promise<IRawWorkflowRunDetail>;
+}) => Promise<IRawWorkflowRunDetail | null>;
 
 export interface IWorkflowRunSummary extends IRawWorkflowRun {
   readonly projectId: string;
@@ -68,9 +68,34 @@ export interface IRunsServiceParams {
   readonly versions: Pick<Repository<ProjectVersion>, 'find'>;
   readonly listWorkflowRuns: TListWorkflowRuns;
   readonly describeWorkflowRun: TDescribeWorkflowRun;
-  readonly temporalAddress?: string;
-  readonly namespace?: string;
+  /** Which Temporal namespace a project's runs live in — `ITemporalTenancy.namespaceFor` (ADR 0050 (private)). */
+  readonly tenancy: { namespaceFor(projectId: string): string };
 }
+
+/** How many namespaces a cross-project listing queries at once. */
+export const RUNS_QUERY_CONCURRENCY = 8;
+/** Cap on the merged result of one `listRuns` call. */
+export const RUNS_LIST_LIMIT = 300;
+
+/** `Promise.all(items.map(fn))`, at most `limit` calls in flight; results keep input order. */
+const mapWithConcurrency = async <T, R>(
+  items: readonly T[],
+  limit: number,
+  fn: (item: T) => Promise<R>,
+): Promise<R[]> => {
+  const results: R[] = Array.from({ length: items.length });
+  let next = 0;
+  const worker = async (): Promise<void> => {
+    while (next < items.length) {
+      const index = next;
+      next += 1;
+      // oxlint-disable-next-line no-await-in-loop -- each worker drains the shared queue one item at a time; that is the concurrency limit.
+      results[index] = await fn(items[index] as T);
+    }
+  };
+  await Promise.all(Array.from({ length: Math.min(limit, items.length) }, () => worker()));
+  return results;
+};
 
 const DEV_TASK_QUEUE_PREFIX = 'workflow-dev-';
 const PROD_TASK_QUEUE_PREFIX = 'workflow-';
@@ -104,16 +129,14 @@ export class RunsService {
   private readonly versions: Pick<Repository<ProjectVersion>, 'find'>;
   private readonly listWorkflowRuns: TListWorkflowRuns;
   private readonly describeWorkflowRun: TDescribeWorkflowRun;
-  private readonly temporalAddress: string | undefined;
-  private readonly namespace: string | undefined;
+  private readonly tenancy: IRunsServiceParams['tenancy'];
 
   constructor(params: IRunsServiceParams) {
     this.projectsService = params.projectsService;
     this.versions = params.versions;
     this.listWorkflowRuns = params.listWorkflowRuns;
     this.describeWorkflowRun = params.describeWorkflowRun;
-    this.temporalAddress = params.temporalAddress;
-    this.namespace = params.namespace;
+    this.tenancy = params.tenancy;
   }
 
   /**
@@ -131,14 +154,24 @@ export class RunsService {
     if (projects.length === 0) return [];
 
     const projectNameById = new Map(projects.map((project) => [project.id, project.name]));
-    const taskQueues = projects.flatMap((project) => [`workflow-dev-${project.id}`, `workflow-${project.id}`]);
     const versionNumberByProjectAndBuild = await this.buildVersionLookup(projects.map((project) => project.id));
 
-    const raw = await this.listWorkflowRuns({
-      taskQueues,
-      temporalAddress: this.temporalAddress,
-      namespace: this.namespace,
-    });
+    // One query per Temporal namespace: a single one in `shared` mode, one per project in `per-project`
+    // mode (ADR 0050 (private)) — run in parallel (bounded), merged newest first.
+    const groups = new Map<string, { projectId: string; taskQueues: string[] }>();
+    for (const project of projects) {
+      const namespace = this.tenancy.namespaceFor(project.id);
+      const group = groups.get(namespace) ?? { projectId: project.id, taskQueues: [] };
+      group.taskQueues.push(`workflow-dev-${project.id}`, `workflow-${project.id}`);
+      groups.set(namespace, group);
+    }
+    const perNamespace = await mapWithConcurrency([...groups.values()], RUNS_QUERY_CONCURRENCY, (group) =>
+      this.listWorkflowRuns(group),
+    );
+    const raw = perNamespace
+      .flat()
+      .toSorted((a, b) => Date.parse(b.startTime) - Date.parse(a.startTime))
+      .slice(0, RUNS_LIST_LIMIT);
 
     return raw
       .map((run) => this.enrich(run, projectNameById, versionNumberByProjectAndBuild))
@@ -150,13 +183,31 @@ export class RunsService {
       );
   }
 
-  async getRunDetail(ownerId: string, workflowId: string, runId: string): Promise<IWorkflowRunDetail> {
-    const detail = await this.describeWorkflowRun({
-      workflowId,
-      runId,
-      temporalAddress: this.temporalAddress,
-      namespace: this.namespace,
-    });
+  /**
+   * The request carries no project, and in `per-project` mode an execution can only be found inside its
+   * own project's namespace — so every owned project's namespace is probed (in parallel, bounded; one
+   * probe in `shared` mode) until one has it. Ownership is still checked against the found execution's
+   * own task queue below. `projectId`, when given, narrows the probe to that project.
+   */
+  async getRunDetail(
+    ownerId: string,
+    workflowId: string,
+    runId: string,
+    projectId?: string,
+  ): Promise<IWorkflowRunDetail> {
+    const ownedProjects = await this.projectsService.list(ownerId);
+    const candidates = projectId ? ownedProjects.filter((project) => project.id === projectId) : ownedProjects;
+    const byNamespace = new Map<string, string>();
+    for (const project of candidates) {
+      if (!byNamespace.has(this.tenancy.namespaceFor(project.id)))
+        byNamespace.set(this.tenancy.namespaceFor(project.id), project.id);
+    }
+    const probes = await mapWithConcurrency([...byNamespace.values()], RUNS_QUERY_CONCURRENCY, (candidate) =>
+      this.describeWorkflowRun({ projectId: candidate, workflowId, runId }),
+    );
+    const found = probes.find((result) => result !== null);
+    if (!found) throw new NotFoundException(`Workflow run "${workflowId}" not found`);
+    const detail = found;
 
     const parsed = parseTaskQueue(detail.taskQueue);
     if (!parsed) throw new NotFoundException(`Workflow run "${workflowId}" is not owned by any project`);

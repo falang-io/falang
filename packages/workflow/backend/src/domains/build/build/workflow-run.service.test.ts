@@ -29,7 +29,7 @@ describe('WorkflowRunService', () => {
       startAndAwaitWorkflow,
     });
 
-    const result = await service.run('workflow-dev-p1', 'processOrder', ['abc']);
+    const result = await service.run('p1', 'workflow-dev-p1', 'processOrder', ['abc']);
 
     expect(result).toEqual({
       workflowId: expect.stringContaining('manual-processOrder-'),
@@ -56,7 +56,7 @@ describe('WorkflowRunService', () => {
       startAndAwaitWorkflow,
     });
 
-    const result = await service.run('workflow-p1', 'greet', []);
+    const result = await service.run('p1', 'workflow-p1', 'greet', []);
 
     expect(result).toEqual(
       expect.objectContaining({ status: 'failed', message: 'boom', taskQueue: 'workflow-p1' }),
@@ -78,29 +78,22 @@ describe('WorkflowRunService', () => {
       timeoutMs: 5,
     });
 
-    const result = await service.run('workflow-p1', 'greet', []);
+    const result = await service.run('p1', 'workflow-p1', 'greet', []);
 
     expect(result).toEqual(
       expect.objectContaining({ status: 'timeout', taskQueue: 'workflow-p1' }),
     );
   });
 
-  it('passes temporalAddress/namespace through to startAndAwaitWorkflow', async () => {
+  it('passes the projectId (which selects the project namespace) through to startAndAwaitWorkflow', async () => {
     const startAndAwaitWorkflow = vi.fn<TStartAndAwaitWorkflow>(() =>
       Promise.resolve({ status: 'completed', result: null }),
     );
-    const service = new WorkflowRunService({
-      ...baseParams,
-      startAndAwaitWorkflow,
-      temporalAddress: 'temporal.internal:7233',
-      namespace: 'prod',
-    });
+    const service = new WorkflowRunService({ ...baseParams, startAndAwaitWorkflow });
 
-    await service.run('workflow-p1', 'greet', []);
+    await service.run('p1', 'workflow-p1', 'greet', []);
 
-    expect(startAndAwaitWorkflow).toHaveBeenCalledWith(
-      expect.objectContaining({ temporalAddress: 'temporal.internal:7233', namespace: 'prod' }),
-    );
+    expect(startAndAwaitWorkflow).toHaveBeenCalledWith(expect.objectContaining({ projectId: 'p1' }));
   });
 
   it('terminates running executions on the given task queue and returns how many were terminated', async () => {
@@ -110,7 +103,7 @@ describe('WorkflowRunService', () => {
       terminateRunningExecutions,
     });
 
-    const count = await service.terminateRunningOn('workflow-dev-p1');
+    const count = await service.terminateRunningOn('p1', 'workflow-dev-p1');
 
     expect(count).toBe(2);
     expect(terminateRunningExecutions).toHaveBeenCalledWith(
@@ -118,27 +111,20 @@ describe('WorkflowRunService', () => {
     );
   });
 
-  it('passes temporalAddress/namespace through to terminateRunningExecutions', async () => {
+  it('passes the projectId through to terminateRunningExecutions', async () => {
     const terminateRunningExecutions = vi.fn<TTerminateRunningExecutions>(() => Promise.resolve(0));
-    const service = new WorkflowRunService({
-      ...baseParams,
-      terminateRunningExecutions,
-      temporalAddress: 'temporal.internal:7233',
-      namespace: 'prod',
-    });
+    const service = new WorkflowRunService({ ...baseParams, terminateRunningExecutions });
 
-    await service.terminateRunningOn('workflow-dev-p1');
+    await service.terminateRunningOn('p1', 'workflow-dev-p1');
 
-    expect(terminateRunningExecutions).toHaveBeenCalledWith(
-      expect.objectContaining({ temporalAddress: 'temporal.internal:7233', namespace: 'prod' }),
-    );
+    expect(terminateRunningExecutions).toHaveBeenCalledWith(expect.objectContaining({ projectId: 'p1' }));
   });
 
   it('starts an execution without awaiting it and returns its ids', async () => {
     const startWorkflow = vi.fn<TStartWorkflow>(() => Promise.resolve({ runId: 'run-42' }));
-    const service = new WorkflowRunService({ ...baseParams, startWorkflow, namespace: 'ns' });
+    const service = new WorkflowRunService({ ...baseParams, startWorkflow });
 
-    const started = await service.start('workflow-dev-p1', 'processOrder', [1]);
+    const started = await service.start('p1', 'workflow-dev-p1', 'processOrder', [1]);
 
     expect(started).toEqual({
       workflowId: expect.stringContaining('manual-processOrder-'),
@@ -146,7 +132,7 @@ describe('WorkflowRunService', () => {
       taskQueue: 'workflow-dev-p1',
     });
     expect(startWorkflow).toHaveBeenCalledWith(
-      expect.objectContaining({ taskQueue: 'workflow-dev-p1', functionName: 'processOrder', args: [1], namespace: 'ns' }),
+      expect.objectContaining({ projectId: 'p1', taskQueue: 'workflow-dev-p1', functionName: 'processOrder', args: [1] }),
     );
   });
 
@@ -161,13 +147,13 @@ describe('WorkflowRunService', () => {
         stack: [{ documentId: 'd1', nodeId: 'n1' }],
       }),
     );
-    const service = new WorkflowRunService({ ...baseParams, getWorkflowPosition, temporalAddress: 'temporal:7233' });
+    const service = new WorkflowRunService({ ...baseParams, getWorkflowPosition });
 
-    const position = await service.getPosition('w', 'r');
+    const position = await service.getPosition('p1', 'w', 'r');
 
     expect(position?.stack).toEqual([{ documentId: 'd1', nodeId: 'n1' }]);
     expect(getWorkflowPosition).toHaveBeenCalledWith(
-      expect.objectContaining({ workflowId: 'w', runId: 'r', temporalAddress: 'temporal:7233' }),
+      expect.objectContaining({ projectId: 'p1', workflowId: 'w', runId: 'r' }),
     );
   });
 });

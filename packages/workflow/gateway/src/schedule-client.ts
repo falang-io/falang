@@ -5,6 +5,7 @@ import { ScheduleAlreadyRunning, ScheduleOverlapPolicy } from '@temporalio/clien
 import type { Client, ScheduleDescription, ScheduleSpec as TTemporalScheduleSpec } from '@temporalio/client';
 import type { Duration } from '@temporalio/common';
 import type { IScheduleSpec, IScheduleState, IUpsertScheduleParams } from '@falang/workflow-integrations-common';
+import { isNamespaceNotFoundError, type ITemporalTenancy } from './temporal-tenancy.js';
 
 type TEnv = 'dev' | 'prod';
 
@@ -45,23 +46,19 @@ export interface IScheduleClientPort {
    * `@temporalio/client`'s own doc comment on that error).
    */
   upsert(params: IUpsertScheduleTargetParams): Promise<void>;
-  /** Pauses (never deletes) a schedule. */
-  pause(scheduleId: string, note?: string): Promise<void>;
+  /** Pauses (never deletes) a schedule. `projectId` picks the namespace the schedule lives in (ADR 0050 (private)). */
+  pause(projectId: string, scheduleId: string, note?: string): Promise<void>;
   /** Deletes a schedule outright. */
-  delete(scheduleId: string): Promise<void>;
-  /** Every schedule tagged with `falangTaskQueue === taskQueue` in its memo — see `upsert`'s memo tagging. */
-  list(taskQueue: string): Promise<readonly IScheduleState[]>;
-  /** Every schedule this Temporal namespace knows about that carries this port's own memo tags (i.e. every schedule any `upsert` call here has ever created), across every project/env. */
+  delete(projectId: string, scheduleId: string): Promise<void>;
+  /** Every schedule in `projectId`'s namespace tagged with `falangTaskQueue === taskQueue` in its memo — see `upsert`'s memo tagging. */
+  list(projectId: string, taskQueue: string): Promise<readonly IScheduleState[]>;
+  /** Every tagged schedule of one project (dev and prod alike), read from its namespace without registering it — empty when the namespace doesn't exist. */
+  listForProject(projectId: string): Promise<readonly IScheduleStateWithTarget[]>;
+  /** Deletes every schedule tagged with `projectId` — project deletion, so a deleted project's timers stop firing during the namespace's grace period (ADR 0050 (private)). Returns the deleted ids. */
+  deleteAllForProject(projectId: string): Promise<readonly string[]>;
+  /** Every schedule carrying this port's own memo tags (i.e. every schedule any `upsert` call here has ever created), across every project/env — visits every tenant namespace (`ITemporalTenancy.listTenantNamespaces`). */
   listAll(): Promise<readonly IScheduleStateWithTarget[]>;
 }
-
-/** One live connected client, plus how to release it — mirrors `gateway.module.ts`'s own `signalWorkflowWithStart` connect-per-call shape (see that function's doc comment for why: no long-lived Temporal client is held by this package). */
-export interface IScheduleTemporalClientHandle {
-  readonly client: Client;
-  readonly close: () => Promise<void>;
-}
-
-export type TGetScheduleTemporalClient = () => Promise<IScheduleTemporalClientHandle>;
 
 interface IScheduleMemo {
   readonly falangProjectId: string;
@@ -111,17 +108,35 @@ const toScheduleState = (scheduleId: string, description: ScheduleDescription): 
 });
 
 /**
- * Real `IScheduleClientPort`, connecting fresh per call (`getClient`) rather than holding a long-lived
- * `Client` — the same posture `gateway.module.ts`'s `signalWorkflowWithStart` already takes. `list`/
- * `listAll` fall back to `describe()` per matching schedule because `ScheduleSummary` (what
- * `client.schedule.list()` yields) doesn't carry `numActionsSkippedOverlap`/`numActionsMissedCatchupWindow`/
- * `recentActions` — only `ScheduleDescription` (`ScheduleHandle.describe()`) does; acceptable at the
- * per-project/per-instance scale this drives (a handful of schedules per project, not thousands).
+ * Real `IScheduleClientPort` over `@temporalio/client`'s `client.schedule`, with the client resolved
+ * per project through `ITemporalTenancy` (a shared, pooled connection — never closed here; schedules are
+ * namespace-local, so each project's schedules live in its own namespace in `per-project` mode, see
+ * ADR 0050 (private)). `list`/`listAll` fall back to `describe()` per matching schedule because
+ * `ScheduleSummary` (what `client.schedule.list()` yields) doesn't carry `numActionsSkippedOverlap`/
+ * `numActionsMissedCatchupWindow`/`recentActions` — only `ScheduleDescription` (`ScheduleHandle.describe()`)
+ * does; acceptable at the per-project/per-instance scale this drives (a handful of schedules per
+ * project, not thousands).
  */
-export const createTemporalScheduleClient = (getClient: TGetScheduleTemporalClient): IScheduleClientPort => ({
-  async upsert(params) {
-    const { client, close } = await getClient();
-    try {
+export const createTemporalScheduleClient = (tenancy: ITemporalTenancy): IScheduleClientPort => {
+  const listStates = async <T>(
+    client: Client,
+    pick: (memo: IScheduleMemo, state: IScheduleState) => T | null,
+    filter: (memo: IScheduleMemo) => boolean,
+  ): Promise<T[]> => {
+    const results: T[] = [];
+    for await (const summary of client.schedule.list()) {
+      const memo = readMemo(summary.memo);
+      if (!memo || !filter(memo)) continue;
+      const description = await client.schedule.getHandle(summary.scheduleId).describe();
+      const picked = pick(memo, toScheduleState(summary.scheduleId, description));
+      if (picked) results.push(picked);
+    }
+    return results;
+  };
+
+  return {
+    async upsert(params) {
+      const client = await tenancy.getClient(params.projectId);
       const spec = buildTemporalScheduleSpec(params.spec);
       const action = {
         type: 'startWorkflow' as const,
@@ -157,63 +172,84 @@ export const createTemporalScheduleClient = (getClient: TGetScheduleTemporalClie
           state: { ...previous.state, paused: false, note: params.note ?? previous.state.note },
         }));
       }
-    } finally {
-      await close();
-    }
-  },
+    },
 
-  async pause(scheduleId, note) {
-    const { client, close } = await getClient();
-    try {
+    async pause(projectId, scheduleId, note) {
+      const client = await tenancy.getClient(projectId);
       await client.schedule.getHandle(scheduleId).pause(note);
-    } finally {
-      await close();
-    }
-  },
+    },
 
-  async delete(scheduleId) {
-    const { client, close } = await getClient();
-    try {
+    async delete(projectId, scheduleId) {
+      const client = await tenancy.getClient(projectId);
       await client.schedule.getHandle(scheduleId).delete();
-    } finally {
-      await close();
-    }
-  },
+    },
 
-  async list(taskQueue) {
-    const { client, close } = await getClient();
-    try {
-      const states: IScheduleState[] = [];
-      for await (const summary of client.schedule.list()) {
-        const memo = readMemo(summary.memo);
-        if (!memo || memo.falangTaskQueue !== taskQueue) continue;
-        const description = await client.schedule.getHandle(summary.scheduleId).describe();
-        states.push(toScheduleState(summary.scheduleId, description));
-      }
-      return states;
-    } finally {
-      await close();
-    }
-  },
+    async list(projectId, taskQueue) {
+      const client = await tenancy.getClient(projectId);
+      return listStates<IScheduleState>(
+        client,
+        (_memo, state) => state,
+        (memo) => memo.falangTaskQueue === taskQueue,
+      );
+    },
 
-  async listAll() {
-    const { client, close } = await getClient();
-    try {
-      const states: IScheduleStateWithTarget[] = [];
-      for await (const summary of client.schedule.list()) {
-        const memo = readMemo(summary.memo);
-        if (!memo) continue;
-        const description = await client.schedule.getHandle(summary.scheduleId).describe();
-        states.push({
-          ...toScheduleState(summary.scheduleId, description),
-          projectId: memo.falangProjectId,
-          env: memo.falangEnv,
-          taskQueue: memo.falangTaskQueue,
-        });
+    async listForProject(projectId) {
+      try {
+        const client = await tenancy.getClientForNamespace(tenancy.namespaceFor(projectId));
+        return await listStates<IScheduleStateWithTarget>(
+          client,
+          (memo, state) => ({
+            ...state,
+            projectId: memo.falangProjectId,
+            env: memo.falangEnv,
+            taskQueue: memo.falangTaskQueue,
+          }),
+          (memo) => memo.falangProjectId === projectId,
+        );
+      } catch (error) {
+        if (isNamespaceNotFoundError(error)) return [];
+        throw error;
       }
-      return states;
-    } finally {
-      await close();
-    }
-  },
-});
+    },
+
+    async deleteAllForProject(projectId) {
+      const deleted: string[] = [];
+      try {
+        const client = await tenancy.getClientForNamespace(tenancy.namespaceFor(projectId));
+        for await (const summary of client.schedule.list()) {
+          if (readMemo(summary.memo)?.falangProjectId !== projectId) continue;
+          await client.schedule.getHandle(summary.scheduleId).delete();
+          deleted.push(summary.scheduleId);
+        }
+      } catch (error) {
+        if (!isNamespaceNotFoundError(error)) throw error;
+      }
+      return deleted;
+    },
+
+    async listAll() {
+      const all: IScheduleStateWithTarget[] = [];
+      for (const namespace of await tenancy.listTenantNamespaces()) {
+        try {
+          const client = await tenancy.getClientForNamespace(namespace);
+          all.push(
+            ...(await listStates<IScheduleStateWithTarget>(
+              client,
+              (memo, state) => ({
+                ...state,
+                projectId: memo.falangProjectId,
+                env: memo.falangEnv,
+                taskQueue: memo.falangTaskQueue,
+              }),
+              () => true,
+            )),
+          );
+        } catch (error) {
+          // A namespace listed a moment ago may have been deleted since — nothing to wake there.
+          if (!isNamespaceNotFoundError(error)) throw error;
+        }
+      }
+      return all;
+    },
+  };
+};

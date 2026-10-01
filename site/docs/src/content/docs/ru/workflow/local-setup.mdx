@@ -61,7 +61,7 @@ head:
 #### Из чего состоит стек
 <p><code>docker-compose.workflow.yml</code> поднимает:</p>
 <ul>
-  <li>самостоятельно размещённый сервер <b>Temporal</b> (с собственной базой Postgres) и его веб-интерфейс;</li>
+  <li>самостоятельно размещённый сервер <b>Temporal</b> (версия 1.32, с собственной базой Postgres, разовыми заданиями создания схемы и namespace <code>default</code>), его админ-CLI и веб-интерфейс;</li>
   <li>отдельную базу Postgres для <b>backend</b>'а (проекты, папки, документы, пользователи);</li>
   <li>
     <b>backend</b> — сервис, который хранит проекты, компилирует функции и управляет запуском/остановкой подов
@@ -75,6 +75,60 @@ head:
 <p>
   Каждый опубликованный сценарий выполняется не отдельным процессом внутри контейнера backend'а, а собственным
   подом в Kubernetes — именно поэтому нужен локальный kind-кластер.
+</p>
+
+#### Изоляция проектов в Temporal
+<p>
+  По умолчанию (<code>TEMPORAL_TENANT_ISOLATION=shared</code>) все workflow проектов выполняются в единственном
+  namespace <code>default</code> Temporal без авторизации — этого достаточно для локальной разработки и для
+  экземпляра, где все проекты принадлежат доверенным людям. Runner-под исполняет код самого проекта, поэтому на
+  экземпляре с несколькими пользователями включите режим <code>per-project</code>: у каждого проекта свой
+  namespace (<code>falang-&lt;projectId&gt;</code>), runner-поды аутентифицируются короткоживущим JWT,
+  действительным только для этого namespace, а межнеймспейсные команды на сервере выключены. Запуск (ключ нужно
+  держать одним и тем же между запусками):
+</p>
+<pre><code>{`export TEMPORAL_JWT_PRIVATE_KEY="$(openssl genpkey -algorithm RSA -pkeyopt rsa_keygen_bits:2048)"
+export PROJECT_TOKEN_SECRET="$(openssl rand -hex 32)"
+TEMPORAL_SERVER_CONFIG=server.yaml TEMPORAL_TENANT_ISOLATION=per-project \\
+  docker compose -f docker-compose.workflow.yml up --build`}</code></pre>
+<p>
+  Публичный ключ Temporal берёт у backend на внутреннем порту (<code>/internal/temporal/jwks.json</code>), поэтому
+  для смены ключа достаточно перезапустить backend. В этом режиме веб-интерфейс Temporal на порту 8080 войти
+  не сможет; используйте админ-CLI — он ходит во внутренний frontend (порт 7236, на хост не публикуется):
+</p>
+<pre><code>{`docker compose -f docker-compose.workflow.yml exec temporal-admin-tools \\
+  temporal workflow list --namespace falang-<projectId>`}</code></pre>
+<p>
+  Переменные backend'а, на которых держится этот режим:
+</p>
+<ul>
+  <li>
+    <code>TEMPORAL_TENANT_ISOLATION</code> — <code>shared</code> (по умолчанию) или <code>per-project</code>. В режиме
+    <code>per-project</code> backend не запустится без <code>TEMPORAL_JWT_PRIVATE_KEY</code>, а при старте проверит,
+    что Temporal действительно отклоняет запросы без токена и с токеном, который он не может проверить (если нет —
+    backend откажется стартовать: такая изоляция ничего не стоит).
+  </li>
+  <li>
+    <code>TEMPORAL_JWT_PRIVATE_KEY</code> — приватный RSA-ключ в формате PKCS#8 PEM (подпись RS256). Необязательные:
+    <code>TEMPORAL_JWT_KEY_ID</code> (по умолчанию — отпечаток ключа), <code>TEMPORAL_JWT_PREVIOUS_PUBLIC_KEY</code>
+    (прежний публичный ключ, публикуется рядом с новым на время ротации), <code>TEMPORAL_JWT_TTL_SECONDS</code> (срок
+    жизни токена пода, по умолчанию 3600; поды обновляют его сами).
+  </li>
+  <li>
+    <code>PROJECT_TOKEN_SECRET</code> — ключ, из которого выводятся токены проектов, с которыми runner-поды ходят в
+    backend (в production — не короче 32 символов и не значение по умолчанию; на всех репликах backend'а одно и то
+    же).
+  </li>
+  <li>
+    <code>TEMPORAL_NAMESPACE_RETENTION_DAYS</code> — сколько хранятся завершённые выполнения в namespace проекта (по
+    умолчанию 7). <code>TEMPORAL_TLS=true</code> — если frontend Temporal работает по TLS.
+  </li>
+</ul>
+<p>
+  Namespace удалённого проекта backend удаляет примерно через сутки после удаления проекта. Переключение
+  существующего экземпляра с <code>shared</code> на <code>per-project</code> не переносит старые выполнения из
+  <code>default</code>; расписания, оставшиеся там, backend ставит на паузу, а переопубликованный проект начинает
+  работать в своём namespace.
 </p>
 
 #### Известная особенность

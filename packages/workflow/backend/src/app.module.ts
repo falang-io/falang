@@ -37,6 +37,7 @@ import { TreeModule } from './domains/projects/tree/tree.module.js';
 import { VersioningModule } from './domains/projects/versioning/versioning.module.js';
 import { RunsModule } from './domains/runs/runs.module.js';
 import { TasksModule } from './domains/tasks/tasks.module.js';
+import { TemporalModule } from './domains/temporal/temporal.module.js';
 import { UsersModule } from './domains/users/users/users.module.js';
 
 /** Anything Nest accepts in a module's `imports` (incl. async dynamic modules like `GatewayModule.forRootAsync`). */
@@ -86,6 +87,8 @@ const buildBuiltInImports = (): TAppImport[] => [
   HealthModule,
   RunsModule,
   TasksModule,
+  // Namespace-per-project tenant isolation (global — `TEMPORAL_TENANCY` for every Temporal-touching domain), ADR 0050 (private).
+  TemporalModule,
   McpModule,
   AdminModule,
   // See ADR 0006 (private). `IntegrationsRuntimeService` (inside
