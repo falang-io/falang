@@ -87,6 +87,15 @@ describe('UsersService.onModuleInit — ADMIN_USERNAMES promotion', () => {
     expect(usersRepo.update).not.toHaveBeenCalled();
   });
 
+  it('does not seed the default admin when SEED_DEFAULT_ADMIN is unset', async () => {
+    delete configValues['SEED_DEFAULT_ADMIN'];
+    usersRepo.count.mockResolvedValue(0);
+
+    await service.onModuleInit();
+
+    expect(usersRepo.save).not.toHaveBeenCalled();
+  });
+
   it('seeds the default admin/admin user with role admin when no users exist', async () => {
     configValues['SEED_DEFAULT_ADMIN'] = 'true';
     usersRepo.count.mockResolvedValue(0);

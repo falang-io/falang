@@ -135,6 +135,16 @@ describe('compileProject — unused integrations', () => {
     expect(result.workflows).toContain('const { logActivity, runActivepiecesAction } = proxyLocalActivities<');
   });
 
+  it('authenticates the activepieces call with the pod project token, never the shared service secret', () => {
+    const fn = functionNode('doc-fn', [activepiecesNode]);
+
+    const result = compileProject({ documents: [functionDocument('doc-fn', 'run', fn)] });
+
+    expect(result.activities).not.toContain('ACTIVEPIECES_SERVICE_SECRET');
+    expect(result.activities).not.toContain('x-internal-api-key');
+    expect(result.activities).toContain("'x-internal-project-token': internalProjectToken");
+  });
+
   it('ignores integration nodes in documents that are not compiled', () => {
     const structure: IProjectDocument = {
       id: 'doc-struct',

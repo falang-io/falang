@@ -31,12 +31,12 @@ describe('workflow-backend (e2e)', () => {
     // No `Authorization` header — if `@falang/workflow-gateway`'s public-route metadata didn't match
     // `JwtAuthGuard`'s expected key, this would 401 before ever reaching the controller.
     // No integration registered — GatewayModule.forRoot([], ...) in this test app — so it 404s past the guard.
-    const response = await request(app.getHttpServer()).post('/webhooks/telegram/cred-1/prod').send({});
+    const response = await request(app.getHttpServer()).post('/webhooks/telegram/project-1/cred-1/prod').send({});
     expect(response.status).toBe(404);
   });
 
   it('rejects a webhook request with an invalid env segment', async () => {
-    const response = await request(app.getHttpServer()).post('/webhooks/telegram/cred-1/staging').send({});
+    const response = await request(app.getHttpServer()).post('/webhooks/telegram/project-1/cred-1/staging').send({});
     expect(response.status).toBe(400);
   });
 

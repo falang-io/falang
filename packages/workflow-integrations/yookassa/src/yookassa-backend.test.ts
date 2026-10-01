@@ -59,7 +59,7 @@ const buildCtx = (
 };
 
 const notificationRequest = (body: unknown): Request =>
-  new Request('http://localhost/webhooks/yookassa/cred-1/dev/doc-trigger-1', {
+  new Request('http://localhost/webhooks/yookassa/p/cred-1/dev/doc-trigger-1', {
     method: 'POST',
     headers: { 'content-type': 'application/json' },
     body: JSON.stringify(body),

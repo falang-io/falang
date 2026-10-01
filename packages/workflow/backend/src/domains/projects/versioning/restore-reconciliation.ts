@@ -6,6 +6,7 @@ import {
   type IWorkflowIntegration,
 } from '@falang/workflow-integrations-common';
 import type { Repository } from 'typeorm';
+import { assertCredentialIdsNotOwnedByOtherProject } from '../../integrations/credential-id-ownership.js';
 import { mergeIntegrationsDataForRestore } from '../../integrations/credentials-codec.js';
 import type { Document } from '../documents/document.entity.js';
 import type { DocumentsService } from '../documents/documents.service.js';
@@ -81,6 +82,7 @@ const restoreIntegrationsDocument = async (
   name: string,
 ): Promise<void> => {
   const snapshot = (snapshotData ?? { instances: [] }) as IIntegrationsDocumentData;
+  await assertCredentialIdsNotOwnedByOtherProject(deps.documentsRepo, current.projectId, snapshot);
   const stored = current.data as IIntegrationsDocumentData | null;
   current.name = name;
   current.data = mergeIntegrationsDataForRestore(snapshot, stored, integrations);
@@ -117,7 +119,7 @@ export const reconcileDocuments = async (
       // oxlint-disable-next-line no-await-in-loop
       await (current
         ? restoreIntegrationsDocument(deps, current, document.data, integrations, document.name)
-        : deps.documentsRepo.save(
+        : deps.documentsRepo.insert(
             deps.documentsRepo.create({
               id: document.id,
               type: document.type,
@@ -127,7 +129,7 @@ export const reconcileDocuments = async (
               pinned: document.pinned,
               root: document.root ?? null,
               data: document.data ?? null,
-            }),
+            }) as Parameters<Repository<Document>['insert']>[0],
           ));
       continue;
     }

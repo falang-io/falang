@@ -22,6 +22,7 @@ import { createActivepiecesCatalogProvider } from '../integrations-document-help
 import { REGISTERED_INTEGRATIONS } from '../integrations-registry.js';
 import { connectOAuth2Instance } from '../oauth2-connect.js';
 import { OAuth2ConnectionField } from './oauth2-connection-field.cmp.js';
+import { useDisabledVendors } from './use-disabled-vendors.js';
 import { VendorDataSyncField } from './vendor-data-sync-field.cmp.js';
 
 const { Title } = Typography;
@@ -37,6 +38,7 @@ export const IntegrationsEditor: React.FC = observer(() => {
   const [selectedVendor, setSelectedVendor] = useState<string | null>(null);
   const [dynamicIntegrations, setDynamicIntegrations] = useState<readonly IWorkflowIntegration[]>([]);
   const [connecting, setConnecting] = useState(false);
+  const disabledVendors = useDisabledVendors();
 
   // ActivePieces vendors aren't statically registered — see ADR 0010 (private).
   // Without this, there would be no way to ever create a credential for one.
@@ -55,7 +57,10 @@ export const IntegrationsEditor: React.FC = observer(() => {
     };
   }, []);
 
-  const allIntegrations = useMemo(() => [...REGISTERED_INTEGRATIONS, ...dynamicIntegrations], [dynamicIntegrations]);
+  const allIntegrations = useMemo(
+    () => [...REGISTERED_INTEGRATIONS, ...dynamicIntegrations].filter((item) => !disabledVendors.includes(item.vendor)),
+    [dynamicIntegrations, disabledVendors],
+  );
   const findIntegration = (vendor: string): IWorkflowIntegration | undefined =>
     allIntegrations.find((item) => item.vendor === vendor);
 

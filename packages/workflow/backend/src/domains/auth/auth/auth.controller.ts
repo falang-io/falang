@@ -26,6 +26,7 @@ import { LoginDto } from './dto/login.dto.js';
 import { RegisterDto } from './dto/register.dto.js';
 // oxlint-disable-next-line consistent-type-imports
 import { UpdateLanguageDto } from './dto/update-language.dto.js';
+import { getDisabledVendors } from '../../integrations/optional-vendors.js';
 import { Public } from './public.decorator.js';
 import type { IJwtPayloadUser } from './jwt.strategy.js';
 
@@ -59,8 +60,12 @@ export class AuthController {
   /** Public: tells the login page whether to show the signup form (and which terms to accept). */
   @Public()
   @Get('config')
-  getConfig(): { selfServiceSignup: boolean; termsUrl: string | null } {
-    return { selfServiceSignup: this.selfServiceSignup(), termsUrl: this.termsUrl() };
+  getConfig(): { selfServiceSignup: boolean; termsUrl: string | null; disabledVendors: string[] } {
+    return {
+      selfServiceSignup: this.selfServiceSignup(),
+      termsUrl: this.termsUrl(),
+      disabledVendors: getDisabledVendors(),
+    };
   }
 
   @Public()

@@ -26,8 +26,9 @@ import { OAuthCredentialsService } from '../admin/oauth-credentials/oauth-creden
 import { Document } from '../projects/documents/document.entity.js';
 import { ProjectsService } from '../projects/projects/projects.service.js';
 import { ActivepiecesCatalogService } from './activepieces-catalog.service.js';
+import { getBackendEgress } from '../../net/egress-guard.js';
 import { requireEncryptionKey } from './credentials-crypto.js';
-import { renderOAuth2CallbackPage } from './oauth2-callback-page.js';
+import { renderOAuth2CallbackPage, type IOAuth2CallbackPageParams } from './oauth2-callback-page.js';
 import { normalizeOAuth2AccountDomain } from './oauth2-account-domain.js';
 import { buildPkcePair, type IPkcePair } from './oauth2-pkce.js';
 import { OAuth2PendingStateService, type IPendingOAuth2State } from './oauth2-pending-state.service.js';
@@ -154,35 +155,49 @@ export class OAuth2Controller {
     @Res() res: Response,
   ): Promise<void> {
     if (oauthError || !state) {
-      res
-        .type('html')
-        .send(renderOAuth2CallbackPage({ status: 'error', credentialId: '', message: oauthError ?? 'missing state' }));
+      this.sendCallbackPage(res, { status: 'error', credentialId: '', message: oauthError ?? 'missing state' });
       return;
     }
     const pending = this.pendingStates.consume(state);
     if (!pending || pending.vendor !== vendor || !code) {
-      res.type('html').send(
-        renderOAuth2CallbackPage({
-          status: 'error',
-          credentialId: pending?.credentialId ?? '',
-          message: 'invalid or expired connection attempt',
-        }),
-      );
+      this.sendCallbackPage(res, {
+        status: 'error',
+        credentialId: pending?.credentialId ?? '',
+        message: 'invalid or expired connection attempt',
+      });
       return;
     }
 
     try {
       await this.exchangeAndPersistTokens(vendor, pending, code, query);
-      res.type('html').send(renderOAuth2CallbackPage({ status: 'success', credentialId: pending.credentialId }));
+      this.sendCallbackPage(res, { status: 'success', credentialId: pending.credentialId });
     } catch (error) {
-      res.type('html').send(
-        renderOAuth2CallbackPage({
-          status: 'error',
-          credentialId: pending.credentialId,
-          message: error instanceof Error ? error.message : 'unknown error',
-        }),
-      );
+      this.sendCallbackPage(res, {
+        status: 'error',
+        credentialId: pending.credentialId,
+        message: error instanceof Error ? error.message : 'unknown error',
+      });
     }
+  }
+
+  private sendCallbackPage(res: Response, params: IOAuth2CallbackPageParams): void {
+    const clientUrl = this.config.get<string>('CLIENT_PUBLIC_URL');
+    let targetOrigin = '';
+    try {
+      if (clientUrl) targetOrigin = new URL(clientUrl).origin;
+    } catch {
+      // misconfigured CLIENT_PUBLIC_URL: fall back to the non-secret '*' target
+    }
+    const page = renderOAuth2CallbackPage({ ...params, ...(targetOrigin ? { targetOrigin } : {}) });
+    res
+      .type('html')
+      .set({
+        'Content-Security-Policy': page.contentSecurityPolicy,
+        'X-Content-Type-Options': 'nosniff',
+        'Referrer-Policy': 'no-referrer',
+        'Cache-Control': 'no-store',
+      })
+      .send(page.html);
   }
 
   private async exchangeAndPersistTokens(
@@ -215,7 +230,7 @@ export class OAuth2Controller {
     if (integration.oauth2.accountDomainCallbackParam) {
       const raw = callbackQuery[integration.oauth2.accountDomainCallbackParam];
       if (!raw) throw new Error(`Missing "${integration.oauth2.accountDomainCallbackParam}" callback parameter`);
-      accountDomain = normalizeOAuth2AccountDomain(raw);
+      accountDomain = normalizeOAuth2AccountDomain(raw, integration.oauth2.accountDomainSuffixes);
     }
 
     const backendUrl = this.config.get<string>('BACKEND_PUBLIC_URL');
@@ -232,7 +247,7 @@ export class OAuth2Controller {
       },
       accountDomain,
     );
-    const response = await fetch(url, init);
+    const response = await getBackendEgress().fetch(url, init);
     if (!response.ok) throw new Error(`Token exchange failed: ${response.status}`);
     const tokens = (await response.json()) as ITokenResponse;
 

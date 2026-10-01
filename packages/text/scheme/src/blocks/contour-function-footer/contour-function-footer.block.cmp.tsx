@@ -1,4 +1,5 @@
 import { checker, TOKEN_SCHEME, useService, type IBlockView } from '@falang/scheme';
+import { sanitizeHtml } from '../../utils/sanitize-html.js';
 import { observer } from 'mobx-react-lite';
 
 export const ContourFunctionFooterBlockComponent: IBlockView<string> = observer(({ data }) => {
@@ -7,5 +8,5 @@ export const ContourFunctionFooterBlockComponent: IBlockView<string> = observer(
   if (!checker.isContour(rootIcon)) return null;
   const foundIcon = [...rootIcon.body.threads.icons, rootIcon.finish].find((icon) => icon.id === data);
   const displayData = String(foundIcon?.dataNode.data ?? '&nbsp;');
-  return <div dangerouslySetInnerHTML={{ __html: displayData }} />;
+  return <div dangerouslySetInnerHTML={{ __html: sanitizeHtml(displayData) }} />;
 });

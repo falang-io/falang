@@ -219,48 +219,40 @@ describe('integrations (workflow tier): Databases (Postgres, MySQL)', () => {
     }
   };
 
-  it(
-    'postgres: insert -> select -> update -> query -> delete round-trips through a real runner pod',
-    async () => {
-      await runDialectCase({
-        vendor: postgresIntegration.vendor,
-        connectionString: `postgres://falang:falang@${WORKFLOW_E2E_RUNNER_DB_HOST}:5435/userdb`,
-        countSql: 'SELECT count(*) AS c FROM orders WHERE status = $1',
-        assertRowDeleted: async (id) => {
-          const client = new PgClient({ connectionString: WORKFLOW_E2E_POSTGRES_USER_DB_URL });
-          await client.connect();
-          try {
-            const rowsResult = await client.query('SELECT id FROM orders WHERE id = $1', [id]);
-            expect(rowsResult.rows).toHaveLength(0);
-          } finally {
-            await client.end();
-          }
-        },
-      });
-    },
-    150_000,
-  );
+  it('postgres: insert -> select -> update -> query -> delete round-trips through a real runner pod', async () => {
+    await runDialectCase({
+      vendor: postgresIntegration.vendor,
+      connectionString: `postgres://falang:falang@${WORKFLOW_E2E_RUNNER_DB_HOST}:5435/userdb`,
+      countSql: 'SELECT count(*) AS c FROM orders WHERE status = $1',
+      assertRowDeleted: async (id) => {
+        const client = new PgClient({ connectionString: WORKFLOW_E2E_POSTGRES_USER_DB_URL });
+        await client.connect();
+        try {
+          const rowsResult = await client.query('SELECT id FROM orders WHERE id = $1', [id]);
+          expect(rowsResult.rows).toHaveLength(0);
+        } finally {
+          await client.end();
+        }
+      },
+    });
+  }, 150_000);
 
-  it(
-    'mysql: insert -> select -> update -> query -> delete round-trips through a real runner pod',
-    async () => {
-      await runDialectCase({
-        vendor: mysqlIntegration.vendor,
-        connectionString: `mysql://falang:falang@${WORKFLOW_E2E_RUNNER_DB_HOST}:3308/userdb`,
-        countSql: 'SELECT count(*) AS c FROM orders WHERE status = ?',
-        assertRowDeleted: async (id) => {
-          const connection = await createConnection(WORKFLOW_E2E_MYSQL_USER_DB_URL);
-          try {
-            const [rows] = await connection.query('SELECT id FROM orders WHERE id = ?', [id]);
-            expect(rows as unknown[]).toHaveLength(0);
-          } finally {
-            await connection.end();
-          }
-        },
-      });
-    },
-    150_000,
-  );
+  it('mysql: insert -> select -> update -> query -> delete round-trips through a real runner pod', async () => {
+    await runDialectCase({
+      vendor: mysqlIntegration.vendor,
+      connectionString: `mysql://falang:falang@${WORKFLOW_E2E_RUNNER_DB_HOST}:3308/userdb`,
+      countSql: 'SELECT count(*) AS c FROM orders WHERE status = ?',
+      assertRowDeleted: async (id) => {
+        const connection = await createConnection(WORKFLOW_E2E_MYSQL_USER_DB_URL);
+        try {
+          const [rows] = await connection.query('SELECT id FROM orders WHERE id = ?', [id]);
+          expect(rows as unknown[]).toHaveLength(0);
+        } finally {
+          await connection.end();
+        }
+      },
+    });
+  }, 150_000);
 
   // A blank `where` on *-update/*-delete is rejected before it can "update everything" —
   // `build-sql-integration.ts`'s field-level `validate` (`requireNonBlankWhere`) at edit time, and

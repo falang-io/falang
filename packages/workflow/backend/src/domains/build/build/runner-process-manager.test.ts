@@ -308,4 +308,25 @@ describe('RunnerProcessManager', () => {
     expect(containerSecurity?.allowPrivilegeEscalation).toBe(false);
     expect(containerSecurity?.capabilities?.drop).toEqual(['ALL']);
   });
+
+  it('never mounts a service-account token or service-link env vars into the pod, and omits serviceAccountName when unset', async () => {
+    const { manager, client } = createManager();
+
+    await manager.start({ taskQueue: 'workflow-1', projectId: 'p', internalProjectToken: 't', workflowEnv: 'dev' });
+
+    const podSpec = client.deployments.get('workflow-1')?.spec?.template?.spec;
+    expect(podSpec?.automountServiceAccountToken).toBe(false);
+    expect(podSpec?.enableServiceLinks).toBe(false);
+    expect(podSpec?.serviceAccountName).toBeUndefined();
+  });
+
+  it('sets serviceAccountName from runnerServiceAccount (RUNNER_SERVICE_ACCOUNT)', async () => {
+    const { manager, client } = createManager({ runnerServiceAccount: 'workflow-runner' });
+
+    await manager.start({ taskQueue: 'workflow-1', projectId: 'p', internalProjectToken: 't', workflowEnv: 'dev' });
+
+    const podSpec = client.deployments.get('workflow-1')?.spec?.template?.spec;
+    expect(podSpec?.serviceAccountName).toBe('workflow-runner');
+    expect(podSpec?.automountServiceAccountToken).toBe(false);
+  });
 });

@@ -75,99 +75,46 @@ describe('resolveAuthValue', () => {
 
   describe('OAuth2', () => {
     const oauth2Auth = { type: 'OAUTH2', tokenUrl: 'https://vendor.test/token' };
-    const credentialValues = (values: Record<string, string>) =>
-      vi.mocked(resolveCredential).mockImplementation(async (_id, _vendor, field) => {
-        const value = values[field];
-        if (value === undefined) throw new Error(`no value stubbed for "${field}"`);
-        return value;
-      });
 
-    it('resolves the bare {access_token, data} shape without refreshing when not near expiry', async () => {
-      credentialValues({
-        access_token: 'tok-current',
-        refresh_token: 'refresh-1',
-        expires_at: String(Date.now() + 10 * 60_000),
-        client_id: 'cid',
-        client_secret: 'csecret',
-      });
-      const fetchMock = vi.fn();
-      vi.stubGlobal('fetch', fetchMock);
-
-      const result = await resolveAuthValue('oauth', asPiece(oauth2Auth), 'cred-1', 'project-1', 'ptok');
-
-      expect(result).toEqual({ type: 'OAUTH2', access_token: 'tok-current', data: {} });
-      expect(fetchMock).not.toHaveBeenCalled();
-      vi.unstubAllGlobals();
-    });
-
-    it('refreshes via the token endpoint and best-effort persists when expired', async () => {
-      credentialValues({
-        access_token: 'tok-stale',
-        refresh_token: 'refresh-1',
-        expires_at: String(Date.now() - 1000),
-        client_id: 'cid',
-        client_secret: 'csecret',
-      });
+    it('asks backend for the access token and never resolves client_id/client_secret or calls the vendor', async () => {
       vi.stubEnv('BACKEND_INTERNAL_URL', 'http://backend.test');
-      const fetchMock = vi
-        .fn()
-        .mockResolvedValueOnce({
-          ok: true,
-          json: () => Promise.resolve({ access_token: 'tok-fresh', refresh_token: 'refresh-2', expires_in: 3600 }),
-        })
-        .mockResolvedValueOnce({ ok: true, json: () => Promise.resolve({}) });
+      const fetchMock = vi.fn().mockResolvedValue({
+        ok: true,
+        json: () => Promise.resolve({ accessToken: 'tok-fresh', data: { refresh_token: 'r2' } }),
+      });
       vi.stubGlobal('fetch', fetchMock);
+      vi.mocked(resolveCredential).mockClear();
 
       const result = await resolveAuthValue('oauth', asPiece(oauth2Auth), 'cred-1', 'project-1', 'ptok');
 
-      expect(result).toEqual({
-        type: 'OAUTH2',
-        access_token: 'tok-fresh',
-        data: { access_token: 'tok-fresh', refresh_token: 'refresh-2', expires_in: 3600 },
-      });
-      expect(fetchMock).toHaveBeenNthCalledWith(
-        1,
-        'https://vendor.test/token',
-        expect.objectContaining({ method: 'POST' }),
-      );
-      const refreshBody = fetchMock.mock.calls[0]?.[1]?.body as URLSearchParams;
-      expect(refreshBody.get('grant_type')).toBe('refresh_token');
-      expect(refreshBody.get('refresh_token')).toBe('refresh-1');
-      expect(fetchMock).toHaveBeenNthCalledWith(
-        2,
-        'http://backend.test/internal/credentials/oauth2-refresh',
+      expect(result).toEqual({ type: 'OAUTH2', access_token: 'tok-fresh', data: { refresh_token: 'r2' } });
+      expect(fetchMock).toHaveBeenCalledTimes(1);
+      expect(fetchMock).toHaveBeenCalledWith(
+        'http://backend.test/internal/credentials/oauth2-access-token',
         expect.objectContaining({
           method: 'POST',
           headers: { 'content-type': 'application/json', 'x-internal-project-token': 'ptok' },
         }),
       );
-      const refreshedBody = JSON.parse(fetchMock.mock.calls[1]?.[1]?.body as string) as Record<string, unknown>;
-      expect(refreshedBody).toMatchObject({
+      expect(JSON.parse(fetchMock.mock.calls[0]?.[1]?.body as string)).toEqual({
         credentialId: 'cred-1',
         vendor: 'activepieces-oauth',
         projectId: 'project-1',
-        accessToken: 'tok-fresh',
       });
+      expect(resolveCredential).not.toHaveBeenCalled();
       vi.unstubAllGlobals();
       vi.unstubAllEnvs();
     });
 
-    it('returns the stale access token without throwing when expired but no refresh token is available', async () => {
-      credentialValues({
-        access_token: 'tok-stale',
-        refresh_token: '',
-        expires_at: String(Date.now() - 1000),
-        client_id: 'cid',
-        client_secret: 'csecret',
-      });
-      const fetchMock = vi.fn();
-      vi.stubGlobal('fetch', fetchMock);
+    it('throws when backend refuses', async () => {
+      vi.stubEnv('BACKEND_INTERNAL_URL', 'http://backend.test');
+      vi.stubGlobal('fetch', vi.fn().mockResolvedValue({ ok: false, status: 502, text: () => Promise.resolve('x') }));
 
-      const result = await resolveAuthValue('oauth', asPiece(oauth2Auth), 'cred-1', 'project-1', 'ptok');
-
-      expect(result).toEqual({ type: 'OAUTH2', access_token: 'tok-stale', data: {} });
-      expect(fetchMock).not.toHaveBeenCalled();
+      await expect(resolveAuthValue('oauth', asPiece(oauth2Auth), 'cred-1', 'project-1', 'ptok')).rejects.toThrow(
+        /502/,
+      );
       vi.unstubAllGlobals();
+      vi.unstubAllEnvs();
     });
   });
 });

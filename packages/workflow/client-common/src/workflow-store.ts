@@ -48,6 +48,7 @@ import { HttpLlmClient } from './agent/http-llm-client.js';
 import { IndexedDbAgentSessionStore } from './agent/indexed-db-session-store.js';
 import { IntegrationToolProvider } from './agent/integration-tool-provider.js';
 import { generateUuid } from './generate-uuid.js';
+import { loadDisabledVendors } from './disabled-vendors.js';
 import { REGISTERED_INTEGRATIONS } from './integrations-registry.js';
 import {
   createActivepiecesCatalogProvider,
@@ -164,6 +165,8 @@ export class WorkflowStore {
   private readonly agentLocks: AgentLockTracker;
 
   constructor(projectId: string) {
+    // The in-app agent's vendor tools hide vendors this deployment disabled (`disabledVendors` of `GET /auth/config`).
+    loadDisabledVendors();
     this.projectId = projectId;
     this.container = container.createChildContainer();
     registerTypescriptProjectService(this.container);

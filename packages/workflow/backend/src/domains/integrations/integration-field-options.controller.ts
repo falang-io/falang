@@ -8,6 +8,7 @@ import {
   type IIntegrationsDocumentData,
 } from '@falang/workflow-integrations-common';
 import type { Repository } from 'typeorm';
+import { getBackendEgress } from '../../net/egress-guard.js';
 import { CurrentUser } from '../auth/auth/current-user.decorator.js';
 import type { IJwtPayloadUser } from '../auth/auth/jwt.strategy.js';
 import { Document } from '../projects/documents/document.entity.js';
@@ -79,6 +80,6 @@ export class IntegrationFieldOptionsController {
     // `ctx.vendorData` backs `sql-common`'s `table` field (ADR 0039 (private) §6's `loadOptions`
     // extension) — options come from a previously-synced schema rather than a fresh live round trip.
     const vendorData = await this.vendorData.getAll(projectId, credentialId);
-    return [...(await field.loadOptions(resolvedFields, { instance, vendorData }))];
+    return [...(await field.loadOptions(resolvedFields, { instance, vendorData, egress: getBackendEgress() }))];
   }
 }

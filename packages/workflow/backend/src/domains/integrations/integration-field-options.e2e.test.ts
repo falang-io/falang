@@ -2,8 +2,19 @@ import type { INestApplication } from '@nestjs/common';
 import request from 'supertest';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { UsersService } from '../users/users/users.service.js';
+import type * as EgressGuardModule from '../../net/egress-guard.js';
 import { auth, createTestApp, login } from '../../test-utils/e2e-app.js';
 import { IntegrationVendorDataService } from './vendor-data/integration-vendor-data.service.js';
+
+// The real egress guard talks to the network; these tests stub the global `fetch`, so route the guard's `fetch` to it
+// (the guard itself is covered by `net/egress-guard.test.ts`).
+vi.mock('../../net/egress-guard.js', async (importOriginal) => ({
+  ...(await importOriginal<typeof EgressGuardModule>()),
+  getBackendEgress: () => ({
+    fetch: (url: string, init?: RequestInit) => globalThis.fetch(url, init),
+    resolveHost: (host: string) => Promise.resolve(host),
+  }),
+}));
 
 const optionsUrl = (projectId: string, credentialId: string, actionName = 'call-ai-text'): string =>
   `/projects/${projectId}/integrations/${credentialId}/actions/${actionName}/fields/model/options`;

@@ -5,20 +5,34 @@ import { createApp } from '../app.js';
 import { getPiece } from '../pieces/registry.js';
 import { resolveAuthValue } from '../pieces/auth-resolver.js';
 import { NotFoundError } from '../credentials.js';
+import { clearProjectTokenCache } from '../project-token-middleware.js';
 
 vi.mock('../pieces/registry.js', () => ({ getPiece: vi.fn() }));
 vi.mock('../pieces/auth-resolver.js', () => ({ resolveAuthValue: vi.fn() }));
 
 const SECRET = 'test-secret';
+// Runner pods authenticate with their own project token, never the shared secret.
 const authedPost = (app: ReturnType<typeof createApp>, path: string) =>
-  request(app).post(path).set('x-internal-api-key', SECRET);
+  request(app).post(path).set('x-internal-project-token', 'ptok');
+
+const fetchMock = vi.fn();
 
 beforeEach(() => {
   process.env.ACTIVEPIECES_SERVICE_SECRET = SECRET;
+  process.env.BACKEND_INTERNAL_URL = 'http://backend.test';
+  clearProjectTokenCache();
+  fetchMock.mockReset();
+  // backend's verify endpoint: only project-1/ptok is a valid pair.
+  fetchMock.mockImplementation((_url: string, init: { headers: Record<string, string>; body: string }) =>
+    Promise.resolve({
+      ok: init.headers['x-internal-project-token'] === 'ptok' && JSON.parse(init.body).projectId === 'project-1',
+    }),
+  );
+  vi.stubGlobal('fetch', fetchMock);
   vi.mocked(resolveAuthValue).mockResolvedValue({ type: 'SECRET_TEXT', secret_text: 'sk-1' });
 });
 
-const PROJECT_FIELDS = { projectId: 'project-1', internalProjectToken: 'ptok' };
+const PROJECT_FIELDS = { projectId: 'project-1' };
 
 describe('POST /credentials/:credentialId/pieces/:pieceName/actions/:actionName/run', () => {
   it('runs the action with the resolved auth value plugged in and returns its result', async () => {
@@ -61,12 +75,62 @@ describe('POST /credentials/:credentialId/pieces/:pieceName/actions/:actionName/
     expect(res.status).toBe(404);
   });
 
-  it('400s when projectId/internalProjectToken are missing', async () => {
+  it('401s without a projectId in the body', async () => {
     const res = await authedPost(createApp(), '/credentials/cred-1/pieces/mock/actions/create_item/run').send({
       propsValue: {},
     });
 
-    expect(res.status).toBe(400);
+    expect(res.status).toBe(401);
+  });
+
+  it('401s without any token, and does not accept the shared service secret instead', async () => {
+    const app = createApp();
+    const path = '/credentials/cred-1/pieces/mock/actions/create_item/run';
+    expect(
+      (
+        await request(app)
+          .post(path)
+          .send({ propsValue: {}, ...PROJECT_FIELDS })
+      ).status,
+    ).toBe(401);
+    const viaSecret = await request(app)
+      .post(path)
+      .set('x-internal-api-key', SECRET)
+      .send({ propsValue: {}, ...PROJECT_FIELDS });
+    expect(viaSecret.status).toBe(401);
+    expect(getPiece).not.toHaveBeenCalled();
+  });
+
+  it("401s when project A's token is presented for project B", async () => {
+    const res = await authedPost(createApp(), '/credentials/cred-1/pieces/mock/actions/create_item/run').send({
+      propsValue: {},
+      projectId: 'project-2',
+    });
+
+    expect(res.status).toBe(401);
+    expect(getPiece).not.toHaveBeenCalled();
+  });
+
+  it('503s (fail closed) when backend cannot verify the token', async () => {
+    fetchMock.mockRejectedValue(new Error('connect ECONNREFUSED'));
+    const res = await authedPost(createApp(), '/credentials/cred-1/pieces/mock/actions/create_item/run').send({
+      propsValue: {},
+      ...PROJECT_FIELDS,
+    });
+
+    expect(res.status).toBe(503);
+  });
+
+  it('caches a successful verification instead of calling backend on every run', async () => {
+    vi.mocked(getPiece).mockReturnValue({
+      getAction: () => ({ run: vi.fn().mockResolvedValue(1) }),
+    } as unknown as Piece);
+    const app = createApp();
+    const path = '/credentials/cred-1/pieces/mock/actions/create_item/run';
+    await authedPost(app, path).send({ propsValue: {}, ...PROJECT_FIELDS });
+    await authedPost(app, path).send({ propsValue: {}, ...PROJECT_FIELDS });
+
+    expect(fetchMock).toHaveBeenCalledTimes(1);
   });
 
   it('rejects requests without the internal service secret header', async () => {

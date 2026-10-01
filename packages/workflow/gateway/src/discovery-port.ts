@@ -23,6 +23,8 @@ export interface IIntegrationsDiscoveryPort {
     vendor: string,
     instanceId: string,
     env: 'dev' | 'prod',
+    /** The instance's own project — credential ids are client-chosen, so the id alone never identifies one instance. */
+    projectId: string,
   ): Promise<Readonly<Record<string, string>> | undefined>;
   /** Documents of `type`, scoped to `projectId` — backs `IIntegrationBackendContext.getDocumentsByType`. */
   getDocumentsByType(projectId: string, type: string): Promise<readonly IIntegrationDocumentRecord[]>;

@@ -58,7 +58,7 @@ const buildPoolCache = (dialectName: TSqlDialectName): string => {
         "  const connectionString = await resolveSqlCredentialField(credentialId, 'mysql', 'connectionString');",
         "  const sslMode = await resolveSqlCredentialField(credentialId, 'mysql', 'ssl', 'prefer');",
         '  const pool = mysql.createPool({',
-        '    uri: connectionString,',
+        "    uri: connectionString, flags: ['-LOCAL_FILES'], infileStreamFactory: () => { throw new Error('LOAD DATA LOCAL INFILE is disabled'); },",
         "    ssl: sslMode === 'disable' ? undefined : {},",
         '    waitForConnections: true,',
         '    connectionLimit: 5,',

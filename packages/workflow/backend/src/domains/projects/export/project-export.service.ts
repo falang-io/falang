@@ -1,9 +1,15 @@
 import { randomUUID } from 'node:crypto';
 import { BadRequestException, Inject, Injectable } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
+import type { INode } from '@falang/dto';
 import { INTEGRATIONS_DOCUMENT_TYPE, type IIntegrationsDocumentData } from '@falang/workflow-integrations-common';
 import type { Repository } from 'typeorm';
 import { ActivepiecesCatalogService } from '../../integrations/activepieces-catalog.service.js';
+import {
+  buildCredentialIdMap,
+  remapCredentialRefs,
+  remapIntegrationsData,
+} from '../../integrations/credential-id-remap.js';
 import { stripIntegrationsSecretsForExport } from '../../integrations/credentials-codec.js';
 import { REGISTERED_INTEGRATIONS } from '../../integrations/registered-integrations.js';
 import { Document } from '../documents/document.entity.js';
@@ -105,13 +111,16 @@ export class ProjectExportService {
     const folderIdMap = await this.createFolders(project.id, ownerId, payload.folders);
 
     const integrationsPayload = payload.documents.find((document) => document.type === INTEGRATIONS_DOCUMENT_TYPE);
+    // Instance ids are client-chosen and become platform-wide routing keys, so an import never keeps
+    // the ids of the file it came from — every instance gets a fresh one and every reference follows.
+    const credentialIdMap = buildCredentialIdMap(integrationsPayload?.data);
     if (integrationsPayload?.data) {
       const integrationsDocument = await this.documents.findOne({
         where: { projectId: project.id, type: INTEGRATIONS_DOCUMENT_TYPE },
       });
       if (integrationsDocument) {
         await this.documentsService.update(project.id, ownerId, integrationsDocument.id, {
-          data: integrationsPayload.data,
+          data: remapIntegrationsData(integrationsPayload.data, credentialIdMap),
         });
       }
     }
@@ -130,8 +139,8 @@ export class ProjectExportService {
           type: document.type,
           name: document.name,
           folderId,
-          root: document.root ?? null,
-          data: document.data ?? null,
+          root: remapCredentialRefs(document.root ?? null, credentialIdMap) as INode | null,
+          data: remapCredentialRefs(document.data ?? null, credentialIdMap),
         });
       }),
     );

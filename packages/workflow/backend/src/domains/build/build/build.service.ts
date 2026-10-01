@@ -12,9 +12,9 @@ import { DocumentsService } from '../../projects/documents/documents.service.js'
 import { ProjectsService } from '../../projects/projects/projects.service.js';
 import { VersioningService } from '../../projects/versioning/versioning.service.js';
 import { toApiSchedule, type IApiSchedule } from './api-schedule.js';
-import { buildArtifact } from './build-artifact.js';
+import { buildArtifact, cleanupOrphanedBuildDirs, typeCheckInWorker } from './build-artifact.js';
 import {
-  compileProjectDocuments,
+  compileProjectStructure,
   getIntegrationsForCompile,
   toGeneratedFiles,
   type IGeneratedFile,
@@ -22,7 +22,11 @@ import {
 import { DeploymentCliService } from './deployment-cli.service.js';
 import { DevArtifactStore } from './dev-artifact-store.service.js';
 import type { TRunTarget } from './dto/run-function.dto.js';
-import { ensureRunnerRunning, type IEnsureRunnerRunningDeps, type IEnsureRunnerRunningOptions } from './ensure-runner-running.js';
+import {
+  ensureRunnerRunning,
+  type IEnsureRunnerRunningDeps,
+  type IEnsureRunnerRunningOptions,
+} from './ensure-runner-running.js';
 import { assertUnderProdVersionLimit, resolveProdVersionLimit } from './prod-version-limit.js';
 import { ProjectVersion } from './project-version.entity.js';
 import { toVersionSummary, type IProjectVersionSummary } from './project-version-summary.js';
@@ -121,8 +125,12 @@ export class BuildService implements OnModuleInit {
    * "Scale-to-zero" follow-up.
    */
   onModuleInit(): void {
+    // A crashed previous process may have left per-build directories behind (`buildArtifact` cleans up in `finally`).
+    cleanupOrphanedBuildDirs(this.outputDir);
     const deps = this.ensureRunnerDeps();
-    this.gatewayRuntime.setEnsureRunnerRunning((params) => ensureRunnerRunning(deps, params.projectId, params.env, params.taskQueue));
+    this.gatewayRuntime.setEnsureRunnerRunning((params) =>
+      ensureRunnerRunning(deps, params.projectId, params.env, params.taskQueue),
+    );
   }
 
   /** Also used by `DebugService` (via `build.module.ts`'s factory provider) — a debug session's `ensureRunnerRunning` call is always `env: 'dev'`, which never touches `versions`/`deploymentCli`/`startVersionRunnerIfNeeded` below, but the shared helper's signature wants the full deps shape regardless. */
@@ -158,13 +166,13 @@ export class BuildService implements OnModuleInit {
     // statement until a debug session actually attaches, and it means toggling a breakpoint never
     // needs a rebuild. `debugMap` is kept alongside the artifact for `DebugService` to resolve
     // node ids to trace indexes.
-    const { workflows, activities, debugMap } = compileProjectDocuments(
+    const { workflows, activities, debugMap } = compileProjectStructure(
       documents,
       await getIntegrationsForCompile(this.activepiecesCatalog),
       { debug: true },
     );
 
-    const { workflowBundle, activitiesSource } = await buildArtifact(this.outputDir, projectId, workflows, activities);
+    const { workflowBundle, activitiesSource } = await buildArtifact(this.outputDir, workflows, activities);
     this.devArtifacts.set(projectId, { workflowBundle, activitiesSource, debugMap });
 
     const taskQueue = devTaskQueue(projectId);
@@ -200,11 +208,12 @@ export class BuildService implements OnModuleInit {
   /** Compiles the project the same way `build()` does, but only for preview: no artifact is built and no runner is started. One entry per generated module. */
   async generateCode(projectId: string, ownerId: string): Promise<IGeneratedFile[]> {
     const documents = await this.documentsService.listFull(projectId, ownerId);
-    const { workflows, activities } = compileProjectDocuments(
+    const { workflows, activities } = compileProjectStructure(
       documents,
       await getIntegrationsForCompile(this.activepiecesCatalog),
       { trackPosition: false },
     );
+    await typeCheckInWorker(workflows, activities);
     return toGeneratedFiles(workflows, activities);
   }
 
@@ -295,7 +304,12 @@ export class BuildService implements OnModuleInit {
    * Polling this counts as activity for the idle sweep, and an `'unavailable'` answer on a running
    * execution kicks `ensureRunnerRunning` so the next poll finds the pod back up.
    */
-  async getRunPosition(projectId: string, ownerId: string, workflowId: string, runId: string): Promise<IWorkflowPosition> {
+  async getRunPosition(
+    projectId: string,
+    ownerId: string,
+    workflowId: string,
+    runId: string,
+  ): Promise<IWorkflowPosition> {
     await this.projectsService.getOwnedProject(projectId, ownerId);
     const position = await this.workflowRunService.getPosition(workflowId, runId);
     const env = ((): 'dev' | 'prod' | null => {
@@ -329,10 +343,13 @@ export class BuildService implements OnModuleInit {
       (await this.versioning.headCommit(projectId, ownerId));
 
     const documents = await this.documentsService.listFull(projectId, ownerId);
-    const { workflows, activities } = compileProjectDocuments(documents, await getIntegrationsForCompile(this.activepiecesCatalog));
+    const { workflows, activities } = compileProjectStructure(
+      documents,
+      await getIntegrationsForCompile(this.activepiecesCatalog),
+    );
 
     const buildId = `v${versionNumber}`;
-    const { workflowBundle, activitiesSource } = await buildArtifact(this.outputDir, projectId, workflows, activities);
+    const { workflowBundle, activitiesSource } = await buildArtifact(this.outputDir, workflows, activities);
 
     const version = await this.versions.save(
       this.versions.create({
@@ -347,7 +364,11 @@ export class BuildService implements OnModuleInit {
 
     const taskQueue = prodTaskQueue(projectId);
     if (await this.runnerProcessManager.isAnyRunning(taskQueue)) {
-      await assertUnderProdVersionLimit(this.runnerProcessManager, taskQueue, await this.getMaxConcurrentProdVersions(projectId));
+      await assertUnderProdVersionLimit(
+        this.runnerProcessManager,
+        taskQueue,
+        await this.getMaxConcurrentProdVersions(projectId),
+      );
       await this.runnerProcessManager.start({
         taskQueue,
         projectId,
@@ -427,7 +448,11 @@ export class BuildService implements OnModuleInit {
     version: Pick<ProjectVersion, 'buildId'>,
   ): Promise<void> {
     if (await this.runnerProcessManager.isRunning(taskQueue, version.buildId)) return;
-    await assertUnderProdVersionLimit(this.runnerProcessManager, taskQueue, await this.getMaxConcurrentProdVersions(projectId));
+    await assertUnderProdVersionLimit(
+      this.runnerProcessManager,
+      taskQueue,
+      await this.getMaxConcurrentProdVersions(projectId),
+    );
     await this.runnerProcessManager.start({
       taskQueue,
       projectId,

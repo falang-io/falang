@@ -20,8 +20,9 @@ const findInstance = async (
   documents: Repository<Document>,
   vendor: string,
   instanceId: string,
+  projectId: string,
 ): Promise<IIntegrationInstance | undefined> => {
-  const integrationsDocuments = await documents.find({ where: { type: INTEGRATIONS_DOCUMENT_TYPE } });
+  const integrationsDocuments = await documents.find({ where: { type: INTEGRATIONS_DOCUMENT_TYPE, projectId } });
   for (const document of integrationsDocuments) {
     const data = document.data as IIntegrationsDocumentData | null;
     const instance = data?.instances.find((candidate) => candidate.id === instanceId && candidate.vendor === vendor);
@@ -64,12 +65,12 @@ export const createIntegrationsDiscoveryPort = (
     return instances;
   },
 
-  resolveCredentialFields: async (vendor, instanceId, env) => {
+  resolveCredentialFields: async (vendor, instanceId, env, projectId) => {
     const staticMatch = REGISTERED_INTEGRATIONS.find((candidate) => candidate.vendor === vendor);
     const dynamicIntegrations = staticMatch ? [] : await getDynamicIntegrations();
     const integration = staticMatch ?? dynamicIntegrations.find((candidate) => candidate.vendor === vendor);
     if (!integration) return;
-    const instance = await findInstance(documents, vendor, instanceId);
+    const instance = await findInstance(documents, vendor, instanceId, projectId);
     if (!instance) return;
 
     const secretFields = integration.credentialFields.filter((field) => field.kind === 'secret');

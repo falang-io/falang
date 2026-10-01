@@ -1,4 +1,5 @@
 import { Module } from '@nestjs/common';
+import { InternalAuthController } from './internal-auth.controller.js';
 import { ProjectTokenGuard } from './project-token.guard.js';
 import { ProjectTokenService } from './project-token.service.js';
 
@@ -8,6 +9,7 @@ import { ProjectTokenService } from './project-token.service.js';
  * for why this couldn't just live inside one of those two.
  */
 @Module({
+  controllers: [InternalAuthController],
   providers: [ProjectTokenService, ProjectTokenGuard],
   exports: [ProjectTokenService, ProjectTokenGuard],
 })

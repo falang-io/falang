@@ -111,6 +111,8 @@ export const createTestApp = async (
   // Signup is off by default in production; most suites register users through the API, so the
   // harness opts in unless a test explicitly set the flag first (`vi.stubEnv` after this call wins).
   process.env.SELF_SERVICE_SIGNUP ??= 'true';
+  // The default admin seed is off by default (P0-12); the specs log in as admin/admin.
+  process.env.SEED_DEFAULT_ADMIN ??= 'true';
   const moduleRef = await Test.createTestingModule({
     imports: buildTestAppImports(),
     providers: [{ provide: APP_GUARD, useClass: JwtAuthGuard }],

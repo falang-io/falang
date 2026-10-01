@@ -48,7 +48,7 @@ export const bitrix24Integration: IWorkflowIntegration = {
       // Documentation only — the real per-trigger-function path is built dynamically by
       // registerBitrix24Backend (one `uri` per bound trigger-function), same as
       // @falang/workflow-integrations-webhook's webhook-trigger.
-      webhookPath: '/webhooks/bitrix24/:credentialId/:env/:triggerFunctionId',
+      webhookPath: '/webhooks/bitrix24/:projectId/:credentialId/:env/:triggerFunctionId',
       notes: [
         'Fires on a Bitrix24 portal event (e.g. a CRM lead/deal created or updated), delivered via',
         "Bitrix24's own *outgoing* webhook mechanism the portal admin configures — this is the only way",

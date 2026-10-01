@@ -1,5 +1,6 @@
 import type { TBlockEditorView } from '@falang/scheme';
 import type { TextBlockEditorStore } from './text-block-editor.store.ts';
+import { sanitizeHtml } from '../../utils/sanitize-html.js';
 import { useEffect, useRef } from 'react';
 
 export const TextBlockEditorComponent: TBlockEditorView<TextBlockEditorStore> = ({ editor }) => {
@@ -24,7 +25,7 @@ export const TextBlockEditorComponent: TBlockEditorView<TextBlockEditorStore> = 
       contentEditable
       className="editable-content"
       onInput={(e) => editor.setValue(e.currentTarget.innerHTML)}
-      dangerouslySetInnerHTML={{ __html: editor.data }}
+      dangerouslySetInnerHTML={{ __html: sanitizeHtml(editor.data) }}
     />
   );
 };

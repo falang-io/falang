@@ -49,7 +49,7 @@ export const telegramIntegration: IWorkflowIntegration = {
       scopeType: telegramMessageScopeType,
       scopeVariableName: TELEGRAM_SCOPE_VARIABLE_NAME,
       signalName: TELEGRAM_SIGNAL_NAME,
-      webhookPath: '/webhooks/telegram/:credentialId/:env',
+      webhookPath: '/webhooks/telegram/:projectId/:credentialId/:env',
       // Found worth adding after a real user chat where the agent built a bot's whole "handle /start"
       // flow as free-text `if message.text.trim().toLowerCase().startsWith('/start')` logic inside this
       // trigger's own body, instead of ever calling create_trigger_document with the on-command trigger
@@ -82,7 +82,7 @@ export const telegramIntegration: IWorkflowIntegration = {
       scopeType: telegramMessageScopeType,
       scopeVariableName: TELEGRAM_SCOPE_VARIABLE_NAME,
       signalName: TELEGRAM_SIGNAL_NAME,
-      webhookPath: '/webhooks/telegram/:credentialId/:env',
+      webhookPath: '/webhooks/telegram/:projectId/:credentialId/:env',
       contextFields: [{ name: TELEGRAM_COMMAND_FIELD_NAME, label: 'telegram:field.command', kind: 'text' }],
       notes: [
         'The correct, ONLY way to handle a Telegram bot command (e.g. /start, /help, /cancel) — do not',

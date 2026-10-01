@@ -1,4 +1,4 @@
-import { Body, Controller, Inject, NotFoundException, Post, UseGuards } from '@nestjs/common';
+import { BadGatewayException, Body, Controller, Inject, NotFoundException, Post, UseGuards } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { InjectRepository } from '@nestjs/typeorm';
 import { INTEGRATIONS_DOCUMENT_TYPE, type IIntegrationsDocumentData } from '@falang/workflow-integrations-common';
@@ -11,11 +11,14 @@ import { ActivepiecesCatalogService } from './activepieces-catalog.service.js';
 import { resolveFieldValue } from './credentials-codec.js';
 import { requireEncryptionKey } from './credentials-crypto.js';
 // oxlint-disable-next-line consistent-type-imports -- Nest's ValidationPipe resolves the DTO class from this parameter's runtime type metadata.
+import { OAuth2AccessTokenDto } from './dto/oauth2-access-token.dto.js';
+// oxlint-disable-next-line consistent-type-imports -- Nest's ValidationPipe resolves the DTO class from this parameter's runtime type metadata.
 import { OAuth2RefreshDto } from './dto/oauth2-refresh.dto.js';
 // oxlint-disable-next-line consistent-type-imports -- Nest's ValidationPipe resolves the DTO class from this parameter's runtime type metadata.
 import { ResolveCredentialDto } from './dto/resolve-credential.dto.js';
 import { applyOAuth2TokensToInstance } from './oauth2-tokens-codec.js';
 import { REGISTERED_INTEGRATIONS } from './registered-integrations.js';
+import { resolveOAuth2AccessToken } from './resolve-oauth2-access-token.js';
 
 /**
  * Called by the spawned `runner` process's compiled activities (e.g. `telegram-send-message`'s
@@ -51,21 +54,18 @@ export class InternalCredentialsController {
   }
 
   /**
-   * `client_id`/`client_secret` are answered from the platform's `oauth_credentials` row when one
-   * exists for the vendor, bypassing the "field declared for vendor" check below — ActivePieces
-   * OAuth2 pieces no longer declare these two fields at all (see `ActivepiecesCatalogService`'s
-   * stripping), see ADR 0030 (private). This keeps
-   * `activepieces/src/pieces/auth-resolver.ts` — which resolves both through this endpoint for its
-   * reactive refresh — completely unchanged. Native vendors (amoCRM, Diadoc) still declare these
-   * fields normally and fall through to the existing instance-field resolution below.
+   * Resolves one declared credential field of an instance. The platform's OAuth2 `client_id`/
+   * `client_secret` (`oauth_credentials`, ADR 0030 (private)) are deliberately NOT answered here — a
+   * runner pod runs tenant code and must never see them; token refresh happens on the backend via
+   * `oauth2-access-token`. A vendor that still declares these fields itself (native bring-your-own-app
+   * vendors: amoCRM, Diadoc) resolves them from the instance like any other field.
    */
   @Post('resolve')
   async resolve(@Body() body: ResolveCredentialDto): Promise<{ value: string }> {
     const integrations = [...REGISTERED_INTEGRATIONS, ...(await this.activepiecesCatalog.getDynamicIntegrations())];
     const integration = integrations.find((candidate) => candidate.vendor === body.vendor);
-    const isPlatformClientField = body.field === 'client_id' || body.field === 'client_secret';
     const field = integration?.credentialFields.find((candidate) => candidate.name === body.field);
-    if (!field && !isPlatformClientField) {
+    if (!field) {
       throw new NotFoundException(`No "${body.field}" field declared for vendor "${body.vendor}"`);
     }
 
@@ -79,13 +79,6 @@ export class InternalCredentialsController {
       );
       if (!instance) continue;
 
-      if (isPlatformClientField) {
-        // oxlint-disable-next-line no-await-in-loop -- at most a handful of `integrations` documents per project; returns on the first match.
-        const platform = await this.oauthCredentials.resolve(body.vendor);
-        if (platform) return { value: body.field === 'client_id' ? platform.clientId : platform.clientSecret };
-      }
-      if (!field) throw new NotFoundException(`No "${body.field}" field declared for vendor "${body.vendor}"`);
-
       const encryptionKey = requireEncryptionKey(this.config.get<string>('CREDENTIALS_ENCRYPTION_KEY'));
       const value = resolveFieldValue(instance, field, body.env, encryptionKey);
       if (!value)
@@ -95,6 +88,42 @@ export class InternalCredentialsController {
       return { value };
     }
     throw new NotFoundException(`Credential "${body.credentialId}" not found`);
+  }
+
+  /**
+   * A valid access token for an OAuth2 instance, refreshed on the backend when due (platform client
+   * secret never leaves it) — the replacement for the pod/`activepieces` resolving `client_secret`.
+   */
+  @Post('oauth2-access-token')
+  async oauth2AccessToken(
+    @Body() body: OAuth2AccessTokenDto,
+  ): Promise<{ accessToken: string; data: Record<string, unknown> }> {
+    const integrations = [...REGISTERED_INTEGRATIONS, ...(await this.activepiecesCatalog.getDynamicIntegrations())];
+    const integration = integrations.find((candidate) => candidate.vendor === body.vendor);
+    if (!integration?.oauth2) throw new NotFoundException(`Vendor "${body.vendor}" has no OAuth2 config`);
+    const documents = await this.documents.find({
+      where: { type: INTEGRATIONS_DOCUMENT_TYPE, projectId: body.projectId },
+    });
+    const match = documents.find((document) =>
+      (document.data as IIntegrationsDocumentData | null)?.instances.some(
+        (candidate) => candidate.id === body.credentialId && candidate.vendor === body.vendor,
+      ),
+    );
+    const data = match?.data as IIntegrationsDocumentData | null | undefined;
+    const instance = data?.instances.find((candidate) => candidate.id === body.credentialId);
+    if (!match || !data || !instance) throw new NotFoundException(`Credential "${body.credentialId}" not found`);
+
+    const encryptionKey = requireEncryptionKey(this.config.get<string>('CREDENTIALS_ENCRYPTION_KEY'));
+    const result = await resolveOAuth2AccessToken(this.oauthCredentials, integration, instance, encryptionKey).catch(
+      (error: unknown) => {
+        throw new BadGatewayException(error instanceof Error ? error.message : 'OAuth2 token resolution failed');
+      },
+    );
+    if (result.refreshed) {
+      match.data = applyOAuth2TokensToInstance(data, body.credentialId, result.refreshed, encryptionKey);
+      await this.documents.save(match);
+    }
+    return { accessToken: result.accessToken, data: result.data };
   }
 
   /** Called by `activepieces/`'s `auth-resolver.ts` after a best-effort reactive token refresh — see ADR 0015 (private). */

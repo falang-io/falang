@@ -90,6 +90,26 @@ head:
   </li>
 </ul>
 
+<p>
+  Two settings harden what a user's project can make the server connect to (all outbound connections to tenant-supplied
+  addresses — "Sync structure", model lists, and the like):
+</p>
+<ul>
+  <li>
+    <code>EGRESS_ALLOW_PRIVATE</code> / <code>EGRESS_ALLOWED_CIDRS</code> — by default the backend refuses to connect to
+    loopback, private (RFC 1918, CGNAT), link-local (including the cloud metadata address) and other reserved addresses,
+    and never follows redirects. If your databases or model servers live on an internal network, set
+    <code>EGRESS_ALLOWED_CIDRS</code> (for example <code>10.0.0.0/8,172.18.0.0/16</code>), or
+    <code>EGRESS_ALLOW_PRIVATE=true</code> to lift the restriction entirely (single-tenant self-hosting only; the local
+    Docker Compose stacks do this).
+  </li>
+  <li>
+    <code>ENABLE_SQLITE_INTEGRATION</code> — <code>false</code> by default. The SQLite integration opens a file path
+    chosen by the user, so it is not available unless you set this to <code>true</code> (a single-tenant installation or
+    development).
+  </li>
+</ul>
+
 #### Admin app
 
 <p>
@@ -182,7 +202,8 @@ head:
 #### AI agent
 
 <p>
-  How to use the agent, including its clarifying questions, is described on the <a href="../ai-agent/">AI agent</a> page.
+  How to use the agent, including its clarifying questions, is described on the <a href="../ai-agent/">AI agent</a>{' '}
+  page.
 </p>
 
 <p>

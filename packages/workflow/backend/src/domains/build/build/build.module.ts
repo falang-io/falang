@@ -57,9 +57,9 @@ const connect = (temporalAddress: string | undefined): Promise<Connection> =>
 
 // Must live inside this repo's node_modules-resolvable tree: Temporal's workflow bundler does
 // standard Node module resolution from the compiled file's own directory upward to find
-// `@temporalio/workflow` — an arbitrary OS temp dir (outside the repo) can't resolve it. Only ever
-// used as scratch input to `bundle-workflow-code.ts`'s `bundleWorkflowCode()` now — see
-// ADR 0016 (private)'s "Artifact delivery into the runner pod".
+// `@temporalio/workflow` — an arbitrary OS temp dir (outside the repo) can't resolve it. Only the
+// parent of per-build `mkdtemp` directories now (`build-artifact.ts` creates one per build and
+// removes it in `finally`; nothing persistent lives here) — see the security audit's P0-7.
 const BUILD_OUTPUT_DIR_PATH = join(__dirname, '..', '..', '..', '..', '.builds');
 
 // `temporal` CLI must be on PATH — bundled into the backend Docker image (see
@@ -281,6 +281,7 @@ const createTerminateRunningExecutions = (graceMs: number): TTerminateRunningExe
           deploymentsClient: createK8sDeploymentsClient(appsApi),
           k8sNamespace: config.get<string>('K8S_NAMESPACE', 'workflow'),
           runnerImage: config.get<string>('RUNNER_IMAGE', 'falang-workflow-runner:local'),
+          runnerServiceAccount: config.get<string>('RUNNER_SERVICE_ACCOUNT'),
           // `RUNNER_TEMPORAL_ADDRESS` overrides `TEMPORAL_ADDRESS` for pods specifically — needed
           // wherever `backend` and its runner pods reach Temporal by a different address (e.g.
           // local `kind`: `backend` resolves `temporal:7233` on its own docker network, but a pod
@@ -300,7 +301,6 @@ const createTerminateRunningExecutions = (graceMs: number): TTerminateRunningExe
           // use the docker-internal address, a pod needs the gateway one.
           activepiecesServiceUrl:
             config.get<string>('RUNNER_ACTIVEPIECES_SERVICE_URL') ?? config.get<string>('ACTIVEPIECES_SERVICE_URL'),
-          activepiecesServiceSecret: config.get<string>('ACTIVEPIECES_SERVICE_SECRET'),
           // `RUNNER_TELEGRAM_API_BASE_URL` overrides `TELEGRAM_API_BASE_URL` for pods specifically,
           // same reasoning as `RUNNER_TEMPORAL_ADDRESS`/`RUNNER_ACTIVEPIECES_SERVICE_URL` above —
           // needed wherever a runner pod can't reach the same address `backend` itself would use

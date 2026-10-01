@@ -96,7 +96,7 @@ describe('registerBitrix24Backend', () => {
     await registerBitrix24Backend(ctx);
 
     const handler = ctx.registeredWebhooks.get('doc-trigger-1');
-    const request = new Request('http://localhost/webhooks/bitrix24/cred-1/dev/doc-trigger-1', {
+    const request = new Request('http://localhost/webhooks/bitrix24/p/cred-1/dev/doc-trigger-1', {
       method: 'POST',
       headers: { 'content-type': 'application/x-www-form-urlencoded' },
       body: bitrix24RequestBody(),
@@ -120,12 +120,27 @@ describe('registerBitrix24Backend', () => {
     });
   });
 
+  it('never reaches the nested parser for a caller with a bad token (prototype-pollution payload)', async () => {
+    const ctx = buildCtx();
+    await registerBitrix24Backend(ctx);
+    const handler = ctx.registeredWebhooks.get('doc-trigger-1');
+    const response = await handler?.(
+      new Request('http://localhost/webhooks/bitrix24/p/cred-1/dev/doc-trigger-1', {
+        method: 'POST',
+        headers: { 'content-type': 'application/x-www-form-urlencoded' },
+        body: '__proto__[polluted]=1&auth%5Bapplication_token%5D=wrong',
+      }),
+    );
+    expect(response?.status).toBe(403);
+    expect(({} as Record<string, unknown>).polluted).toBeUndefined();
+  });
+
   it('rejects with 403 and never signals when application_token does not match', async () => {
     const ctx = buildCtx();
     await registerBitrix24Backend(ctx);
 
     const handler = ctx.registeredWebhooks.get('doc-trigger-1');
-    const request = new Request('http://localhost/webhooks/bitrix24/cred-1/dev/doc-trigger-1', {
+    const request = new Request('http://localhost/webhooks/bitrix24/p/cred-1/dev/doc-trigger-1', {
       method: 'POST',
       headers: { 'content-type': 'application/x-www-form-urlencoded' },
       body: bitrix24RequestBody({ 'auth[application_token]': 'wrong-token' }),
@@ -141,7 +156,7 @@ describe('registerBitrix24Backend', () => {
     await registerBitrix24Backend(ctx);
 
     const handler = ctx.registeredWebhooks.get('doc-trigger-1');
-    const request = new Request('http://localhost/webhooks/bitrix24/cred-1/dev/doc-trigger-1', {
+    const request = new Request('http://localhost/webhooks/bitrix24/p/cred-1/dev/doc-trigger-1', {
       method: 'POST',
       headers: { 'content-type': 'application/x-www-form-urlencoded' },
       body: new URLSearchParams({ event: 'ONCRMLEADADD' }).toString(),
@@ -157,7 +172,7 @@ describe('registerBitrix24Backend', () => {
     await registerBitrix24Backend(ctx);
 
     const handler = ctx.registeredWebhooks.get('doc-trigger-1');
-    const request = new Request('http://localhost/webhooks/bitrix24/cred-1/dev/doc-trigger-1', {
+    const request = new Request('http://localhost/webhooks/bitrix24/p/cred-1/dev/doc-trigger-1', {
       method: 'POST',
       headers: { 'content-type': 'application/x-www-form-urlencoded' },
       body: bitrix24RequestBody(),

@@ -21,6 +21,7 @@ import { wildberriesIntegration } from '@falang/workflow-integrations-wildberrie
 import { yandexgptIntegration } from '@falang/workflow-integrations-yandexgpt';
 import { yookassaIntegration } from '@falang/workflow-integrations-yookassa';
 import type { IWorkflowIntegration } from '@falang/workflow-integrations-common';
+import { isSqliteIntegrationEnabled } from './optional-vendors.js';
 
 /**
  * Every *statically* registered vendor integration this backend knows about — consumed by
@@ -37,6 +38,7 @@ import type { IWorkflowIntegration } from '@falang/workflow-integrations-common'
  * `ActivepiecesCatalogService.getDynamicIntegrations()` themselves, rather than this constant
  * growing an async dependency.
  */
+/** Evaluated once at module load: `sqlite` is included only when `ENABLE_SQLITE_INTEGRATION=true` (see `optional-vendors.ts`). */
 export const REGISTERED_INTEGRATIONS: readonly IWorkflowIntegration[] = [
   telegramIntegration,
   openaiIntegration,
@@ -58,6 +60,6 @@ export const REGISTERED_INTEGRATIONS: readonly IWorkflowIntegration[] = [
   mediaIntegration,
   postgresIntegration,
   mysqlIntegration,
-  sqliteIntegration,
+  ...(isSqliteIntegrationEnabled() ? [sqliteIntegration] : []),
   tasksIntegration,
 ];

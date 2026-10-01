@@ -57,7 +57,7 @@ export const openaiIntegration: IWorkflowIntegration = {
           label: 'openai:field.model',
           kind: 'select',
           vendor: OPENAI_VENDOR,
-          loadOptions: (fields) => fetchOpenAiModelOptions(fields),
+          loadOptions: (fields, ctx) => fetchOpenAiModelOptions(fields, ctx?.egress),
         },
         { name: 'prompt', label: 'openai:field.prompt', kind: 'template-string' },
         {
@@ -143,7 +143,7 @@ export const openaiIntegration: IWorkflowIntegration = {
           label: 'openai:field.model',
           kind: 'select',
           vendor: OPENAI_VENDOR,
-          loadOptions: (fields) => fetchOpenAiModelOptions(fields),
+          loadOptions: (fields, ctx) => fetchOpenAiModelOptions(fields, ctx?.egress),
         },
       ],
       promptFields: [

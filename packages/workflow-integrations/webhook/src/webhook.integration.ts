@@ -8,7 +8,7 @@ export * from './constants.js';
  * Generic inbound webhook trigger — the receiving counterpart to
  * `@falang/workflow-integrations-http-request`'s outbound HTTP Request action. No real external
  * provider, so `credentialFields: []` — an instance exists only to hand out a `credentialId`, which is
- * what makes this trigger's URL (`/webhooks/webhook/:credentialId/:env/:triggerFunctionId`) unique.
+ * what makes this trigger's URL (`/webhooks/webhook/:projectId/:credentialId/:env/:triggerFunctionId`) unique.
  *
  * `scopeType: { type: 'any' }` for now (mirrors `telegram-trigger`'s original shape before it got a
  * typed `TelegramMessage` struct, see `@falang/workflow-integrations-telegram`) — a fast-follow, not
@@ -35,7 +35,7 @@ export const webhookIntegration: IWorkflowIntegration = {
       // Documentation only — the real per-trigger-function path is built dynamically by
       // `registerWebhookBackend` (one `uri` per bound trigger-function, not one fixed path per
       // credential the way Telegram's is).
-      webhookPath: '/webhooks/webhook/:credentialId/:env/:triggerFunctionId',
+      webhookPath: '/webhooks/webhook/:projectId/:credentialId/:env/:triggerFunctionId',
       notes: [
         'A generic inbound HTTP trigger — fires on any request to the URL generated for a',
         'trigger-function bound to this trigger (visible once created; not a fixed, predictable path).',

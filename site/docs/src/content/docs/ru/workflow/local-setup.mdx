@@ -26,7 +26,7 @@ head:
   <li>
     Скопируйте <code>.env.example</code> в <code>.env</code> в корне репозитория. Для чистого локального запуска
     можно ничего не менять — у каждого секрета (<code>JWT_SECRET</code>, <code>CREDENTIALS_ENCRYPTION_KEY</code> и
-    т.д.) есть значение по умолчанию для разработки.
+    т.д.) есть значение по умолчанию для разработки (dev-compose также задаёт <code>SEED_DEFAULT_ADMIN=true</code>; сам backend по умолчанию использует <code>false</code>). При <code>NODE_ENV=production</code> backend не запустится, пока <code>JWT_SECRET</code>, <code>DB_PASSWORD</code> и <code>CREDENTIALS_ENCRYPTION_KEY</code> не заданы нестандартными значениями длиной не менее 32 символов.
   </li>
   <li>
     Поднимите стек:
@@ -86,3 +86,12 @@ head:
 </p>
 <pre><code>docker compose -f docker-compose.workflow.yml restart backend</code></pre>
 <p>Повторно эта проблема не возникает, пока обе сети не пересоздаются заново.</p>
+
+#### Публичный и внутренний порты
+<p>
+  Backend слушает два порта. Публичный (<code>PORT</code>, в compose-файлах 4000) отдаёт API приложения — только его
+  нужно публиковать через reverse proxy или ingress. Внутренний (<code>INTERNAL_PORT</code>, по умолчанию 3001) отдаёт
+  только <code>/internal/*</code> — API для runner-подов, сервиса ActivePieces и медиа-сервиса; на публичном порту эти
+  пути отвечают 404. Не открывайте внутренний порт в интернет: укажите его в <code>BACKEND_INTERNAL_URL</code> этих
+  сервисов (внутри кластера — через ClusterIP Service).
+</p>

@@ -33,7 +33,7 @@ put a `.env` file next to the compose file (see the header of `docker-compose.wo
 
 Self-service signup is controlled by `SELF_SERVICE_SIGNUP`. The backend defaults to `false` (administrators
 create users on the admin page, `/admin`); the bundled dev compose file turns it on for convenience - set it
-to `false` for anything reachable from the internet, and set `SEED_DEFAULT_ADMIN=false` too. The full guide
+to `false` for anything reachable from the internet, and set `SEED_DEFAULT_ADMIN=false` too (the backend itself defaults to `false`; with `NODE_ENV=production` it also refuses to start with missing/dev/short `JWT_SECRET`, `DB_PASSWORD` or `CREDENTIALS_ENCRYPTION_KEY`). The full guide
 is in the docs (Workflow / Local setup).
 
 ## Desktop apps

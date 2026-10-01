@@ -126,6 +126,73 @@ describe('project export/import (e2e)', () => {
     expect(originalDocuments.body).toHaveLength(2);
   });
 
+  it('mints fresh credential ids on import and rewrites every reference to them', async () => {
+    const token = await login(app);
+    const docId = '5d1d9a64-2f4b-4e4b-9d54-0b5b6b4a7c11';
+    const payload = {
+      formatVersion: 1,
+      project: { id: '', name: 'Refs' },
+      folders: [],
+      documents: [
+        {
+          id: '0f0f0f0f-0f0f-4f0f-8f0f-0f0f0f0f0f0f',
+          type: 'integrations',
+          name: 'Integrations',
+          folderId: null,
+          pinned: true,
+          root: null,
+          data: { instances: [{ id: 'cred-1', vendor: 'telegram', name: 'Bot', fields: {} }] },
+        },
+        {
+          id: docId,
+          type: 'function',
+          name: 'run',
+          folderId: null,
+          pinned: false,
+          root: {
+            id: docId,
+            name: 'function',
+            children: [{ id: 'n1', name: 'x', data: { credentialId: 'cred-1', text: 'cred-1' } }],
+          },
+          data: null,
+        },
+      ],
+    };
+    const imported = await request(app.getHttpServer()).post('/projects/import').set(auth(token)).send(payload);
+    expect(imported.status).toBe(201);
+    const documents = await request(app.getHttpServer())
+      .get(`/projects/${imported.body.id}/documents`)
+      .set(auth(token));
+    const integrations = documents.body.find((doc: { type: string }) => doc.type === 'integrations');
+    const newId: string = integrations.data.instances[0].id;
+    expect(newId).not.toBe('cred-1');
+    const fn = documents.body.find((doc: { type: string }) => doc.type === 'function');
+    expect(fn.root.children[0].data).toEqual({ credentialId: newId, text: 'cred-1' });
+  });
+
+  it('rejects (409) an integrations document that uses a credential id already taken by another project', async () => {
+    const token = await login(app);
+    const first = await setUpProject(token);
+    expect(first.projectId).toBeTruthy();
+
+    const second = await request(app.getHttpServer()).post('/projects').set(auth(token)).send({ name: 'Other' });
+    const tree = await request(app.getHttpServer()).get(`/projects/${second.body.id}/tree`).set(auth(token));
+    const integrationsDocId: string = tree.body.documents[0].id;
+
+    const response = await request(app.getHttpServer())
+      .patch(`/projects/${second.body.id}/documents/${integrationsDocId}`)
+      .set(auth(token))
+      .send({ data: { instances: [{ id: 'cred-1', vendor: 'telegram', name: 'Stolen', fields: {} }] } });
+    expect(response.status).toBe(409);
+
+    // The same project keeps being able to re-save its own id.
+    await request(app.getHttpServer())
+      .patch(`/projects/${first.projectId}/documents/${first.integrationsDocId}`)
+      .set(auth(token))
+      .send({ data: { instances: [{ id: 'cred-1', vendor: 'telegram', name: 'Renamed', fields: {} }] } })
+      .expect(200);
+  });
+
   it('rejects an import payload with a cyclic folder parentId', async () => {
     const token = await login(app);
 

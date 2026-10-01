@@ -1,4 +1,4 @@
-import { Inject, Injectable, NotFoundException } from '@nestjs/common';
+import { BadRequestException, ConflictException, Inject, Injectable, NotFoundException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import type { IProjectTreeFolder } from '@falang/dto';
 import type { Repository } from 'typeorm';
@@ -34,13 +34,35 @@ export class FoldersService {
       parentId: input.parentId ?? null,
       projectId,
     });
-    return this.folders.save(folder);
+    await this.assertParentInProject(projectId, folder.parentId);
+    // Strict insert, never `save()` — see `DocumentsService.create` (client-supplied id, IDOR).
+    try {
+      await this.folders.insert(folder);
+    } catch (error) {
+      if (await this.folders.existsBy({ id: input.id })) {
+        throw new ConflictException(`Folder "${input.id}" already exists`);
+      }
+      throw error;
+    }
+    return folder;
+  }
+
+  private async assertParentInProject(projectId: string, parentId: string | null): Promise<void> {
+    if (parentId === null) return;
+    if (!(await this.folders.existsBy({ id: parentId, projectId }))) {
+      throw new BadRequestException(`Parent folder "${parentId}" not found in this project`);
+    }
   }
 
   async update(projectId: string, ownerId: string, folderId: string, input: UpdateFolderDto): Promise<Folder> {
     const folder = await this.getOwnedFolder(projectId, ownerId, folderId);
     if (Object.hasOwn(input, 'name')) folder.name = input.name ?? folder.name;
-    if (Object.hasOwn(input, 'parentId')) folder.parentId = input.parentId ?? null;
+    if (Object.hasOwn(input, 'parentId')) {
+      const parentId = input.parentId ?? null;
+      if (parentId === folder.id) throw new BadRequestException('A folder cannot be its own parent');
+      await this.assertParentInProject(projectId, parentId);
+      folder.parentId = parentId;
+    }
     return this.folders.save(folder);
   }
 

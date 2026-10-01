@@ -1,5 +1,6 @@
 // oxlint-disable no-console
 import 'reflect-metadata';
+import http from 'node:http';
 import v8 from 'node:v8';
 import { ValidationPipe } from '@nestjs/common';
 import type { DynamicModule, INestApplication, Type } from '@nestjs/common';
@@ -7,13 +8,20 @@ import { NestFactory } from '@nestjs/core';
 import type { NestExpressApplication } from '@nestjs/platform-express';
 import { AppModule, type TAppImport } from './app.module.js';
 import { RunnerProcessManager } from './domains/build/build/runner-process-manager.js';
+import { validateSecrets } from './config/validate-secrets.js';
 import { McpService } from './domains/mcp/mcp.service.js';
+import { portSplitMiddleware } from './port-split.js';
 
 export interface ICreateAppOptions {
   /** Extra Nest modules appended to `AppModule.forRoot` (ignored when `appModule` is given). */
   extraModules?: TAppImport[];
   /** Port `startApp` listens on; defaults to the `PORT` env var, then 4000. */
   port?: number;
+  /**
+   * Port of the second, cluster-internal listener `startApp` opens; defaults to the `INTERNAL_PORT` env var, then 3001.
+   * `createApp` itself only installs the port-split middleware (`/internal/*` served on this port only) when it is set.
+   */
+  internalPort?: number;
   /** Replaces `AppModule.forRoot({ extraModules })` as the root module — for test harnesses (e.g. an in-memory database). */
   appModule?: Type<unknown> | DynamicModule;
   /** Runs on the built app after every built-in pipe/parser/mount but before `app.init()`. */
@@ -72,6 +80,7 @@ const registerCoverageShutdownHook = (app: INestApplication): void => {
  * shared by `main.ts` (`startApp`), a private overlay package composing extra modules, and tests.
  */
 export const createApp = async (options: ICreateAppOptions = {}): Promise<NestExpressApplication> => {
+  // After `AppModule.forRoot`'s `ConfigModule.forRoot` has loaded any `.env` file into `process.env`.
   const rootModule = options.appModule ?? AppModule.forRoot({ extraModules: options.extraModules });
   // `rawBody: true` populates `req.rawBody` (the exact original bytes) alongside Nest's normal
   // parsed `req.body` — needed by `@falang/workflow-gateway`'s `IntegrationWebhookController` to
@@ -79,6 +88,7 @@ export const createApp = async (options: ICreateAppOptions = {}): Promise<NestEx
   // wire format (JSON vs. Bitrix24's `application/x-www-form-urlencoded`), rather than re-serializing
   // whatever `@Body()` already parsed — see that controller's `dispatch()` doc comment and
   // ADR 0017 (private)'s "A real gap found along the way".
+  validateSecrets();
   const app = await NestFactory.create<NestExpressApplication>(rootModule, { rawBody: true });
   // No cookie-based session is used (auth is a bearer token the client attaches itself), so a
   // permissive CORS policy doesn't expose anything origin-specific.
@@ -90,6 +100,10 @@ export const createApp = async (options: ICreateAppOptions = {}): Promise<NestEx
   // counters add up fast). Bumped globally rather than per-route: every other body on this API is
   // small (workflow node trees, credential fields), so this only ever matters for that endpoint.
   app.useBodyParser('json', { limit: '15mb' });
+  // Before every route (including the raw `/mcp` mount below): `/internal/*` must be unreachable on the public port.
+  if (typeof options.internalPort === 'number') {
+    app.use(portSplitMiddleware(options.internalPort));
+  }
   // Mounted directly on the underlying Express instance, after Nest's own body parser is registered
   // above (so `req.body` is already populated for `/mcp` too) — see `McpService`'s own doc comment
   // for why this bypasses Nest's controller/guard pipeline entirely. Must happen before `app.init()`
@@ -103,9 +117,18 @@ export const createApp = async (options: ICreateAppOptions = {}): Promise<NestEx
 /** `createApp` plus the coverage shutdown hook and `listen` — what `main.ts` runs. */
 export const startApp = async (options: ICreateAppOptions = {}): Promise<NestExpressApplication> => {
   const port = options.port ?? Number(process.env.PORT ?? 4000);
-  const app = await createApp(options);
+  const internalPort = options.internalPort ?? Number(process.env.INTERNAL_PORT ?? 3001);
+  if (internalPort === port) throw new Error('INTERNAL_PORT must differ from the public PORT');
+  const app = await createApp({ ...options, internalPort });
   registerCoverageShutdownHook(app);
   await app.listen(port);
-  console.log(`@falang/workflow-backend listening on port ${port}`);
+  // Same Express instance, second listener: `/internal/*` is served only here (see `portSplitMiddleware`).
+  const internalServer = http.createServer(app.getHttpAdapter().getInstance());
+  await new Promise<void>((resolve, reject) => {
+    internalServer.once('error', reject);
+    internalServer.listen(internalPort, resolve);
+  });
+  app.getHttpServer().once('close', () => internalServer.close());
+  console.log(`@falang/workflow-backend listening on port ${port} (internal API on ${internalPort})`);
   return app;
 };

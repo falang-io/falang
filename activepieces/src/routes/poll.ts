@@ -16,8 +16,9 @@ const triggerStates = new Map<string, Map<string, unknown>>();
 /** Tracks which keys have already had `onEnable` run once — required before the first `run()` so pieces like WordPress can seed `lastPoll`/`lastItem` to "now" instead of replaying history. */
 const enabledTriggers = new Set<string>();
 
-const triggerStateKey = (credentialId: string, pieceName: string, triggerName: string): string =>
-  `${credentialId}:${pieceName}:${triggerName}`;
+/** **Must** include `projectId`: credential ids are client-chosen, so two projects can share one and would otherwise share poll state (security audit P0-6, ADR 0044 (private)). */
+const triggerStateKey = (projectId: string, credentialId: string, pieceName: string, triggerName: string): string =>
+  JSON.stringify([projectId, credentialId, pieceName, triggerName]);
 
 /**
  * Polled by `@falang/workflow-integrations-activepieces`'s `registerBackend` on an interval — see
@@ -49,7 +50,7 @@ pollRouter.post('/credentials/:credentialId/pieces/:pieceName/triggers/:triggerN
     }
 
     const authValue = await resolveAuthValue(pieceName, piece, credentialId, projectId, internalProjectToken);
-    const key = triggerStateKey(credentialId, pieceName, triggerName);
+    const key = triggerStateKey(projectId, credentialId, pieceName, triggerName);
     let state = triggerStates.get(key);
     if (!state) {
       state = new Map<string, unknown>();

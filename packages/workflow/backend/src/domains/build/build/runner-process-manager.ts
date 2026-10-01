@@ -17,6 +17,8 @@ export interface IRunnerProcessManagerParams {
   readonly k8sNamespace: string;
   /** Shared runner pod image — see ADR 0016 (private)'s "Artifact delivery into the runner pod" (one image for every project/version, artifact fetched at pod start). */
   readonly runnerImage: string;
+  /** `serviceAccountName` for runner pods (`RUNNER_SERVICE_ACCOUNT`). Unset = the namespace default. A runner never gets a mounted API token either way. */
+  readonly runnerServiceAccount?: string;
   /** Fallback Temporal connection settings applied when `start()` doesn't override them — e.g. the address `backend` itself was configured with. */
   readonly temporalAddress?: string;
   readonly namespace?: string;
@@ -34,7 +36,6 @@ export interface IRunnerProcessManagerParams {
    * see ADR 0010 (private). Same process-wide, no per-`start()` override, as `internalApiUrl` above.
    */
   readonly activepiecesServiceUrl?: string;
-  readonly activepiecesServiceSecret?: string;
   /**
    * How a runner pod's compiled Telegram activities (e.g. `telegramSendMessage`) reach the
    * Telegram Bot API — see `packages/workflow-integrations/telegram/src/telegram.integration.ts`'s
@@ -278,6 +279,11 @@ export class RunnerProcessManager {
         template: {
           metadata: { labels },
           spec: {
+            // A runner runs user-authored code: it must never hold a Kubernetes API credential, nor see
+            // every Service of the namespace as env vars (security audit 2026-10-01, P0-2).
+            automountServiceAccountToken: false,
+            enableServiceLinks: false,
+            ...(this.params.runnerServiceAccount ? { serviceAccountName: this.params.runnerServiceAccount } : {}),
             // No artifact/secret ever lands on this pod's own filesystem (see the class doc
             // comment) — a hostile workflow gains nothing from write access to it.
             securityContext: { runAsNonRoot: true, runAsUser: 1000, seccompProfile: { type: 'RuntimeDefault' } },

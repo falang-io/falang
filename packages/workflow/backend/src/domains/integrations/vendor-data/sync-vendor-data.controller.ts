@@ -3,6 +3,7 @@ import { ConfigService } from '@nestjs/config';
 import { InjectRepository } from '@nestjs/typeorm';
 import { INTEGRATIONS_DOCUMENT_TYPE, type IIntegrationsDocumentData } from '@falang/workflow-integrations-common';
 import type { Repository } from 'typeorm';
+import { getBackendEgress } from '../../../net/egress-guard.js';
 import { CurrentUser } from '../../auth/auth/current-user.decorator.js';
 import type { IJwtPayloadUser } from '../../auth/auth/jwt.strategy.js';
 import { Document } from '../../projects/documents/document.entity.js';
@@ -62,7 +63,7 @@ export class SyncVendorDataController {
       resolvedFields[credentialField.name] = resolveFieldValue(instance, credentialField, 'dev', encryptionKey) ?? '';
     }
 
-    const synced = await integration.syncVendorData(resolvedFields, 'dev');
+    const synced = await integration.syncVendorData(resolvedFields, 'dev', { egress: getBackendEgress() });
     for (const [key, value] of Object.entries(synced)) {
       // oxlint-disable-next-line no-await-in-loop -- a handful of keys at most (today just "schema"); each is its own row write.
       await this.vendorData.set(projectId, credentialId, instance.vendor, key, value);

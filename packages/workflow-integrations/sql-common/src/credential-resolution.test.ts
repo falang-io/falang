@@ -14,12 +14,14 @@ describe('resolveSqlCredentialField', () => {
   });
 
   it('posts to /internal/credentials/resolve with vendor/field/env and returns the resolved value', async () => {
-    const fetchMock = vi.fn().mockResolvedValue({ ok: true, json: () => Promise.resolve({ value: 'postgres://x' }) });
+    const fetchMock = vi
+      .fn()
+      .mockResolvedValue({ ok: true, json: () => Promise.resolve({ value: 'mysql://u:p@h/db' }) });
     vi.stubGlobal('fetch', fetchMock);
 
     const value = await resolveSqlCredentialField('cred-1', 'mysql', 'connectionString');
 
-    expect(value).toBe('postgres://x');
+    expect(value).toBe('mysql://u:p@h/db');
     expect(fetchMock).toHaveBeenCalledWith(
       'http://backend.internal/internal/credentials/resolve',
       expect.objectContaining({
@@ -54,5 +56,16 @@ describe('resolveSqlCredentialField', () => {
     vi.stubGlobal('fetch', vi.fn().mockResolvedValue({ ok: false, status: 404, text: () => Promise.resolve('nope') }));
     const value = await resolveSqlCredentialField('cred-1', 'postgres', 'ssl', 'prefer');
     expect(value).toBe('prefer');
+  });
+
+  it('rejects a connection string with a file-reading/socket parameter (audit P0-11)', async () => {
+    vi.stubGlobal(
+      'fetch',
+      vi.fn().mockResolvedValue({
+        ok: true,
+        json: () => Promise.resolve({ value: 'postgres://u:p@h/db?sslrootcert=/etc/passwd' }),
+      }),
+    );
+    await expect(resolveSqlCredentialField('cred-1', 'postgres', 'connectionString')).rejects.toThrow(/not allowed/);
   });
 });

@@ -102,7 +102,7 @@ describe('pieceToCredentialIntegration', () => {
         scopeType: { type: 'any' },
         scopeVariableName: 'item',
         signalName: 'mock-new_item',
-        webhookPath: '/webhooks/activepieces-mock/:credentialId/:env',
+        webhookPath: '/webhooks/activepieces-mock/:projectId/:credentialId/:env',
         contextFields: [{ name: 'folder', label: 'Folder', kind: 'text' }],
       },
     ]);

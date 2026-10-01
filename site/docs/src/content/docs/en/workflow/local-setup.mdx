@@ -26,7 +26,7 @@ head:
   <li>
     Copy <code>.env.example</code> to <code>.env</code> at the repo root. For a clean local run you don't need to
     change anything — every secret (<code>JWT_SECRET</code>, <code>CREDENTIALS_ENCRYPTION_KEY</code>, etc.) has a
-    dev-only default baked in.
+    dev-only default baked in (the bundled compose file also sets <code>SEED_DEFAULT_ADMIN=true</code>; the backend itself defaults it to <code>false</code>). With <code>NODE_ENV=production</code> the backend refuses to start unless <code>JWT_SECRET</code>, <code>DB_PASSWORD</code> and <code>CREDENTIALS_ENCRYPTION_KEY</code> are set to non-default values of at least 32 characters.
   </li>
   <li>
     Bring the stack up:
@@ -82,3 +82,13 @@ head:
 </p>
 <pre><code>docker compose -f docker-compose.workflow.yml restart backend</code></pre>
 <p>It doesn't recur once both networks are actually attached.</p>
+
+#### Public and internal ports
+<p>
+  The backend listens on two ports. The public one (<code>PORT</code>, 4000 in the compose files) serves the
+  application API and is the only one to publish through a reverse proxy or ingress. The internal one
+  (<code>INTERNAL_PORT</code>, default 3001) serves only <code>/internal/*</code> — the API used by runner pods, the
+  ActivePieces service and the media service; the public port answers 404 for those paths. Never expose the internal
+  port to the internet: point <code>BACKEND_INTERNAL_URL</code> of those services at it (inside a cluster, a ClusterIP
+  Service).
+</p>

@@ -1,6 +1,6 @@
 import type { TVariableInfo } from '@falang/typescript-dto';
 import type { TRegisterIntegrationBackend } from './backend-runtime.js';
-import type { IFieldOptionsContext } from './field-options-context.js';
+import type { IBackendEgress, IFieldOptionsContext } from './field-options-context.js';
 import type { IIntegrationInstance } from './integrations-document.js';
 import type { IOAuth2Config } from './oauth2-config.js';
 import type { IQuestionDescriptorExtensions } from './question-extensions.js';
@@ -275,6 +275,7 @@ export interface IWorkflowIntegration {
   readonly syncVendorData?: (
     credentialFields: Readonly<Record<string, string>>,
     env: 'dev' | 'prod',
+    ctx?: { readonly egress?: IBackendEgress },
   ) => Promise<Record<string, Record<string, unknown>>>;
   /** Struct types derived from one instance's synced vendor data (ADR 0039 (private) §5, e.g. one struct per synced table), registered under a `db:<instanceId>` parent — `[]` (not a throw) when nothing is synced yet. */
   readonly instanceTypes?: (

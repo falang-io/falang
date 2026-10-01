@@ -1,4 +1,5 @@
-import { describe, expect, it, vi } from 'vitest';
+import { afterEach, describe, expect, it, vi } from 'vitest';
+import { setDisabledVendors } from '../disabled-vendors.js';
 import { INTEGRATIONS_DOCUMENT_TYPE, type IIntegrationInstance } from '@falang/workflow-integrations-common';
 import type { WorkflowDocument } from '../workflow-types.js';
 import type { WorkflowStore } from '../workflow-store.js';
@@ -98,6 +99,36 @@ describe('IntegrationToolProvider', () => {
     const provider = new IntegrationToolProvider(store);
 
     const result = provider.execute(call('create_integration_instance', { name: 'x', vendor: 'no-such-vendor' }));
+
+    expect(result.ok).toBe(false);
+    expect(saveIntegrationInstance).not.toHaveBeenCalled();
+  });
+});
+
+describe('IntegrationToolProvider — vendors disabled by the deployment', () => {
+  afterEach(() => setDisabledVendors([]));
+
+  it('search_integrations does not offer a disabled vendor (sqlite)', () => {
+    const { store } = buildStore();
+    const provider = new IntegrationToolProvider(store);
+    const search = () =>
+      (
+        parseOk(provider.execute(call('search_integrations', { keywords: ['sqlite'] }))) as {
+          vendors: { vendor: string }[];
+        }
+      ).vendors.map((item) => item.vendor);
+
+    expect(search()).toContain('sqlite');
+    setDisabledVendors(['sqlite']);
+    expect(search()).not.toContain('sqlite');
+  });
+
+  it('create_integration_instance refuses a disabled vendor', () => {
+    setDisabledVendors(['sqlite']);
+    const { store, saveIntegrationInstance } = buildStore();
+    const result = new IntegrationToolProvider(store).execute(
+      call('create_integration_instance', { name: 'db', vendor: 'sqlite' }),
+    );
 
     expect(result.ok).toBe(false);
     expect(saveIntegrationInstance).not.toHaveBeenCalled();

@@ -10,7 +10,7 @@ import type {
 } from '@falang/workflow-integrations-common';
 import type { TTriggerFunctionBodyData } from '@falang/workflow-dto';
 import { getIntegrationInstances } from '../integration-instances.js';
-import { REGISTERED_INTEGRATIONS } from '../integrations-registry.js';
+import { getEnabledIntegrations } from '../disabled-vendors.js';
 import { resolveTriggerCredentialId } from '../components/trigger-credential.js';
 import { getVendorsInUse } from './integration-catalog.js';
 import { type IProjectStructType, listTypes } from './list-types.js';
@@ -187,9 +187,9 @@ export class DocumentToolProvider implements IAgentToolProvider {
           JSON.stringify(
             listTypes({
               input: call.input,
-              integrations: REGISTERED_INTEGRATIONS,
+              integrations: getEnabledIntegrations(),
               projectTypes: this.projectTypes(),
-              vendorsInUse: getVendorsInUse(REGISTERED_INTEGRATIONS, getIntegrationInstances(this.store.documents)),
+              vendorsInUse: getVendorsInUse(getEnabledIntegrations(), getIntegrationInstances(this.store.documents)),
               instanceTypes: this.instanceTypes(),
             }),
           ),
@@ -246,7 +246,7 @@ export class DocumentToolProvider implements IAgentToolProvider {
       );
     }
 
-    const integration = REGISTERED_INTEGRATIONS.find((item) => item.vendor === vendor);
+    const integration = getEnabledIntegrations().find((item) => item.vendor === vendor);
     if (!integration) return fail(`create_trigger_document: unknown vendor "${vendor}"`);
     const trigger = integration.triggers.find((item) => item.name === triggerName);
     if (!trigger) return fail(`create_trigger_document: unknown triggerName "${triggerName}" for vendor "${vendor}"`);
@@ -291,7 +291,7 @@ export class DocumentToolProvider implements IAgentToolProvider {
    *  bucket — reads `store.vendorData.byInstance` directly, unlike `projectTypes` above. */
   private instanceTypes(): IIntegrationStructType[] {
     return getIntegrationInstances(this.store.documents).flatMap((instance) => {
-      const integration = REGISTERED_INTEGRATIONS.find((item) => item.vendor === instance.vendor);
+      const integration = getEnabledIntegrations().find((item) => item.vendor === instance.vendor);
       if (!integration?.instanceTypes) return [];
       const vendorData = this.store.vendorData.byInstance.get(instance.id) ?? {};
       return integration.instanceTypes(instance, vendorData);

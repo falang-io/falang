@@ -6,6 +6,11 @@ import { REGISTERED_INTEGRATIONS } from '../../integrations/registered-integrati
 import { compileProjectDocuments } from './compile-project-documents.js';
 import { typeCheckProject } from './type-check-project.js';
 
+// The `sqlite` vendor is off unless ENABLE_SQLITE_INTEGRATION=true (security audit P0-11); `vi.hoisted` runs before the imports below.
+vi.hoisted(() => {
+  process.env.ENABLE_SQLITE_INTEGRATION = 'true';
+});
+
 // `compileProjectDocuments` type-checks via a real TS program — cold-start cost can exceed
 // vitest's default 5s test timeout when this file runs alongside the rest of the monorepo's suite
 // (confirmed flaky at the default timeout; reliably under it at 20s) — see type-check-project.test.ts.

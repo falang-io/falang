@@ -1,7 +1,17 @@
 import type { INestApplication } from '@nestjs/common';
 import request from 'supertest';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import type * as EgressGuardModule from '../../net/egress-guard.js';
 import { auth, createTestApp, login } from '../../test-utils/e2e-app.js';
+
+// The real egress guard talks to the network; these tests stub the global `fetch`, so route the guard's `fetch` to it.
+vi.mock('../../net/egress-guard.js', async (importOriginal) => ({
+  ...(await importOriginal<typeof EgressGuardModule>()),
+  getBackendEgress: () => ({
+    fetch: (url: string, init?: RequestInit) => globalThis.fetch(url, init),
+    resolveHost: (host: string) => Promise.resolve(host),
+  }),
+}));
 
 // Exercises the amoCRM-shaped vendor-variance options (see ADR 0017 (private)'s "OAuth2
 // credential-kind gap") through the same piece-catalog vehicle other oauth2.controller tests use —
@@ -30,6 +40,7 @@ const accountDomainPieceCatalog = [
         scope: ['profile'],
         tokenRequestFormat: 'json',
         accountDomainCallbackParam: 'referer',
+        accountDomainSuffixes: ['.amocrm.test'],
       },
     },
     actions: [],
@@ -132,6 +143,32 @@ describe('OAuth2 authorization-code flow — per-account tokenUrl / JSON body (a
     const integrationsDoc = documentsResponse.body.find((doc: { id: string }) => doc.id === integrationsDocId);
     const instance = integrationsDoc.data.instances.find((candidate: { id: string }) => candidate.id === 'cred-2');
     expect(instance.fields.account_domain).toBe('my-account.amocrm.test');
+  });
+
+  it('refuses a callback whose account domain is outside the vendor allowlist (SSRF) without calling it', async () => {
+    const token = await login(app);
+    const { projectId, integrationsDocId } = await setUpProject(token);
+    await request(app.getHttpServer())
+      .patch(`/projects/${projectId}/documents/${integrationsDocId}`)
+      .set(auth(token))
+      .send({
+        data: {
+          instances: [{ id: 'cred-2', vendor: 'activepieces-accountdomainpiece', name: 'x', fields: {} }],
+        },
+      })
+      .expect(200);
+    await createPlatformCredential(token);
+    const startResponse = await request(app.getHttpServer())
+      .post(`/projects/${projectId}/integrations/cred-2/oauth2/start`)
+      .set(auth(token));
+    const state = new URL(startResponse.body.authorizeUrl).searchParams.get('state');
+
+    const callbackResponse = await request(app.getHttpServer()).get(
+      `/oauth2/callback/activepieces-accountdomainpiece?code=fake-code&state=${state}&referer=https://169.254.169.254`,
+    );
+
+    expect(callbackResponse.text).toContain('Connection failed');
+    expect(fetchMock.mock.calls.some((call) => String(call[0]).includes('169.254.169.254'))).toBe(false);
   });
 
   it('400s the callback when the account-domain callback param is required but missing', async () => {

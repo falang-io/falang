@@ -82,12 +82,47 @@ describe('IntegrationsRuntimeService', () => {
         credentialId: 'cred-1',
         projectId: 'project-1',
         env: 'dev',
-        webhookUrl: 'https://bots.example.com/webhooks/telegram/cred-1/dev',
+        webhookUrl: 'https://bots.example.com/webhooks/telegram/project-1/cred-1/dev',
         taskQueue: 'workflow-dev-project-1',
       }),
     );
-    expect(runtime.findWebhookHandler('telegram', 'cred-1', 'dev', '')).toBeDefined();
+    expect(runtime.findWebhookHandler('telegram', 'project-1', 'cred-1', 'dev', '')).toBeDefined();
 
+    await runtime.onModuleDestroy();
+  });
+
+  it('does not share a webhook handler between two projects that use the same credential id', async () => {
+    vi.useFakeTimers();
+    const registerBackend = vi.fn().mockImplementation((ctx: IIntegrationBackendContext) => {
+      ctx.registerWebHook('', () => Promise.resolve(new Response(String(ctx.projectId), { status: 200 })));
+      return Promise.resolve(noopDispose);
+    });
+    const discovery = buildDiscovery({
+      findCredentialInstances: vi
+        .fn()
+        .mockResolvedValue([singleInstance({ projectId: 'project-1' }), singleInstance({ projectId: 'project-2' })]),
+    });
+    const runtime = new IntegrationsRuntimeService({
+      integrations: [buildIntegration(registerBackend)],
+      discovery,
+      signalWorkflowWithStart: vi.fn(),
+      publicHost: 'https://bots.example.com',
+    });
+    await runtime.onModuleInit();
+    runtime.resumeProjectIntegrations('project-1', 'dev');
+    runtime.resumeProjectIntegrations('project-2', 'dev');
+    await vi.advanceTimersByTimeAsync(0);
+
+    const first = runtime.findWebhookHandler('telegram', 'project-1', 'cred-1', 'dev', '');
+    const second = runtime.findWebhookHandler('telegram', 'project-2', 'cred-1', 'dev', '');
+    expect(first).toBeDefined();
+    expect(second).toBeDefined();
+    expect(first).not.toBe(second);
+    const firstResponse = await first?.(new Request('http://x/'));
+    const secondResponse = await second?.(new Request('http://x/'));
+    await expect(firstResponse?.text()).resolves.toBe('project-1');
+    await expect(secondResponse?.text()).resolves.toBe('project-2');
+    expect(runtime.findWebhookHandler('telegram', 'project-3', 'cred-1', 'dev', '')).toBeUndefined();
     await runtime.onModuleDestroy();
   });
 
@@ -179,17 +214,17 @@ describe('IntegrationsRuntimeService', () => {
 
     await runtime.onModuleInit();
     await vi.advanceTimersByTimeAsync(0);
-    expect(runtime.findWebhookHandler('telegram', 'cred-1', 'dev', '')).toBeUndefined();
+    expect(runtime.findWebhookHandler('telegram', 'project-1', 'cred-1', 'dev', '')).toBeUndefined();
 
     runtime.resumeProjectIntegrations('project-1', 'dev');
     await vi.advanceTimersByTimeAsync(0);
-    expect(runtime.findWebhookHandler('telegram', 'cred-1', 'dev', '')).toBeDefined();
+    expect(runtime.findWebhookHandler('telegram', 'project-1', 'cred-1', 'dev', '')).toBeDefined();
 
     runtime.stopProjectIntegrations('project-1', 'dev');
     await vi.advanceTimersByTimeAsync(0);
 
     expect(dispose).toHaveBeenCalledTimes(1);
-    expect(runtime.findWebhookHandler('telegram', 'cred-1', 'dev', '')).toBeUndefined();
+    expect(runtime.findWebhookHandler('telegram', 'project-1', 'cred-1', 'dev', '')).toBeUndefined();
 
     intervalCalls = 0;
     await vi.advanceTimersByTimeAsync(5000);

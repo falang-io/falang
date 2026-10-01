@@ -4,6 +4,7 @@ import { compileProject, ProjectCompileError, type ICompiledProject } from '@fal
 import type { IWorkflowIntegration } from '@falang/workflow-integrations-common';
 import type { ActivepiecesCatalogService } from '../../integrations/activepieces-catalog.service.js';
 import { REGISTERED_INTEGRATIONS } from '../../integrations/registered-integrations.js';
+import { assertSafeGeneratedModules } from './assert-safe-generated-modules.js';
 import { typeCheckProject } from './type-check-project.js';
 
 /** `REGISTERED_INTEGRATIONS` plus any dynamic ActivePieces vendors — see ADR 0011 (private). `compileProjectDocuments` needs the full list to resolve an ActivePieces trigger's `ITriggerDescriptor`. */
@@ -48,7 +49,7 @@ const compileOrThrowBadRequest = (
 };
 
 /**
- * Structurally compiles a project's documents (`compileOrThrowBadRequest`), then, only once that
+ * `compileProjectStructure` + `compileProjectDocuments` below. Structurally compiles a project's documents (`compileOrThrowBadRequest`), then, only once that
  * succeeds, type-checks the result with a real `ts.Program` (`typeCheckProject`) and rejects the
  * same way if the generated TypeScript itself doesn't type-check — something `compileProject`
  * alone can't catch, since it only emits syntactically-valid code, never checks it. `compiled`'s
@@ -66,12 +67,37 @@ const compileOrThrowBadRequest = (
  * debugging (ADR 0021 (private)) — `BuildService.build()` (dev only) turns it on; `publish()` and
  * `generateCode()` never do, per the ADR's "dev always instrumented, published never" rule.
  */
-export const compileProjectDocuments = (
+export const compileProjectStructure = (
   documents: readonly IProjectDocument[],
   integrations: readonly IWorkflowIntegration[],
   options: { readonly trackPosition?: boolean; readonly debug?: boolean } = {},
 ): ICompiledProject => {
   const compiled = compileOrThrowBadRequest(documents, integrations, options.trackPosition ?? true, options.debug ?? false);
+
+  // Before anything reads the generated modules (tsc, webpack): user text spliced into code must not
+  // be able to load modules/files — see `assert-safe-generated-modules.ts` (security audit P0-7).
+  const unsafe = assertSafeGeneratedModules(compiled.workflows, compiled.activities);
+  if (unsafe.length > 0) {
+    throw new BadRequestException({
+      message: 'Project failed to compile',
+      errors: unsafe,
+      files: toGeneratedFiles(compiled.workflows, compiled.activities),
+    });
+  }
+  return compiled;
+};
+
+/**
+ * `compileProjectStructure` plus an in-process type-check. `BuildService` does NOT use this (it
+ * type-checks in a disposable build process, `build-artifact.ts`); it stays for callers that want
+ * the whole check synchronously — tests and tooling.
+ */
+export const compileProjectDocuments = (
+  documents: readonly IProjectDocument[],
+  integrations: readonly IWorkflowIntegration[],
+  options: { readonly trackPosition?: boolean; readonly debug?: boolean } = {},
+): ICompiledProject => {
+  const compiled = compileProjectStructure(documents, integrations, options);
 
   const typeErrors = typeCheckProject(compiled.workflows, compiled.activities);
   if (typeErrors.length > 0) {

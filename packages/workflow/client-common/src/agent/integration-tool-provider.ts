@@ -3,7 +3,7 @@ import type { IAgentToolProvider } from '@falang/agent';
 import type { IEnvironmentValue, IFieldConfig, IIntegrationInstance } from '@falang/workflow-integrations-common';
 import { generateUuid } from '../generate-uuid.js';
 import { getIntegrationInstances } from '../integration-instances.js';
-import { REGISTERED_INTEGRATIONS } from '../integrations-registry.js';
+import { getEnabledIntegrations } from '../disabled-vendors.js';
 import { searchIntegrations } from './integration-catalog.js';
 import type { WorkflowStore } from '../workflow-store.js';
 
@@ -92,7 +92,7 @@ export class IntegrationToolProvider implements IAgentToolProvider {
   execute(call: ILlmToolCall): TToolExecutionResult {
     switch (call.name) {
       case 'search_integrations': {
-        return ok(JSON.stringify(searchIntegrations(REGISTERED_INTEGRATIONS, asRecord(call.input)?.keywords)));
+        return ok(JSON.stringify(searchIntegrations(getEnabledIntegrations(), asRecord(call.input)?.keywords)));
       }
       case 'list_integration_instances': {
         return this.listIntegrationInstances();
@@ -122,7 +122,7 @@ export class IntegrationToolProvider implements IAgentToolProvider {
     const name = typeof params.name === 'string' ? params.name : null;
     if (!vendor || !name) return fail('create_integration_instance: vendor and name are required');
 
-    const integration = REGISTERED_INTEGRATIONS.find((item) => item.vendor === vendor);
+    const integration = getEnabledIntegrations().find((item) => item.vendor === vendor);
     if (!integration) return fail(`create_integration_instance: unknown vendor "${vendor}"`);
 
     const fieldsInput = asRecord(params.fields) ?? {};

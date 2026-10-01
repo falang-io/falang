@@ -47,8 +47,9 @@ interface IKnownTarget {
 const targetKey = (target: Pick<IKnownTarget, 'vendor' | 'credentialId' | 'projectId' | 'env'>): string =>
   `${target.vendor}:${target.credentialId}:${target.projectId}:${target.env}`;
 
-const webhookHandlerKey = (vendor: string, credentialId: string, env: string, uri: string): string =>
-  `${vendor}/${credentialId}/${env}/${uri}`;
+/** **Must** include `projectId`: credential ids are client-chosen, so two projects can share one — see ADR 0044 (private) security audit P0-6. */
+const webhookHandlerKey = (vendor: string, projectId: string, credentialId: string, env: string, uri: string): string =>
+  `${vendor}/${projectId}/${credentialId}/${env}/${uri}`;
 
 interface IActiveTarget {
   readonly dispose: () => Promise<void>;
@@ -165,14 +166,15 @@ export class IntegrationsRuntimeService implements OnModuleInit, OnModuleDestroy
     }
   }
 
-  /** Consulted by `IntegrationWebhookController` for every inbound `POST /webhooks/:vendor/:credentialId/:env[/:uri]`. */
+  /** Consulted by `IntegrationWebhookController` for every inbound `POST /webhooks/:vendor/:projectId/:credentialId/:env[/:uri]`. */
   findWebhookHandler(
     vendor: string,
+    projectId: string,
     credentialId: string,
     env: string,
     uri: string,
   ): ((request: Request) => Promise<Response>) | undefined {
-    return this.webhookHandlers.get(webhookHandlerKey(vendor, credentialId, env, uri));
+    return this.webhookHandlers.get(webhookHandlerKey(vendor, projectId, credentialId, env, uri));
   }
 
   /**
@@ -391,7 +393,12 @@ export class IntegrationsRuntimeService implements OnModuleInit, OnModuleDestroy
     }
     if (this.activeTargets.has(key) || this.stoppedTargets.has(key)) return;
 
-    const fields = await this.discovery.resolveCredentialFields(instance.vendor, instance.instanceId, env);
+    const fields = await this.discovery.resolveCredentialFields(
+      instance.vendor,
+      instance.instanceId,
+      env,
+      instance.projectId,
+    );
     // Not configured for this env yet — leave it out of `activeTargets` so the next discovery tick retries it.
     if (!fields) return;
 
@@ -418,7 +425,7 @@ export class IntegrationsRuntimeService implements OnModuleInit, OnModuleDestroy
     const intervalHandles: NodeJS.Timeout[] = [];
     const taskQueue = this.discovery.taskQueueFor(target.projectId, target.env);
     const webhookUrl = this.publicHost
-      ? `${this.publicHost}/webhooks/${target.vendor}/${target.credentialId}/${target.env}`
+      ? `${this.publicHost}/webhooks/${target.vendor}/${target.projectId}/${target.credentialId}/${target.env}`
       : null;
 
     const registerResult = await registerBackend({
@@ -430,7 +437,7 @@ export class IntegrationsRuntimeService implements OnModuleInit, OnModuleDestroy
       webhookUrl,
       taskQueue,
       registerWebHook: (uri, handler) => {
-        const handlerKey = webhookHandlerKey(target.vendor, target.credentialId, target.env, uri);
+        const handlerKey = webhookHandlerKey(target.vendor, target.projectId, target.credentialId, target.env, uri);
         this.webhookHandlers.set(handlerKey, handler);
         webhookKeys.push(handlerKey);
       },
