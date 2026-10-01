@@ -2,6 +2,7 @@
   "id": "lcd1602-i2c",
   "label": "LCD1602 (I2C)",
   "version": "1.0.0",
+  "notes": "16x2 character LCD behind a PCF8574 I2C backpack. Add it as a device in the Devices document (it initialises the display at the I2C address in setup), then use the actions.",
   "includes": ["lcd1602-i2c-driver.h"],
   "sourceFiles": ["lcd1602-i2c-driver.h", "lcd1602-i2c-driver.cpp"],
   "declarations": [
@@ -12,12 +13,14 @@
   "actions": [
     {
       "id": "clear",
+      "notes": "Clears the whole display.",
       "label": "Clear display",
       "fields": [],
       "codeTemplate": "lcd_clear()"
     },
     {
       "id": "print-text",
+      "notes": "Writes text at a column (0-15) and row (0-1); text is a TypeScript string, so interpolations like `T=${t}` work.",
       "label": "Print text",
       "fields": [
         { "name": "col", "label": "Column (0-15)", "kind": "number", "default": "0", "min": 0, "max": 15 },

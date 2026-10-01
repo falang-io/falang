@@ -22,6 +22,7 @@
     "tslib": "^2.8.1"
   },
   "devDependencies": {
+    "@falang/desktop-arduino-drivers": "^1.0.0",
     "@falang/logic-e2e-tests": "*"
   },
   "files": [

@@ -5,13 +5,28 @@ import git from 'isomorphic-git';
 import { readManifest } from '../manifest.js';
 import { withProjectLock } from '../project-lock.js';
 import { documentRelPosix } from '../layout.js';
-import { CONFIG_DIRNAME, FALANG_DIRNAME, MANIFEST_FILENAME, configDir } from '../paths.js';
+import { CONFIG_DIRNAME, DRIVERS_DIRNAME, FALANG_DIRNAME, MANIFEST_FILENAME, configDir, driversDir } from '../paths.js';
 import { gitignorePath, joinGitPath, ownsRepoRoot, pathExists, type IRepoContext } from './git-paths.js';
+
+/** Every file (any depth) under `dir`, as POSIX paths relative to it; `[]` when `dir` doesn't exist. */
+const listFilesRecursive = async (dir: string): Promise<string[]> => {
+  const entries = await fs.readdir(dir, { withFileTypes: true }).catch(() => []);
+  const nested = await Promise.all(
+    entries.map(async (entry): Promise<string[]> => {
+      if (entry.isDirectory()) {
+        const inner = await listFilesRecursive(path.join(dir, entry.name));
+        return inner.map((rel) => path.posix.join(entry.name, rel));
+      }
+      return entry.isFile() ? [entry.name] : [];
+    }),
+  );
+  return nested.flat();
+};
 
 /**
  * Stages the project's current on-disk state onto the git index: `add`s `falang.json`, every
  * document file the manifest currently lists (at its name-based path under `falang/schemes/`), and every file currently
- * sitting under `falang/config/` (cheap to enumerate generically via `readdir` — `project-fs` never
+ * sitting under `falang/config/` and (recursively) `falang/drivers/` (custom Arduino drivers, ADR 0054 (private)) (cheap to enumerate generically via `readdir` — `project-fs` never
  * needs to know a domain's own config filenames, e.g. `@falang/logic-export`'s `logic-export.json`
  * — see ADR 0005 (private)'s "Implementation notes (on-disk layout v4
  * …)"), plus `.gitignore` if this context owns its repo root. Then, scoped to the project's own
@@ -22,12 +37,14 @@ import { gitignorePath, joinGitPath, ownsRepoRoot, pathExists, type IRepoContext
 const stageWorkingCopyUnlocked = async (projectDir: string, ctx: IRepoContext): Promise<void> => {
   const manifest = await readManifest(projectDir);
   const configEntries = await fs.readdir(configDir(projectDir)).catch(() => [] as string[]);
+  const driverFiles = await listFilesRecursive(driversDir(projectDir));
   const addPaths = [
     joinGitPath(ctx.projectRelDir, MANIFEST_FILENAME),
     ...manifest.documents.map((doc) => joinGitPath(ctx.projectRelDir, documentRelPosix(manifest, doc))),
     ...configEntries.map((fileName) =>
       joinGitPath(ctx.projectRelDir, path.posix.join(FALANG_DIRNAME, CONFIG_DIRNAME, fileName)),
     ),
+    ...driverFiles.map((rel) => joinGitPath(ctx.projectRelDir, path.posix.join(FALANG_DIRNAME, DRIVERS_DIRNAME, rel))),
   ];
   if (ownsRepoRoot(ctx) && (await pathExists(gitignorePath(ctx)))) {
     addPaths.push('.gitignore');

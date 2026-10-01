@@ -3,10 +3,10 @@ import * as path from 'node:path';
 import { documentRelPosix } from './layout.js';
 import { readManifest } from './manifest.js';
 import { withProjectLock } from './project-lock.js';
-import { documentsDir, MANIFEST_FILENAME } from './paths.js';
+import { documentsDir, driversDir, falangDir, DRIVERS_DIRNAME, MANIFEST_FILENAME } from './paths.js';
 import { LOCKS_SIDECAR_NAME } from './locks.js';
 
-export type TProjectChangeKind = 'document' | 'manifest' | 'locks';
+export type TProjectChangeKind = 'document' | 'manifest' | 'locks' | 'drivers';
 
 export interface IProjectChangeEvent {
   kind: TProjectChangeKind;
@@ -24,6 +24,8 @@ export interface IProjectWatcher {
    * tab that's still open and unchanged from the renderer's point of view.
    */
   markOwnWrite: (documentId: string) => void;
+  /** Same idea for `falang/drivers/` (ADR 0054 (private)): call around `main`'s own driver write so it doesn't come back as a `drivers` event. */
+  markOwnDriversWrite: () => void;
 }
 
 const DEBOUNCE_MS = 200;
@@ -35,11 +37,18 @@ const locksFilename = `${LOCKS_SIDECAR_NAME}.json`;
 interface IPendingChanges {
   manifest: boolean;
   locks: boolean;
+  /** Latest arrival time of a change under `falang/drivers/`, or `null`. */
+  drivers: number | null;
   /** Changed files, as POSIX paths relative to `falang/schemes/` → when the event arrived. */
   documentPaths: Map<string, number>;
 }
 
-const emptyPending = (): IPendingChanges => ({ manifest: false, locks: false, documentPaths: new Map() });
+const emptyPending = (): IPendingChanges => ({
+  manifest: false,
+  locks: false,
+  drivers: null,
+  documentPaths: new Map(),
+});
 
 const SCHEMES_PREFIX = 'falang/schemes/';
 
@@ -80,6 +89,7 @@ export const watchProject = (projectDir: string, onChange: (event: IProjectChang
   let pending = emptyPending();
   let debounceTimer: ReturnType<typeof setTimeout> | null = null;
   let stopped = false;
+  let ownDriversWriteAt = 0;
 
   const flushDocuments = async (documentPaths: Map<string, number>): Promise<void> => {
     // Document files are located through the manifest (name-based paths), so map paths → ids now.
@@ -108,6 +118,9 @@ export const watchProject = (projectDir: string, onChange: (event: IProjectChang
     pending = emptyPending();
     if (toFlush.manifest) onChange({ kind: 'manifest' });
     if (toFlush.locks) onChange({ kind: 'locks' });
+    if (toFlush.drivers !== null && toFlush.drivers - ownDriversWriteAt >= OWN_WRITE_SUPPRESS_MS) {
+      onChange({ kind: 'drivers' });
+    }
     if (toFlush.documentPaths.size > 0) flushDocuments(toFlush.documentPaths).catch(() => null);
   };
 
@@ -133,6 +146,34 @@ export const watchProject = (projectDir: string, onChange: (event: IProjectChang
     scheduleFlush();
   };
 
+  const handleDriversEvent = (): void => {
+    pending.drivers = Date.now();
+    scheduleFlush();
+  };
+
+  // `falang/drivers/` only exists once a project has a custom driver, so it is attached lazily: a
+  // non-recursive watcher on `falang/` notices its creation (and reports it as a change itself).
+  let driversWatcher: FSWatcher | null = null;
+  const attachDriversWatcher = (): void => {
+    if (driversWatcher || stopped) return;
+    try {
+      driversWatcher = watch(driversDir(projectDir), { recursive: true }, () => handleDriversEvent());
+    } catch {
+      driversWatcher = null;
+    }
+  };
+  let falangWatcher: FSWatcher | null = null;
+  try {
+    falangWatcher = watch(falangDir(projectDir), (_eventType, filename) => {
+      if (filename?.toString() !== DRIVERS_DIRNAME) return;
+      attachDriversWatcher();
+      handleDriversEvent();
+    });
+  } catch {
+    falangWatcher = null;
+  }
+  attachDriversWatcher();
+
   const rootWatcher: FSWatcher = watch(projectDir, (_eventType, filename) =>
     handleRootEvent(filename?.toString() ?? null),
   );
@@ -153,6 +194,8 @@ export const watchProject = (projectDir: string, onChange: (event: IProjectChang
     stopped = true;
     rootWatcher.close();
     documentsWatcher?.close();
+    falangWatcher?.close();
+    driversWatcher?.close();
     if (debounceTimer) clearTimeout(debounceTimer);
     debounceTimer = null;
   };
@@ -161,5 +204,9 @@ export const watchProject = (projectDir: string, onChange: (event: IProjectChang
     ownWriteAt.set(documentId, Date.now());
   };
 
-  return { stop, markOwnWrite };
+  const markOwnDriversWrite = (): void => {
+    ownDriversWriteAt = Date.now();
+  };
+
+  return { stop, markOwnWrite, markOwnDriversWrite };
 };

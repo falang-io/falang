@@ -8,3 +8,14 @@ export {
 } from './compile-arduino-project.js';
 export { buildFalangDebugHeader } from './falang-debug-header.js';
 export { collectDriverExtraFiles } from './collect-driver-extra-files.js';
+export { validateDriverBundle } from './validate-driver-bundle.js';
+export { findDriverUsages } from './driver-usages.js';
+export type {
+  IDriverCliCheckResult,
+  IDriverUsage,
+  IDriverValidationIssue,
+  IDriverValidationProject,
+  IDriverValidationResult,
+  IValidateDriverBundleContext,
+  TDriverValidationStage,
+} from './driver-validation-types.js';

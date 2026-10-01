@@ -7,6 +7,8 @@ export * from './driver-config.js';
 export * from './driver-node-name.js';
 export * from './driver-node-configs.js';
 export * from './driver-registry.js';
+export * from './driver-bundle.js';
+export * from './project-drivers.js';
 export * from './devices-document.js';
 export * from './pinned-documents.js';
 export * from './arduino-builtins.js';

@@ -9,7 +9,7 @@ import type { IGitVersioningOptions } from './git-version-store-types.js';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import { createDocument, deleteDocument, readDocument, renameDocument, writeDocument } from '../documents.js';
 import { readManifest } from '../manifest.js';
-import { documentsDir, manifestPath } from '../paths.js';
+import { documentsDir, driversDir, manifestPath } from '../paths.js';
 import { createFolder, renameFolder } from '../folders.js';
 import { createProject, openProject } from '../project.js';
 import { createGitVersionStore } from './git-version-store.js';
@@ -122,6 +122,34 @@ describe('GitVersionStore', () => {
     const list = await store.listCommits();
     expect(list.find((entry) => entry.id === (c1 as { id: string }).id)).toMatchObject({ message: 'Renamed A' });
     expect(list.find((entry) => entry.id === (c2 as { id: string }).id)).toMatchObject({ message: 'Checkpoint B' });
+  });
+
+  it('versions falang/drivers/ files and restore removes drivers deleted since', async () => {
+    await createDocument(projectDir, { document: doc('doc-1', 'v1'), folderId: null });
+    const keep = path.join(driversDir(projectDir), 'keep');
+    await fs.mkdir(keep, { recursive: true });
+    await fs.writeFile(path.join(keep, 'driver.config.json'), '{"id":"keep"}');
+    const store = createGitVersionStore(projectDir, () => makeOptions());
+    const c1 = await store.commit({ kind: 'named', message: 'one driver' });
+    expect(c1).not.toBeNull();
+
+    const extra = path.join(driversDir(projectDir), 'extra');
+    await fs.mkdir(extra, { recursive: true });
+    await fs.writeFile(path.join(extra, 'driver.config.json'), '{"id":"extra"}');
+    await fs.writeFile(path.join(keep, 'keep.h'), '// h');
+    // A driver-only change doesn't make the (document-based) snapshot dirty on its own — touch a document too.
+    await writeDocument(projectDir, doc('doc-1', 'v2'));
+    const c2 = await store.commit({ kind: 'named', message: 'two drivers' });
+    expect(c2).not.toBeNull();
+    await expect(fs.readFile(path.join(extra, 'driver.config.json'), 'utf8')).resolves.toContain('extra');
+
+    await store.restore((c1 as { id: string }).id);
+    await expect(fs.access(extra)).rejects.toThrow();
+    await expect(fs.access(path.join(keep, 'keep.h'))).rejects.toThrow();
+    await expect(fs.readFile(path.join(keep, 'driver.config.json'), 'utf8')).resolves.toContain('keep');
+
+    await store.restore((c2 as { id: string }).id);
+    await expect(fs.readFile(path.join(extra, 'driver.config.json'), 'utf8')).resolves.toContain('extra');
   });
 
   it('deleting a document then committing, then restoring an earlier commit, recreates the file', async () => {

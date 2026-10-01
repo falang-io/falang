@@ -35,6 +35,9 @@ const flatFileNameZod = zod
   .min(1)
   .regex(/^[\w.-]+$/, 'must be a flat filename with no path separators');
 
+/** Plain-English, LLM-facing description (ADR 0054 (private)) — what the device/action is; shown by `list_drivers` and in `get_node_kinds`. */
+const notesZod = zod.string().min(1);
+
 const selectOptionZod = zod.object({
   /** Always a raw numeric literal, substituted verbatim into `codeTemplate` — see the ADR's field-substitution rules. */
   value: zod.string().regex(/^-?\d+$/, 'select option values must be numeric'),
@@ -60,6 +63,7 @@ const driverActionDescriptorZod = zod.object({
   /** Field values are substituted by name — `${pin}`, `${text}`, etc. See `substituteCodeTemplate`. */
   codeTemplate: zod.string().min(1),
   resultType: zod.enum(DRIVER_RESULT_TYPES).optional(),
+  notes: notesZod.optional(),
 });
 export type IDriverActionDescriptor = zod.infer<typeof driverActionDescriptorZod>;
 
@@ -77,7 +81,7 @@ const driverDeviceDescriptorZod = zod.object({
 });
 export type IDriverDeviceDescriptor = zod.infer<typeof driverDeviceDescriptorZod>;
 
-const driverConfigZod = zod.object({
+export const driverConfigZod = zod.object({
   id: kebabCaseZod,
   label: zod.string().min(1),
   version: zod.string().optional(),
@@ -89,6 +93,7 @@ const driverConfigZod = zod.object({
   declarations: zod.array(zod.string().regex(/^declare (function|const) [A-Za-z_]\w*\b/, 'must be a declare line')),
   actions: zod.array(driverActionDescriptorZod).min(1),
   device: driverDeviceDescriptorZod.optional(),
+  notes: notesZod.optional(),
 });
 export type IDriverConfig = zod.infer<typeof driverConfigZod>;
 

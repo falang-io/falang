@@ -2,6 +2,7 @@
   "id": "rgb-strip",
   "label": "Addressable RGB strip (WS2812/NeoPixel)",
   "version": "1.0.0",
+  "notes": "Addressable WS2812/NeoPixel RGB LED strip on one data pin; needs the Adafruit NeoPixel library installed.",
   "includes": ["rgb-strip-driver.h"],
   "sourceFiles": ["rgb-strip-driver.h", "rgb-strip-driver.cpp"],
   "declarations": [
@@ -11,6 +12,7 @@
   "actions": [
     {
       "id": "set-pixel-color",
+      "notes": "Sets one pixel's colour (r, g, b 0-255) in the strip's buffer; nothing lights up until the Show action runs.",
       "label": "Set pixel color",
       "fields": [
         { "name": "pin", "label": "Data pin", "kind": "pin", "default": "6" },
@@ -24,6 +26,7 @@
     },
     {
       "id": "show",
+      "notes": "Pushes the buffered pixel colours to the strip; call after one or more Set pixel color actions.",
       "label": "Show (push buffer to strip)",
       "fields": [
         { "name": "pin", "label": "Data pin", "kind": "pin", "default": "6" },

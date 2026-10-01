@@ -2,12 +2,14 @@
   "id": "servo",
   "label": "Servo",
   "version": "1.0.0",
+  "notes": "Hobby servo motor on one PWM-capable pin.",
   "includes": ["servo-driver.h"],
   "sourceFiles": ["servo-driver.h", "servo-driver.cpp"],
   "declarations": ["declare function servo_set_angle(pin: number, angle: number): void;"],
   "actions": [
     {
       "id": "set-angle",
+      "notes": "Moves the servo to an angle in degrees (0-180).",
       "label": "Set angle",
       "fields": [
         { "name": "pin", "label": "Pin", "kind": "pin", "default": "9" },

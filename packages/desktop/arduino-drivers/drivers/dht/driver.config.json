@@ -2,6 +2,7 @@
   "id": "dht",
   "label": "DHT11 / DHT22 (Temperature/Humidity)",
   "version": "1.0.0",
+  "notes": "DHT11 or DHT22 single-wire digital temperature and humidity sensor on one data pin.",
   "includes": ["dht-driver.h"],
   "sourceFiles": ["dht-driver.h", "dht-driver.cpp"],
   "declarations": [
@@ -11,6 +12,7 @@
   "actions": [
     {
       "id": "read-temperature",
+      "notes": "Reads the temperature in degrees Celsius into a new float variable; the sensor type (DHT11 or DHT22) must match the hardware.",
       "label": "Read temperature (°C)",
       "fields": [
         { "name": "pin", "label": "Data pin", "kind": "pin", "default": "2" },
@@ -31,6 +33,7 @@
     },
     {
       "id": "read-humidity",
+      "notes": "Reads relative humidity in percent into a new float variable; the sensor type (DHT11 or DHT22) must match the hardware.",
       "label": "Read humidity (%RH)",
       "fields": [
         { "name": "pin", "label": "Data pin", "kind": "pin", "default": "2" },

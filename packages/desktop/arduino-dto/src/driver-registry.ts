@@ -37,11 +37,14 @@ const loadOneDriver = async (dir: string): Promise<ILoadedDriver> => {
  * validate, is skipped (recorded in `errors`) rather than crashing the app — see the ADR's Phase C
  * "bad config = skipped, not fatal" decision.
  */
-const scanDriversDir = async (driversDir: string): Promise<IDriverRegistry> => {
+export const scanDriversDir = async (driversDir: string): Promise<IDriverRegistry> => {
   let entries: string[] = [];
   try {
     const dirents = await fs.readdir(driversDir, { withFileTypes: true });
-    entries = dirents.filter((entry) => entry.isDirectory()).map((entry) => entry.name);
+    // `<id>.tmp-…`/`<id>.old-…` are `writeDriverBundle`'s in-flight staging dirs (see `project-drivers.ts`) — never drivers.
+    entries = dirents
+      .filter((entry) => entry.isDirectory() && !/\.(tmp|old)-/.test(entry.name))
+      .map((entry) => entry.name);
   } catch {
     return { drivers: [], errors: [] };
   }

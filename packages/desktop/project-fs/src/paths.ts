@@ -14,6 +14,8 @@ export const FALANG_DIRNAME = 'falang';
 export const SCHEMES_DIRNAME = 'schemes';
 export const CONFIG_DIRNAME = 'config';
 /** One file per chat session (`agent-sessions/<id>.json`), not a single sidecar blob — mirrors `SCHEMES_DIRNAME`, not `locks.ts`'s `.falang-locks.json`, since sessions (like documents) are numerous and can each grow large. See ADR 0033 (private). */
+/** Project-scope custom Arduino device drivers (`falang/drivers/<id>/…`, ADR 0054 (private)) — staged/restored by the git store and watched by `watchProject`. */
+export const DRIVERS_DIRNAME = 'drivers';
 export const AGENT_SESSIONS_DIRNAME = 'agent-sessions';
 export const MANIFEST_FILENAME = 'falang.json';
 
@@ -35,6 +37,8 @@ export const configDir = (projectDir: string): string => path.join(falangDir(pro
 
 export const configFilePath = (projectDir: string, fileName: string): string =>
   path.join(configDir(projectDir), fileName);
+
+export const driversDir = (projectDir: string): string => path.join(falangDir(projectDir), DRIVERS_DIRNAME);
 
 export const agentSessionsDir = (projectDir: string): string =>
   path.join(falangDir(projectDir), AGENT_SESSIONS_DIRNAME);

@@ -2,12 +2,14 @@
   "id": "hc-sr04",
   "label": "HC-SR04 (Ultrasonic distance)",
   "version": "1.0.0",
+  "notes": "HC-SR04 ultrasonic distance sensor, wired to one trigger pin and one echo pin.",
   "includes": ["hcsr04-driver.h"],
   "sourceFiles": ["hcsr04-driver.h", "hcsr04-driver.cpp"],
   "declarations": ["declare function hcsr04_read_distance(trigPin: number, echoPin: number): number;"],
   "actions": [
     {
       "id": "read-distance",
+      "notes": "Fires one ultrasonic ping and stores the measured distance in centimetres in a new float variable.",
       "label": "Read distance (cm)",
       "fields": [
         { "name": "trigPin", "label": "Trig pin", "kind": "pin", "default": "9" },

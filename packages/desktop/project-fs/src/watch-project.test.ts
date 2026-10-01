@@ -7,7 +7,7 @@ import { createProject } from './project.js';
 import type { IProjectDocument } from '@falang/dto';
 import { createDocument } from './documents.js';
 import { createFolder } from './folders.js';
-import { documentsDir, manifestPath } from './paths.js';
+import { documentsDir, driversDir, manifestPath } from './paths.js';
 import { watchProject, type IProjectChangeEvent, type IProjectWatcher } from './watch-project.js';
 
 /**
@@ -122,6 +122,27 @@ describe('watchProject', () => {
     await fs.writeFile(path.join(projectDir, '.falang-locks.json'), JSON.stringify({ locks: [] }));
 
     await waitFor(() => events.some((event) => event.kind === 'locks'));
+  }, 10_000);
+
+  it('reports a drivers change when falang/drivers/ is created lazily and written into', async () => {
+    start();
+    await fs.mkdir(path.join(driversDir(projectDir), 'my-driver'), { recursive: true });
+    await fs.writeFile(path.join(driversDir(projectDir), 'my-driver', 'driver.config.json'), '{}');
+    await waitFor(() => events.some((event) => event.kind === 'drivers'));
+
+    events.length = 0;
+    await sleep(300);
+    await fs.writeFile(path.join(driversDir(projectDir), 'my-driver', 'x.h'), '// edit');
+    await waitFor(() => events.some((event) => event.kind === 'drivers'));
+  }, 10_000);
+
+  it('suppresses a drivers event for a write markOwnDriversWrite was just called for', async () => {
+    await fs.mkdir(path.join(driversDir(projectDir), 'd'), { recursive: true });
+    start();
+    watcher.markOwnDriversWrite();
+    await fs.writeFile(path.join(driversDir(projectDir), 'd', 'a.h'), '//');
+    await sleep(600);
+    expect(events.filter((event) => event.kind === 'drivers')).toEqual([]);
   }, 10_000);
 
   it('stop() prevents further events', async () => {

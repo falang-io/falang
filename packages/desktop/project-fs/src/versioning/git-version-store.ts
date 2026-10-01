@@ -7,7 +7,7 @@ import type { ICommitInfo, IProjectSnapshot, IVersionStore, TCommitKind } from '
 import { documentFilePath } from '../layout.js';
 import { readManifest } from '../manifest.js';
 import { withProjectLock } from '../project-lock.js';
-import { documentsDir } from '../paths.js';
+import { DRIVERS_DIRNAME, FALANG_DIRNAME, documentsDir, driversDir } from '../paths.js';
 import { reconcileProjectLayout } from '../reconcile-layout.js';
 import {
   assertCommitExists,
@@ -21,6 +21,7 @@ import {
 import {
   GITIGNORE_CONTENT,
   gitignorePath,
+  joinGitPath,
   needsInit,
   pathExists,
   resolveRepoContext,
@@ -50,6 +51,31 @@ const deleteExtraDocumentFiles = async (projectDir: string): Promise<void> => {
     );
   };
   await walk(documentsDir(projectDir));
+};
+
+/** Removes every file under `falang/drivers/` that the restored commit doesn't contain (a driver deleted since), then prunes emptied directories. */
+const deleteExtraDriverFiles = async (projectDir: string, ctx: IRepoContext, commitId: string): Promise<void> => {
+  const prefix = joinGitPath(ctx.projectRelDir, `${FALANG_DIRNAME}/${DRIVERS_DIRNAME}/`);
+  const committed = await git.listFiles({ fs: nodeFs, dir: ctx.repoRoot, ref: commitId });
+  const tracked = new Set(committed.filter((file) => file.startsWith(prefix)));
+  const root = driversDir(projectDir);
+  const walk = async (dir: string): Promise<void> => {
+    const entries = await fs.readdir(dir, { withFileTypes: true }).catch(() => []);
+    await Promise.all(
+      entries.map(async (entry) => {
+        const full = path.join(dir, entry.name);
+        if (entry.isDirectory()) {
+          await walk(full);
+          // `rmdir` only succeeds on an empty directory — exactly what a fully-pruned driver folder is.
+          await fs.rmdir(full).catch(() => null);
+        } else if (entry.isFile()) {
+          const rel = path.relative(ctx.repoRoot, full).split(path.sep).join('/');
+          if (!tracked.has(rel)) await fs.rm(full, { force: true });
+        }
+      }),
+    );
+  };
+  await walk(root);
 };
 
 class GitVersionStore implements IVersionStore {
@@ -133,6 +159,7 @@ class GitVersionStore implements IVersionStore {
       // defensive extra pass so restore's correctness never depends on that observation holding
       // across an isomorphic-git version bump.
       await withProjectLock(this.projectDir, () => deleteExtraDocumentFiles(this.projectDir));
+      await withProjectLock(this.projectDir, () => deleteExtraDriverFiles(this.projectDir, ctx, commitId));
       // A v4-era commit restores its flat `<id>.json` layout — bring it to v5 (name-based paths) again.
       await reconcileProjectLayout(this.projectDir);
 
