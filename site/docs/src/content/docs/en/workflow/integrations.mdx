@@ -1,11 +1,11 @@
 ---
 title: Integrations
-description: Catalog of Falang workflow engine integrations — Telegram, OpenAI, HTTP requests, webhooks, ActivePieces
+description: Catalog of Falang workflow engine integrations — Telegram, OpenAI, HTTP requests, webhooks, Russian services (1С, Bitrix24, amoCRM, ЮKassa, marketplaces), ActivePieces
 head:
   - tag: meta
     attrs:
       name: keywords
-      content: 'integrations, telegram, openai, webhook, activepieces, workflow'
+      content: 'integrations, telegram, openai, webhook, 1c, bitrix24, amocrm, yookassa, ozon, wildberries, moysklad, gigachat, yandexgpt, activepieces, workflow'
 ---
 
 <p>
@@ -17,16 +17,19 @@ head:
 
 <ul>
   <li>
-    <b>Telegram Bot API</b>. The "Telegram message" trigger starts the scenario on every new message to the bot, and the
-    "Send message" action replies on its behalf. A photo, document, voice message, audio or video attached to an
-    incoming message is resolved into a <a href="./files/">File</a> automatically, and "Send file" delivers one back as
+    <b>Telegram Bot API</b>. The "On message" trigger starts the scenario on every new message to the bot; the "On
+    command" trigger starts a separate trigger function for one command (<code>/start</code>, <code>/help</code>, …) —
+    when both are bound, a matching command goes only to its own function. "Send message" replies on the bot's behalf,
+    and "Ask question" sends a question with inline-keyboard buttons and waits until the user taps one (optionally with
+    a timeout branch), continuing down the branch of the pressed button. A photo, document, voice message, audio or video attached to an
+    incoming message is resolved into a <a href="../files/">File</a> automatically, and "Send file" delivers one back as
     an attachment. Credentials (the bot token) are stored separately for the dev and prod environments and encrypted at
     rest. Locally the engine long-polls Telegram; once a public address is configured it switches to webhooks
     automatically.
   </li>
   <li>
     <b>OpenAI-compatible models</b>. The "Call AI" action sends a chat-completion request to the selected model and
-    returns text, optionally with <a href="./files/">file</a> attachments (e.g. an incoming Telegram photo) attached to
+    returns text, optionally with <a href="../files/">file</a> attachments (e.g. an incoming Telegram photo) attached to
     the prompt; a separate "AI Choice" node asks the model to pick one of a set of predefined options with structured
     data — handy for branching a scenario off the model's answer. "Call AI (image)" generates an image and returns it as
     a file, and "Call AI (transcribe)" turns an audio file into text. The API base URL is configurable, so this works
@@ -35,7 +38,7 @@ head:
   <li>
     <b>HTTP request</b>. A generic outbound call to any HTTP API: method, URL, headers and body are given as
     expressions, and the result is stored in a variable — including, when the response is binary, as a{' '}
-    <a href="./files/">file</a> rather than decoded text. No credentials of its own are needed — authorization is simply
+    <a href="../files/">file</a> rather than decoded text. No credentials of its own are needed — authorization is simply
     written into the request headers.
   </li>
   <li>
@@ -45,29 +48,87 @@ head:
   <li>
     <b>Schedule</b>. A timer-based trigger — a fixed interval or a cron expression — that starts a scenario on a
     recurring basis with no external service or credentials involved. See{' '}
-    <a href="./schedule-triggers/">Schedule triggers</a> for the full picture (cron builder, dev/prod behavior, overlap
+    <a href="../schedule-triggers/">Schedule triggers</a> for the full picture (cron builder, dev/prod behavior, overlap
     handling).
   </li>
   <li>
-    <b>Files</b>. Every scenario can create, read, publish and pass around <a href="./files/">files</a> — a reference
+    <b>Files</b>. Every scenario can create, read, publish and pass around <a href="../files/">files</a> — a reference
     value, never raw bytes in the scenario's own state — backed by the platform's own object storage, with per-user
-    quotas and automatic expiry. See <a href="./files/">Files</a> for the full picture.
+    quotas and automatic expiry. See <a href="../files/">Files</a> for the full picture.
   </li>
   <li>
     <b>Databases</b>. A single connection string connects a scenario to a Postgres or MySQL database (SQLite too, for
     local development); "Sync structure" makes the editor know its tables, so select/insert/update/delete actions are
     typed per table with Monaco completion, plus a small operator DSL for filtering and a raw-SQL action for anything
-    else. See <a href="./databases/">Databases</a> for the full picture.
+    else. See <a href="../databases/">Databases</a> for the full picture.
   </li>
   <li>
-    <b>Tasks</b>. A <a href="./human-tasks/">human task</a> pauses a scenario until the project owner resolves it from a
+    <b>Tasks</b>. A <a href="../human-tasks/">human task</a> pauses a scenario until the project owner resolves it from a
     Tasks page — approve/reject (or any custom set of options), each with its own typed answer, plus an optional timeout
     branch. No credentials needed — the task is always addressed to whoever owns the project.
   </li>
   <li>
     <b>Media</b>. Resize/convert an image, trim/concatenate/thumbnail/transcode a video, extract or convert audio — all
-    powered by ffmpeg on a dedicated service, working on <a href="./files/">files</a> in and out. No credentials needed.
-    See <a href="./media/">Media</a> for the full catalog of operations.
+    powered by ffmpeg on a dedicated service, working on <a href="../files/">files</a> in and out. No credentials needed.
+    See <a href="../media/">Media</a> for the full catalog of operations.
+  </li>
+</ul>
+
+#### Russian services
+
+<p>
+  Built-in integrations for services in demand on the Russian market. Each is a separate vendor in the project's
+  Integrations document, with its own credential (stored separately for dev and prod, encrypted at rest).
+</p>
+<ul>
+  <li>
+    <b>1С (OData)</b>. "Get records" reads a collection (e.g. <code>Catalog_Контрагенты</code>) from a 1С:Enterprise
+    database through its standard OData interface, with an optional OData <code>$filter</code>. Credential: the OData
+    base URL (<code>…/odata/standard.odata</code>), a 1С user and password. Needs platform 8.3.5+ with the standard
+    OData interface published; read-only for now.
+  </li>
+  <li>
+    <b>Bitrix24</b>. The "Event (outgoing webhook)" trigger starts a scenario on any portal event
+    (<code>ONCRMLEADADD</code>, <code>ONCRMDEALUPDATE</code>, …); the event name is in <code>event.event</code>, so one
+    function can branch on it. Each bound trigger function gets its own URL — paste it into the portal's outgoing
+    webhook settings; the credential is that webhook's <code>application_token</code>, which every call is checked
+    against. There are no actions: call the Bitrix24 REST API through <b>HTTP request</b> with an incoming-webhook URL.
+  </li>
+  <li>
+    <b>amoCRM</b>. "Create lead" (name and price). Connected with OAuth2: register an integration in your amoCRM
+    account with the redirect URI <code>https://&lt;your backend host&gt;/oauth2/callback/amocrm</code>, enter its
+    Client ID and secret in the credential, save, then click "Connect". amocrm.ru accounts only.
+  </li>
+  <li>
+    <b>ЮKassa</b>. The "Payment/refund event" trigger starts a scenario on a notification such as
+    <code>payment.succeeded</code>, <code>payment.canceled</code> or <code>refund.succeeded</code>. Notifications are not
+    signed, so the engine re-reads the payment or refund from the ЮKassa API with the shop's credentials and passes on
+    only the confirmed object. Credential: Shop ID and secret key; paste the trigger function's URL into the merchant
+    cabinet's notification settings. To create a payment, use <b>HTTP request</b> (Basic auth plus an
+    <code>Idempotence-Key</code> header).
+  </li>
+  <li>
+    <b>Диадок</b> (Kontur Diadoc). "Get documents" lists the documents of an organization's box (up to 50, metadata
+    only). Connected with OAuth2 using your own Kontur app (redirect URI
+    <code>https://&lt;your backend host&gt;/oauth2/callback/diadoc</code>; Client ID/secret, then "Connect") plus the box
+    ID. Sending
+    and signing documents is not supported — it needs a qualified e-signature.
+  </li>
+  <li>
+    <b>МойСклад</b>, <b>Ozon Seller API</b>, <b>Wildberries Seller API</b>. One "Call method" action each, with a
+    picker over the vendor's whole API (about 1 200 methods for МойСклад, 470 for Ozon, 270 for Wildberries); the
+    method's parameters are typed, so the editor completes them. Credentials: a МойСклад access token; Ozon Client-Id
+    and Api-Key; a Wildberries API token (valid 180 days, renewed by hand in the seller cabinet). Vendor rate limits are
+    handled by automatic retries.
+  </li>
+  <li>
+    <b>GigaChat</b> and <b>YandexGPT</b>. "Chat completion" sends a prompt and stores the text answer in a variable.
+    GigaChat: the authorization key from Sber's developer cabinet and the API scope (personal or business); YandexGPT:
+    a service account API key and the folder ID. The model name is typed by hand (e.g. <code>yandexgpt/latest</code>).
+  </li>
+  <li>
+    <b>Т-Банк</b> (sandbox). "Account statement" reads a business account statement from T-Bank's public sandbox, for
+    trying out a flow; working with a real account is not supported yet.
   </li>
 </ul>
 
@@ -134,7 +195,7 @@ head:
   supports it directly. For an OAuth2 service, the OAuth2 client (client ID/secret) is registered once by the
   deployment's admin, in the Admin app's "OAuth credentials" page — not per credential. A service an admin hasn't
   enabled there doesn't appear in "add integration" at all; once enabled, connecting an account is just a "Connect"
-  click, no client ID/secret to paste in. See <a href="./administration/">Administration</a> for the full walkthrough.
+  click, no client ID/secret to paste in. See <a href="../administration/">Administration</a> for the full walkthrough.
   Some of the services above declare more than one authentication method (e.g. Slack, Notion, HubSpot, GitHub); in those
   cases the adapter picks the one best suited to a self-hosted deployment (typically a static token) rather than
   requiring a vendor-registered OAuth2 app.
@@ -150,6 +211,7 @@ head:
 #### What's next
 
 <p>
-  The list of built-in integrations keeps growing, currently toward services in demand on the Russian market: 1С,
-  Bitrix24, amoCRM, ЮKassa/SBP, Диадок/СБИС, and others.
+  The list of built-in integrations keeps growing. Most of the Russian services above start with a few core actions or
+  a single trigger; more actions (writing to 1С, amoCRM contacts and tasks, sending documents through Диадок) are
+  planned.
 </p>

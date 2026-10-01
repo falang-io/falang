@@ -45,7 +45,9 @@ head:
     <code> kubectl -n workflow get pods</code>).
   </li>
   <li>
-    Запустите выполнение через CLI администратора Temporal:
+    Откройте функцию и нажмите <b>Run</b> на панели инструментов (если у функции есть параметры, их спросят): иконка,
+    на которой идёт выполнение, подсвечивается на холсте, а боковая панель показывает статус и историю. Запустить
+    выполнение можно и через CLI администратора Temporal:
     <pre><code>{`docker compose -f docker-compose.workflow.yml exec temporal-admin-tools \\
   temporal workflow start --task-queue workflow-dev-<projectId> --type <functionName> \\
   --workflow-id demo-1 --input '{}'`}</code></pre>
@@ -67,9 +69,14 @@ head:
     <b>backend</b> — сервис, который хранит проекты, компилирует функции и управляет запуском/остановкой подов
     выполнения через Kubernetes API;
   </li>
-  <li><b>client</b> — веб-редактор схем;</li>
+  <li><b>client</b> — веб-редактор схем (приложение администратора открывается по адресу <code>/admin</code>);</li>
   <li>
-    <b>activepieces</b> — вспомогательный сервис для части интеграций (см. <a href="./integrations/">Интеграции</a>).
+    <b>MinIO</b> — S3-совместимое объектное хранилище для <a href="../files/">файлов</a> (консоль —
+    <code>http://localhost:9001</code>);
+  </li>
+  <li><b>media</b> — сервис на ffmpeg для интеграции <a href="../media/">Медиа</a>;</li>
+  <li>
+    <b>activepieces</b> — вспомогательный сервис для части интеграций (см. <a href="../integrations/">Интеграции</a>).
   </li>
 </ul>
 <p>

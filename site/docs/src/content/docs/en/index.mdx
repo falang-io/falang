@@ -22,11 +22,13 @@ head:
   .
 </p>
 <p>
-  After installation, run the program and click File -&gt; Create Project. In the dialog, enter a name, a folder, and a
-  project type.
+  After installation, run the program and choose <b>File → New Project…</b> (or click <b>New Project…</b> on the welcome
+  page). In the dialog, enter a name, a folder and a project type. An old project made with a previous version of
+  Falang is converted automatically the first time you open it; a backup of the original files is kept in its{' '}
+  <code>backup</code> folder.
 </p>
 #### Project types
-<p>At the moment there are 2 options for constructing diagrams:</p>
+<p>The Falang desktop app has three kinds of projects:</p>
 <ul>
   <li>
     <a href="./text/">
@@ -39,17 +41,67 @@ head:
       <b>Logic constructor</b>
     </a>{' '}
     - universal business logic constructor, with the ability to generate code in various programming languages: C++,
-    Rust, Go, C#, TypeScript (JavaScript).
+    Rust, Go, C#, TypeScript.
+  </li>
+  <li>
+    <a href="./code/">
+      <b>Code</b>
+    </a>{' '}
+    (C++, JavaScript, TypeScript, PHP or Rust — chosen when the project is created) - algorithm schemes
+    whose icons hold raw source code in that language, with syntax highlighting. The code is not checked; <b>Project →
+    Export Code Documents</b> assembles one source file per scheme into the project's <code>generated</code> folder.
   </li>
 </ul>
 <p>
-  Separately, the{' '}
-  <a href="./workflow/">
-    <b>Workflow builder</b>
-  </a>{' '}
-  is under active development - a visual editor for automations and business processes with durable execution on
-  Temporal.
+  Two more products are built on the same scheme engine:
 </p>
+<ul>
+  <li>
+    <a href="./arduino/">
+      <b>Falang for Arduino</b>
+    </a>{' '}
+    - a separate desktop app that compiles schemes into an Arduino sketch, uploads it to the board and debugs it right
+    on the hardware.
+  </li>
+  <li>
+    <a href="./workflow/">
+      <b>Workflow builder</b>
+    </a>{' '}
+    - a web editor for automations and business processes with durable execution on Temporal.
+  </li>
+</ul>
+#### Desktop app features
+<ul>
+  <li>
+    <b>Project files.</b> A project is a plain folder: <code>falang.json</code> describes the project, and every scheme
+    is a separate JSON file under <code>falang/schemes/</code>, named after the scheme — folders of the project tree are
+    real folders on disk. It is convenient to keep a project in git and to read it with other tools.
+  </li>
+  <li>
+    <b>Version history.</b> <b>Project → Version History</b> (<b>Sketch → Version History</b> in the Arduino app) lists
+    saved versions, compares any two of them side by side and restores an older one. Versions are stored in a git
+    repository; the repository and the author are set in <b>Settings → Versioning…</b>.
+  </li>
+  <li>
+    <a href="./ai-agent/"><b>AI agent.</b></a> <b>Project → Agent</b> opens a chat that edits schemes from a plain-language description, the same
+    way as the <a href="./workflow/ai-agent/">workflow builder's agent</a>. It needs your own OpenAI-compatible
+    endpoint, model and API key, set once in <b>Settings → Agent…</b>.
+  </li>
+  <li>
+    <a href="./coding-agents/"><b>Coding agents.</b></a> The app puts a <code>.mcp.json</code> and a <code>CLAUDE.md</code> into every project folder
+    (only if they are not there yet). An MCP-capable coding agent such as Claude Code, started in that folder, gets tools
+    to read, edit and validate the schemes. While it edits a scheme, the open tab is locked and shows an overlay.
+  </li>
+  <li>
+    <a href="./pdf-export/">
+      <b>Export to PDF</b>
+    </a>{' '}
+    - print schemes, one page per scheme.
+  </li>
+  <li>
+    <b>Interface language</b> - <b>Settings → Language…</b> (English or Russian).
+  </li>
+</ul>
 #### About the author
 <p>Project author: Sachik Sergey.</p>
 <p>

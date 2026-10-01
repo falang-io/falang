@@ -15,19 +15,29 @@ import Gallery from '../../../../components/gallery.astro';
   Then it can be exported to one of the programming languages.
 </p>
 <p>
-  At the moment, export to the following languages is implemented: C#, C++, Rust, Go, TypeScript (JavaScript).
-  It is possible to configure export to any folder at your discretion.
-  When you create an empty project, templates are automatically created to run in all supported languages.
-  To learn how to run the code, read the README.txt file in the root folder of the generated project.
-  You can configure export by selecting from the menu: File -&gt; Project settings.
+  At the moment, export to the following languages is implemented: C#, C++, Rust, Go, TypeScript.
+  Choose <b>Project → Export Configuration…</b> and add a target: a language and a folder, relative to the project
+  folder, where its code goes. There can be several targets, each with its own folder. The configuration is saved in the
+  project (<code>falang/config/logic-export.json</code>).
+  <b>Project → Export Code</b> (Ctrl+Shift+E) generates the code for every target, with a progress bar and a Cancel
+  button; an error in one target does not stop the others. C++, Go and C# get one source file, TypeScript and Rust one
+  file per scheme.
 </p>
-<p>Currently there are three types of schemes:</p>
+<p>
+  The editor only offers what every target language can compile: expressions use a reduced set of built-in functions
+  (basic <code>Math</code>, the length and indexing of arrays and strings), so code that would fail on export is flagged
+  while you type.
+</p>
+<p>Currently there are four types of schemes:</p>
 <ul>
   <li>
     <b>Function</b>. Can accept parameters as input and call other functions.
   </li>
   <li>
     <b>Object structure</b>: description of data structures. They can be used as data types in a function.
+  </li>
+  <li>
+    <b>Enum</b>: a named list of values, also usable as a data type.
   </li>
   <li>
     <b>External API</b>. Description of the external API. In the code, depending on the language, objects or interfaces are generated.

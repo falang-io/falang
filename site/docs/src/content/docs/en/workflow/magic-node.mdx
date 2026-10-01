@@ -47,12 +47,15 @@ head:
 #### The steps popup
 
 <p>
-  Double-click a magic node (or choose <b>Edit steps…</b> in its context menu) to open a popup with the generated steps
-  between <b>Start</b> and <b>End</b>. It is an ordinary scheme: you can add, move, edit and delete nodes in it.
+  Double-click a magic node (or choose <b>Edit steps…</b> in its context menu) to open a popup. Its top block holds the
+  node's text; below it, the generated steps sit between <b>Start</b> and <b>End</b>. It is an ordinary scheme: you can
+  add, move, edit and delete nodes in it.
 </p>
 <ul>
   <li>
-    <b>OK</b> saves your changes into the node; <b>Cancel</b> closes the popup and discards them.
+    <b>OK</b> saves your changes into the node; <b>Cancel</b> (or the × button) closes the popup and discards them.
+    <b>Escape</b> does not close the popup — inside it, Escape only finishes editing a block, so unsaved edits are never
+    lost by accident.
   </li>
   <li>
     While the agent is generating, the popup is read-only. A <b>Cancel generation</b> button stops the run.
@@ -67,9 +70,10 @@ head:
 #### Changing the text
 
 <p>
-  Edit the text of a magic node right on the canvas. When the text changes and the node already has steps, the editor
+  To change the text of an existing magic node, open its steps popup and edit the top block (on the canvas a
+  double-click opens the popup rather than the text). When the text changes and the node already has steps, the editor
   asks whether to <b>Update with AI</b> or <b>Keep as is</b>. Updating replaces the steps with a new version that
-  follows the new text; keeping only stores the new text.
+  follows the new text; keeping only stores the new text. If the node has no steps yet, generation simply starts.
 </p>
 
 #### Modified by hand

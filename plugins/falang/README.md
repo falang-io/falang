@@ -38,11 +38,11 @@ itself part of this repo.
 
 ## Using it with the hosted workflow product
 
-1. In the workflow web app, go to your user settings and create a **Personal access token** (PAT) —
-   shown once, optionally scoped to one project.
+1. In the workflow web app, click **Access tokens** in the project list header and create a
+   **Personal access token** (PAT) — shown once, optionally scoped to one project.
 2. Set two environment variables before starting Claude Code:
    ```bash
-   export FALANG_MCP_URL="https://workflow.falang.ru/mcp"   # or your self-hosted instance
+   export FALANG_MCP_URL="https://api.workflow.falang.ru/mcp"   # the backend's host; locally http://localhost:4100/mcp
    export FALANG_TOKEN="<your personal access token>"
    ```
 3. Start `claude` anywhere with this plugin installed. The `falang-workflow` MCP server connects

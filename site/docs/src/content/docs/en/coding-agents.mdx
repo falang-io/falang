@@ -1,0 +1,136 @@
+---
+title: Coding agents (MCP)
+description: Letting Claude Code or another MCP-capable coding agent read, edit, build and run Falang projects — desktop projects and the workflow builder
+head:
+  - tag: meta
+    attrs:
+      name: keywords
+      content: 'mcp, claude code, coding agent, personal access token, plugin, falang'
+---
+
+<p>
+  A coding agent such as <a href="https://claude.com/claude-code" target="_blank">Claude Code</a>, or any other client
+  of the Model Context Protocol (MCP), can work with Falang projects directly: read schemes, create and change them, and
+  — in the workflow builder — build, run, debug and publish. It is an alternative to the built-in{' '}
+  <a href="../ai-agent/">AI agent</a> that runs on your own subscription and in your own terminal. Every change the
+  agent writes is validated the same way as in the editor; an invalid scheme is rejected with a path to the problem and
+  nothing is saved.
+</p>
+
+#### Desktop projects
+
+<p>
+  When you create or open a project, the desktop app puts two files into the project folder, if they are not there yet:
+  <code>.mcp.json</code>, which registers the project's own <b>falang</b> MCP server, and <code>CLAUDE.md</code>, a short
+  description of the project for the agent. Existing files are never overwritten.
+</p>
+<ol>
+  <li>
+    Open a terminal in the project folder (or any folder inside it) and start the agent, e.g. <code>claude</code>.
+  </li>
+  <li>Allow the project's MCP server when the agent asks for it the first time.</li>
+  <li>Describe what to build or change.</li>
+</ol>
+<p>
+  The server is a small Node.js program shipped with the app, so <b>Node.js must be installed</b> and available as{' '}
+  <code>node</code>. Each project folder gets its own server; the app does not have to be running.
+</p>
+<p>The agent gets these tools:</p>
+<ul>
+  <li>
+    <code>get_project</code>, <code>list_documents</code>, <code>get_document</code> — read the project, its tree and a
+    scheme;
+  </li>
+  <li>
+    <code>get_node_kinds</code> — the icons a scheme may contain, their fields and which icons may go where;
+  </li>
+  <li>
+    <code>set_document</code> — replace a scheme with a new, validated version (the layout of icons that stayed is
+    kept);
+  </li>
+  <li>
+    <code>create_document</code>, <code>rename_document</code>, <code>move_document</code>,{' '}
+    <code>delete_document</code>, <code>create_folder</code> — manage documents and folders;
+  </li>
+  <li>
+    <code>lock_document</code>, <code>unlock_document</code> — the edit lock described below.
+  </li>
+</ul>
+<p>
+  Function names follow the same rule as in the editor: English camelCase, e.g. <code>myFunctionName</code>. In an
+  Arduino project the agent can edit <code>setup</code>, <code>loop</code> and other schemes, including pin and driver
+  icons, but cannot rename, move or delete the fixed documents, cannot edit the <code>Devices</code> document, and cannot
+  compile or upload the sketch — use <b>Build &amp; Upload</b> in the app for that.
+</p>
+
+#### While the agent edits
+
+<ul>
+  <li>
+    A scheme the agent is changing is <b>locked</b>: if it is open in the app, its tab is covered with "Locked by an
+    agent until …" and your edits to it are not saved until the lock is gone. A lock lasts five minutes after the
+    agent's last call, or ends as soon as the agent releases it.
+  </li>
+  <li>
+    The open app picks up the agent's changes on its own: a scheme without unsaved edits reloads in place, and the
+    project tree follows new, renamed and deleted documents.
+  </li>
+  <li>
+    If a scheme changes on disk while you have unsaved edits in it, the app asks: <b>Reload (discard my changes)</b> or{' '}
+    <b>Keep mine</b> (your next save then overwrites the file).
+  </li>
+</ul>
+
+#### Workflow builder
+
+<p>
+  The workflow backend serves MCP over HTTP at <code>/mcp</code> on the backend's host — for example{' '}
+  <code>https://api.workflow.falang.ru/mcp</code>, or <code>http://localhost:4100/mcp</code> for the{' '}
+  <a href="../workflow/local-setup/">local stack</a>. It is authenticated with a personal access token.
+</p>
+<ol>
+  <li>
+    In the workflow web app, click <b>Access tokens</b> in the project list header, then <b>+ New token</b>. Give it a
+    name (e.g. "Claude Code on my laptop"); optionally limit it to one <b>project</b> and set an expiry in days. Copy the
+    token right away — it starts with <code>flg_pat_</code> and is shown only once. A token can be revoked in the same
+    window at any time; anything using it stops working immediately.
+  </li>
+  <li>
+    Register the server with your agent, for Claude Code:
+    <pre><code>{`claude mcp add --transport http falang-workflow https://api.workflow.falang.ru/mcp \\
+  --header "Authorization: Bearer flg_pat_…"`}</code></pre>
+  </li>
+</ol>
+<p>
+  The agent gets the same document tools as on the desktop (each with a project id), plus tools to:
+</p>
+<ul>
+  <li>list, create, import and export projects (exports never include credential secrets);</li>
+  <li>find integrations by keyword and list the project's credentials (names only, never secrets);</li>
+  <li>preview the compiled code, build and start a dev run, follow where it is and read its history;</li>
+  <li>debug on the dev stand: breakpoints, pause, continue, step over;</li>
+  <li>publish a version, list versions, activate an earlier one or stop one.</li>
+</ul>
+<p>
+  A token limited to one project cannot see or create other projects. Locks work as on the desktop: a document the
+  agent is changing is covered with "Locked by an agent until …" in the browser, and an edit you made to it in the
+  meantime is reported as not saved.
+</p>
+
+#### The Claude Code plugin
+
+<p>
+  The <code>plugins/falang</code> folder of the{' '}
+  <a href="https://github.com/falang-io/falang" target="_blank">Falang repository</a> is a Claude Code plugin with three
+  skills that teach the agent the scheme model, the Arduino icons and drivers, and the workflow build-run-publish cycle,
+  plus a ready MCP entry for the workflow builder. It is optional — desktop projects work without it — but makes the
+  agent's work noticeably more accurate. From a checkout of the repository:
+</p>
+<pre><code>{`claude plugin marketplace add ./plugins
+claude plugin install falang@falang`}</code></pre>
+<p>
+  With the plugin installed, the workflow server is configured from two environment variables instead of{' '}
+  <code>claude mcp add</code>:
+</p>
+<pre><code>{`export FALANG_MCP_URL="https://api.workflow.falang.ru/mcp"
+export FALANG_TOKEN="flg_pat_…"`}</code></pre>

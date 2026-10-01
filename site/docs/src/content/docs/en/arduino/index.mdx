@@ -1,0 +1,164 @@
+---
+title: Falang for Arduino
+description: Overview of the Falang Arduino desktop app — what you need, the icons, bundled and custom device drivers, building and uploading a sketch
+head:
+  - tag: meta
+    attrs:
+      name: keywords
+      content: 'arduino, sketch, flowchart, visual programming, pins, drivers, arduino-cli'
+---
+
+<p>
+  Falang for Arduino is a desktop app for programming Arduino boards with flowcharts. You draw <code>setup</code> and{' '}
+  <code>loop</code> as schemes, describe your wiring in the <code>Devices</code> document, and the app compiles
+  everything into an ordinary Arduino sketch, uploads it to the board and lets you debug it right on the hardware.
+</p>
+
+#### What you need
+
+<ul>
+  <li>
+    <a href="https://arduino.github.io/arduino-cli/" target="_blank">
+      arduino-cli
+    </a>{' '}
+    installed and available on <code>PATH</code> — the app uses it to compile and upload, it is not bundled. If it is
+    missing, the <b>Build &amp; Upload</b> dialog says so.
+  </li>
+  <li>
+    The core for your board, installed once with arduino-cli: <code>arduino-cli core install arduino:avr</code> for
+    Uno, Nano and Mega, <code>esp32:esp32</code> for ESP32.
+  </li>
+  <li>
+    For the RGB strip driver only: <code>arduino-cli lib install "Adafruit NeoPixel"</code>. The other bundled drivers
+    need no extra libraries.
+  </li>
+</ul>
+
+#### Projects
+
+<p>
+  <b>File → New Project…</b> asks for a name, a folder and a board — Arduino Uno, Nano, Nano (old bootloader), Mega
+  2560 or ESP32 Dev Module. Every project has three fixed documents: <code>setup</code>, <code>loop</code> and{' '}
+  <code>Devices</code>; any other scheme you add is a helper function you can call from them. See{' '}
+  <a href="./project-setup/">Project setup</a> for the board binding and the <code>Devices</code> document.
+</p>
+
+#### Icons
+
+<p>A scheme offers the usual icons plus Arduino-specific ones, which are in the <b>Integrations</b> group of the insert menu.</p>
+<ul>
+  <li>
+    <b>Standard icons</b> — new variable, action, function call, if, switch, loops (for each, from/to, while, cycle) and
+    exits (break, continue, return). Expressions are written in a TypeScript-like syntax limited to what compiles to
+    C++, with Arduino's own functions and constants available: <code>digitalRead</code>, <code>analogWrite</code>,{' '}
+    <code>millis</code>, <code>map</code>, <code>constrain</code>, <code>HIGH</code>/<code>LOW</code>,{' '}
+    <code>A0</code>…<code>A7</code> and so on.
+  </li>
+  <li>
+    <b>Pins</b>: <b>Set digital pin</b> (pin number and a HIGH/LOW switch), <b>Set analog pin (PWM)</b> (a 0–255
+    slider), <b>Read digital pin</b> and <b>Read analog pin</b> (each stores the reading in a new variable; for the
+    analog read, the pin is the channel number, 0 for A0). Pin modes are set in the <code>Devices</code> document, not
+    with an icon.
+  </li>
+  <li>
+    <b>Built-in functions</b>: <b>Delay</b>, <b>Delay (microseconds)</b>, <b>Millis</b>, <b>Micros</b>,{' '}
+    <b>Random</b>, <b>Random seed</b>, <b>Serial begin</b>, <b>Serial print</b>, <b>Serial println</b>. Their arguments
+    are fixed numbers; to print a variable, write <code>Serial.println(x)</code> in an action.
+  </li>
+  <li>
+    <b>Driver actions</b> — one icon per action of each installed driver, titled "&lt;driver&gt;: &lt;action&gt;", for
+    example <b>Servo: Set angle</b>.
+  </li>
+</ul>
+<p>
+  Variables can be whole numbers and floating-point numbers of various sizes, and booleans. Strings, arrays and
+  structures are not supported in Arduino projects yet, and neither are the <b>Log</b> and <b>Throw</b> icons — the
+  board has no console or exceptions.
+</p>
+
+#### Bundled drivers
+
+<ul>
+  <li>
+    <b>Servo</b> — <i>Set angle</i> (pin, 0–180°).
+  </li>
+  <li>
+    <b>DHT11 / DHT22</b> — <i>Read temperature (°C)</i>, <i>Read humidity (%RH)</i>; the result is NaN if the read
+    fails. Leave 1–2 seconds between reads.
+  </li>
+  <li>
+    <b>HC-SR04</b> ultrasonic sensor — <i>Read distance (cm)</i>; −1 on timeout.
+  </li>
+  <li>
+    <b>LCD1602 (I2C)</b> and <b>LCD1602 (Parallel)</b> — <i>Clear display</i>, <i>Print text</i> (column, row and text;
+    the text can include expressions as <code>{'${…}'}</code>). Add the display in the <code>Devices</code> document
+    so it is initialized at startup.
+  </li>
+  <li>
+    <b>Addressable RGB strip (WS2812/NeoPixel)</b> — <i>Set pixel color</i> and <i>Show</i> (push the colors to the
+    strip). Needs the Adafruit NeoPixel library.
+  </li>
+</ul>
+<p>Only the drivers your sketch actually uses are copied into it.</p>
+
+#### Your own drivers
+
+<p>
+  You can add a driver without changing the app: put a folder with a <code>driver.config.json</code> and its{' '}
+  <code>.h</code>/<code>.cpp</code> files into the <code>drivers</code> folder inside the app's data folder (under{' '}
+  <code>~/.config</code> on Linux, <code>%APPDATA%</code> on Windows, <code>~/Library/Application Support</code> on
+  macOS) and restart the app. Drivers are read once at startup; a driver with the same <code>id</code> as a bundled one
+  replaces it, and an invalid one is skipped. The bundled drivers in the app's <code>resources/drivers</code> folder are
+  good examples.
+</p>
+<p><code>driver.config.json</code> is plain data — nothing in it is executed:</p>
+<ul>
+  <li>
+    <code>id</code> (kebab-case), <code>label</code>, <code>includes</code> (headers to <code>#include</code>),{' '}
+    <code>sourceFiles</code> (files copied next to the sketch) and <code>declarations</code> (TypeScript{' '}
+    <code>declare function …</code> lines that tell the editor about your C++ functions);
+  </li>
+  <li>
+    <code>actions</code> — each with an <code>id</code>, a <code>label</code>, <code>fields</code> (kinds{' '}
+    <code>pin</code>, <code>number</code>, <code>string</code>, <code>boolean</code>, <code>select</code>,{' '}
+    <code>new-variable</code>) and a <code>codeTemplate</code> with <code>{'${field}'}</code> placeholders; an action
+    with a <code>new-variable</code> field also sets a <code>resultType</code> (<code>int</code>, <code>float</code>,{' '}
+    <code>bool</code> or <code>string</code>);
+  </li>
+  <li>
+    optionally <code>device</code> — fields and a <code>setupTemplate</code>, which makes the driver addable in the{' '}
+    <code>Devices</code> document.
+  </li>
+</ul>
+<p>Required Arduino libraries are not installed automatically — install them with arduino-cli.</p>
+
+#### Build &amp; Upload
+
+<p>
+  <b>Sketch → Build &amp; Upload…</b> opens a dialog showing the project's board and a <b>Port</b> list (with{' '}
+  <b>Refresh</b>):
+</p>
+<ul>
+  <li>
+    <b>Compile</b> generates the sketch and compiles it without uploading;
+  </li>
+  <li>
+    <b>Upload</b> compiles the current schemes and uploads them to the board on the selected port;
+  </li>
+  <li>
+    <b>Upload (debug)</b> uploads a build with tracing and starts the <a href="./debugging/">debugger</a>.
+  </li>
+</ul>
+<p>
+  The generated sketch is <code>src/sketch/sketch.ino</code> in the project folder, together with the drivers it uses;
+  the folder is rewritten on every build. Errors in the schemes are listed with the document name, and an arduino-cli
+  failure shows its full output in the dialog.
+</p>
+
+#### Also in the app
+
+<p>
+  The <a href="../ai-agent/">AI agent</a> (<b>Sketch → Agent</b>), version history (<b>Sketch → Version History</b>),{' '}
+  <a href="../pdf-export/">export to PDF</a> and <a href="../coding-agents/">coding agents</a> work as in the main
+  Falang app.
+</p>
