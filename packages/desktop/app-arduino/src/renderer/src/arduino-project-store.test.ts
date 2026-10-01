@@ -1,7 +1,9 @@
 // @vitest-environment jsdom
 import 'reflect-metadata';
 import { describe, expect, it, vi } from 'vitest';
+import type { INode } from '@falang/dto';
 import type { IProjectTree } from '@falang/desktop-project-fs';
+import { CMD_INSERT_NODE } from '@falang/scheme';
 import { DEVICES_DOCUMENT_TYPE } from '../../shared/devices-document.js';
 import { ArduinoProjectStore } from './arduino-project-store.js';
 
@@ -230,6 +232,62 @@ describe('ArduinoProjectStore — ensureAgentDocumentOpen', () => {
 
       expect(store.activeTabId).toBe(firstId);
       expect(store.openTabIds).toContain(secondId);
+    } finally {
+      store.dispose();
+    }
+  });
+});
+
+describe('ArduinoProjectStore — autosave after a scheme edit', () => {
+  it('writes the edit even when the watcher refreshed the project tree after the scheme was built', async () => {
+    const rootNode: INode = {
+      id: 'fn-root',
+      name: 'function',
+      children: [
+        { id: 'fn-header', name: 'function-header', data: '' },
+        { id: 'fn-body', name: 'function-body', children: [], data: { parameters: [] } },
+        { id: 'fn-footer', name: 'function-footer', data: '' },
+      ],
+    };
+    const tree: IProjectTree = {
+      documents: [{ id: 'fn', folderId: null, name: 'setup', type: 'function' }],
+      folders: [],
+    };
+    const write = vi.fn().mockResolvedValue(null);
+    const onChanged = vi.fn().mockReturnValue(vi.fn());
+    (globalThis as { falang?: unknown }).falang = {
+      arduino: { getProjectConfig: vi.fn().mockResolvedValue(null) },
+      debug: {
+        onEvent: vi.fn().mockReturnValue(vi.fn()),
+        readBreakpoints: vi.fn().mockResolvedValue([]),
+        writeBreakpoints: vi.fn().mockImplementation(() => Promise.resolve()),
+      },
+      document: {
+        read: vi.fn().mockResolvedValue({ id: 'fn', name: 'setup', root: rootNode, type: 'function' }),
+        write,
+      },
+      locks: { read: vi.fn().mockResolvedValue([]) },
+      project: {
+        listTree: vi.fn().mockResolvedValue(tree),
+        onChanged,
+      },
+    };
+    const store = new ArduinoProjectStore('/fake/project');
+    try {
+      await vi.waitFor(() => expect(store.isLoadingTree).toBe(false));
+      const scheme = store.getScheme('fn');
+      const before = store.getDocument('fn');
+      onChanged.mock.calls[0]?.[0]({ kind: 'manifest' });
+      await vi.waitFor(() => expect(globalThis.falang.project.listTree).toHaveBeenCalledTimes(2));
+      await Promise.resolve();
+      expect(store.getDocument('fn')).toBe(before);
+      scheme.commands.dispatchCommand(CMD_INSERT_NODE, {
+        index: 0,
+        node: { id: 'new-action', name: 'action', data: 'x = 1' },
+        parentId: 'fn-body',
+      });
+      await vi.waitFor(() => expect(write).toHaveBeenCalled(), { timeout: 3000 });
+      expect(JSON.stringify(write.mock.calls[0]?.[1])).toContain('new-action');
     } finally {
       store.dispose();
     }

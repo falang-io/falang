@@ -317,20 +317,27 @@ export class ArduinoProjectStore {
    */
   private async refreshTreeMetadata(): Promise<void> {
     const tree = await globalThis.falang.project.listTree(this.projectDir);
+    // An already-known document keeps its object identity (only its index fields are updated in place): a live `Scheme`
+    // syncs its edits into the very `doc` object it was built from (`subscribeDesktopDocumentSync`), so replacing that
+    // object with a fresh one — which every watcher `manifest` event used to do, e.g. right after "New Project…" created
+    // the default document — left the scheme writing into an orphan while autosave read the new, stale copy (found live:
+    // edits made after the first tree refresh never reached disk).
     const existingById = new Map(this.documents.map((doc) => [doc.id, doc] as const));
-    const nextDocuments: DesktopDocument[] = tree.documents.map((entry) => ({
-      id: entry.id,
-      name: entry.name,
-      type: entry.type as DocumentType,
-      folderId: entry.folderId,
-      root: existingById.get(entry.id)?.root,
-      data: existingById.get(entry.id)?.data,
-    }));
-    const validIds = new Set(nextDocuments.map((doc) => doc.id));
-    const idsToClose = this.openTabIds.filter((id) => !validIds.has(id));
-    runInAction(() => {
+    const idsToClose = runInAction(() => {
+      const nextDocuments = tree.documents.map((entry): DesktopDocument => {
+        const existing = existingById.get(entry.id);
+        if (!existing) {
+          return { id: entry.id, name: entry.name, type: entry.type as DocumentType, folderId: entry.folderId };
+        }
+        existing.name = entry.name;
+        existing.type = entry.type as DocumentType;
+        existing.folderId = entry.folderId;
+        return existing;
+      });
+      const validIds = new Set(nextDocuments.map((doc) => doc.id));
       this.folders.replace(tree.folders);
       this.documents.replace(nextDocuments);
+      return this.openTabIds.filter((id) => !validIds.has(id));
     });
     for (const id of idsToClose) this.closeTab(id);
   }

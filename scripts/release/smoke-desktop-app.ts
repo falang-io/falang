@@ -111,7 +111,7 @@ const checkMcpServer = async (app: IPackagedApp, spec: IAppSpec, tempDir: string
   await createProject(projectDir, { name: 'Smoke', type: spec.projectType });
   const args = [path.join(app.resources, 'mcp-server', 'index.js'), projectDir];
   if (spec.projectType === 'arduino') {
-    args.push('--drivers-dir', path.join(app.resources, 'app.asar.unpacked', 'resources', 'drivers'));
+    args.push('--drivers-dir', path.join(app.resources, 'drivers'));
   }
   const transport = new StdioClientTransport({
     command: app.binary,

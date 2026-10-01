@@ -69,7 +69,7 @@ time:
 
 - **dev**: `npx tsx <repoRoot>/packages/desktop/mcp/src/main.ts .` — the app's own args are just
   `['.']`; the Arduino app additionally appends
-  `--drivers-dir <resources/drivers> --drivers-dir <userData/drivers>`. `packages/desktop/app-sketch` passes
+  `--drivers-dir <bundled drivers> --drivers-dir <userData/drivers>` (the bundled drivers are `@falang/desktop-arduino-drivers`' `drivers/` folder: `<repo>/packages/desktop/arduino-drivers/drivers` in dev, `<resourcesPath>/drivers` packaged). `packages/desktop/app-sketch` passes
   nothing extra (it has no drivers concept).
 - **packaged build**: `<resourcesPath>/mcp-server/index.js .` (+ the same `--drivers-dir` pair for
   the Arduino app) run by **the app's own binary in Node mode** — `.mcp.json` gets `command` = the
