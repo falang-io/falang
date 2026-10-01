@@ -13,20 +13,8 @@
 import 'reflect-metadata';
 import { ScriptedLlmClient, type ILlmResponse, type TScriptedStep } from '@falang/agent';
 import { container as rootContainer, resolveService, type DependencyContainer } from '@falang/di';
-import {
-  CMD_INSERT_NODE,
-  CMD_SET_DATA,
-  createINodeByName,
-  EVENT_ONCHANGE,
-  getNodeStoreDto,
-  registerGlobalTokens,
-  type Scheme,
-} from '@falang/scheme';
-import {
-  registerTypescriptProjectService,
-  TOKEN_TYPESCRIPT_PROJECT_SERVICE,
-  updateTypesRegistryFromINode,
-} from '@falang/typescript-scheme';
+import { CMD_INSERT_NODE, CMD_SET_DATA, createINodeByName, registerGlobalTokens, type Scheme } from '@falang/scheme';
+import { registerTypescriptProjectService, TOKEN_TYPESCRIPT_PROJECT_SERVICE } from '@falang/typescript-scheme';
 import { compileProject, type ICompileProjectParams } from '@falang/workflow-compiler';
 import {
   INTEGRATIONS_DOCUMENT_TYPE,
@@ -41,6 +29,10 @@ import type { IWorkflowAgentStore } from '../packages/workflow/client-common/src
 import { buildWorkflowDocumentScheme } from '../packages/workflow/client-common/src/build-workflow-document-scheme.js';
 import { getIntegrationInstances } from '../packages/workflow/client-common/src/integration-instances.js';
 import { REGISTERED_INTEGRATIONS } from '../packages/workflow/client-common/src/integrations-registry.js';
+import {
+  subscribeWorkflowDocumentSync,
+  syncWorkflowDocumentFromScheme,
+} from '../packages/workflow/client-common/src/sync-document-from-scheme.js';
 import { buildTriggerFunctionDocument } from '../packages/workflow/client-common/src/trigger-function-document.js';
 import type { DocumentType, WorkflowDocument } from '../packages/workflow/client-common/src/workflow-types.js';
 
@@ -118,22 +110,17 @@ class HeadlessWorkflowStore implements IWorkflowAgentStore {
       },
       parentContainer: this.container,
     });
-    // What the editor's `WorkflowStore.schemeOnChanged` does on every change (minus the autosave).
-    scheme.events.subscribeEvent(EVENT_ONCHANGE, () => {
-      if (scheme.rootNode) {
-        doc.data = getNodeStoreDto(scheme.rootNode, scheme);
-        updateTypesRegistryFromINode(doc.data, this.typesRegistry);
-      }
-      return false;
-    });
+    // The editor's own sync of `doc.data` and the types registry on every change (its autosave hook is host-only).
+    subscribeWorkflowDocumentSync(doc, scheme, this.typesRegistry);
     this.schemes.set(documentId, scheme);
     return scheme;
   }
 
-  /** The tree the editor would save/compile: `getNodeStoreDto` of the live root, the stored root for a never-opened one. */
+  /** The tree the editor would save/compile: `doc.data` (kept current by the shared sync), serialized on demand for a never-edited one. */
   rootOf(doc: WorkflowDocument) {
     const scheme = this.schemes.get(doc.id);
-    return scheme?.rootNode ? getNodeStoreDto(scheme.rootNode, scheme) : doc.data;
+    if (scheme) syncWorkflowDocumentFromScheme(doc, scheme, this.typesRegistry);
+    return doc.data;
   }
 
   dispose(): void {
@@ -206,6 +193,16 @@ const runAgent = async (store: HeadlessWorkflowStore): Promise<void> => {
         parentId: bodyIdOf(helper?.id ?? ''),
       });
     },
+    toolCall('create_document', { name: 'GameTypes', type: 'objects-structure' }),
+    () => {
+      const types = store.documents.find((doc) => doc.name === 'GameTypes');
+      assert(types, 'create_document did not create GameTypes');
+      // The placeholder interface's thread (`objects-structure` > body > first thread): rename it.
+      const thread = store.getScheme(types.id).rootNode?.children[1]?.children[0];
+      assert(thread, 'GameTypes has no placeholder interface');
+      return toolCall('set_data', { data: 'PlayerState', documentId: types.id, id: thread.id });
+    },
+    toolCall('list_types', {}),
     toolCall('finish', { message: 'Created helper with a counter.' }),
   ];
   const client = new ScriptedLlmClient(script);
@@ -232,6 +229,13 @@ const runAgent = async (store: HeadlessWorkflowStore): Promise<void> => {
     'helper document missing',
   );
   assert(finished === 1 && opened.length > 0, 'onRunFinished/onOpenDocument were not called');
+
+  // The agent's edit to an objects-structure document must be visible to a later `list_types` in the same run.
+  const listTypes = session.steps.find((step) => step.call.name === 'list_types');
+  assert(
+    listTypes?.result.ok && listTypes.result.content.includes('PlayerState'),
+    `list_types did not see the renamed interface: ${JSON.stringify(listTypes?.result)}`,
+  );
 
   const toolNames = new Set(client.requests[0]?.tools.map((tool) => tool.name));
   for (const name of [
@@ -284,7 +288,7 @@ const main = async (): Promise<void> => {
   const store = new HeadlessWorkflowStore();
   try {
     await runAgent(store);
-    console.log('ok   agent session: get_node_kinds, create_document, insert_nodes, finish');
+    console.log('ok   agent session: get_node_kinds, create_document, insert_nodes, set_data + list_types, finish');
     const afterAgent = compileAndTypeCheck(store);
     assert(afterAgent.workflows.includes('counter = counter + 1'), 'compiled output misses the agent-inserted action');
     console.log('ok   compile + type-check after the agent run');

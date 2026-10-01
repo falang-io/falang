@@ -10,10 +10,8 @@ import {
   type IDebugSessionStartParams,
   type HistoryStore,
   type ITheme,
-  EVENT_ONCHANGE,
   ExecutionPositionModule,
   focusNode,
-  getNodeStoreDto,
   scrollToNode,
   setSchemeStartPosition,
   TOKEN_HISTORY,
@@ -50,6 +48,7 @@ import { HttpLlmClient } from './agent/http-llm-client.js';
 import { IndexedDbAgentSessionStore } from './agent/indexed-db-session-store.js';
 import type { IWorkflowAgentStore } from './agent/workflow-agent-store.js';
 import { buildWorkflowDocumentScheme } from './build-workflow-document-scheme.js';
+import { subscribeWorkflowDocumentSync } from './sync-document-from-scheme.js';
 import { generateUuid } from './generate-uuid.js';
 import { REGISTERED_INTEGRATIONS } from './integrations-registry.js';
 import {
@@ -754,10 +753,7 @@ export class WorkflowStore implements IWorkflowAgentStore {
         if (isFunctionDoc) this.magicRuns.registerHost(doc.id, created);
       },
     });
-    scheme.events.subscribeEvent(EVENT_ONCHANGE, () => {
-      this.schemeOnChanged(doc, scheme);
-      return false;
-    });
+    subscribeWorkflowDocumentSync(doc, scheme, this.typesRegistry, () => this.sync.scheduleSaveDocument(doc));
     return scheme;
   }
 
@@ -802,14 +798,5 @@ export class WorkflowStore implements IWorkflowAgentStore {
   /** `ScheduleStatusStore`'s "is it even worth polling" gate — see ADR 0037 (private) §7. */
   private hasScheduleTrigger(): boolean {
     return this.documents.some((doc) => getTriggerFunctionBodyData(doc)?.vendor === SCHEDULE_VENDOR);
-  }
-
-  private schemeOnChanged(doc: WorkflowDocument, scheme: Scheme) {
-    const rootNode = scheme.rootNode;
-    if (!rootNode) return;
-    const node = getNodeStoreDto(rootNode, scheme);
-    doc.data = node;
-    updateTypesRegistryFromINode(node, this.typesRegistry);
-    this.sync.scheduleSaveDocument(doc);
   }
 }
