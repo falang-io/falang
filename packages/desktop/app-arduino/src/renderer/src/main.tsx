@@ -19,8 +19,8 @@ if (!rootElement) throw new Error('Root element not found');
  */
 globalThis.falang.drivers
   .list()
-  .then((drivers) => {
-    initializeDriverRegistry(drivers);
+  .then(({ drivers }) => {
+    initializeDriverRegistry(drivers.map((driver) => driver.config));
     createRoot(rootElement).render(
       <StrictMode>
         <App />

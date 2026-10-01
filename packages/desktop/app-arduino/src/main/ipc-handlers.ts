@@ -40,7 +40,6 @@ import type { IGitVersioningOptions } from '@falang/desktop-project-fs';
 import type { ICommitInfo, IProjectSnapshot, TCommitKind } from '@falang/versioning';
 import type { IStartDebugSessionParams } from '../shared/start-debug-session-params.js';
 import { IPC } from '../shared/ipc-channels.js';
-import type { IDriverConfig } from '../shared/driver-config.js';
 import type { ICreateArduinoProjectParams } from '../shared/create-arduino-project-params.js';
 import type { INewProjectLocationSuggestion } from '../shared/new-project-location.js';
 import { DEFAULT_BOARD_FQBN, type IArduinoProjectConfig } from '../shared/board.js';
@@ -78,7 +77,9 @@ import {
   startDebugSession,
   stopDebugSession,
 } from './debug-session-registry.js';
-import type { IDriverRegistry } from './drivers/driver-registry.js';
+import { registerDriverIpcHandlers } from './drivers/driver-ipc.js';
+import { DriverBuildBlockedError } from './drivers/driver-service.js';
+import type { IDriverRuntime } from './drivers/driver-runtime.js';
 
 /** `.falang-debug.json` next to `falang.json` — session-store level, host-saved (ADR 0021 (private) §3): breakpoints aren't part of the program when writing it, so they don't belong in a node's `meta` or in the exported project format. */
 const DEBUG_BREAKPOINTS_SIDECAR_NAME = '.falang-debug';
@@ -92,14 +93,25 @@ const writeAgentFilesBestEffort = (dir: string, projectType: string): void => {
     .catch((error: unknown) => reportError('Failed to write .mcp.json/CLAUDE.md', error));
 };
 
+/** A refused driver build reaches the renderer like any other compile error; anything else stays a rejection. */
+const blockedBuildOutcome = (error: unknown): { stage: 'compile-error'; message: string } => {
+  if (error instanceof DriverBuildBlockedError) return { stage: 'compile-error', message: error.message };
+  throw error;
+};
+
 export const registerIpcHandlers = (
   getMainWindow: () => BrowserWindow | null,
   // Rebuilds the native `Menu` — named generically since it's triggered both by the recent-projects
   // list changing (its original purpose) and, since the "Settings → Language…" menu item was added,
   // by a language change (the menu's own labels are translated, see `menu-labels.ts`).
   rebuildMenu: () => void,
-  driverRegistry: IDriverRegistry,
+  drivers: IDriverRuntime,
 ): void => {
+  registerDriverIpcHandlers(drivers, getMainWindow);
+  // The project watcher saw `falang/drivers/` change on disk.
+  const reloadDrivers = (): void => {
+    drivers.registry.reload().catch((error: unknown) => reportError('Failed to reload drivers', error));
+  };
   ipcMain.handle(IPC.printToPdf, async (event, params: { suggestedFileName: string }) => {
     const window = getMainWindow();
     if (!window) return { canceled: true };
@@ -170,12 +182,14 @@ export const registerIpcHandlers = (
       // StrictMode double-create bug that used to cause). Runs before `startProjectWatcher` so these
       // creates don't themselves generate watcher events for a project nobody has opened yet.
       await ensureArduinoProjectDocuments(dir);
+      // Call site 1 of driver adoption (ADR 0054 (private) §3): copy referenced library drivers into the project, point the registry at it.
+      await drivers.service.openProject(dir);
       // The renderer's `createNewProject` navigates straight here without ever calling
       // `IPC.projectOpen` (see `renderer/src/project-actions.ts`), so the watcher/agent files have
       // to start here too, not only in the `projectOpen` handler below — otherwise a brand-new
       // project would run without a watcher until the app restarts.
       writeAgentFilesBestEffort(dir, params.type);
-      startProjectWatcher(dir, getMainWindow);
+      startProjectWatcher(dir, getMainWindow, reloadDrivers);
       return manifest;
     },
   );
@@ -188,8 +202,9 @@ export const registerIpcHandlers = (
     // Backfills `setup`/`loop`/`Devices` for a project that predates one of them — same reasoning and
     // same "before the watcher starts" ordering as the `projectCreate` handler above.
     await ensureArduinoProjectDocuments(dir);
+    await drivers.service.openProject(dir);
     writeAgentFilesBestEffort(dir, manifest.type);
-    startProjectWatcher(dir, getMainWindow);
+    startProjectWatcher(dir, getMainWindow, reloadDrivers);
     return manifest;
   });
   ipcMain.handle(IPC.projectListTree, (_event, dir: string) => listTree(dir));
@@ -297,15 +312,24 @@ export const registerIpcHandlers = (
   );
   ipcMain.handle(IPC.arduinoListBoards, () => listBoards());
   ipcMain.handle(IPC.arduinoCompile, (_event, dir: string, documents: IProjectDocument[], fqbn: string) =>
-    buildAndCompileSketch(dir, documents, fqbn, driverRegistry.drivers),
+    drivers.service
+      .prepareBuildDrivers(dir, documents)
+      .then((buildDrivers) => buildAndCompileSketch(dir, documents, fqbn, buildDrivers))
+      .catch(blockedBuildOutcome),
   );
   ipcMain.handle(IPC.arduinoUpload, (_event, dir: string, documents: IProjectDocument[], fqbn: string, port: string) =>
-    buildAndUploadSketch(dir, documents, fqbn, port, driverRegistry.drivers),
+    drivers.service
+      .prepareBuildDrivers(dir, documents)
+      .then((buildDrivers) => buildAndUploadSketch(dir, documents, fqbn, port, buildDrivers))
+      .catch(blockedBuildOutcome),
   );
   ipcMain.handle(
     IPC.arduinoUploadDebug,
     (_event, dir: string, documents: IProjectDocument[], fqbn: string, port: string) =>
-      buildAndUploadDebugSketch(dir, documents, fqbn, port, driverRegistry.drivers),
+      drivers.service
+        .prepareBuildDrivers(dir, documents)
+        .then((buildDrivers) => buildAndUploadDebugSketch(dir, documents, fqbn, port, buildDrivers))
+        .catch(blockedBuildOutcome),
   );
 
   ipcMain.handle(IPC.debugStart, (_event, params: IStartDebugSessionParams): void => {
@@ -328,10 +352,6 @@ export const registerIpcHandlers = (
     IPC.debugBreakpointsWrite,
     (_event, dir: string, breakpoints: IDebugBreakpoint[]): Promise<void> =>
       writeSidecar(dir, DEBUG_BREAKPOINTS_SIDECAR_NAME, breakpoints),
-  );
-
-  ipcMain.handle(IPC.driversList, (): readonly IDriverConfig[] =>
-    driverRegistry.drivers.map((driver) => driver.config),
   );
 
   ipcMain.handle(IPC.settingsGetLanguage, () => getLanguage());
@@ -374,10 +394,14 @@ export const registerIpcHandlers = (
     (_event, dir: string, commitId: string, message: string): Promise<ICommitInfo> =>
       getVersionStore(dir).nameCommit(commitId, message),
   );
-  ipcMain.handle(
-    IPC.versioningRestore,
-    (_event, dir: string, commitId: string): Promise<ICommitInfo> => getVersionStore(dir).restore(commitId),
-  );
+  ipcMain.handle(IPC.versioningRestore, async (_event, dir: string, commitId: string): Promise<ICommitInfo> => {
+    const commit = await getVersionStore(dir).restore(commitId);
+    // A restored snapshot swaps `falang/drivers/` too (it is versioned with the project) — adopt what it references, reload.
+    await drivers.service
+      .reloadAfterRestore(dir)
+      .catch((error: unknown) => reportError('Driver reload after restore failed', error));
+    return commit;
+  });
 
   // Runs in `main`, not the renderer — same posture as `packages/desktop/app-sketch`'s own `agentChat`
   // handler (see ADR 0026 (private)): Node's `fetch` has no CORS restrictions, so

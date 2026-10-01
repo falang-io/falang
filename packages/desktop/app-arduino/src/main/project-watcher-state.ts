@@ -23,11 +23,22 @@ export const stopProjectWatcher = (): void => {
 };
 
 /** Starts watching `dir`, pushing every change to the renderer over `IPC.projectChanged`. Stops any previously-active watcher first (opening a second project replaces the first, never runs both). */
-export const startProjectWatcher = (dir: string, getMainWindow: () => BrowserWindow | null): void => {
+export const startProjectWatcher = (
+  dir: string,
+  getMainWindow: () => BrowserWindow | null,
+  // ADR 0054 (private): `falang/drivers/` changed on disk (a hand edit, a git checkout, a version restore) — `main` reloads its driver registry.
+  onDriversChanged?: () => void,
+): void => {
   stopProjectWatcher();
   currentWatcher = watchProject(dir, (event: IProjectChangeEvent) => {
     getMainWindow()?.webContents.send(IPC.projectChanged, event);
+    if (event.kind === 'drivers') onDriversChanged?.();
   });
+};
+
+/** Call around `main`'s own write into `<project>/falang/drivers/` so it does not come back as a `drivers` change. No-op if no watcher is active. */
+export const markOwnDriversWrite = (): void => {
+  currentWatcher?.markOwnDriversWrite();
 };
 
 /** Call right when `main` itself writes a document (the renderer's debounced autosave, via `IPC.documentWrite`) so the watcher drops the matching filesystem event instead of bouncing it back to the renderer as an external change. No-op if no watcher is active. */

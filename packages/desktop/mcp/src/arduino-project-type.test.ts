@@ -9,6 +9,7 @@ import {
   ARDUINO_PROJECT_TYPE,
   registerArduinoProjectType,
 } from './arduino-project-type.js';
+import { buildArduinoDriversDirs } from './parse-args.js';
 
 const writeDriver = async (driversDir: string, id: string): Promise<void> => {
   const dir = path.join(driversDir, id);
@@ -100,5 +101,31 @@ describe('registerArduinoProjectType', () => {
     const result = await registerArduinoProjectType(registry, [driversDir]);
     expect(result.driverCount).toBe(0);
     expect(result.driverErrors).toHaveLength(1);
+  });
+
+  it('picks up a project driver and lets it win over a library driver with the same id', async () => {
+    const projectDir = path.join(driversDir, 'project');
+    const libraryDir = path.join(driversDir, 'library');
+    await writeDriver(path.join(projectDir, 'falang', 'drivers'), 'only-project');
+    await writeDriver(path.join(projectDir, 'falang', 'drivers'), 'shared');
+    await writeDriver(libraryDir, 'shared');
+    await writeDriver(libraryDir, 'only-library');
+    // Make the project copy distinguishable: a different action id.
+    const sharedConfig = path.join(projectDir, 'falang', 'drivers', 'shared', 'driver.config.json');
+    const parsed = JSON.parse(await fs.readFile(sharedConfig, 'utf8')) as { actions: { id: string }[] };
+    parsed.actions[0].id = 'project-only-action';
+    await fs.writeFile(sharedConfig, JSON.stringify(parsed));
+
+    const registry = createDefaultDocumentStackRegistry();
+    const result = await registerArduinoProjectType(
+      registry,
+      buildArduinoDriversDirs({ projectDir, envDirs: [], driversDirs: [], libraryDriversDir: libraryDir }),
+    );
+    expect(result.driverCount).toBe(3);
+    const stack = registry.getStack(ARDUINO_PROJECT_TYPE, ARDUINO_FUNCTION_DOCUMENT_TYPE);
+    expect(stack?.configsMap.has('driver-action::only-project::do-it')).toBe(true);
+    expect(stack?.configsMap.has('driver-action::only-library::do-it')).toBe(true);
+    expect(stack?.configsMap.has('driver-action::shared::project-only-action')).toBe(true);
+    expect(stack?.configsMap.has('driver-action::shared::do-it')).toBe(false);
   });
 });

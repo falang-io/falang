@@ -17,7 +17,18 @@ import type { IRecentProject } from '../shared/recent-project.js';
 import type { TArduinoBuildOutcome } from '../shared/arduino-build-outcome.js';
 import type { TArduinoDebugUploadOutcome } from '../shared/arduino-debug-outcome.js';
 import type { IStartDebugSessionParams } from '../shared/start-debug-session-params.js';
-import type { IDriverConfig } from '../shared/driver-config.js';
+import type {
+  IDriverAdoptResult,
+  IDriverBundle,
+  IDriverCreateFromTemplateResult,
+  IDriverListPayload,
+  IDriverValidationResult,
+  TDriverDeleteResult,
+  TDriverEditScope,
+  TDriverFileResult,
+  TDriverImportFileResult,
+  TDriverScope,
+} from '../shared/driver-ipc-types.js';
 import type { ICreateArduinoProjectParams } from '../shared/create-arduino-project-params.js';
 import type { INewProjectLocationSuggestion } from '../shared/new-project-location.js';
 import type { IArduinoProjectConfig } from '../shared/board.js';
@@ -105,8 +116,35 @@ const falangApi = {
     writeBreakpoints: (dir: string, breakpoints: IDebugBreakpoint[]): Promise<void> =>
       ipcRenderer.invoke(IPC.debugBreakpointsWrite, dir, breakpoints),
   },
+  // Custom drivers (ADR 0054 (private)). No `dir` arguments: `main` tracks the open project (set by
+  // `project.create`/`project.open`); before one is open `list()` is bundled + library only.
   drivers: {
-    list: (): Promise<readonly IDriverConfig[]> => ipcRenderer.invoke(IPC.driversList),
+    list: (): Promise<IDriverListPayload> => ipcRenderer.invoke(IPC.driversList),
+    get: (id: string, scope: TDriverScope): Promise<IDriverBundle> => ipcRenderer.invoke(IPC.driversGet, id, scope),
+    validate: (bundle: unknown, scope: TDriverEditScope): Promise<IDriverValidationResult> =>
+      ipcRenderer.invoke(IPC.driversValidate, bundle, scope),
+    save: (bundle: unknown, scope: TDriverEditScope): Promise<IDriverValidationResult> =>
+      ipcRenderer.invoke(IPC.driversSave, bundle, scope),
+    delete: (id: string, scope: TDriverEditScope): Promise<TDriverDeleteResult> =>
+      ipcRenderer.invoke(IPC.driversDelete, id, scope),
+    saveToLibrary: (id: string): Promise<IDriverValidationResult> => ipcRenderer.invoke(IPC.driversSaveToLibrary, id),
+    addFromLibrary: (id: string): Promise<IDriverValidationResult> => ipcRenderer.invoke(IPC.driversAddFromLibrary, id),
+    replaceWithLibrary: (id: string): Promise<IDriverValidationResult> =>
+      ipcRenderer.invoke(IPC.driversReplaceWithLibrary, id),
+    importFolder: (dir: string, scope: TDriverEditScope): Promise<IDriverValidationResult> =>
+      ipcRenderer.invoke(IPC.driversImportFolder, dir, scope),
+    /** Opens the driver's folder in the OS file manager; resolves to an error message or `null`. */
+    openFolder: (id: string, scope: TDriverScope): Promise<string | null> =>
+      ipcRenderer.invoke(IPC.driversOpenFolder, id, scope),
+    createFromTemplate: (id: string, label: string): Promise<IDriverCreateFromTemplateResult> =>
+      ipcRenderer.invoke(IPC.driversCreateFromTemplate, id, label),
+    /** Call after inserting a driver node / adding a device: copies referenced library drivers into the project. */
+    adoptReferenced: (): Promise<IDriverAdoptResult> => ipcRenderer.invoke(IPC.driversAdoptReferenced),
+    exportBundle: (id: string, scope: TDriverScope): Promise<TDriverFileResult> =>
+      ipcRenderer.invoke(IPC.driversExportBundle, id, scope),
+    importBundleFile: (scope: TDriverEditScope): Promise<TDriverImportFileResult> =>
+      ipcRenderer.invoke(IPC.driversImportBundleFile, scope),
+    onChanged: subscribe(IPC.driversChanged) as (listener: (payload: IDriverListPayload) => void) => () => void,
   },
   settings: {
     getLanguage: (): Promise<string | null> => ipcRenderer.invoke(IPC.settingsGetLanguage),

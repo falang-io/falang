@@ -1,19 +1,25 @@
 import { resolveProjectDir } from './resolve-project-dir.js';
 import { startStdioServer } from './stdio.js';
-import { parseArgs, splitEnvDirs } from './parse-args.js';
+import { buildArduinoDriversDirs, parseArgs, splitEnvDirs } from './parse-args.js';
 
 /**
  * `argv[2]` is the project directory (default: cwd, then walked up to the nearest `falang.json` —
- * see `resolveProjectDir`); `--drivers-dir <path>` may repeat any number of times, appended to
+ * see `resolveProjectDir`); `--drivers-dir <path>` may repeat any number of times, `--library-drivers-dir <path>` is the user's driver library
+ * and the project's own `falang/drivers/` is always appended last (ADR 0054 (private)), all appended to
  * `FALANG_ARDUINO_DRIVERS_DIRS` (a `PATH`-style list) entries — both only matter for an `'arduino'`
  * project (see `arduino-project-type.ts`), ignored otherwise. See ADR 0029 (private)'s phase E
  * task description and the `README.md` here for the packaged-vs-dev command shape both desktop apps'
  * `mcp-server-path.ts` resolve.
  */
 const main = async (): Promise<void> => {
-  const { driversDirs, projectDirArg } = parseArgs(process.argv.slice(2));
+  const { driversDirs, libraryDriversDir, projectDirArg } = parseArgs(process.argv.slice(2));
   const projectDir = await resolveProjectDir(projectDirArg ?? process.cwd());
-  const arduinoDriversDirs = [...splitEnvDirs(process.env.FALANG_ARDUINO_DRIVERS_DIRS), ...driversDirs];
+  const arduinoDriversDirs = buildArduinoDriversDirs({
+    projectDir,
+    envDirs: splitEnvDirs(process.env.FALANG_ARDUINO_DRIVERS_DIRS),
+    driversDirs,
+    libraryDriversDir,
+  });
   await startStdioServer(projectDir, { arduinoDriversDirs });
 };
 

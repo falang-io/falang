@@ -45,8 +45,8 @@ Which registration a running server uses is decided once at startup from the pro
 ## CLI
 
 ```
-tsx src/main.ts [projectDir] [--drivers-dir <path>]...
-node dist/index.js [projectDir] [--drivers-dir <path>]...
+tsx src/main.ts [projectDir] [--drivers-dir <path>]... [--library-drivers-dir <path>]
+node dist/index.js [projectDir] [--drivers-dir <path>]... [--library-drivers-dir <path>]
 ```
 
 - `projectDir` (optional, positional): defaults to `cwd`, then walked up to the nearest ancestor
@@ -56,6 +56,11 @@ json` folders, only used when the project's own type is `'arduino'`. Later direc
   `id` collision (bundled, then user, matches `@falang/desktop-arduino-dto`'s own
   `loadDriverRegistryFromDirs`). Also readable from `FALANG_ARDUINO_DRIVERS_DIRS` (a `PATH`-style
   list — `;`-separated on Windows, `:` elsewhere), applied before any `--drivers-dir` flags.
+- `--library-drivers-dir <path>` (optional): the user's driver library (the Arduino app passes
+  `<userData>/drivers`, ADR 0054 (private)). The scan order is `FALANG_ARDUINO_DRIVERS_DIRS`, the
+  `--drivers-dir` flags (bundled), the library, and **always last** the project's own
+  `<projectDir>/falang/drivers/` — so project > library > bundled, like the app. Drivers are read once at
+  server start (restart the server to pick up a driver added since).
 - Never writes anything to stdout except MCP protocol frames — every diagnostic (fatal startup
   errors, a skipped malformed driver folder) goes to stderr.
 
@@ -69,9 +74,9 @@ time:
 
 - **dev**: `npx tsx <repoRoot>/packages/desktop/mcp/src/main.ts .` — the app's own args are just
   `['.']`; the Arduino app additionally appends
-  `--drivers-dir <bundled drivers> --drivers-dir <userData/drivers>` (the bundled drivers are `@falang/desktop-arduino-drivers`' `drivers/` folder: `<repo>/packages/desktop/arduino-drivers/drivers` in dev, `<resourcesPath>/drivers` packaged). `packages/desktop/app-sketch` passes
+  `--drivers-dir <bundled drivers> --library-drivers-dir <userData/drivers>` (the bundled drivers are `@falang/desktop-arduino-drivers`' `drivers/` folder: `<repo>/packages/desktop/arduino-drivers/drivers` in dev, `<resourcesPath>/drivers` packaged). `packages/desktop/app-sketch` passes
   nothing extra (it has no drivers concept).
-- **packaged build**: `<resourcesPath>/mcp-server/index.js .` (+ the same `--drivers-dir` pair for
+- **packaged build**: `<resourcesPath>/mcp-server/index.js .` (+ the same driver flags for
   the Arduino app) run by **the app's own binary in Node mode** — `.mcp.json` gets `command` = the
   app executable and `env: { "ELECTRON_RUN_AS_NODE": "1" }` (`@falang/desktop-worker-process`'s
   `electronNodeCommand`). A user's machine has no `node` on `PATH` to rely on. Inside a Linux AppImage
@@ -85,7 +90,7 @@ time:
 **Known gap** (flagged in the ADR, not fixed here): the Arduino app's own `userData/drivers` — the
 Phase C "install your own driver" folder — is an Electron `app.getPath('userData')` path, which this
 plain-Node package has no way to discover on its own; `mcp-server-path.ts` passes it explicitly via
-`--drivers-dir` for exactly this reason. If a project's `.mcp.json` is later run from a different
+`--library-drivers-dir` for exactly this reason. If a project's `.mcp.json` is later run from a different
 machine/user profile than the one that wrote it (moving a project folder, or running the dev `tsx`
 command by hand against someone else's `userData`), that path is stale and the server silently
 scans nothing there (`loadDriverRegistryFromDirs` treats a missing directory as zero drivers, not an

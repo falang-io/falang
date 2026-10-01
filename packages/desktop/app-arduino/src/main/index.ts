@@ -4,7 +4,8 @@ import { registerIpcHandlers } from './ipc-handlers.js';
 import { buildApplicationMenu } from './menu.js';
 import { reportError } from '../shared/report-error.js';
 import { bundledDriversDir } from './bundled-drivers-dir.js';
-import { loadDriverRegistry, type IDriverRegistry } from './drivers/driver-registry.js';
+import { createDriverRuntime } from './drivers/driver-runtime.js';
+import { IPC } from '../shared/ipc-channels.js';
 import { stopProjectWatcher } from './project-watcher-state.js';
 import { installGracefulClose } from './graceful-close.js';
 
@@ -52,8 +53,14 @@ app.whenReady().then(async () => {
   // Loaded and registered *before* `createWindow()` starts loading the renderer bundle — the renderer
   // calls `falang.drivers.list()` before its first render (see `renderer/src/main.tsx`), which would
   // race an unregistered `drivers:list` IPC handler otherwise.
-  const driverRegistry: IDriverRegistry = await loadDriverRegistry(bundledDriversDir(), userDriversDir());
-  for (const error of driverRegistry.errors) {
+  const drivers = createDriverRuntime({
+    bundledDir: bundledDriversDir(),
+    libraryDir: userDriversDir(),
+    onChanged: (payload) => mainWindow?.webContents.send(IPC.driversChanged, payload),
+  });
+  await drivers.start().catch((error: unknown) => reportError('Failed to load drivers', error));
+  app.on('will-quit', () => drivers.stop());
+  for (const error of drivers.registry.getPayload().loadErrors) {
     reportError(`Failed to load driver from ${error.dir}`, new Error(error.message));
   }
 
@@ -63,7 +70,7 @@ app.whenReady().then(async () => {
       if (mainWindow)
         buildApplicationMenu(mainWindow).catch((error: unknown) => reportError('Failed to rebuild menu', error));
     },
-    driverRegistry,
+    drivers,
   );
 
   mainWindow = createWindow();

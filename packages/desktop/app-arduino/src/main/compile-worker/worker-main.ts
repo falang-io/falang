@@ -21,11 +21,48 @@
 // a *local* file (not just a workspace package) needed this too, unlike `app-sketch`'s own export
 // worker (ADR 0019 (private)), which only ever imports workspace packages directly.
 import { runWorkerMain } from '@falang/desktop-worker-process';
-import { compileArduinoProject } from '@falang/desktop-arduino-compiler';
-import type { ICompileWorkerJob, TCompileWorkerResult } from '../../shared/compile-worker-protocol.js';
+import { compileArduinoProject, validateDriverBundle } from '@falang/desktop-arduino-compiler';
+import type {
+  IValidateDriversWorkerItem,
+  IValidateDriversWorkerResult,
+  TWorkerJob,
+  TWorkerResult,
+} from '../../shared/compile-worker-protocol.js';
 
-// oxlint-disable-next-line require-await -- `runWorkerMain`'s handler type is `Promise<TResult>`; the compile itself is synchronous (that's the whole reason it's isolated in this process), no `await` needed inside.
-runWorkerMain<ICompileWorkerJob, never, TCompileWorkerResult>(async (job) => {
+const validateOne = async (
+  item: IValidateDriversWorkerItem,
+): Promise<IValidateDriversWorkerResult['results'][number]> => {
+  const captured: Record<string, string>[] = [];
+  try {
+    const result = await validateDriverBundle(item.bundle, {
+      otherDrivers: item.ctx.otherDrivers,
+      project: item.ctx.project,
+      // Only captures the synthetic sketch — `main` runs the `arduino-cli` stage itself (cached there).
+      ...(item.captureSketch
+        ? {
+            runCliCheck: (files: Readonly<Record<string, string>>) => {
+              captured.push({ ...files });
+              return Promise.resolve({});
+            },
+          }
+        : {}),
+    });
+    return { result, ...(captured[0] ? { sketchFiles: captured[0] } : {}) };
+  } catch (error) {
+    const message = error instanceof Error ? error.message : String(error);
+    return { result: { ok: false, errors: [{ stage: 'templates', message }], warnings: [] } };
+  }
+};
+
+runWorkerMain<TWorkerJob, never, TWorkerResult>(async (job) => {
+  if (job.kind === 'validate-drivers') {
+    const results: IValidateDriversWorkerResult['results'][number][] = [];
+    for (const item of job.items) {
+      // oxlint-disable-next-line no-await-in-loop -- sequential on purpose: each item is CPU-bound, no gain from interleaving
+      results.push(await validateOne(item));
+    }
+    return { kind: 'validate-drivers', results };
+  }
   try {
     const result = compileArduinoProject({ documents: job.documents, drivers: job.drivers, debug: job.debug });
     return { ok: true, ...result, usedDriverIds: [...result.usedDriverIds] };

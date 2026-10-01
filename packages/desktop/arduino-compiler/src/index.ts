@@ -19,3 +19,9 @@ export type {
   IValidateDriverBundleContext,
   TDriverValidationStage,
 } from './driver-validation-types.js';
+export {
+  classifyCliFailure,
+  createArduinoCliDriverCheck,
+  type ICliCompileOutcome,
+  type ICreateArduinoCliDriverCheckParams,
+} from './cli-driver-check.js';

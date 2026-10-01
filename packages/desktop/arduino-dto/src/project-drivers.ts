@@ -86,7 +86,8 @@ export interface IResolvedProjectDrivers {
 export interface IResolveProjectDriversParams {
   readonly bundledDir: string;
   readonly libraryDir: string;
-  readonly projectDir: string;
+  /** `null` while no project is open — only bundled and library drivers are resolved then. */
+  readonly projectDir: string | null;
 }
 
 /** Scans the three scopes; same id: project wins over library wins over bundled. */
@@ -98,7 +99,7 @@ export const resolveProjectDrivers = async ({
   const scopes: readonly [TDriverScope, string][] = [
     ['bundled', bundledDir],
     ['library', libraryDir],
-    ['project', projectDriversDir(projectDir)],
+    ...(projectDir === null ? [] : [['project', projectDriversDir(projectDir)] as [TDriverScope, string]]),
   ];
   const scans = await Promise.all(scopes.map(([, dir]) => scanDriversDir(dir)));
   const byId = new Map<string, IResolvedDriver>();
@@ -144,6 +145,7 @@ export const collectReferencedDriverIds = (
 };
 
 export interface IAdoptReferencedDriversParams extends IResolveProjectDriversParams {
+  readonly projectDir: string;
   readonly documents: readonly Pick<IProjectDocument, 'root'>[];
   readonly devicesData?: IDevicesDocumentData | null;
 }

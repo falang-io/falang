@@ -17,9 +17,9 @@ const userDriversDir = (): string => path.join(app.getPath('userData'), 'drivers
  * Resolves the command an MCP client (Claude Code and friends) should run to start this project's
  * `falang` MCP server, written into `.mcp.json` on project create/open (see
  * `@falang/desktop-project-fs`'s `writeAgentFiles` and ADR 0029 (private)'s
- * "Delivery" section), plus this app's own two `--drivers-dir` flags (bundled, then user overrides —
- * `@falang/desktop-mcp`'s `registerArduinoProjectType` merges them in the order given, a later dir's
- * same-id driver winning, same as `loadDriverRegistry` itself). Only appended here — `packages/
+ * "Delivery" section), plus this app's driver flags: `--drivers-dir` (the bundled drivers) and `--library-drivers-dir`
+ * (the user's library; ADR 0054 (private) — the project's own `falang/drivers/` is always read by the server
+ * itself, project > library > bundled). Only appended here — `packages/
  * desktop/app`'s own `mcp-server-path.ts` has no drivers concept and passes nothing extra, per the
  * ADR's phase E "Packaged-build bundle" section.
  *
@@ -65,12 +65,12 @@ export const resolveMcpServerCommand = async (): Promise<IMcpServerCommand> => {
     );
     const { command, args, env } = electronNodeCommand(
       path.join(serverDir, 'index.js'),
-      ['.', '--drivers-dir', driversDir, '--drivers-dir', userDriversDir()],
+      ['.', '--drivers-dir', driversDir, '--library-drivers-dir', userDriversDir()],
       { persistent: true },
     );
     return { command, args: [...args], env: { ...env } };
   }
-  const driverArgs = ['--drivers-dir', bundledDriversDir(), '--drivers-dir', userDriversDir()];
+  const driverArgs = ['--drivers-dir', bundledDriversDir(), '--library-drivers-dir', userDriversDir()];
   const repoRoot = path.resolve(import.meta.dirname, '../../../../..');
   return {
     args: ['tsx', path.join(repoRoot, 'packages/desktop/mcp/src/main.ts'), '.', ...driverArgs],
