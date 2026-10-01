@@ -6,16 +6,6 @@ import { workflowFunctionalSchemeFactory } from '../workflow-functional-scheme-f
 import { buildMagicFunctionDocument } from './magic-function-document.js';
 import { magicFunctionSchemeFactory } from './magic-function-scheme-factory.js';
 
-// The real factories pull monaco-editor in through `@falang/typescript-scheme` (needs a browser at import time);
-// nothing exercised here touches it.
-vi.mock('monaco-editor', () => ({ editor: {}, languages: { typescript: {} }, Uri: {}, KeyCode: {}, KeyMod: {} }));
-vi.mock('monaco-editor/esm/vs/language/typescript/ts.worker.js?worker', () => ({ default: vi.fn() }));
-vi.mock('../../../../typescript/scheme/src/monaco/get-monaco.js', () => ({
-  getMonaco: () => ({}),
-  setMonacoLibVariant: vi.fn(),
-}));
-vi.mock('../../../../typescript/scheme/src/monaco/use-code-theme.js', () => ({ useCodeTheme: () => 'vs' }));
-
 const params = { parentContainer: rootContainer, integrations: [] };
 
 const fnDoc = (bodyChildren: INode[]) => ({

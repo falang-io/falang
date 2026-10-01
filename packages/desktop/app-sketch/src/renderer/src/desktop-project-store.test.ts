@@ -1,10 +1,6 @@
 // @vitest-environment jsdom
 // oxlint-disable max-lines -- crossed 300 lines with the new "function name validation" describe
 // block; not accumulated complexity worth splitting the file over.
-// `DesktopProjectStore` transitively imports `@falang/typescript-scheme`'s Monaco-backed blocks
-// (`function`/`objects-structure` scheme factories), which reach for a real `window` at import
-// time — same reason `@falang/text-scheme`'s `html-round-trip.test.ts` needs this directive.
-import './monaco-jsdom-shim.js';
 import 'reflect-metadata';
 import { describe, it, expect, vi } from 'vitest';
 import type { INode, IProjectDocument } from '@falang/dto';

@@ -1,8 +1,4 @@
 // @vitest-environment jsdom
-// `ArduinoProjectStore` transitively imports `@falang/typescript-scheme`'s Monaco-backed `function`
-// document editor (via `arduino-scheme-factory.ts`), which reaches for a real `window` at import time
-// — same reason `@falang/desktop-app-sketch`'s own store test needs this directive/shim.
-import './monaco-jsdom-shim.js';
 import 'reflect-metadata';
 import { describe, expect, it, vi } from 'vitest';
 import type { IProjectTree } from '@falang/desktop-project-fs';

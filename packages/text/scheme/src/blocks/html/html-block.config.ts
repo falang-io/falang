@@ -3,7 +3,6 @@ import { CELL_SIZE_2, EditorType } from '@falang/scheme';
 import { HtmlBlockComponent } from './html-block.cmp.js';
 import { HtmlBlockEditorStore } from './html-block-editor.store.js';
 import { HtmlBlockEditorComponent } from './html-block-editor.cmp.js';
-import './html-block.css';
 
 /**
  * A rich-text block backed by the Lexical editor — replaces `text-block.config.ts`'s bare

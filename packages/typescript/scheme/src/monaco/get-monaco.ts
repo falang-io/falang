@@ -4,17 +4,36 @@
 // oxlint-disable no-non-null-assertion
 // oxlint-disable prefer-global-this
 // oxlint-disable switch-case-braces
-import * as monaco from 'monaco-editor';
+import type * as monaco from 'monaco-editor';
 import { lib } from './lib.js';
 import { libPortable } from './lib-portable.js';
-import tsWorker from 'monaco-editor/esm/vs/language/typescript/ts.worker.js?worker';
-import './monaco-styles.css';
 
-self.MonacoEnvironment = {
-  getWorker: function () {
-    return new tsWorker();
-  },
+type IDisposable = monaco.IDisposable;
+type Environment = monaco.Environment;
+
+/**
+ * Monaco is host-installed: this module has no runtime dependency on `monaco-editor`, a bundler-specific
+ * `?worker` import or CSS, so the package index stays importable in plain Node (headless scheme building).
+ * A browser host calls `installMonaco` once at startup — in practice by importing
+ * `@falang/typescript-scheme/src/browser.js`, which does it with the real `monaco-editor` package.
+ */
+export interface IInstallMonacoOptions {
+  /** Creates the language-service worker (`MonacoEnvironment.getWorker`). */
+  getWorker: () => Worker;
+}
+
+type TMonacoApi = typeof monaco;
+
+let monacoNamespace: TMonacoApi | null = null;
+
+export const installMonaco = (monacoApi: TMonacoApi, options: IInstallMonacoOptions): void => {
+  monacoNamespace = monacoApi;
+  (globalThis as unknown as { MonacoEnvironment: Environment }).MonacoEnvironment = {
+    getWorker: options.getWorker,
+  };
 };
+
+export const isMonacoInstalled = (): boolean => monacoNamespace !== null;
 
 let initialized = false;
 let overflowWidgetsDomNode: HTMLElement | null = null;
@@ -29,13 +48,13 @@ const LIB_SOURCE_BY_VARIANT: Readonly<Record<TMonacoLibVariant, string>> = {
 
 let appliedLibVariant: TMonacoLibVariant | null = null;
 let desiredLibVariant: TMonacoLibVariant = 'full';
-let baseLibDisposable: monaco.IDisposable | null = null;
+let baseLibDisposable: IDisposable | null = null;
 
 let appliedExtraDeclarations: string | null = null;
 let desiredExtraDeclarations = '';
-let hostExtraLibDisposable: monaco.IDisposable | null = null;
+let hostExtraLibDisposable: IDisposable | null = null;
 
-const applyLibVariant = (): void => {
+const applyLibVariant = (monaco: TMonacoApi): void => {
   if (appliedLibVariant !== desiredLibVariant) {
     baseLibDisposable?.dispose();
     baseLibDisposable = monaco.typescript.typescriptDefaults.addExtraLib(
@@ -69,7 +88,7 @@ const applyLibVariant = (): void => {
 export const setMonacoLibVariant = (variant: TMonacoLibVariant, extraDeclarations = ''): void => {
   desiredLibVariant = variant;
   desiredExtraDeclarations = extraDeclarations;
-  if (initialized) applyLibVariant();
+  if (initialized && monacoNamespace) applyLibVariant(monacoNamespace);
 };
 
 const THEME_CLASSES = ['vs', 'vs-dark', 'hc-black', 'hc-light'];
@@ -98,7 +117,14 @@ export const getOverflowWidgetsDomNode = (themeName: string): HTMLElement => {
   return overflowWidgetsDomNode;
 };
 
-export const getMonaco = (): typeof monaco => {
+export const getMonaco = (): TMonacoApi => {
+  const monaco = monacoNamespace;
+  if (!monaco) {
+    throw new Error(
+      'Monaco is not installed. A browser host must import `@falang/typescript-scheme/src/browser.js` (or call ' +
+        '`installMonaco`) once at startup, before any monaco-backed block is created.',
+    );
+  }
   if (!initialized) {
     monaco.typescript.typescriptDefaults.setCompilerOptions({
       moduleResolution: monaco.typescript.ModuleResolutionKind.NodeJs,
@@ -119,6 +145,6 @@ export const getMonaco = (): typeof monaco => {
     monaco.typescript.typescriptDefaults.setEagerModelSync(true);
     initialized = true;
   }
-  applyLibVariant();
+  applyLibVariant(monaco);
   return monaco;
 };

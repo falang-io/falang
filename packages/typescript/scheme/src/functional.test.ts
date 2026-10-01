@@ -5,13 +5,6 @@ import { functionNodesGroup } from '@falang/typescript-dto';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { functionalSchemeFactory } from './functional.js';
 
-// `functionalSchemeFactory` pulls monaco-editor in through its block configs (it needs a real browser at import
-// time); the valence-point click path under test never touches it, so stub it out.
-vi.mock('monaco-editor', () => ({ editor: {}, languages: { typescript: {} }, Uri: {}, KeyCode: {}, KeyMod: {} }));
-vi.mock('./monaco/get-monaco.js', () => ({ getMonaco: () => ({}), setMonacoLibVariant: vi.fn() }));
-vi.mock('./monaco/use-code-theme.js', () => ({ useCodeTheme: () => 'vs' }));
-vi.mock('monaco-editor/esm/vs/language/typescript/ts.worker.js?worker', () => ({ default: vi.fn() }));
-
 describe('functionalSchemeFactory defaultInsertNodeName', () => {
   afterEach(() => vi.restoreAllMocks());
 

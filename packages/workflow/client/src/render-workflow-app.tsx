@@ -1,5 +1,6 @@
 import 'reflect-metadata';
 import '@falang/workflow-client-common/src/app.css';
+import '@falang/typescript-scheme/src/browser.js';
 import { StrictMode } from 'react';
 import { createRoot } from 'react-dom/client';
 import { App, ClientExtensionsProvider, type IClientExtensions } from '@falang/workflow-client-common';
