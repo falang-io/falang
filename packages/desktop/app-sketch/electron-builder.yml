@@ -11,24 +11,34 @@ files:
 asarUnpack:
   - resources/**
 # The bundled `@falang/desktop-mcp` stdio server (ADR 0029 (private), phase E) — `mcp-server-path.ts`
-# resolves a packaged build's command to `node <resourcesPath>/mcp-server/index.js`, so it must land
+# runs `<resourcesPath>/mcp-server/index.js` with the app's own binary in Node mode, so it must land
 # unpacked at exactly that path. Built by the `prebuild:*` npm hooks below (`npm run build -w
 # @falang/desktop-mcp`) before electron-builder runs; not part of this app's own `out/` output.
 extraResources:
   - from: ../mcp/dist/index.js
     to: mcp-server/index.js
   # The bundled codegen export worker (ADR 0019 (private)'s "Implementation notes (export worker
-  # …)") — `resolve-export-worker-command.ts` resolves a packaged build's command to `node
-  # <resourcesPath>/export-worker/index.js`. Built by this package's own `prebuild:*` npm hooks
+  # …)") — `resolve-export-worker-command.ts` runs `<resourcesPath>/export-worker/index.js` with the app's own
+  # binary in Node mode. Built by this package's own `prebuild:*` npm hooks
   # (`npm run build:export-worker`) before electron-builder runs.
   - from: worker-dist/index.js
     to: export-worker/index.js
-# No auto-update (matching the old Electron app's offline-first UX: the app never phones home — see ADR 0005 (private)).
+# File names without spaces: they become URLs in the update feed (ADR 0050 (private)).
+artifactName: falang-${version}-${arch}.${ext}
+# Targets per ADR 0050 (private): AppImage updates itself, .deb is a manual download; on macOS the .dmg
+# is the download and the .zip is what electron-updater installs (only once the app is signed).
 linux:
-  target: AppImage
+  target: [AppImage, deb]
   category: Development
+  # Required by the .deb format (the package's Maintainer field).
+  maintainer: Falang <noreply@falang.io>
+deb:
+  packageName: falang
+  artifactName: falang_${version}_${arch}.${ext}
 mac:
-  target: dmg
+  target: [dmg, zip]
   category: public.app-category.developer-tools
 win:
   target: nsis
+nsis:
+  artifactName: falang-setup-${version}.${ext}

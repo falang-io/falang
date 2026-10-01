@@ -1,7 +1,7 @@
 import type React from 'react';
 import { useEffect, useState } from 'react';
 import { observer } from 'mobx-react-lite';
-import { Alert, Button, Input, Modal, Select } from 'antd';
+import { Alert, Button, Input, Modal, Select, Tooltip, Typography } from 'antd';
 import type { IArduinoCliStatus, IConnectedBoard } from '@falang/desktop-arduino-cli';
 import type { ArduinoProjectStore } from '../arduino-project-store.js';
 import { boardLabel } from '../../../shared/board.js';
@@ -13,6 +13,8 @@ const refreshBoards = (setBoards: (boards: readonly IConnectedBoard[]) => void):
     .then(setBoards)
     .catch((error: unknown) => reportError('Failed to list boards', error));
 };
+
+const ARDUINO_CLI_INSTALL_URL = 'https://arduino.github.io/arduino-cli/latest/installation/';
 
 interface Props {
   store: ArduinoProjectStore;
@@ -40,6 +42,8 @@ export const BuildPanelModal: React.FC<Props> = observer(({ store, open, onClose
       .catch((checkError: unknown) => reportError('Failed to check arduino-cli', checkError));
     refreshBoards(setBoards);
   }, [open]);
+
+  const debugUnsupported = cliStatus?.serialMonitorSupported === false;
 
   const runBuild = async (upload: boolean): Promise<void> => {
     setError(null);
@@ -90,7 +94,25 @@ export const BuildPanelModal: React.FC<Props> = observer(({ store, open, onClose
     >
       <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
         {cliStatus?.available === false && (
-          <Alert type="warning" message="arduino-cli was not found on PATH — install it to compile or upload." />
+          <Alert
+            type="warning"
+            message="arduino-cli was not found"
+            description={
+              <>
+                Install it to compile or upload (
+                <Typography.Link href={ARDUINO_CLI_INSTALL_URL} target="_blank">
+                  installation guide
+                </Typography.Link>
+                ), or install Arduino IDE 2, which includes it. If it is installed somewhere unusual, start the app with
+                the <code>FALANG_ARDUINO_CLI</code> environment variable set to its full path.
+              </>
+            }
+          />
+        )}
+        {cliStatus?.available && cliStatus.path && (
+          <Typography.Text type="secondary" style={{ fontSize: 12 }}>
+            arduino-cli: {cliStatus.path}
+          </Typography.Text>
         )}
         <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
           <span>Board:</span>
@@ -118,16 +140,20 @@ export const BuildPanelModal: React.FC<Props> = observer(({ store, open, onClose
           <Button loading={busy} disabled={!port} onClick={() => runBuild(true)}>
             Upload
           </Button>
-          <Button
-            loading={busy}
-            disabled={!port}
-            onClick={() => {
-              onClose();
-              runDebugUpload().catch((debugError: unknown) => reportError('Failed to start debug session', debugError));
-            }}
-          >
-            Upload (debug)
-          </Button>
+          <Tooltip title={debugUnsupported ? 'The serial debugger is not supported on Windows yet.' : null}>
+            <Button
+              loading={busy}
+              disabled={!port || debugUnsupported}
+              onClick={() => {
+                onClose();
+                runDebugUpload().catch((debugError: unknown) =>
+                  reportError('Failed to start debug session', debugError),
+                );
+              }}
+            >
+              Upload (debug)
+            </Button>
+          </Tooltip>
         </div>
         {error && <Alert type="error" message={error} />}
         {output && (

@@ -3,6 +3,7 @@ import { execFileAsync } from './exec-file-async.js';
 import { runArduinoCli } from './run-arduino-cli.js';
 
 vi.mock('./exec-file-async.js', () => ({ execFileAsync: vi.fn() }));
+vi.mock('./resolve-arduino-cli.js', () => ({ resolveArduinoCli: vi.fn(() => Promise.resolve('arduino-cli')) }));
 
 const mockedExecFileAsync = vi.mocked(execFileAsync);
 

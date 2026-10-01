@@ -44,9 +44,9 @@ export const DEFAULT_BAUDRATE = 115_200;
  * its controlling terminal — after which unplugging the board (a tty hangup) would `SIGHUP` the
  * whole app. Verified under `setsid` that nothing here acquires one.
  *
- * POSIX-only (`stty -F` and its flag names are GNU/BSD `stty`, present on Linux and macOS, not
- * Windows) — a real, currently undocumented gap for a Windows host, left as a known follow-up rather
- * than guessed at without a Windows machine to verify against.
+ * POSIX-only (`stty` plus tty device files, present on Linux and macOS, not Windows) — on Windows
+ * it throws and `isSerialMonitorSupported` lets the UI hide the debug upload instead; a Windows
+ * transport is a known follow-up, not guessed at without a Windows machine to verify against.
  *
  * The caller owns framing/parsing on top of this raw byte stream (see the Arduino app's
  * `SerialDebugSession`, which speaks `falang_debug.h`'s wire protocol over it) — this module only
@@ -62,8 +62,27 @@ const openStreams = (fd: number): { readonly stdout: ReadStream; readonly stdin:
   }
 };
 
+/** Whether `monitorPort` can work on this OS at all — it needs `stty` and POSIX tty devices, so not on Windows. */
+export const isSerialMonitorSupported = (platform: NodeJS.Platform = process.platform): boolean => platform !== 'win32';
+
+/**
+ * `stty`'s arguments for configuring `port`. The device flag differs: GNU coreutils (Linux) takes
+ * `-F <device>`, BSD `stty` (macOS) takes `-f <device>` and rejects `-F` outright — so the debugger
+ * was broken on macOS too until this split (ADR 0050 (private), "B2").
+ */
+export const sttyArgs = (port: string, baudrate: number, platform: NodeJS.Platform = process.platform): string[] => [
+  platform === 'darwin' ? '-f' : '-F',
+  port,
+  'raw',
+  String(baudrate),
+  '-echo',
+];
+
 export const monitorPort = ({ port, baudrate = DEFAULT_BAUDRATE }: IMonitorPortParams): IPortMonitor => {
-  execFileSync('stty', ['-F', port, 'raw', String(baudrate), '-echo']);
+  if (!isSerialMonitorSupported()) {
+    throw new Error('The serial debugger is not supported on Windows yet.');
+  }
+  execFileSync('stty', sttyArgs(port, baudrate));
   // oxlint-disable-next-line no-bitwise -- `open(2)` flags are a bitmask by definition
   const fd = openSync(port, constants.O_RDWR | constants.O_NOCTTY);
   const streams = ((): ReturnType<typeof openStreams> => {

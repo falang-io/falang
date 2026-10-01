@@ -1,0 +1,73 @@
+name: Desktop release
+
+# Builds the desktop apps natively on Linux, Windows and macOS runners and smoke-tests each packaged
+# build on its own OS (scripts/release/smoke-desktop-app.ts). Phase 1: manual runs only, artifacts
+# kept on the run — uploading to the update feed and tag triggers come next.
+on:
+  workflow_dispatch:
+    inputs:
+      app:
+        description: Which app to build
+        type: choice
+        options: [sketch, arduino, both]
+        default: both
+
+concurrency:
+  group: desktop-release-${{ github.ref }}-${{ inputs.app }}
+  cancel-in-progress: false
+
+jobs:
+  build:
+    name: ${{ matrix.app }} · ${{ matrix.os.name }}
+    runs-on: ${{ matrix.os.runner }}
+    strategy:
+      fail-fast: false
+      matrix:
+        app: ${{ fromJSON(inputs.app == 'both' && '["sketch","arduino"]' || format('["{0}"]', inputs.app)) }}
+        os:
+          - { name: linux, runner: ubuntu-latest, builder: --linux }
+          - { name: win, runner: windows-latest, builder: --win }
+          - { name: mac, runner: macos-latest, builder: --mac }
+    env:
+      APP_DIR: packages/desktop/app-${{ matrix.app }}
+      APP_WORKSPACE: '@falang/desktop-app-${{ matrix.app }}'
+      # No signing in v1 (ADR 0050 (private), decisions 4-5): don't let electron-builder pick up a
+      # random keychain identity on the macOS runner.
+      CSC_IDENTITY_AUTO_DISCOVERY: 'false'
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: npm
+      - run: npm ci
+      - name: Bundle the MCP server and the worker
+        run: npm run prebuild:${{ matrix.os.name }} -w ${{ env.APP_WORKSPACE }}
+      - name: Build the app
+        run: npm run build -w ${{ env.APP_WORKSPACE }}
+      - name: Package (x64, unsigned)
+        working-directory: ${{ env.APP_DIR }}
+        run: npx electron-builder ${{ matrix.os.builder }} --x64 --publish never
+      - name: Rosetta for the x64 build on the arm64 runner
+        if: matrix.os.name == 'mac'
+        run: softwareupdate --install-rosetta --agree-to-license || true
+      - name: Smoke test (Linux, virtual display)
+        if: matrix.os.name == 'linux'
+        run: xvfb-run -a npx tsx scripts/release/smoke-desktop-app.ts ${{ matrix.app }} --screenshot smoke-${{ matrix.app }}-${{ matrix.os.name }}.png
+      - name: Smoke test
+        if: matrix.os.name != 'linux'
+        run: npx tsx scripts/release/smoke-desktop-app.ts ${{ matrix.app }} --screenshot smoke-${{ matrix.app }}-${{ matrix.os.name }}.png
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: ${{ matrix.app }}-${{ matrix.os.name }}
+          if-no-files-found: warn
+          path: |
+            smoke-${{ matrix.app }}-${{ matrix.os.name }}.png
+            ${{ env.APP_DIR }}/dist/*.exe
+            ${{ env.APP_DIR }}/dist/*.dmg
+            ${{ env.APP_DIR }}/dist/*.zip
+            ${{ env.APP_DIR }}/dist/*.AppImage
+            ${{ env.APP_DIR }}/dist/*.deb
+            ${{ env.APP_DIR }}/dist/*.blockmap
+            ${{ env.APP_DIR }}/dist/*.yml

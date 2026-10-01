@@ -83,12 +83,13 @@ import type { IDriverRegistry } from './drivers/driver-registry.js';
 /** `.falang-debug.json` next to `falang.json` — session-store level, host-saved (ADR 0021 (private) §3): breakpoints aren't part of the program when writing it, so they don't belong in a node's `meta` or in the exported project format. */
 const DEBUG_BREAKPOINTS_SIDECAR_NAME = '.falang-debug';
 
-/** Only-if-absent, so it's safe to call on every project create/open (see `writeAgentFiles`'s own doc comment) — failures are reported, not thrown, since a project must still open/create successfully even if `.mcp.json`/`CLAUDE.md` couldn't be written (e.g. a read-only folder). */
+/** Idempotent, so it's safe to call on every project create/open (see `writeAgentFiles`'s own doc comment) — failures are reported, not thrown, since a project must still open/create successfully even if `.mcp.json`/`CLAUDE.md` couldn't be written (e.g. a read-only folder). */
 const writeAgentFilesBestEffort = (dir: string, projectType: string): void => {
-  const { command, args } = resolveMcpServerCommand();
-  writeAgentFiles(dir, { mcpServerCommand: command, mcpServerArgs: args, projectType }).catch((error: unknown) =>
-    reportError('Failed to write .mcp.json/CLAUDE.md', error),
-  );
+  resolveMcpServerCommand()
+    .then(({ command, args, env }) =>
+      writeAgentFiles(dir, { mcpServerCommand: command, mcpServerArgs: args, mcpServerEnv: env, projectType }),
+    )
+    .catch((error: unknown) => reportError('Failed to write .mcp.json/CLAUDE.md', error));
 };
 
 export const registerIpcHandlers = (

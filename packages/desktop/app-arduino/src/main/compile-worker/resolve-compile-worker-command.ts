@@ -1,6 +1,6 @@
 import * as path from 'node:path';
 import { app } from 'electron';
-import type { IWorkerProcessCommand } from '@falang/desktop-worker-process';
+import { electronNodeCommand, type IWorkerProcessCommand } from '@falang/desktop-worker-process';
 
 /**
  * Resolves the command that runs `worker-main.ts` (this app's sketch-compile worker — see its own doc
@@ -8,10 +8,11 @@ import type { IWorkerProcessCommand } from '@falang/desktop-worker-process';
  * split as `app-sketch`'s own `resolve-export-worker-command.ts` (see its doc comment for the full
  * reasoning), reusing the identical `import.meta.dirname` repo-root walk-up:
  *
- *  - **packaged build**: `node <resourcesPath>/compile-worker/index.js` — `build-compile-worker.esbuild.ts`
+ *  - **packaged build**: `<resourcesPath>/compile-worker/index.js` run by the app's own binary in Node
+ *    mode (`electronNodeCommand`, `ELECTRON_RUN_AS_NODE=1`) — never a `node` from `PATH`, which a
+ *    typical Windows/macOS user doesn't have (ADR 0050 (private), "B1"). `build-compile-worker.esbuild.ts`
  *    bundles `worker-main.ts` into a single self-contained CJS file, copied there by
- *    `electron-builder.yml`'s `extraResources`. Requires a `node` on `PATH`, same assumption
- *    `resolveMcpServerCommand` already makes.
+ *    `electron-builder.yml`'s `extraResources`.
  *  - **dev**: the repo's own `node_modules/.bin/tsx` invoked directly against
  *    `<repoRoot>/packages/desktop/app-arduino/src/main/compile-worker/worker-main.ts`, no build step.
  *    Not `npx tsx`: `npx` interposes its own child-process wrapper that doesn't forward the `'ipc'`
@@ -22,7 +23,7 @@ import type { IWorkerProcessCommand } from '@falang/desktop-worker-process';
  */
 export const resolveCompileWorkerCommand = (): IWorkerProcessCommand => {
   if (app.isPackaged) {
-    return { command: 'node', args: [path.join(process.resourcesPath, 'compile-worker', 'index.js')] };
+    return electronNodeCommand(path.join(process.resourcesPath, 'compile-worker', 'index.js'));
   }
   // `import.meta.dirname` is always `<app>/out/main` at runtime regardless of which `src/main/**`
   // subfolder this file lives in — electron-vite bundles the whole `main` entry into one physical

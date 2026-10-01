@@ -21,8 +21,11 @@ head:
     <a href="https://arduino.github.io/arduino-cli/" target="_blank">
       arduino-cli
     </a>{' '}
-    installed and available on <code>PATH</code> — the app uses it to compile and upload, it is not bundled. If it is
-    missing, the <b>Build &amp; Upload</b> dialog says so.
+    installed — the app uses it to compile and upload, it is not bundled. The app looks for it on <code>PATH</code>, in
+    the usual install locations (Homebrew on macOS, <code>Program Files\Arduino CLI</code> on Windows,{' '}
+    <code>~/.local/bin</code> on Linux) and inside an installed Arduino IDE 2, which ships its own copy. To use a copy
+    somewhere else, start the app with the <code>FALANG_ARDUINO_CLI</code> environment variable set to its full path.
+    If it can't be found, the <b>Build &amp; Upload</b> dialog says so.
   </li>
   <li>
     The core for your board, installed once with arduino-cli: <code>arduino-cli core install arduino:avr</code> for

@@ -61,12 +61,13 @@ import { reportError } from '../shared/report-error.js';
 import { cancelExportJob, runExportJob } from './export-worker/run-export-job.js';
 import type { TExportWorkerResult } from '../shared/export-worker-protocol.js';
 
-/** Only-if-absent, so it's safe to call on every project create/open (see `writeAgentFiles`'s own doc comment) — failures are reported, not thrown, since a project must still open/create successfully even if `.mcp.json`/`CLAUDE.md` couldn't be written (e.g. a read-only folder). */
+/** Idempotent, so it's safe to call on every project create/open (see `writeAgentFiles`'s own doc comment) — failures are reported, not thrown, since a project must still open/create successfully even if `.mcp.json`/`CLAUDE.md` couldn't be written (e.g. a read-only folder). */
 const writeAgentFilesBestEffort = (dir: string, projectType: string): void => {
-  const { command, args } = resolveMcpServerCommand();
-  writeAgentFiles(dir, { mcpServerCommand: command, mcpServerArgs: args, projectType }).catch((error: unknown) =>
-    reportError('Failed to write .mcp.json/CLAUDE.md', error),
-  );
+  resolveMcpServerCommand()
+    .then(({ command, args, env }) =>
+      writeAgentFiles(dir, { mcpServerCommand: command, mcpServerArgs: args, mcpServerEnv: env, projectType }),
+    )
+    .catch((error: unknown) => reportError('Failed to write .mcp.json/CLAUDE.md', error));
 };
 
 export const registerIpcHandlers = (

@@ -21,8 +21,11 @@ head:
     <a href="https://arduino.github.io/arduino-cli/" target="_blank">
       arduino-cli
     </a>
-    , доступный через <code>PATH</code>, — через него приложение компилирует и загружает скетч; в комплект он не
-    входит. Если его нет, об этом скажет диалог <b>«Сборка и загрузка»</b>.
+    — через него приложение компилирует и загружает скетч; в комплект он не входит. Приложение ищет его в{' '}
+    <code>PATH</code>, в обычных местах установки (Homebrew на macOS, <code>Program Files\Arduino CLI</code> на
+    Windows, <code>~/.local/bin</code> на Linux) и внутри установленной Arduino IDE 2, в которую он встроен. Чтобы
+    указать копию в другом месте, запустите приложение с переменной окружения <code>FALANG_ARDUINO_CLI</code>, равной
+    полному пути к нему. Если найти его не удалось, об этом скажет диалог <b>«Сборка и загрузка»</b>.
   </li>
   <li>
     Ядро для вашей платы, один раз через arduino-cli: <code>arduino-cli core install arduino:avr</code> для Uno, Nano и

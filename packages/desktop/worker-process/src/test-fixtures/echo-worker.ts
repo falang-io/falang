@@ -8,6 +8,8 @@ interface IEchoJob {
   readonly failAt?: number;
   /** Delay between steps, so `cancel()` tests have time to kill the process mid-job. */
   readonly delayMs?: number;
+  /** Name of an environment variable to report back in the result. */
+  readonly echoEnv?: string;
 }
 
 interface IEchoProgress {
@@ -17,6 +19,7 @@ interface IEchoProgress {
 
 interface IEchoResult {
   readonly stepsCompleted: number;
+  readonly env?: string | null;
 }
 
 const sleep = (ms: number): Promise<void> =>
@@ -31,5 +34,6 @@ runWorkerMain<IEchoJob, IEchoProgress, IEchoResult>(async (job, report) => {
     if (job.failAt === step) throw new Error(`failed at step ${step}`);
     report({ done: step, total: job.steps });
   }
+  if (typeof job.echoEnv === 'string') return { stepsCompleted: job.steps, env: process.env[job.echoEnv] ?? null };
   return { stepsCompleted: job.steps };
 });
