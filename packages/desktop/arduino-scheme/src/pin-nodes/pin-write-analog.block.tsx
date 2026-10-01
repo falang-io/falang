@@ -57,46 +57,44 @@ class PinWriteAnalogBlockEditorStore extends BlockEditorStore<IPinWriteAnalogDat
   }
 }
 
-const PinWriteAnalogBlockEditorComponent: TBlockEditorView<PinWriteAnalogBlockEditorStore> = observer(
-  ({ editor }) => (
-    <TypeScriptBlockContainer>
-      <table className="ts-table ts-table--fixed">
-        <tbody>
-          <tr>
-            <td>
-              <div className="ts-label">pin</div>
-            </td>
-            <td>
-              <input
-                className="ts-input"
-                type="number"
-                min={0}
-                value={editor.data.pin}
-                onChange={(e) => editor.setPin(Number(e.currentTarget.value) || 0)}
-              />
-            </td>
-          </tr>
-          <tr>
-            <td>
-              <div className="ts-label">value</div>
-            </td>
-            <td>
-              <input
-                className="ts-input"
-                type="range"
-                min={0}
-                max={255}
-                value={editor.data.value}
-                onChange={(e) => editor.setValue(Number(e.currentTarget.value))}
-              />
-              <span>{editor.data.value}</span>
-            </td>
-          </tr>
-        </tbody>
-      </table>
-    </TypeScriptBlockContainer>
-  ),
-);
+const PinWriteAnalogBlockEditorComponent: TBlockEditorView<PinWriteAnalogBlockEditorStore> = observer(({ editor }) => (
+  <TypeScriptBlockContainer>
+    <table className="ts-table ts-table--fixed">
+      <tbody>
+        <tr>
+          <td>
+            <div className="ts-label">pin</div>
+          </td>
+          <td>
+            <input
+              className="ts-input"
+              type="number"
+              min={0}
+              value={editor.data.pin}
+              onChange={(e) => editor.setPin(Number(e.currentTarget.value) || 0)}
+            />
+          </td>
+        </tr>
+        <tr>
+          <td>
+            <div className="ts-label">value</div>
+          </td>
+          <td>
+            <input
+              className="ts-input"
+              type="range"
+              min={0}
+              max={255}
+              value={editor.data.value}
+              onChange={(e) => editor.setValue(Number(e.currentTarget.value))}
+            />
+            <span>{editor.data.value}</span>
+          </td>
+        </tr>
+      </tbody>
+    </table>
+  </TypeScriptBlockContainer>
+));
 
 export const pinWriteAnalogBlockConfig = {
   view: PinWriteAnalogBlockComponent,

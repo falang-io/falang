@@ -117,7 +117,13 @@ const FieldEditorControl: React.FC<{ field: IDriverFieldDescriptor; editor: Driv
     const onChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) =>
       editor.setFieldValue(field.name, e.currentTarget.value);
     if (field.kind === 'select' || field.kind === 'boolean') {
-      const options = field.kind === 'boolean' ? [{ value: 'true', label: 'true' }, { value: 'false', label: 'false' }] : (field.options ?? []);
+      const options =
+        field.kind === 'boolean'
+          ? [
+              { value: 'true', label: 'true' },
+              { value: 'false', label: 'false' },
+            ]
+          : (field.options ?? []);
       return (
         <TsSelect value={value} onChange={onChange}>
           {options.map((option) => (
@@ -140,7 +146,9 @@ const FieldEditorControl: React.FC<{ field: IDriverFieldDescriptor; editor: Driv
         />
       );
     }
-    return <input className="ts-input" type="number" min={field.min} max={field.max} value={value} onChange={onChange} />;
+    return (
+      <input className="ts-input" type="number" min={field.min} max={field.max} value={value} onChange={onChange} />
+    );
   },
 );
 

@@ -17,7 +17,13 @@ const dhtDriver: IDriverConfig = {
       label: 'Read temperature',
       fields: [
         { name: 'pin', label: 'Pin', kind: 'pin', default: '2' },
-        { name: 'sensorType', label: 'Sensor', kind: 'select', default: '1', options: [{ value: '1', label: 'DHT22' }] },
+        {
+          name: 'sensorType',
+          label: 'Sensor',
+          kind: 'select',
+          default: '1',
+          options: [{ value: '1', label: 'DHT22' }],
+        },
         { name: 'variable', label: 'Result', kind: 'new-variable', default: 'temperature' },
       ],
       codeTemplate: 'dht_read_temperature(${pin}, ${sensorType})',
@@ -75,7 +81,6 @@ describe('lowerDriverNodes', () => {
     const { documents } = lowerDriverNodes([document(node)], [lcdDriver]);
     expect(documents[0]?.root).toEqual({ id: 'a', name: 'action', data: 'lcd_print_text(0, 0, `Привет, ${name}!`)' });
   });
-
 
   it('lowers a driver action with a resultType into a create-var and records the used driver', () => {
     const node: INode = {

@@ -28,7 +28,8 @@ export const lowerDriverNodes = (
     if (!parsed) return node.children ? { ...node, children: node.children.map((child) => lowerNode(child)) } : node;
 
     const driver = driversById.get(parsed.driverId);
-    if (!driver) throw new Error(`Unknown driver "${parsed.driverId}" referenced by node ${node.id} — is it still installed?`);
+    if (!driver)
+      throw new Error(`Unknown driver "${parsed.driverId}" referenced by node ${node.id} — is it still installed?`);
     const driverAction = driver.actions.find((action) => action.id === parsed.actionId);
     if (!driverAction) {
       throw new Error(`Driver "${parsed.driverId}" has no action "${parsed.actionId}" (node ${node.id})`);
@@ -44,14 +45,18 @@ export const lowerDriverNodes = (
       return {
         id: node.id,
         name: 'create-var',
-        data: { name: variableName, variableType: driverResultTypeToVariableType(driverAction.resultType), value: code },
+        data: {
+          name: variableName,
+          variableType: driverResultTypeToVariableType(driverAction.resultType),
+          value: code,
+        },
       };
     }
     return { id: node.id, name: 'action', data: code };
   };
 
-  const lowered = documents.map((document): IProjectDocument =>
-    document.root ? { ...document, root: lowerNode(document.root) } : document,
+  const lowered = documents.map(
+    (document): IProjectDocument => (document.root ? { ...document, root: lowerNode(document.root) } : document),
   );
   return { documents: lowered, usedDriverIds };
 };

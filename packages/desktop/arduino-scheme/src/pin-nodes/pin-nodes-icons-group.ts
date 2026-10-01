@@ -1,6 +1,11 @@
 import { getSimpleIconNodeConfig, IconsGroup } from '@falang/scheme';
 import { NodesGroup } from '@falang/dto';
-import { PIN_READ_ANALOG, PIN_READ_DIGITAL, PIN_WRITE_ANALOG, PIN_WRITE_DIGITAL } from '@falang/desktop-arduino-dto/src/pin-nodes.js';
+import {
+  PIN_READ_ANALOG,
+  PIN_READ_DIGITAL,
+  PIN_WRITE_ANALOG,
+  PIN_WRITE_DIGITAL,
+} from '@falang/desktop-arduino-dto/src/pin-nodes.js';
 import { pinNodeConfigs } from './pin-node-configs.js';
 import { pinWriteDigitalBlockConfig } from './pin-write-digital.block.js';
 import { pinWriteAnalogBlockConfig } from './pin-write-analog.block.js';

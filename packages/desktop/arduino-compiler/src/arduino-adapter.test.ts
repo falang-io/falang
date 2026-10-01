@@ -27,7 +27,7 @@ describe('arduinoAdapter', () => {
     expect(arduinoAdapter.formatStringLiteral('hi')).toBe('"hi"');
   });
 
-  it('emits a template literal via the Arduino String class ending in .c_str(), overriding cppAdapter\'s <sstream>-based default', () => {
+  it("emits a template literal via the Arduino String class ending in .c_str(), overriding cppAdapter's <sstream>-based default", () => {
     const segments = [
       { isExpr: false, text: 'Hello, ' },
       { isExpr: true, text: 'name' },
