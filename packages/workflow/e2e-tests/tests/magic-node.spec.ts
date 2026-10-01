@@ -39,16 +39,18 @@ const waitForBody = (
 
 /**
  * Left-clicks the (first) valence point of the scheme inside `scope`: hovering a point makes the canvas show
- * its big `.selected-valence-point` target, which is what receives the click.
+ * its big `.selected-valence-point` target, which is what receives the click. The hover is retried because a
+ * modal's opening zoom animation moves the point after its box was measured.
  */
 const clickValencePoint = async (page: Page, scope: Locator): Promise<void> => {
   const point = scope.locator('.valence-point').first();
-  await expect(point).toBeAttached();
-  const box = await point.boundingBox();
-  if (!box) throw new Error('valence point has no box');
-  await page.mouse.move(box.x + box.width / 2, box.y + box.height / 2);
   const target = scope.locator('.selected-valence-point');
-  await expect(target).toBeVisible();
+  await expect(async () => {
+    const box = await point.boundingBox();
+    if (!box) throw new Error('valence point has no box');
+    await page.mouse.move(box.x + box.width / 2, box.y + box.height / 2);
+    await expect(target).toBeVisible({ timeout: 1000 });
+  }).toPass({ timeout: 10_000 });
   await target.click();
 };
 
@@ -174,10 +176,13 @@ test.describe('magic node', () => {
       return magic?.meta?.handEdited === true;
     });
 
-    // (c) Change the spell inline -> confirm -> "Update with AI" -> new steps, hand-edited mark gone.
+    // (c) Change the spell in the popup header -> confirm -> "Update with AI" -> new steps, hand-edited mark
+    // gone. (In the main scheme a single click only selects the block and a double click opens the popup.)
     await queueFill(apiKey, magicId, ['first-step', 'second-step']);
-    await magicBlocks(page).first().click();
-    const editor = page.locator('textarea.editable-content');
+    await magicBlocks(page).first().dblclick();
+    await expect(modal).toBeVisible();
+    await modal.getByText('say greeting', { exact: true }).dblclick();
+    const editor = modal.locator('textarea.editable-content');
     await expect(editor).toBeVisible();
     await editor.fill('say two things');
     await editor.press('Enter');
@@ -189,6 +194,9 @@ test.describe('magic node', () => {
       );
       return messages.has('first-step') && messages.has('second-step') && magic?.meta?.handEdited !== true;
     });
+    await expect(page.getByTestId('magic-editor-status')).toHaveAttribute('data-status', 'idle');
+    await page.getByTestId('magic-editor-cancel').click();
+    await expect(modal).toHaveCount(0);
     await expect(magicBlocks(page).first()).toContainText('say two things');
     await expect(page.locator('.workflow-magic-block__status--handEdited')).toHaveCount(0);
     await magicBlocks(page).first().dblclick();

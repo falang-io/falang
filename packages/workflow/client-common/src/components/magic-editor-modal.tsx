@@ -162,6 +162,8 @@ const MagicEditorBody: React.FC<{ target: ITarget }> = observer(({ target }) => 
       width="90vw"
       destroyOnHidden
       maskClosable={false}
+      // Escape belongs to the scheme's own inline editors here; letting it close the modal discarded every edit.
+      keyboard={false}
       title={t('client:magic.title')}
       onCancel={close}
       footer={[
