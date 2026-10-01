@@ -15,17 +15,50 @@ export interface IApiUser {
   readonly role: 'user' | 'admin';
   /** `true` only for the seeded `admin` account while its password is still `admin` — drives the warning banner. */
   readonly defaultPasswordInUse?: boolean;
+  readonly email?: string | null;
+  /** `false` for a self-registered address not yet confirmed via the mailed link. */
+  readonly emailVerified?: boolean;
+  readonly activatedAt?: string | null;
+  readonly companyName?: string | null;
 }
 
 /** `GET /auth/config` (public) — what the login page needs before anyone is signed in. */
 export interface IApiAuthConfig {
   readonly selfServiceSignup: boolean;
   readonly termsUrl: string | null;
+  /** Absent on an older backend — derive from `selfServiceSignup` then. */
+  readonly signupMode?: 'off' | 'open' | 'application';
+  readonly captcha?: { readonly provider: 'recaptcha'; readonly siteKey: string } | null;
+  readonly mailConfigured?: boolean;
+}
+
+/** `POST /auth/register` body in `application` mode (closed beta). */
+export interface IApiApplicationInput {
+  readonly email: string;
+  readonly companyName: string;
+  readonly automationInterest: string;
+  readonly acceptTerms: boolean;
+  readonly captchaToken: string;
+}
+
+/** `POST /auth/register` body in `open` mode. */
+export interface IApiOpenSignupInput {
+  readonly username: string;
+  readonly password: string;
+  readonly email?: string;
+  readonly acceptTerms?: boolean;
 }
 
 export interface IApiLoginResult {
   readonly accessToken: string;
   readonly user: IApiUser;
+}
+
+/** `GET /project-templates` row — an enabled template offered by "New project". */
+export interface IApiProjectTemplate {
+  readonly id: string;
+  readonly name: string;
+  readonly description: string;
 }
 
 export interface IApiProject {
@@ -356,3 +389,14 @@ export interface IApiTask {
  * is what actually interprets a vendor's own keys into struct types.
  */
 export type IApiVendorData = Record<string, Record<string, unknown>>;
+
+/** A message of the user ↔ administrator support chat (`/support/messages`, `/admin/support/threads/:userId/messages`). */
+export interface IApiSupportMessage {
+  readonly id: string;
+  readonly userId: string;
+  readonly authorRole: 'user' | 'admin';
+  readonly authorId: string;
+  readonly text: string;
+  readonly createdAt: string;
+  readonly readAt: string | null;
+}

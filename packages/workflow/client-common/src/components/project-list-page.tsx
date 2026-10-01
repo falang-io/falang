@@ -2,7 +2,7 @@ import type React from 'react';
 import { useEffect, useState } from 'react';
 import { observer } from 'mobx-react-lite';
 import { getGlobalI18n, type TFunction } from '@falang/scheme';
-import { Badge, Button, Empty, Input, List, Modal, Popconfirm, Segmented, Spin, Typography } from 'antd';
+import { Badge, Button, Empty, Input, List, Modal, Popconfirm, Segmented, Select, Spin, Typography } from 'antd';
 import type { IApiProjectExport } from '../api-client.js';
 import { authStore } from '../auth-store.js';
 import { navigationStore } from '../navigation-store.js';
@@ -11,9 +11,10 @@ import { sortExtensionNavItems, useClientExtensions } from '../extensions/client
 import { TasksStore } from '../tasks-store.js';
 import { LanguageSwitcher } from './language-switcher.js';
 import { ChangePasswordModal } from './change-password-modal.js';
-import { DefaultPasswordBanner } from './default-password-banner.js';
+import { DefaultPasswordBanner, EmailNotVerifiedBanner } from './default-password-banner.js';
 import { PersonalAccessTokensModal } from './personal-access-tokens-modal.js';
 import { TopBar } from './top-bar.js';
+import { SupportButton } from './support-button.js';
 
 type TCreateMode = 'empty' | 'file';
 
@@ -106,6 +107,7 @@ export const ProjectListPage: React.FC = observer(() => {
   const [createMode, setCreateMode] = useState<TCreateMode>('empty');
   const [importPayload, setImportPayload] = useState<IApiProjectExport | null>(null);
   const [importError, setImportError] = useState<string | null>(null);
+  const [templateId, setTemplateId] = useState<string | null>(null);
 
   const resetModal = () => {
     setModalOpen(false);
@@ -113,12 +115,16 @@ export const ProjectListPage: React.FC = observer(() => {
     setCreateMode('empty');
     setImportPayload(null);
     setImportError(null);
+    setTemplateId(null);
   };
 
   const handleCreate = async () => {
     const name = newProjectName.trim();
     if (!name) return;
-    const project = await store.createProject(name);
+    const project = templateId
+      ? await store.createProjectFromTemplate(templateId, name)
+      : await store.createProject(name);
+    // TODO(P3): eventTracker.track('template_used', { templateId })
     if (project) {
       resetModal();
       navigationStore.selectProject(project.id, project.name);
@@ -171,6 +177,7 @@ export const ProjectListPage: React.FC = observer(() => {
             {item.label}
           </Button>
         ))}
+        <SupportButton />
         <Button type="text" onClick={() => setTokensModalOpen(true)}>
           {t('client:project-list-page.tokens')}
         </Button>
@@ -190,6 +197,7 @@ export const ProjectListPage: React.FC = observer(() => {
         </Button>
       </TopBar>
       <DefaultPasswordBanner />
+      <EmailNotVerifiedBanner />
       <div style={styles.content}>
         {renderProjectList(store, t)}
 
@@ -220,6 +228,7 @@ export const ProjectListPage: React.FC = observer(() => {
           value={createMode}
           onChange={(value) => {
             setCreateMode(value as TCreateMode);
+            setTemplateId(null);
             setNewProjectName('');
             setImportPayload(null);
             setImportError(null);
@@ -229,6 +238,21 @@ export const ProjectListPage: React.FC = observer(() => {
             { label: t('client:project-list-page.mode-file'), value: 'file' },
           ]}
         />
+        {createMode === 'empty' && store.templates.length > 0 && (
+          <div data-testid="project-template-select" style={{ marginBottom: 16 }}>
+            <Select
+              style={{ width: '100%' }}
+              placeholder={t('client:project-list-page.template-placeholder')}
+              allowClear
+              value={templateId}
+              onChange={(value: string | undefined) => setTemplateId(value ?? null)}
+              options={store.templates.map((template) => ({
+                value: template.id,
+                label: template.name,
+              }))}
+            />
+          </div>
+        )}
         {createMode === 'file' && (
           <>
             <input

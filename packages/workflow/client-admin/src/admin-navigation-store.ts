@@ -1,6 +1,6 @@
 import { action, makeObservable, observable } from 'mobx';
 
-export type TAdminPage = 'users' | 'oauth-credentials' | 'agent-settings';
+export type TAdminPage = 'users' | 'oauth-credentials' | 'agent-settings' | 'project-templates' | 'support';
 
 /** Which admin sub-page is shown — the admin app has no router either, same as the main client's `NavigationStore`. */
 export class AdminNavigationStore {

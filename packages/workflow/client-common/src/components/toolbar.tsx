@@ -22,6 +22,7 @@ import { CodeViewerModal } from './code-viewer-modal.js';
 import { LiveRunControls } from './live-run-controls.js';
 import { RunFunctionModal } from './run-function-modal.js';
 import { VersionsModal } from './versions-modal.js';
+import { SupportButton } from './support-button.js';
 
 const RUNNING_COLOR = '#a6e3a1';
 const STOPPED_COLOR = '#f38ba8';
@@ -243,6 +244,7 @@ export const Toolbar: React.FC = observer(() => {
           {t('client:toolbar.tasks')}
         </Button>
       </Badge>
+      <SupportButton type="default" style={S.btn} />
       <Button
         icon={<RobotOutlined />}
         style={S.btn}

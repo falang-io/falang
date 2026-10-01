@@ -7,6 +7,7 @@ import { workflowApi, type IApiWorkflowRunFilters, type IApiWorkflowRunSummary }
 import { navigationStore } from '../navigation-store.js';
 import { LanguageSwitcher } from './language-switcher.js';
 import { RunDetailDrawer } from './run-detail-drawer.js';
+import { SupportButton } from './support-button.js';
 
 const styles: Record<string, React.CSSProperties> = {
   root: {
@@ -110,6 +111,9 @@ export const RunsPage: React.FC = observer(() => {
           </Typography.Title>
           <div>
             <LanguageSwitcher />
+            <span style={{ marginLeft: 8 }}>
+              <SupportButton type="default" />
+            </span>
             <Button onClick={() => navigationStore.goToProjectList()} style={{ marginLeft: 8, marginRight: 8 }}>
               {t('client:runs-page.back-to-projects')}
             </Button>

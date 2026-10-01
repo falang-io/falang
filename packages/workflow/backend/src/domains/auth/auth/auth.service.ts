@@ -1,4 +1,11 @@
-import { BadRequestException, ConflictException, Inject, Injectable, UnauthorizedException } from '@nestjs/common';
+import {
+  BadRequestException,
+  ConflictException,
+  ForbiddenException,
+  Inject,
+  Injectable,
+  UnauthorizedException,
+} from '@nestjs/common';
 import { JwtService } from '@nestjs/jwt';
 import * as bcrypt from 'bcrypt';
 import { UsersService } from '../../users/users/users.service.js';
@@ -14,6 +21,11 @@ export interface IAuthUser {
   username: string;
   language: string;
   role: string;
+  email: string | null;
+  emailVerified: boolean;
+  /** ISO timestamp; `null` for an application that is not activated yet. */
+  activatedAt: string | null;
+  companyName: string | null;
   /** `true` only for the seeded `admin` account while its password is still `admin`. */
   defaultPasswordInUse: boolean;
 }
@@ -32,7 +44,15 @@ export class AuthService {
   }
 
   async validateUser(username: string, password: string): Promise<User> {
-    const user = await this.usersService.findByUsername(username);
+    const user = (await this.usersService.findByUsername(username)) ?? (await this.usersService.findByEmail(username));
+    // Checked before the password: an application has no usable password until an admin activates it.
+    if (user && !user.activatedAt) {
+      throw new ForbiddenException({
+        statusCode: 403,
+        code: user.emailVerifiedAt ? 'not_activated' : 'email_not_verified',
+        message: user.emailVerifiedAt ? 'Your application has not been activated yet' : 'Confirm your e-mail first',
+      });
+    }
     if (!user || !(await bcrypt.compare(password, user.password))) {
       throw new UnauthorizedException('Invalid username or password');
     }
@@ -49,6 +69,10 @@ export class AuthService {
       username: user.username,
       language: user.language,
       role: user.role,
+      email: user.email,
+      emailVerified: user.emailVerifiedAt !== null,
+      activatedAt: user.activatedAt ? user.activatedAt.toISOString() : null,
+      companyName: user.companyName,
       defaultPasswordInUse,
     };
   }
@@ -58,10 +82,26 @@ export class AuthService {
     return { accessToken, user: await this.toAuthUser(user) };
   }
 
-  async register(username: string, password: string, termsAcceptedAt: Date | null = null): Promise<ILoginResult> {
+  /** `open` mode: active immediately; an optional e-mail is stored (verification is sent by the caller). */
+  async register(
+    username: string,
+    password: string,
+    termsAcceptedAt: Date | null = null,
+    email: string | null = null,
+  ): Promise<ILoginResult> {
     const existing = await this.usersService.findByUsername(username);
     if (existing) throw new ConflictException('Username is already taken');
-    const user = await this.usersService.create({ username, password, termsAcceptedAt });
+    const normalizedEmail = email ? email.trim().toLowerCase() : null;
+    if (normalizedEmail && (await this.usersService.findByEmail(normalizedEmail))) {
+      throw new ConflictException('E-mail is already taken');
+    }
+    const user = await this.usersService.create({
+      username,
+      password,
+      termsAcceptedAt,
+      email: normalizedEmail,
+      signupSource: 'self-service',
+    });
     return this.login(user);
   }
 

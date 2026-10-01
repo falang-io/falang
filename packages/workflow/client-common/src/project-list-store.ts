@@ -1,5 +1,6 @@
+import { eventTracker } from './analytics/event-tracker.js';
 import { action, computed, makeObservable, observable, runInAction } from 'mobx';
-import { workflowApi, type IApiProject, type IApiProjectExport } from './api-client.js';
+import { workflowApi, type IApiProject, type IApiProjectExport, type IApiProjectTemplate } from './api-client.js';
 
 const changedAt = (project: IApiProject): number => Date.parse(project.lastEditedAt ?? project.createdAt) || 0;
 
@@ -9,6 +10,8 @@ export class ProjectListStore {
   @observable error: string | null = null;
   @observable isCreating = false;
   @observable deletingId: string | null = null;
+  /** Enabled project templates for the "New project" picker; empty when the list is unavailable (name-only creation then). */
+  readonly templates = observable<IApiProjectTemplate>([]);
 
   /** Most recently changed first; a never-edited project counts by its creation time. */
   @computed get sortedProjects(): IApiProject[] {
@@ -18,6 +21,16 @@ export class ProjectListStore {
   constructor() {
     makeObservable(this);
     this.load();
+    this.loadTemplates();
+  }
+
+  async loadTemplates(): Promise<void> {
+    try {
+      const templates = await workflowApi.listProjectTemplates();
+      runInAction(() => this.templates.replace(templates));
+    } catch {
+      // Templates are optional: without them the dialog falls back to plain name-only creation.
+    }
   }
 
   async load(): Promise<void> {
@@ -40,6 +53,25 @@ export class ProjectListStore {
     this.isCreating = true;
     try {
       const project = await workflowApi.createProject(name);
+      runInAction(() => {
+        this.projects.push(project);
+        this.isCreating = false;
+      });
+      eventTracker.track('project_created', { fromTemplate: false });
+      return project;
+    } catch (error) {
+      runInAction(() => {
+        this.error = error instanceof Error ? error.message : 'Failed to create project';
+        this.isCreating = false;
+      });
+      return null;
+    }
+  }
+
+  @action async createProjectFromTemplate(templateId: string, name: string): Promise<IApiProject | null> {
+    this.isCreating = true;
+    try {
+      const project = await workflowApi.createProjectFromTemplate(templateId, name);
       runInAction(() => {
         this.projects.push(project);
         this.isCreating = false;

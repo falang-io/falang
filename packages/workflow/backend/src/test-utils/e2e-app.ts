@@ -13,6 +13,9 @@ import { UserLimits } from '../domains/admin/user-limits/user-limits.entity.js';
 import { AgentChatModule } from '../domains/agent-chat/agent-chat.module.js';
 import { AuthModule } from '../domains/auth/auth/auth.module.js';
 import { JwtAuthGuard } from '../domains/auth/auth/jwt-auth.guard.js';
+import { AuthToken } from '../domains/auth/auth-tokens/auth-token.entity.js';
+import { MAIL_TRANSPORT } from '../domains/mail/mail.service.js';
+import { CapturingMailTransport } from './capturing-mail-transport.js';
 import { PersonalAccessToken } from '../domains/auth/personal-access-tokens/personal-access-token.entity.js';
 import { PersonalAccessTokensModule } from '../domains/auth/personal-access-tokens/personal-access-tokens.module.js';
 import { FILE_STORAGE } from '../domains/files/file-storage.js';
@@ -29,10 +32,14 @@ import { FoldersModule } from '../domains/projects/folders/folders.module.js';
 import { AgentUsage } from '../domains/agent-chat/agent-usage.entity.js';
 import { Project } from '../domains/projects/projects/project.entity.js';
 import { ProjectsModule } from '../domains/projects/projects/projects.module.js';
+import { ProjectTemplate } from '../domains/projects/templates/project-template.entity.js';
+import { ProjectTemplatesModule } from '../domains/projects/templates/project-templates.module.js';
 import { TreeModule } from '../domains/projects/tree/tree.module.js';
 import { ProjectBlob } from '../domains/projects/versioning/project-blob.entity.js';
 import { ProjectCommit } from '../domains/projects/versioning/project-commit.entity.js';
 import { VersioningModule } from '../domains/projects/versioning/versioning.module.js';
+import { SupportMessage } from '../domains/support/support-message.entity.js';
+import { SupportModule } from '../domains/support/support.module.js';
 import { User } from '../domains/users/users/user.entity.js';
 import { UsersModule } from '../domains/users/users/users.module.js';
 
@@ -70,11 +77,15 @@ export const buildTestAppImports = (extraModules: TAppImport[] = []) => [
       UserLimits,
       File,
       AgentUsage,
+      ProjectTemplate,
+      AuthToken,
+      SupportMessage,
     ],
   }),
   UsersModule,
   AuthModule,
   PersonalAccessTokensModule,
+  ProjectTemplatesModule,
   ProjectsModule,
   FoldersModule,
   DocumentsModule,
@@ -84,6 +95,7 @@ export const buildTestAppImports = (extraModules: TAppImport[] = []) => [
   IntegrationsModule,
   AdminModule,
   AgentChatModule,
+  SupportModule,
   FilesModule,
   GatewayModule.forRoot([], noopDiscoveryPort),
   ...extraModules,
@@ -108,6 +120,7 @@ export const buildTestAppImports = (extraModules: TAppImport[] = []) => [
 export const createTestApp = async (
   beforeInit?: (app: INestApplication) => void | Promise<void>,
 ): Promise<INestApplication> => {
+  // `SIGNUP_MODE` (per-test via `vi.stubEnv` before this call) wins over this legacy flag.
   // Signup is off by default in production; most suites register users through the API, so the
   // harness opts in unless a test explicitly set the flag first (`vi.stubEnv` after this call wins).
   process.env.SELF_SERVICE_SIGNUP ??= 'true';
@@ -121,6 +134,9 @@ export const createTestApp = async (
     // See ADR 0038 (private) §2.
     .overrideProvider(FILE_STORAGE)
     .useValue(new InMemoryFileStorage())
+    // Mail goes to a capturing fake (`app.get(MAIL_TRANSPORT)`), never to SMTP.
+    .overrideProvider(MAIL_TRANSPORT)
+    .useValue(new CapturingMailTransport())
     .compile();
 
   // `rawBody: true` — matches `main.ts`'s own bootstrap option, so `req.rawBody` is populated the

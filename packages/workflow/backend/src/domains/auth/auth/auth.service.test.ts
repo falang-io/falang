@@ -7,18 +7,27 @@ import type { UsersService } from '../../users/users/users.service.js';
 import { AuthService } from './auth.service.js';
 
 const makeUser = async (username: string, password: string): Promise<User> =>
-  ({ id: 'user-1', username, password: await bcrypt.hash(password, 4), createdAt: new Date() }) as User;
+  ({
+    id: 'user-1',
+    username,
+    password: await bcrypt.hash(password, 4),
+    createdAt: new Date(),
+    email: null,
+    emailVerifiedAt: null,
+    activatedAt: new Date(),
+    companyName: null,
+  }) as User;
 
 describe('AuthService', () => {
   // oxlint-disable-next-line init-declarations
-  let usersService: Pick<UsersService, 'findByUsername' | 'create'>;
+  let usersService: Pick<UsersService, 'findByUsername' | 'findByEmail' | 'create'>;
   // oxlint-disable-next-line init-declarations
   let jwtService: Pick<JwtService, 'sign'>;
   // oxlint-disable-next-line init-declarations
   let authService: AuthService;
 
   beforeEach(() => {
-    usersService = { findByUsername: vi.fn(), create: vi.fn() };
+    usersService = { findByUsername: vi.fn(), findByEmail: vi.fn().mockResolvedValue(null), create: vi.fn() };
     jwtService = { sign: vi.fn(() => 'signed-token') };
     authService = new AuthService(usersService as UsersService, jwtService as JwtService);
   });
@@ -55,7 +64,17 @@ describe('AuthService', () => {
     expect(jwtService.sign).toHaveBeenCalledWith({ sub: user.id, username: user.username, role: 'user' });
     expect(result).toEqual({
       accessToken: 'signed-token',
-      user: { id: user.id, username: user.username, language: 'en', role: 'user', defaultPasswordInUse: false },
+      user: {
+        id: user.id,
+        username: user.username,
+        language: 'en',
+        role: 'user',
+        email: null,
+        emailVerified: false,
+        activatedAt: user.activatedAt?.toISOString(),
+        companyName: null,
+        defaultPasswordInUse: false,
+      },
     });
   });
 
@@ -79,6 +98,8 @@ describe('AuthService', () => {
       username: 'newbie',
       password: 'password123',
       termsAcceptedAt: null,
+      email: null,
+      signupSource: 'self-service',
     });
     expect(result.accessToken).toBe('signed-token');
     expect(result.user.username).toBe('newbie');

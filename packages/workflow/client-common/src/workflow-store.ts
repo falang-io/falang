@@ -1,3 +1,4 @@
+import { eventTracker } from './analytics/event-tracker.js';
 // oxlint-disable max-lines -- versioning (ADR 0025 (private)) added a handful of small fields/methods; the bulk of the new logic itself lives in `versioning/*.ts` to keep this file's growth minimal.
 import 'reflect-metadata';
 import { action, makeObservable, observable, reaction, runInAction, type IReactionDisposer } from 'mobx';
@@ -259,7 +260,10 @@ export class WorkflowStore {
           getScheme: (documentId) => this.getScheme(documentId),
         }),
         onOpenDocument: (target) => this.followAgentDocument(target.id),
-        onRunFinished: () => this.agentLocks.releaseAll(),
+        onRunFinished: () => {
+          this.agentLocks.releaseAll();
+          eventTracker.track('agent_turn', { status: this.agentSession.status });
+        },
         toolProviders: [new DocumentToolProvider(this), new IntegrationToolProvider(this)],
         nodeKindFilter: createWorkflowNodeKindFilter(REGISTERED_INTEGRATIONS, () =>
           getIntegrationInstances(this.documents),

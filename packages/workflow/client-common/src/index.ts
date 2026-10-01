@@ -1,4 +1,5 @@
 export * from './app.js';
+export * from './analytics/event-tracker.js';
 export * from './api-client.js';
 export * from './auth-store.js';
 // `LoginPage`/`LanguageSwitcher` cross the package boundary for `@falang/workflow-client-admin` —
@@ -6,6 +7,7 @@ export * from './auth-store.js';
 export * from './components/change-password-modal.js';
 export * from './components/default-password-banner.js';
 export * from './components/login-page.js';
+export * from './support-store.js';
 export * from './components/language-switcher.js';
 export * from './extensions/client-extensions.js';
 export * from './generate-uuid.js';

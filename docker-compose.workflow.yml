@@ -202,6 +202,8 @@ services:
         condition: service_started
       app-postgres:
         condition: service_started
+      mailpit:
+        condition: service_started
       # Ensures the `falang-files` bucket exists before `backend` (or anything that pokes it) ever
       # tries to upload — see ADR 0038 (private) §2.
       minio-init:
@@ -256,6 +258,15 @@ services:
       # Off by default in the backend (community edition: admins create users in /admin); local dev
       # keeps self-service signup on. `TERMS_URL`, if set, adds a required terms checkbox to signup.
       - SELF_SERVICE_SIGNUP=${SELF_SERVICE_SIGNUP:-true}
+      # Mail (closed-beta signup, verification, password reset): outgoing mail lands in Mailpit,
+      # UI at http://localhost:8025. Links in mails point at CLIENT_PUBLIC_URL.
+      - SMTP_URL=smtp://mailpit:1025
+      - MAIL_FROM=noreply@falang.local
+      - CLIENT_PUBLIC_URL=${CLIENT_PUBLIC_URL:-http://localhost:5175}
+      # off | open | application (closed beta: e-mail application, admin activates). Wins over SELF_SERVICE_SIGNUP.
+      - SIGNUP_MODE=${SIGNUP_MODE:-open}
+      # none | recaptcha (+ CAPTCHA_SITE_KEY / CAPTCHA_SECRET)
+      - CAPTCHA_PROVIDER=${CAPTCHA_PROVIDER:-none}
       - TERMS_URL=${TERMS_URL:-}
       # Unset by default: with no public ingress, `@falang/workflow-gateway`'s `GatewayRuntimeService`
       # falls back to long-polling every configured vendor credential (Telegram's `getUpdates`) on a
@@ -357,6 +368,13 @@ services:
       interval: 5s
       timeout: 5s
       retries: 20
+    networks: [falang-workflow-network]
+
+  mailpit:
+    image: axllent/mailpit
+    container_name: falang-workflow-mailpit
+    ports:
+      - '8025:8025'
     networks: [falang-workflow-network]
 
   client:

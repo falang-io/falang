@@ -9,6 +9,7 @@ import { TasksStore } from '../tasks-store.js';
 import { LanguageSwitcher } from './language-switcher.js';
 import { RunDetailDrawer } from './run-detail-drawer.js';
 import { TaskDetailDrawer } from './task-detail-drawer.js';
+import { SupportButton } from './support-button.js';
 
 interface Props {
   /** When given, this page filters by that project and hides the project filter — used as the workspace's own "Tasks" view (see `WorkflowStore.activeView`). Omitted, it's the standalone cross-project Tasks page reached via `navigationStore.goToTasks()`. */
@@ -156,6 +157,11 @@ export const TasksPage: React.FC<Props> = observer(({ projectId }) => {
           </Typography.Title>
           <div>
             {!projectId && <LanguageSwitcher />}
+            {!projectId && (
+              <span style={{ marginLeft: 8 }}>
+                <SupportButton type="default" />
+              </span>
+            )}
             {!projectId && (
               <Button onClick={() => navigationStore.goToProjectList()} style={{ marginLeft: 8, marginRight: 8 }}>
                 {t('client:tasks-page.back-to-projects')}

@@ -5,6 +5,7 @@ import type { IActivepiecesPieceCatalogEntry } from '@falang/workflow-integratio
 import type { IFieldSelectOption } from '@falang/workflow-integrations-common';
 import { ApiCompileErrorsError, type IApiCompileError, type IApiCompileErrorFile } from './api-compile-error.js';
 import { AgentQuotaError } from './agent/agent-quota-error.js';
+import { ApiCodedError } from './api-coded-error.js';
 import { DocumentLockedError } from './api-document-lock-error.js';
 import type { IDebugLocation } from '@falang/debug';
 import type {
@@ -18,10 +19,13 @@ import type {
   IApiFilesList,
   IApiFunctionSignature,
   IApiGeneratedFile,
+  IApiApplicationInput,
   IApiAuthConfig,
   IApiLoginResult,
+  IApiOpenSignupInput,
   IApiPersonalAccessToken,
   IApiProject,
+  IApiProjectTemplate,
   IApiProjectDocument,
   IApiProjectExport,
   IApiProjectTree,
@@ -30,6 +34,7 @@ import type {
   IApiSchedule,
   IApiStartedDebugSession,
   IApiStartedRun,
+  IApiSupportMessage,
   IApiTask,
   IApiUser,
   IApiVendorData,
@@ -69,6 +74,10 @@ export const setAuthToken = (nextToken: string | null): void => {
 
 export const getAuthToken = (): string | null => token;
 
+const throwIfCoded = (message: string | undefined, body: { code?: string } | null): void => {
+  if (typeof body?.code === 'string') throw new ApiCodedError(message ?? body.code, body.code);
+};
+
 const throwIfQuotaExceeded = (status: number, message: string | undefined, body: unknown): void => {
   if (status === 402) throw new AgentQuotaError(message ?? 'Payment required', body);
 };
@@ -87,6 +96,7 @@ const request = async <T>(path: string, init?: RequestInit): Promise<T> => {
       errors?: IApiCompileError[];
       files?: IApiCompileErrorFile[];
       lockExpiresAt?: string;
+      code?: string;
     } | null;
     // `BuildService.compileProjectDocuments` sends `{ message, errors, files }` for a failed
     // compile — surfaced as its own error type so callers can render the per-document list
@@ -107,6 +117,8 @@ const request = async <T>(path: string, init?: RequestInit): Promise<T> => {
     const message = Array.isArray(body?.message) ? body.message.join(', ') : body?.message;
     // 402 = the deployment refused the agent call for lack of credits (see `AgentQuotaError`).
     throwIfQuotaExceeded(response.status, message, body);
+    // A machine-readable `code` (e.g. login's `not_activated`) lets the UI pick its own wording.
+    throwIfCoded(message, body);
     throw new Error(message ?? `${init?.method ?? 'GET'} ${path} failed`);
   }
   // Some 2xx responses (e.g. a 202 with a void handler) have no body at all — not just 204s.
@@ -151,11 +163,31 @@ export const workflowApi = {
 
   authConfig: () => request<IApiAuthConfig>('/auth/config'),
 
-  register: (username: string, password: string, acceptTerms: boolean | null) =>
-    request<IApiLoginResult>('/auth/register', {
+  register: (input: IApiOpenSignupInput) =>
+    request<IApiLoginResult>('/auth/register', { method: 'POST', body: JSON.stringify(input) }),
+
+  /** Closed-beta application (`signupMode: 'application'`): 202, no token — the user must confirm the e-mail first. */
+  apply: (input: IApiApplicationInput) =>
+    request<{ status: 'pending_email' }>('/auth/register', { method: 'POST', body: JSON.stringify(input) }),
+
+  verifyEmail: (verificationToken: string) =>
+    request<{ status: 'pending_activation' | 'active' }>('/auth/verify-email', {
       method: 'POST',
-      body: JSON.stringify(acceptTerms === null ? { username, password } : { username, password, acceptTerms }),
+      body: JSON.stringify({ token: verificationToken }),
     }),
+
+  /** Always 202, whether or not the address exists. */
+  resendVerification: (email: string) =>
+    request<null>('/auth/resend-verification', { method: 'POST', body: JSON.stringify({ email }) }),
+
+  forgotPassword: (email: string, captchaToken = '') =>
+    request<null>('/auth/forgot-password', {
+      method: 'POST',
+      body: JSON.stringify(captchaToken ? { email, captchaToken } : { email }),
+    }),
+
+  resetPassword: (resetToken: string, password: string) =>
+    request<null>('/auth/reset-password', { method: 'POST', body: JSON.stringify({ token: resetToken, password }) }),
 
   /** `400` on a wrong current password or a too-short new one (never 401, which would log the user out). */
   changePassword: (currentPassword: string, newPassword: string) =>
@@ -183,6 +215,11 @@ export const workflowApi = {
   deleteProject: (projectId: string) => request<null>(`/projects/${projectId}`, { method: 'DELETE' }),
 
   exportProject: (projectId: string) => request<IApiProjectExport>(`/projects/${projectId}/export`),
+
+  listProjectTemplates: () => request<IApiProjectTemplate[]>('/project-templates'),
+
+  createProjectFromTemplate: (templateId: string, name: string) =>
+    request<IApiProject>(`/projects/from-template/${templateId}`, { method: 'POST', body: JSON.stringify({ name }) }),
 
   importProject: (payload: IApiProjectExport) =>
     request<IApiProject>('/projects/import', { method: 'POST', body: JSON.stringify(payload) }),
@@ -479,4 +516,15 @@ export const workflowApi = {
   /** `400` if `answer` isn't one of the task's own `options[].label`, or `data` doesn't match that option's `dataType`; `409` if the task isn't `open` any more. */
   resolveTask: (id: string, input: { answer: string; data?: string | number | boolean }) =>
     request<IApiTask>(`/tasks/${id}/resolve`, { method: 'POST', body: JSON.stringify(input) }),
+
+  /** The signed-in user's own support thread; `after` (ISO) returns only messages created strictly after it. */
+  listSupportMessages: (after?: string | null) =>
+    request<IApiSupportMessage[]>(`/support/messages${after ? `?after=${encodeURIComponent(after)}` : ''}`),
+
+  sendSupportMessage: (text: string) =>
+    request<IApiSupportMessage>('/support/messages', { method: 'POST', body: JSON.stringify({ text }) }),
+
+  markSupportRead: () => request<null>('/support/messages/read', { method: 'POST' }),
+
+  getSupportUnread: () => request<{ count: number }>('/support/unread'),
 };
