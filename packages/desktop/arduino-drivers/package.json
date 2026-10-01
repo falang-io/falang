@@ -4,10 +4,11 @@
   "description": "The bundled Arduino device drivers (DHT, HC-SR04, servo, LCD1602, RGB strip) as data, plus BUNDLED_DRIVERS_DIR (ADR 0023 / ADR 0051 (private))",
   "license": "AGPL-3.0-only",
   "author": "",
-  "type": "commonjs",
+  "type": "module",
   "main": "src/index.ts",
   "scripts": {
-    "check": "tsc --noEmit -p tsconfig.build.json"
+    "check": "tsc --noEmit -p tsconfig.build.json",
+    "test": "vitest run -c ../../../vitest.config.ts"
   },
   "dependencies": {
     "@types/node": "^25.5.0",
@@ -25,5 +26,8 @@
     "!src/**/*-test-harness.ts",
     "!src/test-utils",
     "!src/**/__snapshots__"
-  ]
+  ],
+  "devDependencies": {
+    "@falang/desktop-arduino-dto": "*"
+  }
 }

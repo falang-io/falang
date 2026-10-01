@@ -13,7 +13,7 @@ import {
 } from '@falang/desktop-arduino-cli';
 import type { TArduinoBuildOutcome } from '../shared/arduino-build-outcome.js';
 import type { TArduinoDebugUploadOutcome } from '../shared/arduino-debug-outcome.js';
-import { FALANG_DEBUG_HEADER_FILENAME } from '@falang/desktop-arduino-compiler';
+import { collectDriverExtraFiles, FALANG_DEBUG_HEADER_FILENAME } from '@falang/desktop-arduino-compiler';
 import type { ILoadedDriver } from './drivers/driver-registry.js';
 import { runCompileJob } from './compile-worker/run-compile-job.js';
 
@@ -66,20 +66,6 @@ const buildSketchCode = async (
   if (!outcome.ok) return outcome;
   return { ...outcome, usedDriverIds: new Set(outcome.usedDriverIds) };
 };
-
-/** The used drivers' own `sourceFiles` (headers + `.cpp`), resolved to absolute source paths — see ADR 0023 (private)'s Phase B/C "Artifact delivery" note. */
-const collectDriverExtraFiles = (
-  drivers: readonly ILoadedDriver[],
-  usedDriverIds: ReadonlySet<string>,
-): ISketchExtraFile[] =>
-  drivers
-    .filter((driver) => usedDriverIds.has(driver.config.id))
-    .flatMap((driver) =>
-      driver.config.sourceFiles.map((fileName) => ({
-        relativePath: fileName,
-        sourcePath: path.join(driver.dir, fileName),
-      })),
-    );
 
 export const buildAndCompileSketch = async (
   projectDir: string,

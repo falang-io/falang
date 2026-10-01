@@ -6,7 +6,7 @@ import * as path from 'node:path';
  *
  * Resolved from this file's own location, so it is right wherever the package's sources run as real files (`tsx`, vitest, a
  * published copy under `node_modules`). It is NOT right inside a bundled build (electron-vite/esbuild put every module into one
- * output file, so `__dirname` is the bundle's directory): `@falang/desktop-app-arduino` therefore resolves its own drivers
+ * output file, so `import.meta.dirname` is the bundle's directory): `@falang/desktop-app-arduino` therefore resolves its own drivers
  * directory itself (the `extraResources` copy when packaged, this folder in dev) and never imports this constant.
  */
-export const BUNDLED_DRIVERS_DIR: string = path.resolve(__dirname, '..', 'drivers');
+export const BUNDLED_DRIVERS_DIR: string = path.resolve(import.meta.dirname, '..', 'drivers');

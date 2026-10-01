@@ -20,7 +20,7 @@
     "format:check": "prettier --check .",
     "lint": "oxlint",
     "check": "node scripts/check.js",
-    "test:headless-schemes": "tsx scripts/headless-scheme-smoke.ts && tsx scripts/headless-agent-smoke.ts",
+    "test:headless-schemes": "tsx scripts/headless-scheme-smoke.ts && tsx scripts/headless-agent-smoke.ts && tsx scripts/headless-desktop-agent-smoke.ts",
     "start-workflow": "docker compose -f docker-compose.workflow.yml up --build -d",
     "workflow-recreate-client": "./scripts/workflow-recreate-client.sh",
     "workflow-recreate-backend": "./scripts/workflow-recreate-backend.sh",
