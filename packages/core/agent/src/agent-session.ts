@@ -67,6 +67,7 @@ export class AgentSession {
   private readonly toolProviders: readonly IAgentToolProvider[];
   private readonly nodeKindFilter?: IAgentNodeKindFilter;
   private readonly coreToolAllowlist: ReadonlySet<string> | null;
+  private readonly focusPauseMs: number;
   private askOffered = true;
   private abortController: AbortController | null = null;
 
@@ -85,6 +86,7 @@ export class AgentSession {
     this.toolProviders = extra.toolProviders ?? [];
     this.nodeKindFilter = extra.nodeKindFilter;
     this.coreToolAllowlist = extra.coreTools ? new Set(extra.coreTools) : null;
+    this.focusPauseMs = extra.focusPauseMs ?? FOCUS_PAUSE_MS;
     makeObservable(this);
   }
 
@@ -281,11 +283,10 @@ export class AgentSession {
     const targetScheme = resolved.scheme;
     this.onOpenDocument?.(targetScheme);
     if (!READ_ONLY_CORE_TOOLS.has(call.name)) ensureGroupOpen(targetScheme, openGroups);
-
     const focusId = getFocusTargetId(call, targetScheme);
     if (focusId) {
       focusNode(targetScheme, focusId);
-      await sleep(FOCUS_PAUSE_MS);
+      if (this.focusPauseMs > 0) await sleep(this.focusPauseMs);
     }
 
     return executeToolCall(call, targetScheme, { nodeKindFilter: this.nodeKindFilter });

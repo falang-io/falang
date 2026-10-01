@@ -15,7 +15,7 @@ import { REGISTERED_INTEGRATIONS } from '../integrations-registry.js';
 import { resolveTriggerCredentialId } from '../components/trigger-credential.js';
 import { getVendorsInUse } from './integration-catalog.js';
 import { type IProjectStructType, listTypes } from './list-types.js';
-import type { WorkflowStore } from '../workflow-store.js';
+import type { IWorkflowAgentStore } from './workflow-agent-store.js';
 
 const ok = (content: string): TToolExecutionResult => ({ content, ok: true });
 const fail = (error: string): TToolExecutionResult => ({ error, ok: false });
@@ -169,11 +169,11 @@ const TOOLS: readonly ILlmToolDefinition[] = [
 export class DocumentToolProvider implements IAgentToolProvider {
   readonly tools: readonly ILlmToolDefinition[];
 
-  private readonly store: WorkflowStore;
+  private readonly store: IWorkflowAgentStore;
 
   /** `allowedTools` narrows the offered tools (ADR 0046 (private): a magic run gets `list_types` only —
    *  no document creation); omitted means all of them. */
-  constructor(store: WorkflowStore, allowedTools?: readonly string[]) {
+  constructor(store: IWorkflowAgentStore, allowedTools?: readonly string[]) {
     this.store = store;
     this.tools = allowedTools ? TOOLS.filter((tool) => allowedTools.includes(tool.name)) : TOOLS;
   }

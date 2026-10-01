@@ -55,6 +55,8 @@ export interface IMagicRunDeps {
   readonly nodeKindFilter?: IAgentNodeKindFilter;
   /** The chat's persisted "Don't ask, just do" setting, inverted. */
   readonly getAllowQuestions: () => boolean;
+  /** Passed through to each run's `AgentSession` (`IAgentSessionExtraOptions.focusPauseMs`). */
+  readonly focusPauseMs?: number;
 }
 
 /** "Update the steps to match the new text?" — rendered by the workspace; the store stays UI-free. */
@@ -294,6 +296,7 @@ export class MagicRunStore {
     return new AgentSession(scheme, this.deps.createLlmClient(), this.deps.createContextProviders(), {
       coreTools: ['get_tree', 'get_node_kinds', 'finish'],
       documentResolver: resolver,
+      focusPauseMs: this.deps.focusPauseMs,
       nodeKindFilter: this.deps.nodeKindFilter,
       toolProviders: [
         ...this.deps.createToolProviders(),

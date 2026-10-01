@@ -72,6 +72,10 @@ export interface IAgentSessionExtraOptions {
    *  always kept, `ask_user` stays governed by `allowQuestions`, provider tools are unaffected. A call to a
    *  filtered-out core tool runs nothing and gets an error result. */
   readonly coreTools?: readonly string[];
+  /** How long to pause after focusing the icon about to change, before a mutating core call is applied (a UI
+   *  nicety so a human watches the edit land). Defaults to `FOCUS_PAUSE_MS` (300); `0` skips the sleep entirely
+   *  — headless hosts (the agent tuner) pass it. */
+  readonly focusPauseMs?: number;
 }
 
 /**

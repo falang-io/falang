@@ -2,17 +2,13 @@ import { eventTracker } from './analytics/event-tracker.js';
 // oxlint-disable max-lines -- versioning (ADR 0025 (private)) added a handful of small fields/methods; the bulk of the new logic itself lives in `versioning/*.ts` to keep this file's growth minimal.
 import 'reflect-metadata';
 import { action, makeObservable, observable, reaction, runInAction, type IReactionDisposer } from 'mobx';
-import { AgentSession, ProjectDocumentsContextProvider } from '@falang/agent';
+import type { AgentSession } from '@falang/agent';
 import {
   type Scheme,
-  createNodeStoreFromNode,
-  setRootNodeForScheme,
   DebugSessionStore,
   DebuggerModule,
   type IDebugSessionStartParams,
   type HistoryStore,
-  HistoryModule,
-  type IModule,
   type ITheme,
   EVENT_ONCHANGE,
   ExecutionPositionModule,
@@ -23,9 +19,7 @@ import {
   TOKEN_HISTORY,
   type TVersionDiffSide,
 } from '@falang/scheme';
-import { ScopeVariablesContextProvider } from '@falang/typescript-agent';
 import {
-  objectsStructureSchemeFactory,
   registerTypescriptProjectService,
   updateTypesRegistryFromINode,
   TOKEN_TYPESCRIPT_PROJECT_SERVICE,
@@ -40,21 +34,22 @@ import { createPrintExportHost } from './print/create-print-export-host.js';
 import { MAGIC_NAME, TRIGGER_FUNCTION_NAME, type TTriggerFunctionBodyData } from '@falang/workflow-dto';
 import type { IIntegrationInstance } from '@falang/workflow-integrations-common';
 import { SCHEDULE_VENDOR } from '@falang/workflow-integrations-schedule';
-import { TOKEN_SCHEDULE_STATUS, workflowFunctionalSchemeFactory } from '@falang/workflow-scheme';
+import { TOKEN_SCHEDULE_STATUS } from '@falang/workflow-scheme';
 import { workflowApi } from './api-client.js';
 import { AgentLockTracker } from './agent/agent-lock-tracker.js';
 import { AgentSettingsStore } from './agent/agent-settings-store.js';
 import { MagicInsertSetting } from './agent/magic-insert-setting.js';
-import { MagicRunStore } from './agent/magic-run-store.js';
+import type { MagicRunStore } from './agent/magic-run-store.js';
 import { authStore } from './auth-store.js';
 import { buildMagicPopup, type IMagicPopup } from './magic/build-magic-popup.js';
-import { createAgentDocumentResolver, isAgentEditableType } from './agent/create-agent-document-resolver.js';
-import { DocumentToolProvider } from './agent/document-tool-provider.js';
-import { createWorkflowNodeKindFilter } from './agent/integration-catalog.js';
+import { isAgentEditableType } from './agent/create-agent-document-resolver.js';
+import { createWorkflowAgentSession } from './agent/create-workflow-agent-session.js';
+import { createWorkflowMagicRunStore, getMagicHostScheme } from './agent/create-workflow-magic-run-store.js';
 import { shouldOpenAgentDocumentTab } from './agent/follow-agent-document.js';
 import { HttpLlmClient } from './agent/http-llm-client.js';
 import { IndexedDbAgentSessionStore } from './agent/indexed-db-session-store.js';
-import { IntegrationToolProvider } from './agent/integration-tool-provider.js';
+import type { IWorkflowAgentStore } from './agent/workflow-agent-store.js';
+import { buildWorkflowDocumentScheme } from './build-workflow-document-scheme.js';
 import { generateUuid } from './generate-uuid.js';
 import { REGISTERED_INTEGRATIONS } from './integrations-registry.js';
 import {
@@ -80,7 +75,6 @@ import { buildReadOnlySchemeForDiff as buildReadOnlySchemeForDiffImpl } from './
 import { HttpVersionStore } from './versioning/http-version-store.js';
 import {
   getTriggerFunctionBodyData,
-  ROOT_NODE,
   type DocumentType,
   type WorkflowDocument,
   type WorkflowFolder,
@@ -98,7 +92,7 @@ const darkTheme: ITheme = {
 };
 
 /** Local editor state for one open project — folders, tabs, scheme instances, selection. Backend I/O is `ProjectSync`'s job. */
-export class WorkflowStore {
+export class WorkflowStore implements IWorkflowAgentStore {
   readonly projectId: string;
   readonly container: DependencyContainer;
   readonly folders = observable<WorkflowFolder>([]);
@@ -244,43 +238,22 @@ export class WorkflowStore {
       allowQuestionsStorageKey: `falang:agent-allow-questions:${projectId}`,
     });
     this.agentChat.loadSessions();
-    this.agentSession = new AgentSession(
-      null,
-      new HttpLlmClient(projectId),
-      [
-        new ScopeVariablesContextProvider(),
-        new ProjectDocumentsContextProvider(() =>
-          this.documents.filter((doc) => !doc.pinned).map((doc) => ({ id: doc.id, name: doc.name, type: doc.type })),
-        ),
-      ],
-      {
-        documentResolver: createAgentDocumentResolver({
-          acquireLock: (documentId) => this.agentLocks.acquire(documentId),
-          getDocument: (documentId) => this.getDocument(documentId),
-          getScheme: (documentId) => this.getScheme(documentId),
-        }),
-        onOpenDocument: (target) => this.followAgentDocument(target.id),
-        onRunFinished: () => {
-          this.agentLocks.releaseAll();
-          eventTracker.track('agent_turn', { status: this.agentSession.status });
-        },
-        toolProviders: [new DocumentToolProvider(this), new IntegrationToolProvider(this)],
-        nodeKindFilter: createWorkflowNodeKindFilter(REGISTERED_INTEGRATIONS, () =>
-          getIntegrationInstances(this.documents),
-        ),
+    this.agentSession = createWorkflowAgentSession({
+      acquireLock: (documentId) => this.agentLocks.acquire(documentId),
+      llmClient: new HttpLlmClient(projectId),
+      onOpenDocument: (documentId) => this.followAgentDocument(documentId),
+      onRunFinished: (session) => {
+        this.agentLocks.releaseAll();
+        eventTracker.track('agent_turn', { status: session.status });
       },
-    );
+      store: this,
+    });
     this.agentSettings.load();
     this.magicInsert = new MagicInsertSetting(authStore.currentUser?.id);
-    this.magicRuns = new MagicRunStore({
-      createContextProviders: () => [new ScopeVariablesContextProvider()],
+    this.magicRuns = createWorkflowMagicRunStore({
       createLlmClient: () => new HttpLlmClient(projectId),
-      createToolProviders: () => [new IntegrationToolProvider(this), new DocumentToolProvider(this, ['list_types'])],
       getAllowQuestions: () => this.agentChat.allowQuestions,
-      getScheme: (documentId) => this.getMagicHostScheme(documentId),
-      nodeKindFilter: createWorkflowNodeKindFilter(REGISTERED_INTEGRATIONS, () =>
-        getIntegrationInstances(this.documents),
-      ),
+      store: this,
     });
     this.sync = new ProjectSync(
       projectId,
@@ -697,9 +670,7 @@ export class WorkflowStore {
 
   /** The main scheme of a function/trigger-function document for a magic run, `null` for anything else. */
   private getMagicHostScheme(documentId: string): Scheme | null {
-    const doc = this.getDocument(documentId);
-    if (!doc || doc.pinned || !(doc.type === 'function' || doc.type === TRIGGER_FUNCTION_NAME)) return null;
-    return this.getScheme(documentId);
+    return getMagicHostScheme(this, documentId);
   }
 
   /** A transient popup scheme for one magic node (`MagicEditorModal`); the caller disposes it. */
@@ -761,47 +732,28 @@ export class WorkflowStore {
   }
 
   private buildScheme(doc: WorkflowDocument): Scheme {
-    // Every scheme follows the same project-level `liveRun` — a run's location names the document
-    // it's in, and the module only highlights when that's this scheme (see `ExecutionPositionModule`).
-    // `DebuggerModule` shares the same `debugSession` across every scheme the same way, per
-    // ADR 0021 (private) §3.
-    const extraModules: IModule[] = [
-      new ExecutionPositionModule(this.liveRun),
-      new DebuggerModule({ session: this.debugSession, documentId: doc.id }),
-    ];
     const isFunctionDoc = doc.type === 'function' || doc.type === TRIGGER_FUNCTION_NAME;
-    // The project's one `AgentSession` (ADR 0036 (private) §1/§3) needs `HistoryModule` in every
-    // document it can run against (one agent request = one undo group per document touched) — still
-    // registered per agent-editable scheme (`objects-structure` too, since 2026-09-27), unlike
-    // `AgentModule` itself, which this store no longer uses (the session lives on the store, not in any
-    // one scheme's container).
-    if (isAgentEditableType(doc.type)) extraModules.push(new HistoryModule());
-    const scheme = isFunctionDoc
-      ? workflowFunctionalSchemeFactory({
-          id: doc.id,
-          name: doc.name,
-          parentContainer: this.container,
-          extraModules,
-          integrations: REGISTERED_INTEGRATIONS,
-          getCredentialInstances: () => getIntegrationInstances(this.documents),
-          getFieldOptionsProvider: () => createFieldOptionsProvider(this.projectId),
-          getActivepiecesCatalogProvider: () => createActivepiecesCatalogProvider(),
-          getActivepiecesFieldOptionsProvider: () => createActivepiecesFieldOptionsProvider(this.projectId),
-          defaultInsertNodeName: () =>
-            this.agentSettings.configured && this.magicInsert.enabled ? MAGIC_NAME : 'action',
-        })
-      : objectsStructureSchemeFactory({
-          id: doc.id,
-          name: doc.name,
-          extraModules,
-          parentContainer: this.container,
-        });
-    scheme.theme.setTheme(darkTheme);
-    if (isFunctionDoc) this.magicRuns.registerHost(doc.id, scheme);
-    // Safe to narrow: `getScheme` already rejects pinned (non-schemable) documents before this runs.
-    const rootNode = doc.data ?? scheme.infra.structure.factory(ROOT_NODE[doc.type as DocumentType]);
-    const rootStore = createNodeStoreFromNode(rootNode, scheme);
-    setRootNodeForScheme(scheme, rootStore);
+    const scheme = buildWorkflowDocumentScheme({
+      doc,
+      parentContainer: this.container,
+      // Every scheme follows the same project-level `liveRun` — a run's location names the document
+      // it's in, and the module only highlights when that's this scheme (see `ExecutionPositionModule`).
+      // `DebuggerModule` shares the same `debugSession` across every scheme the same way, per
+      // ADR 0021 (private) §3.
+      extraModules: [
+        new ExecutionPositionModule(this.liveRun),
+        new DebuggerModule({ session: this.debugSession, documentId: doc.id }),
+      ],
+      theme: darkTheme,
+      getCredentialInstances: () => getIntegrationInstances(this.documents),
+      getFieldOptionsProvider: () => createFieldOptionsProvider(this.projectId),
+      getActivepiecesCatalogProvider: () => createActivepiecesCatalogProvider(),
+      getActivepiecesFieldOptionsProvider: () => createActivepiecesFieldOptionsProvider(this.projectId),
+      defaultInsertNodeName: () => (this.agentSettings.configured && this.magicInsert.enabled ? MAGIC_NAME : 'action'),
+      onSchemeCreated: (created) => {
+        if (isFunctionDoc) this.magicRuns.registerHost(doc.id, created);
+      },
+    });
     scheme.events.subscribeEvent(EVENT_ONCHANGE, () => {
       this.schemeOnChanged(doc, scheme);
       return false;
