@@ -1,3 +1,4 @@
+// oxlint-disable unicorn/no-await-expression-member, max-lines, unicorn/consistent-function-scoping, unicorn/no-array-sort, no-undefined, unicorn/escape-case, unicorn/prefer-string-raw
 import { promises as fs } from 'node:fs';
 import * as nodeFs from 'node:fs';
 import * as os from 'node:os';
@@ -6,9 +7,11 @@ import git from 'isomorphic-git';
 import type { IProjectDocument } from '@falang/dto';
 import type { IGitVersioningOptions } from './git-version-store-types.js';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
-import { createDocument, deleteDocument, readDocument, writeDocument } from '../documents.js';
-import { documentPath } from '../paths.js';
-import { createProject } from '../project.js';
+import { createDocument, deleteDocument, readDocument, renameDocument, writeDocument } from '../documents.js';
+import { readManifest } from '../manifest.js';
+import { documentsDir, manifestPath } from '../paths.js';
+import { createFolder, renameFolder } from '../folders.js';
+import { createProject, openProject } from '../project.js';
 import { createGitVersionStore } from './git-version-store.js';
 
 const doc = (id: string, value: string): IProjectDocument => ({
@@ -132,7 +135,7 @@ describe('GitVersionStore', () => {
     await deleteDocument(projectDir, 'doc-2');
     const c2 = await store.commit({ kind: 'named', message: 'removed doc-2' });
     expect(c2).not.toBeNull();
-    await expect(fs.access(documentPath(projectDir, 'doc-2'))).rejects.toThrow();
+    await expect(fs.access(path.join(documentsDir(projectDir), 'doc-2.json'))).rejects.toThrow();
 
     const restored = await store.restore((c1 as { id: string }).id);
     expect(restored.kind).toBe('named');
@@ -159,7 +162,7 @@ describe('GitVersionStore', () => {
 
     await store.restore((c1 as { id: string }).id);
 
-    await expect(fs.access(documentPath(projectDir, 'doc-2'))).rejects.toThrow();
+    await expect(fs.access(path.join(documentsDir(projectDir), 'doc-2.json'))).rejects.toThrow();
     const workingCopy = await store.getWorkingCopy();
     expect(workingCopy.documents.map((d) => d.id)).toEqual(['doc-1']);
   });
@@ -192,7 +195,7 @@ describe('GitVersionStore', () => {
 
     const original = doc('doc-1', 'v1');
     const reordered = { name: original.name, root: original.root, id: original.id, type: original.type };
-    await fs.writeFile(documentPath(projectDir, 'doc-1'), JSON.stringify(reordered, null, 2));
+    await fs.writeFile(path.join(documentsDir(projectDir), 'doc-1.json'), JSON.stringify(reordered, null, 2));
 
     const result = await store.commit({ kind: 'auto', message: 'no-op' });
     expect(result).toBeNull();
@@ -276,6 +279,77 @@ describe('GitVersionStore', () => {
       } finally {
         await fs.rm(outerDir, { recursive: true, force: true });
       }
+    });
+  });
+
+  describe('name-based layout (v5)', () => {
+    it('commits, renames a document, and snapshots/restores across the rename', async () => {
+      const folder = await createFolder(projectDir, { name: 'Game', parentId: null });
+      await createDocument(projectDir, { document: { ...doc('doc-1', 'v1'), name: 'Draw food' }, folderId: folder.id });
+      const store = createGitVersionStore(projectDir, () => makeOptions());
+      const c1 = (await store.commit({ kind: 'named', message: 'first' })) as { id: string };
+      expect(c1).not.toBeNull();
+
+      await renameDocument(projectDir, 'doc-1', 'Draw drink');
+      await renameFolder(projectDir, folder.id, 'Games');
+      const c2 = (await store.commit({ kind: 'named', message: 'renamed' })) as { id: string };
+      expect(c2).not.toBeNull();
+
+      const snap1 = await store.getSnapshot(c1.id);
+      const snap2 = await store.getSnapshot(c2.id);
+      expect(snap1.documents[0]?.name).toBe('Draw food');
+      expect(snap2.documents[0]?.name).toBe('Draw drink');
+      // snapshots are content-only: no layout fields leak in
+      expect(snap1.folders).toEqual([{ id: folder.id, name: 'Game', parentId: null }]);
+      expect(snap1.documents[0]).not.toHaveProperty('fileName');
+
+      await store.restore(c1.id);
+      expect(await fs.readdir(path.join(documentsDir(projectDir), 'Game'))).toEqual(['Draw food.json']);
+      await expect(fs.access(path.join(documentsDir(projectDir), 'Games'))).rejects.toThrow();
+      expect((await readDocument(projectDir, 'doc-1')).name).toBe('Draw food');
+      // restore leaves nothing dirty
+      await expect(store.commit({ kind: 'auto', message: 'noop' })).resolves.toBeNull();
+    });
+
+    it('reads and restores a commit made in the v4 (flat <id>.json) layout', async () => {
+      // hand-built v4 project, committed as-is
+      await fs.writeFile(
+        manifestPath(projectDir),
+        JSON.stringify({
+          name: 'My Project',
+          type: 'text',
+          formatVersion: 4,
+          folders: [{ id: 'f1', name: 'Game', parentId: null }],
+          documents: [{ id: 'doc-1', type: 'contour', name: 'Old name', folderId: 'f1' }],
+        }),
+      );
+      await fs.writeFile(
+        path.join(documentsDir(projectDir), 'doc-1.json'),
+        JSON.stringify({ ...doc('doc-1', 'v1'), name: 'Old name' }),
+      );
+      const store = createGitVersionStore(projectDir, () => makeOptions());
+      const v4Commit = (await store.commit({ kind: 'named', message: 'v4 era' })) as { id: string };
+      expect(v4Commit).not.toBeNull();
+
+      const snapshot = await store.getSnapshot(v4Commit.id);
+      expect(snapshot.documents.map((d) => d.name)).toEqual(['Old name']);
+
+      // upgrade to v5 and change something
+      await openProject(projectDir);
+      expect(await fs.readdir(path.join(documentsDir(projectDir), 'Game'))).toEqual(['Old name.json']);
+      await writeDocument(projectDir, { ...doc('doc-1', 'v2'), name: 'Old name' });
+      const v5Commit = (await store.commit({ kind: 'named', message: 'v5 era' })) as { id: string };
+      expect(v5Commit).not.toBeNull();
+      expect((await store.getSnapshot(v5Commit.id)).documents[0]?.root).toMatchObject({ data: { value: 'v2' } });
+
+      // restoring the v4 commit yields a v5 layout again
+      await store.restore(v4Commit.id);
+      const manifest = await readManifest(projectDir);
+      expect(manifest.formatVersion).toBe(5);
+      expect(manifest.documents[0]?.fileName).toBe('Old name');
+      expect(await fs.readdir(documentsDir(projectDir))).toEqual(['Game']);
+      expect(await fs.readdir(path.join(documentsDir(projectDir), 'Game'))).toEqual(['Old name.json']);
+      expect((await readDocument(projectDir, 'doc-1')).root).toMatchObject({ data: { value: 'v1' } });
     });
   });
 });

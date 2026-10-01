@@ -39,6 +39,11 @@ const walkOldSchemaDir = async (dir: string, relativeDir: string[]): Promise<IOl
       const raw = JSON.parse(await fs.readFile(fullPath, 'utf8')) as Record<string, unknown>;
       if (typeof raw.id !== 'string' || typeof raw.type !== 'string' || typeof raw.root !== 'object')
         throw new Error(`Invalid old document at ${fullPath}`);
+      // The old app named each file `<scheme name>.falang.json` (all 61 real fixtures agree: the JSON's own
+      // `name` equals the file name). The JSON `name` wins when present (it is the unsanitized original);
+      // a missing/blank one falls back to the file name, so the new `<name>.json` never ends up empty.
+      if (typeof raw.name !== 'string' || raw.name.trim() === '')
+        raw.name = dirEntry.name.slice(0, -OLD_SCHEME_SUFFIX.length);
       return [{ relativeDir, scheme: raw as unknown as IOldScheme, filePath: fullPath }];
     }),
   );

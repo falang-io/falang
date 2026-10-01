@@ -1,26 +1,27 @@
 import { promises as fs } from 'node:fs';
-import type { IProjectTreeDocument, IProjectTreeFolder } from '@falang/dto';
 import { manifestPath } from './paths.js';
-import { FORMAT_VERSION, type IProjectManifest } from './types.js';
+import { FORMAT_VERSION, type IManifestDocument, type IManifestFolder, type IProjectManifest } from './types.js';
 
-const isTreeFolder = (value: unknown): value is IProjectTreeFolder => {
+const isTreeFolder = (value: unknown): value is IManifestFolder => {
   if (typeof value !== 'object' || value === null) return false;
   const folder = value as Record<string, unknown>;
   return (
     typeof folder.id === 'string' &&
     typeof folder.name === 'string' &&
-    (typeof folder.parentId === 'string' || folder.parentId === null)
+    (typeof folder.parentId === 'string' || folder.parentId === null) &&
+    (!('dirName' in folder) || typeof folder.dirName === 'string')
   );
 };
 
-const isTreeDocument = (value: unknown): value is IProjectTreeDocument => {
+const isTreeDocument = (value: unknown): value is IManifestDocument => {
   if (typeof value !== 'object' || value === null) return false;
   const document = value as Record<string, unknown>;
   return (
     typeof document.id === 'string' &&
     typeof document.type === 'string' &&
     typeof document.name === 'string' &&
-    (typeof document.folderId === 'string' || document.folderId === null)
+    (typeof document.folderId === 'string' || document.folderId === null) &&
+    (!('fileName' in document) || typeof document.fileName === 'string')
   );
 };
 
@@ -33,9 +34,9 @@ const parseManifest = (raw: unknown, sourcePath: string): IProjectManifest => {
   if (typeof manifest.formatVersion !== 'number')
     throw new Error(`Invalid project manifest at ${sourcePath}: missing "formatVersion"`);
   if (!Array.isArray(manifest.folders) || !manifest.folders.every(isTreeFolder))
-    throw new Error(`Invalid project manifest at ${sourcePath}: "folders" must be IProjectTreeFolder[]`);
+    throw new Error(`Invalid project manifest at ${sourcePath}: "folders" must be IManifestFolder[]`);
   if (!Array.isArray(manifest.documents) || !manifest.documents.every(isTreeDocument))
-    throw new Error(`Invalid project manifest at ${sourcePath}: "documents" must be IProjectTreeDocument[]`);
+    throw new Error(`Invalid project manifest at ${sourcePath}: "documents" must be IManifestDocument[]`);
 
   return {
     name: manifest.name,

@@ -39,7 +39,8 @@ const buildClaudeMd = (params: IWriteAgentFilesParams): string =>
   `# falang project
 
 This folder is a falang \`${params.projectType}\` project. Documents live one per file under
-\`falang/schemes/<id>.json\`; the folder/document tree index lives in \`falang.json\`.
+\`falang/schemes/<folder path>/<scheme name>.json\` (folders are real directories); the tree index and
+the document ids live in \`falang.json\`.
 
 Edit this project through the \`falang\` MCP server's tools rather than editing these JSON files by
 hand — the on-disk shapes are internal, and only the MCP tools validate node kinds and their allowed

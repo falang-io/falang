@@ -6,7 +6,7 @@ import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import { Client } from '@modelcontextprotocol/sdk/client/index.js';
 import { StdioClientTransport } from '@modelcontextprotocol/sdk/client/stdio.js';
 import type { CallToolResult } from '@modelcontextprotocol/sdk/types.js';
-import { createProject, documentPath, readLocks } from '@falang/desktop-project-fs';
+import { createProject, readDocument, readLocks } from '@falang/desktop-project-fs';
 import { MCP_TOOLS } from '@falang/mcp-core';
 
 /**
@@ -109,9 +109,7 @@ describe('@falang/desktop-mcp stdio e2e', () => {
     });
     expect(setResult.isError).toBeFalsy();
 
-    const onDiskDocument = JSON.parse(await fs.readFile(documentPath(projectDir, created.id), 'utf8')) as {
-      root: { name: string };
-    };
+    const onDiskDocument = (await readDocument(projectDir, created.id)) as unknown as { root: { name: string } };
     expect(onDiskDocument.root.name).toBe('function');
 
     const locksAfterSet = await readLocks(projectDir);

@@ -1,9 +1,13 @@
+// oxlint-disable unicorn/consistent-function-scoping
 import { promises as fs } from 'node:fs';
 import * as os from 'node:os';
 import * as path from 'node:path';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import { createProject } from './project.js';
-import { documentPath, manifestPath } from './paths.js';
+import type { IProjectDocument } from '@falang/dto';
+import { createDocument } from './documents.js';
+import { createFolder } from './folders.js';
+import { documentsDir, manifestPath } from './paths.js';
 import { watchProject, type IProjectChangeEvent, type IProjectWatcher } from './watch-project.js';
 
 /**
@@ -36,11 +40,23 @@ describe('watchProject', () => {
   // oxlint-disable-next-line init-declarations
   let events: IProjectChangeEvent[];
 
+  const start = (): void => {
+    events = [];
+    watcher = watchProject(projectDir, (event) => events.push(event));
+  };
+
+  const makeDoc = (id: string): IProjectDocument => ({
+    id,
+    type: 'contour',
+    name: id,
+    root: { id: `${id}-root`, name: 'contour' },
+  });
+
   beforeEach(async () => {
     projectDir = await fs.mkdtemp(path.join(os.tmpdir(), 'project-fs-watch-test-'));
     await createProject(projectDir, { name: 'Watched', type: 'text' });
     events = [];
-    watcher = watchProject(projectDir, (event) => events.push(event));
+    watcher = watchProject(projectDir, () => null);
   });
 
   afterEach(async () => {
@@ -49,8 +65,12 @@ describe('watchProject', () => {
   });
 
   it('reports a document change with the changed id, debounced and coalesced', async () => {
-    await fs.writeFile(documentPath(projectDir, 'doc-1'), JSON.stringify({ id: 'doc-1' }));
-    await fs.writeFile(documentPath(projectDir, 'doc-1'), JSON.stringify({ id: 'doc-1', name: 'again' }));
+    await createDocument(projectDir, { document: makeDoc('doc-1'), folderId: null });
+    watcher.stop();
+    start();
+    const file = path.join(documentsDir(projectDir), 'doc-1.json');
+    await fs.writeFile(file, JSON.stringify(makeDoc('doc-1')));
+    await fs.writeFile(file, JSON.stringify({ ...makeDoc('doc-1'), name: 'doc-1' }));
 
     await waitFor(() => events.some((event) => event.kind === 'document'));
 
@@ -60,9 +80,26 @@ describe('watchProject', () => {
     expect(documentEvents[0]?.documentIds).toEqual(['doc-1']);
   }, 10_000);
 
+  it('maps a change in a nested folder file to the right document id', async () => {
+    const outer = await createFolder(projectDir, { name: 'Game', parentId: null });
+    const inner = await createFolder(projectDir, { name: 'Render', parentId: outer.id });
+    await createDocument(projectDir, { document: { ...makeDoc('doc-n'), name: 'Draw food' }, folderId: inner.id });
+    watcher.stop();
+    start();
+
+    const file = path.join(documentsDir(projectDir), 'Game', 'Render', 'Draw food.json');
+    await fs.writeFile(file, JSON.stringify({ ...makeDoc('doc-n'), name: 'Draw food' }));
+
+    await waitFor(() => events.some((event) => event.kind === 'document'));
+    expect(events.find((event) => event.kind === 'document')?.documentIds).toEqual(['doc-n']);
+  }, 10_000);
+
   it('suppresses a document event for a write markOwnWrite was just called for', async () => {
+    await createDocument(projectDir, { document: makeDoc('doc-own'), folderId: null });
+    watcher.stop();
+    start();
     watcher.markOwnWrite('doc-own');
-    await fs.writeFile(documentPath(projectDir, 'doc-own'), JSON.stringify({ id: 'doc-own' }));
+    await fs.writeFile(path.join(documentsDir(projectDir), 'doc-own.json'), JSON.stringify(makeDoc('doc-own')));
 
     // Give the watcher a full debounce window plus slack to prove no event arrives, rather than
     // asserting instantly (which would pass trivially before the debounce timer even fires).
@@ -71,23 +108,26 @@ describe('watchProject', () => {
   }, 10_000);
 
   it('reports a manifest change when falang.json is rewritten', async () => {
+    start();
     await fs.writeFile(
       manifestPath(projectDir),
-      JSON.stringify({ name: 'x', type: 'text', formatVersion: 4, folders: [], documents: [] }),
+      JSON.stringify({ name: 'x', type: 'text', formatVersion: 5, folders: [], documents: [] }),
     );
 
     await waitFor(() => events.some((event) => event.kind === 'manifest'));
   }, 10_000);
 
   it('reports a locks change when the locks sidecar is created (a file that did not exist at watch start)', async () => {
+    start();
     await fs.writeFile(path.join(projectDir, '.falang-locks.json'), JSON.stringify({ locks: [] }));
 
     await waitFor(() => events.some((event) => event.kind === 'locks'));
   }, 10_000);
 
   it('stop() prevents further events', async () => {
+    start();
     watcher.stop();
-    await fs.writeFile(documentPath(projectDir, 'doc-after-stop'), JSON.stringify({ id: 'doc-after-stop' }));
+    await fs.writeFile(path.join(documentsDir(projectDir), 'after-stop.json'), JSON.stringify({ id: 'after-stop' }));
     await sleep(500);
     expect(events).toEqual([]);
   }, 10_000);

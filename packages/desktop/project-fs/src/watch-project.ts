@@ -1,4 +1,8 @@
-import { watch, type FSWatcher } from 'node:fs';
+import { promises as fs, watch, type FSWatcher } from 'node:fs';
+import * as path from 'node:path';
+import { documentRelPosix } from './layout.js';
+import { readManifest } from './manifest.js';
+import { withProjectLock } from './project-lock.js';
 import { documentsDir, MANIFEST_FILENAME } from './paths.js';
 import { LOCKS_SIDECAR_NAME } from './locks.js';
 
@@ -6,7 +10,7 @@ export type TProjectChangeKind = 'document' | 'manifest' | 'locks';
 
 export interface IProjectChangeEvent {
   kind: TProjectChangeKind;
-  /** Only present for `kind: 'document'` — the changed documents' ids (`documents/<id>.json`'s `<id>`), coalesced across the debounce window. */
+  /** Only present for `kind: 'document'` — the changed documents' ids (mapped from the changed file's path through the manifest), coalesced across the debounce window. */
   documentIds?: string[];
 }
 
@@ -31,13 +35,34 @@ const locksFilename = `${LOCKS_SIDECAR_NAME}.json`;
 interface IPendingChanges {
   manifest: boolean;
   locks: boolean;
-  documentIds: Set<string>;
+  /** Changed files, as POSIX paths relative to `falang/schemes/` → when the event arrived. */
+  documentPaths: Map<string, number>;
 }
 
-const emptyPending = (): IPendingChanges => ({ manifest: false, locks: false, documentIds: new Set() });
+const emptyPending = (): IPendingChanges => ({ manifest: false, locks: false, documentPaths: new Map() });
+
+const SCHEMES_PREFIX = 'falang/schemes/';
+
+/** Document id for a changed file path (relative to `falang/schemes/`): via the manifest, else by the file's own JSON `id`; `null` if neither works. */
+const resolveDocumentId = async (
+  projectDir: string,
+  relPath: string,
+  pathToId: Map<string, string> | null,
+): Promise<string | null> => {
+  const known = pathToId?.get(relPath);
+  if (known) return known;
+  try {
+    const raw = JSON.parse(await fs.readFile(path.join(documentsDir(projectDir), ...relPath.split('/')), 'utf8')) as {
+      id?: unknown;
+    };
+    return typeof raw.id === 'string' ? raw.id : null;
+  } catch {
+    return null;
+  }
+};
 
 /**
- * Watches `<projectDir>/falang/schemes/`, `<projectDir>/falang.json` and
+ * Watches `<projectDir>/falang/schemes/` (recursively — documents sit in per-folder subdirectories), `<projectDir>/falang.json` and
  * `<projectDir>/.falang-locks.json` for external changes — an MCP server (or another process, git
  * checkout, sync folder, …) editing the project folder while a desktop app has it open. Plain
  * `fs.watch` (no `chokidar`), debounced ~200ms and coalesced into one `onChange` call per kind per
@@ -54,6 +79,28 @@ export const watchProject = (projectDir: string, onChange: (event: IProjectChang
   const ownWriteAt = new Map<string, number>();
   let pending = emptyPending();
   let debounceTimer: ReturnType<typeof setTimeout> | null = null;
+  let stopped = false;
+
+  const flushDocuments = async (documentPaths: Map<string, number>): Promise<void> => {
+    // Document files are located through the manifest (name-based paths), so map paths → ids now.
+    const pathToId = await withProjectLock(projectDir, () => readManifest(projectDir)).then(
+      (manifest) =>
+        new Map(
+          manifest.documents.map((entry) => [documentRelPosix(manifest, entry).slice(SCHEMES_PREFIX.length), entry.id]),
+        ),
+      () => null,
+    );
+    const ids = new Set<string>();
+    for (const [relPath, eventAt] of documentPaths) {
+      // oxlint-disable-next-line no-await-in-loop -- a handful of paths per debounce window
+      const documentId = await resolveDocumentId(projectDir, relPath, pathToId);
+      if (documentId === null) continue;
+      const suppressedAt = ownWriteAt.get(documentId);
+      if (typeof suppressedAt === 'number' && eventAt - suppressedAt < OWN_WRITE_SUPPRESS_MS) continue;
+      ids.add(documentId);
+    }
+    if (!stopped && ids.size > 0) onChange({ kind: 'document', documentIds: [...ids] });
+  };
 
   const flush = (): void => {
     debounceTimer = null;
@@ -61,7 +108,7 @@ export const watchProject = (projectDir: string, onChange: (event: IProjectChang
     pending = emptyPending();
     if (toFlush.manifest) onChange({ kind: 'manifest' });
     if (toFlush.locks) onChange({ kind: 'locks' });
-    if (toFlush.documentIds.size > 0) onChange({ kind: 'document', documentIds: [...toFlush.documentIds] });
+    if (toFlush.documentPaths.size > 0) flushDocuments(toFlush.documentPaths).catch(() => null);
   };
 
   const scheduleFlush = (): void => {
@@ -82,10 +129,7 @@ export const watchProject = (projectDir: string, onChange: (event: IProjectChang
 
   const handleDocumentsEvent = (filename: string | null): void => {
     if (!filename || !filename.endsWith(DOCUMENT_EXT)) return;
-    const documentId = filename.slice(0, -DOCUMENT_EXT.length);
-    const suppressedAt = ownWriteAt.get(documentId);
-    if (typeof suppressedAt === 'number' && Date.now() - suppressedAt < OWN_WRITE_SUPPRESS_MS) return;
-    pending.documentIds.add(documentId);
+    pending.documentPaths.set(filename.split(path.sep).join('/'), Date.now());
     scheduleFlush();
   };
 
@@ -98,7 +142,7 @@ export const watchProject = (projectDir: string, onChange: (event: IProjectChang
   // shouldn't crash the whole watcher, it should just not report document-level changes.
   let documentsWatcher: FSWatcher | null = null;
   try {
-    documentsWatcher = watch(documentsDir(projectDir), (_eventType, filename) =>
+    documentsWatcher = watch(documentsDir(projectDir), { recursive: true }, (_eventType, filename) =>
       handleDocumentsEvent(filename?.toString() ?? null),
     );
   } catch {
@@ -106,6 +150,7 @@ export const watchProject = (projectDir: string, onChange: (event: IProjectChang
   }
 
   const stop = (): void => {
+    stopped = true;
     rootWatcher.close();
     documentsWatcher?.close();
     if (debounceTimer) clearTimeout(debounceTimer);

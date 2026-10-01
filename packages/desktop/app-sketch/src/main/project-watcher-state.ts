@@ -1,4 +1,10 @@
-import { watchProject, type IProjectChangeEvent, type IProjectWatcher } from '@falang/desktop-project-fs';
+import {
+  getFolderDescendantIds,
+  listTree,
+  watchProject,
+  type IProjectChangeEvent,
+  type IProjectWatcher,
+} from '@falang/desktop-project-fs';
 import type { BrowserWindow } from 'electron';
 import { IPC } from '../shared/ipc-channels.js';
 
@@ -27,4 +33,31 @@ export const startProjectWatcher = (dir: string, getMainWindow: () => BrowserWin
 /** Call right when `main` itself writes a document (the renderer's debounced autosave, via `IPC.documentWrite`) so the watcher drops the matching filesystem event instead of bouncing it back to the renderer as an external change. No-op if no watcher is active. */
 export const markOwnDocumentWrite = (documentId: string): void => {
   currentWatcher?.markOwnWrite(documentId);
+};
+
+/**
+ * Runs `op` (a rename/move that relocates document files on disk — a document's file is named after
+ * the scheme and sits in its folder's directory) while marking `documentIds` as own writes, so the
+ * app's own file moves aren't bounced back to the renderer as "changed on disk". The ids are marked
+ * before the op and again after it (the debounced events can arrive after a slow op finishes).
+ * `documentIds` is resolved against the tree as it is *before* the op.
+ */
+export const withOwnDocumentMoves = async <T>(
+  dir: string,
+  resolveDocumentIds: (tree: Awaited<ReturnType<typeof listTree>>) => string[],
+  op: () => Promise<T>,
+): Promise<T> => {
+  const ids = await listTree(dir).then(resolveDocumentIds, () => [] as string[]);
+  for (const id of ids) markOwnDocumentWrite(id);
+  try {
+    return await op();
+  } finally {
+    for (const id of ids) markOwnDocumentWrite(id);
+  }
+};
+
+/** Ids of every document filed under `folderId` or any folder nested below it (they all move with the folder). */
+export const documentIdsInFolder = (tree: Awaited<ReturnType<typeof listTree>>, folderId: string): string[] => {
+  const folderIds = new Set([folderId, ...getFolderDescendantIds(tree.folders, folderId)]);
+  return tree.documents.filter((doc) => doc.folderId !== null && folderIds.has(doc.folderId)).map((doc) => doc.id);
 };

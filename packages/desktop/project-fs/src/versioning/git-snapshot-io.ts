@@ -2,18 +2,22 @@ import * as nodeFs from 'node:fs';
 import git from 'isomorphic-git';
 import type { IProjectDocument, IProjectTreeDocument, IProjectTreeFolder } from '@falang/dto';
 import type { IProjectSnapshot, ISnapshotDocument } from '@falang/versioning';
-import { readDocument } from '../documents.js';
+import { readDocumentFile } from '../documents.js';
 import { readManifest } from '../manifest.js';
-import { FALANG_DIRNAME, MANIFEST_FILENAME, SCHEMES_DIRNAME } from '../paths.js';
+import { withProjectLock } from '../project-lock.js';
+import { documentRelPosix } from '../layout.js';
+import { MANIFEST_FILENAME } from '../paths.js';
+import type { IManifestDocument, IManifestFolder } from '../types.js';
 import { joinGitPath, type IRepoContext } from './git-paths.js';
 
-/** POSIX-relative path (within the project dir) of a document's payload file under the v4 layout — `falang/schemes/<id>.json`. */
-const documentRelPath = (documentId: string): string => `${FALANG_DIRNAME}/${SCHEMES_DIRNAME}/${documentId}.json`;
-
 interface IBlobManifest {
-  folders: IProjectTreeFolder[];
-  documents: IProjectTreeDocument[];
+  folders: IManifestFolder[];
+  documents: IManifestDocument[];
 }
+
+/** Snapshots are content-only: a folder's on-disk `dirName` is layout, not content, so a pure rename-on-disk is never a diff. */
+const toSnapshotFolders = (folders: readonly IManifestFolder[]): IProjectTreeFolder[] =>
+  folders.map((folder) => ({ id: folder.id, name: folder.name, parentId: folder.parentId }));
 
 const toSnapshotDocument = (entry: IProjectTreeDocument, document: IProjectDocument): ISnapshotDocument => ({
   id: entry.id,
@@ -26,13 +30,16 @@ const toSnapshotDocument = (entry: IProjectTreeDocument, document: IProjectDocum
 });
 
 /** Reads the live, on-disk working copy — manifest tree entries plus each document's own payload file. */
-export const readWorkingCopySnapshot = async (projectDir: string): Promise<IProjectSnapshot> => {
-  const manifest = await readManifest(projectDir);
-  const documents = await Promise.all(
-    manifest.documents.map(async (entry) => toSnapshotDocument(entry, await readDocument(projectDir, entry.id))),
-  );
-  return { folders: manifest.folders, documents };
-};
+export const readWorkingCopySnapshot = (projectDir: string): Promise<IProjectSnapshot> =>
+  withProjectLock(projectDir, async () => {
+    const manifest = await readManifest(projectDir);
+    const documents = await Promise.all(
+      manifest.documents.map(async (entry) =>
+        toSnapshotDocument(entry, await readDocumentFile(projectDir, manifest, entry)),
+      ),
+    );
+    return { folders: toSnapshotFolders(manifest.folders), documents };
+  });
 
 const readJsonBlob = async (ctx: IRepoContext, oid: string, relPath: string): Promise<unknown> => {
   const { blob } = await git.readBlob({
@@ -60,9 +67,9 @@ export const readSnapshotAtOid = async (ctx: IRepoContext, oid: string): Promise
   }
   const documents = await Promise.all(
     manifest.documents.map(async (entry) => {
-      const document = (await readJsonBlob(ctx, oid, documentRelPath(entry.id))) as IProjectDocument;
+      const document = (await readJsonBlob(ctx, oid, documentRelPosix(manifest, entry))) as IProjectDocument;
       return toSnapshotDocument(entry, document);
     }),
   );
-  return { folders: manifest.folders, documents };
+  return { folders: toSnapshotFolders(manifest.folders), documents };
 };

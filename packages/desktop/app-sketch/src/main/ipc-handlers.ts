@@ -50,7 +50,12 @@ import {
   setVersioningSettings,
 } from './settings.js';
 import { getVersionStore, withAutoVersion } from './versioning.js';
-import { markOwnDocumentWrite, startProjectWatcher } from './project-watcher-state.js';
+import {
+  documentIdsInFolder,
+  markOwnDocumentWrite,
+  startProjectWatcher,
+  withOwnDocumentMoves,
+} from './project-watcher-state.js';
 import { resolveMcpServerCommand } from './mcp-server-path.js';
 import { reportError } from '../shared/report-error.js';
 import { cancelExportJob, runExportJob } from './export-worker/run-export-job.js';
@@ -163,8 +168,11 @@ export const registerIpcHandlers = (
   });
   ipcMain.handle(
     IPC.documentCreate,
-    (_event, dir: string, params: { document: IProjectDocument; folderId: string | null }): Promise<void> =>
-      withAutoVersion(dir, () => createDocument(dir, params)),
+    (_event, dir: string, params: { document: IProjectDocument; folderId: string | null }): Promise<void> => {
+      // The renderer already holds the new document (and usually opened its tab) — don't bounce the file event back.
+      markOwnDocumentWrite(params.document.id);
+      return withAutoVersion(dir, () => createDocument(dir, params));
+    },
   );
   ipcMain.handle(
     IPC.documentDelete,
@@ -174,12 +182,24 @@ export const registerIpcHandlers = (
   ipcMain.handle(
     IPC.documentRename,
     (_event, dir: string, documentId: string, name: string): Promise<void> =>
-      withAutoVersion(dir, () => renameDocument(dir, documentId, name)),
+      withAutoVersion(dir, () =>
+        withOwnDocumentMoves(
+          dir,
+          () => [documentId],
+          () => renameDocument(dir, documentId, name),
+        ),
+      ),
   );
   ipcMain.handle(
     IPC.documentMove,
     (_event, dir: string, documentId: string, folderId: string | null): Promise<void> =>
-      withAutoVersion(dir, () => moveDocument(dir, documentId, folderId)),
+      withAutoVersion(dir, () =>
+        withOwnDocumentMoves(
+          dir,
+          () => [documentId],
+          () => moveDocument(dir, documentId, folderId),
+        ),
+      ),
   );
 
   ipcMain.handle(IPC.folderCreate, (_event, dir: string, params: { name: string; parentId: string | null }) =>
@@ -188,16 +208,35 @@ export const registerIpcHandlers = (
   ipcMain.handle(
     IPC.folderRename,
     (_event, dir: string, folderId: string, name: string): Promise<void> =>
-      withAutoVersion(dir, () => renameFolder(dir, folderId, name)),
+      withAutoVersion(dir, () =>
+        withOwnDocumentMoves(
+          dir,
+          (tree) => documentIdsInFolder(tree, folderId),
+          () => renameFolder(dir, folderId, name),
+        ),
+      ),
   );
   ipcMain.handle(
     IPC.folderMove,
     (_event, dir: string, folderId: string, parentId: string | null): Promise<void> =>
-      withAutoVersion(dir, () => moveFolder(dir, folderId, parentId)),
+      withAutoVersion(dir, () =>
+        withOwnDocumentMoves(
+          dir,
+          (tree) => documentIdsInFolder(tree, folderId),
+          () => moveFolder(dir, folderId, parentId),
+        ),
+      ),
   );
   ipcMain.handle(
     IPC.folderDelete,
-    (_event, dir: string, folderId: string): Promise<void> => withAutoVersion(dir, () => deleteFolder(dir, folderId)),
+    (_event, dir: string, folderId: string): Promise<void> =>
+      withAutoVersion(dir, () =>
+        withOwnDocumentMoves(
+          dir,
+          (tree) => documentIdsInFolder(tree, folderId),
+          () => deleteFolder(dir, folderId),
+        ),
+      ),
   );
 
   ipcMain.handle(IPC.recentProjectsList, () => listRecentProjects());

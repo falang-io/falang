@@ -35,7 +35,7 @@ describe('writeAgentFiles', () => {
 
     const claudeMd = await fs.readFile(path.join(projectDir, 'CLAUDE.md'), 'utf8');
     expect(claudeMd).toContain('falang `logic` project');
-    expect(claudeMd).toContain('falang/schemes/<id>.json');
+    expect(claudeMd).toContain('falang/schemes/<folder path>/<scheme name>.json');
     expect(claudeMd).toContain('falang` MCP server');
   });
 

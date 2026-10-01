@@ -101,7 +101,7 @@ describe('convertStatement — "if"/"switch"/"parallel" branch-slot-0 mitigation
     expect(() => stack.parseNode(ifNode)).not.toThrow();
   });
 
-  it('hoists the first branch\'s early exit into the parent chain when both branches exit unconditionally', () => {
+  it("hoists the first branch's early exit into the parent chain when both branches exit unconditionally", () => {
     const falseBranch = oldBranch('b0', oldOut('return', 'o0', 'false'));
     const trueBranch = oldBranch('b1', oldOut('return', 'o1', 'true'));
     const [ifNode, hoisted] = convertStatement(oldIf('if1', [falseBranch, trueBranch]), ctx);
@@ -193,7 +193,7 @@ describe('fixFirstStatementOut — the general "children[0] must not have out" m
 
   it(
     'drops a "continue" that would land on a loop first in its parent chain (a no-op: it\'s already the last ' +
-      'statement of the loop body, so it changes nothing whether it\'s there or not)',
+      "statement of the loop body, so it changes nothing whether it's there or not)",
     () => {
       const whileIcon: IOldIcon = {
         id: 'w1',

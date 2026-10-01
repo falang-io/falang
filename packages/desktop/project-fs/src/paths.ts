@@ -1,8 +1,10 @@
 import * as path from 'node:path';
 
 /**
- * On-disk layout v4 (`FORMAT_VERSION` 4, see `types.ts`): the manifest is `<projectDir>/falang.json`,
- * documents live under `<projectDir>/falang/schemes/<id>.json`, and a domain-specific config file
+ * On-disk layout v5 (`FORMAT_VERSION` 5, see `types.ts`): the manifest is `<projectDir>/falang.json`,
+ * documents live under `<projectDir>/falang/schemes/<folder path>/<scheme name>.json` (folders are real
+ * directories; the exact segments are stored in the manifest, see `layout.ts`; a v4 project had the flat
+ * `falang/schemes/<id>.json`), and a domain-specific config file
  * (e.g. `@falang/logic-export`'s `logic-export.json`) lives under `<projectDir>/falang/config/`.
  * `FALANG_DIRNAME`/`SCHEMES_DIRNAME`/`CONFIG_DIRNAME` are exported (rather than only the composed
  * path helpers below) so `migrate-v3.ts` and the git-versioning code can build POSIX-relative paths
@@ -25,7 +27,8 @@ export const falangDir = (projectDir: string): string => path.join(projectDir, F
 
 export const documentsDir = (projectDir: string): string => path.join(falangDir(projectDir), SCHEMES_DIRNAME);
 
-export const documentPath = (projectDir: string, documentId: string): string =>
+/** v4's flat `falang/schemes/<id>.json` — the fallback for a manifest entry that has no `fileName` yet. */
+export const legacyDocumentPath = (projectDir: string, documentId: string): string =>
   path.join(documentsDir(projectDir), `${documentId}.json`);
 
 export const configDir = (projectDir: string): string => path.join(falangDir(projectDir), CONFIG_DIRNAME);

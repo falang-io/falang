@@ -11,6 +11,7 @@ import {
   renameDocument,
   writeDocument,
 } from './documents.js';
+import { createFolder } from './folders.js';
 import { createProject } from './project.js';
 import { readManifest } from './manifest.js';
 
@@ -38,7 +39,10 @@ describe('documents', () => {
     await createDocument(projectDir, { document: sampleDocument, folderId: null });
 
     const manifest = await readManifest(projectDir);
-    expect(manifest.documents).toEqual([{ id: 'doc-1', type: 'contour', name: 'Main', folderId: null }]);
+    expect(manifest.documents).toEqual([
+      { id: 'doc-1', type: 'contour', name: 'Main', folderId: null, fileName: 'Main' },
+    ]);
+    await expect(fs.access(path.join(projectDir, 'falang', 'schemes', 'Main.json'))).resolves.toBeUndefined();
 
     const read = await readDocument(projectDir, 'doc-1');
     expect(read).toEqual(sampleDocument);
@@ -72,14 +76,15 @@ describe('documents', () => {
 
   it('moves a document to a different folder', async () => {
     await createDocument(projectDir, { document: sampleDocument, folderId: null });
-    await moveDocument(projectDir, 'doc-1', 'folder-1');
+    const folder = await createFolder(projectDir, { name: 'Folder', parentId: null });
+    await moveDocument(projectDir, 'doc-1', folder.id);
 
     const manifest = await readManifest(projectDir);
-    expect(manifest.documents[0]?.folderId).toBe('folder-1');
+    expect(manifest.documents[0]?.folderId).toBe(folder.id);
   });
 
   it('rejects moving a document that does not exist', async () => {
-    await expect(moveDocument(projectDir, 'missing', 'folder-1')).rejects.toThrow(/not found/);
+    await expect(moveDocument(projectDir, 'missing', null)).rejects.toThrow(/not found/);
   });
 
   it('deletes a document, removing both its manifest entry and payload file', async () => {
