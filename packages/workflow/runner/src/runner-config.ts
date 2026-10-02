@@ -11,6 +11,10 @@ export interface IRunnerConfig {
   readonly deploymentName?: string;
   /** Worker Deployment version's build ID — set together with `deploymentName`; also selects the published-version artifact endpoint over the dev one, see `fetch-artifact.ts`. */
   readonly buildId?: string;
+  /** `backend`'s in-cluster URL (egress proxy config, ADR 0056 (private)); egress routing is skipped when unset. */
+  readonly backendUrl?: string;
+  /** Sibling services whose origins are never routed through an egress proxy. */
+  readonly internalServiceUrls?: readonly string[];
 }
 
 const REQUIRED_ENV_VARS = ['ARTIFACT_BASE_URL', 'PROJECT_ID', 'INTERNAL_PROJECT_TOKEN', 'TASK_QUEUE'] as const;
@@ -36,5 +40,9 @@ export const readRunnerConfigFromEnv = (env: NodeJS.ProcessEnv = process.env): I
     namespace: env.TEMPORAL_NAMESPACE,
     deploymentName: env.DEPLOYMENT_NAME,
     buildId: env.BUILD_ID,
+    backendUrl: env.BACKEND_INTERNAL_URL,
+    internalServiceUrls: [env.ACTIVEPIECES_SERVICE_URL, env.MEDIA_SERVICE_URL].filter(
+      (url): url is string => typeof url === 'string' && url !== '',
+    ),
   };
 };

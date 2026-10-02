@@ -17,6 +17,8 @@ import { AuthModule } from './domains/auth/auth/auth.module.js';
 import { JwtAuthGuard } from './domains/auth/auth/jwt-auth.guard.js';
 import { PersonalAccessTokensModule } from './domains/auth/personal-access-tokens/personal-access-tokens.module.js';
 import { BuildModule } from './domains/build/build/build.module.js';
+import { EgressRoutingModule } from './domains/egress-proxy/egress-routing.module.js';
+import { EgressProxyModule } from './domains/egress-proxy/egress-proxy.module.js';
 import { FilesModule } from './domains/files/files.module.js';
 import { ActivepiecesCatalogService } from './domains/integrations/activepieces-catalog.service.js';
 import { requireEncryptionKey } from './domains/integrations/credentials-crypto.js';
@@ -86,6 +88,8 @@ const buildBuiltInImports = (): TAppImport[] => [
   VersioningModule,
   BuildModule,
   FilesModule,
+  EgressProxyModule,
+  EgressRoutingModule,
   IntegrationsModule,
   HealthModule,
   RunsModule,

@@ -1,7 +1,17 @@
 import { NativeConnection, Worker, type WorkerOptions } from '@temporalio/worker';
+import {
+  createEgressConfigPoller,
+  createInternalOriginMatcher,
+  fetchEgressProxyConfig,
+  installEgressRouting,
+  type IEgressConfigPoller,
+} from '@falang/workflow-egress';
 import { fetchArtifact } from './fetch-artifact.js';
 import { loadCjsModuleFromSource } from './load-cjs-module-from-source.js';
 import type { IRunnerConfig } from './runner-config.js';
+import { wrapActivitiesWithEgressVendor } from './wrap-activities.js';
+
+const EGRESS_CONFIG_READY_TIMEOUT_MS = 5000;
 
 /**
  * Starts a Temporal Worker for a single compiled workflow. Per
@@ -28,7 +38,9 @@ export const startRunner = async (config: IRunnerConfig): Promise<void> => {
   // Filename only needs to be a plausible absolute path inside this image's own node_modules
   // resolution tree — never actually read from disk — so `require('@temporalio/activity')` inside
   // the loaded activities resolves against the runner image's pre-baked `node_modules`.
-  const activities = loadCjsModuleFromSource(activitiesSource, '/app/activities.js') as object;
+  const activities = wrapActivitiesWithEgressVendor(
+    loadCjsModuleFromSource(activitiesSource, '/app/activities.js') as object,
+  );
 
   const workerOptions: WorkerOptions = {
     namespace: config.namespace,
@@ -50,10 +62,43 @@ export const startRunner = async (config: IRunnerConfig): Promise<void> => {
     };
   }
 
+  // Vendor egress routing (ADR 0056 (private)): skipped when backend's URL is unknown (local tests).
+  let poller: IEgressConfigPoller | null = null;
+  let routing: { dispose(): void } | null = null;
+  if (config.backendUrl) {
+    const backendUrl = config.backendUrl;
+    poller = createEgressConfigPoller({
+      load: () =>
+        fetchEgressProxyConfig({
+          backendUrl,
+          projectId: config.projectId,
+          projectToken: config.internalProjectToken,
+        }),
+    });
+    let timer: NodeJS.Timeout | null = null;
+    await Promise.race([
+      poller.ready,
+      new Promise<void>((resolve) => {
+        timer = setTimeout(resolve, EGRESS_CONFIG_READY_TIMEOUT_MS);
+      }),
+    ]);
+    if (timer) clearTimeout(timer);
+    routing = installEgressRouting({
+      getConfig: poller.get,
+      isInternal: createInternalOriginMatcher([
+        config.backendUrl,
+        config.artifactBaseUrl,
+        ...(config.internalServiceUrls ?? []),
+      ]),
+    });
+  }
+
   try {
     const worker = await Worker.create(workerOptions);
     await worker.run();
   } finally {
+    routing?.dispose();
+    poller?.dispose();
     await connection?.close();
   }
 };

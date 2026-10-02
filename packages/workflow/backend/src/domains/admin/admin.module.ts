@@ -5,6 +5,7 @@ import { Project } from '../projects/projects/project.entity.js';
 import { MailModule } from '../mail/mail.module.js';
 import { UsersModule } from '../users/users/users.module.js';
 import { AdminAgentSettingsController } from './app-settings/admin-agent-settings.controller.js';
+import { AdminProxySettingsController } from './app-settings/admin-proxy-settings.controller.js';
 import { AppSettingsModule } from './app-settings/app-settings.module.js';
 import { AdminOAuthCredentialsController } from './oauth-credentials/admin-oauth-credentials.controller.js';
 import { OAuthCredentialsModule } from './oauth-credentials/oauth-credentials.module.js';
@@ -40,6 +41,7 @@ import { AdminUsersService } from './users/admin-users.service.js';
     AdminUsersController,
     AdminOAuthCredentialsController,
     AdminAgentSettingsController,
+    AdminProxySettingsController,
     AdminUserLimitsController,
   ],
   providers: [AdminUsersService],

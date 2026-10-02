@@ -22,6 +22,7 @@ describe('readRunnerConfigFromEnv', () => {
       namespace: 'prod',
       deploymentName: 'workflow-42',
       buildId: 'v1',
+      internalServiceUrls: [],
     });
   });
 
@@ -38,6 +39,7 @@ describe('readRunnerConfigFromEnv', () => {
       projectId: 'project-1',
       internalProjectToken: 'token-1',
       taskQueue: 'workflow-42',
+      internalServiceUrls: [],
     });
     expect(config.temporalAddress).toBeUndefined();
     expect(config.namespace).toBeUndefined();

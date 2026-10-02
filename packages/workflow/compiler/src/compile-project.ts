@@ -10,6 +10,7 @@ import {
 import {
   buildActivityProxyGroupCode,
   collectActivityProxyEntries,
+  collectActivityVendors,
   groupActivityProxyEntries,
 } from './activity-proxy-groups.js';
 import { buildChoiceEmitters } from './choice-emitters.js';
@@ -250,6 +251,7 @@ export const compileProject = ({
   const extraActivityCode = collectIntegrationActivityCode(used.integrations);
   const activities = compileActivities(extraActivityCode, {
     includeActivepiecesAction: used.usesActivepiecesAction,
+    activityVendors: collectActivityVendors(used.integrations),
   });
 
   // Each document's block is wrapped in its own `doc-start`/`doc-end` marker (see

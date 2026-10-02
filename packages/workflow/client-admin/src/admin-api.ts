@@ -45,6 +45,22 @@ export interface IAdminAgentSettings {
   readonly updatedAt: string | null;
 }
 
+/** `GET`/`PUT /admin/settings/proxy` — the egress-proxy config, never carrying the token (`hasToken` only). ADR 0056 (private). */
+export interface IAdminProxySettings {
+  readonly configured: boolean;
+  readonly url: string | null;
+  readonly hasToken: boolean;
+  readonly vendors: string[];
+  readonly updatedAt: string | null;
+}
+
+/** One selectable integration of `GET /admin/settings/proxy/vendors`; a `builtin` label is an i18n key, an `activepieces` one plain text. */
+export interface IAdminProxyVendor {
+  readonly vendor: string;
+  readonly label: string;
+  readonly source: 'builtin' | 'activepieces';
+}
+
 /** `GET /admin/project-templates` row — see `ProjectTemplatesService`. */
 export interface IAdminProjectTemplate {
   readonly id: string;
@@ -143,6 +159,19 @@ export const adminApi = {
     }),
 
   deleteAgentSettings: () => apiRequest<null>('/admin/settings/agent', { method: 'DELETE' }),
+
+  getProxySettings: () => apiRequest<IAdminProxySettings>('/admin/settings/proxy'),
+
+  /** `token` is omitted from the request body entirely when empty, keeping the previously stored token. */
+  upsertProxySettings: (input: { url: string; token?: string; vendors: string[] }) =>
+    apiRequest<IAdminProxySettings>('/admin/settings/proxy', {
+      method: 'PUT',
+      body: JSON.stringify(input.token ? input : { url: input.url, vendors: input.vendors }),
+    }),
+
+  deleteProxySettings: () => apiRequest<null>('/admin/settings/proxy', { method: 'DELETE' }),
+
+  listProxyVendors: () => apiRequest<{ vendors: IAdminProxyVendor[] }>('/admin/settings/proxy/vendors'),
 
   listProjectTemplates: () => apiRequest<IAdminProjectTemplate[]>('/admin/project-templates'),
 

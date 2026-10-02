@@ -20,6 +20,7 @@ import { PersonalAccessToken } from '../domains/auth/personal-access-tokens/pers
 import { PersonalAccessTokensModule } from '../domains/auth/personal-access-tokens/personal-access-tokens.module.js';
 import { FILE_STORAGE } from '../domains/files/file-storage.js';
 import { File } from '../domains/files/file.entity.js';
+import { EgressProxyModule } from '../domains/egress-proxy/egress-proxy.module.js';
 import { FilesModule } from '../domains/files/files.module.js';
 import { InMemoryFileStorage } from '../domains/files/in-memory-file-storage.js';
 import { IntegrationsModule } from '../domains/integrations/integrations.module.js';
@@ -97,6 +98,7 @@ export const buildTestAppImports = (extraModules: TAppImport[] = []) => [
   AgentChatModule,
   SupportModule,
   FilesModule,
+  EgressProxyModule,
   GatewayModule.forRoot([], noopDiscoveryPort),
   ...extraModules,
 ];

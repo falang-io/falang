@@ -26,6 +26,7 @@
     "@falang/versioning": "*",
     "@falang/workflow-compiler": "*",
     "@falang/workflow-dto": "*",
+    "@falang/workflow-egress": "*",
     "@falang/workflow-gateway": "*",
     "@falang/workflow-integrations-activepieces": "*",
     "@falang/workflow-integrations-amocrm": "*",

@@ -154,7 +154,11 @@ export const collectIntegrationActivityCode = (integrations: readonly IWorkflowI
  */
 export const compileActivities = (
   extraActivityCode: readonly string[] = [],
-  options: { readonly includeActivepiecesAction?: boolean } = {},
+  options: {
+    readonly includeActivepiecesAction?: boolean;
+    /** Activity name -> vendor; when given, exported as `__falangActivityVendors` (read by the runner's egress routing). */
+    readonly activityVendors?: Readonly<Record<string, string>>;
+  } = {},
 ): string => {
   const blocks = [
     LOG_ACTIVITY_CODE,
@@ -173,6 +177,12 @@ export const compileActivities = (
       }
     }
     bodies.push(rest);
+  }
+  if (options.activityVendors) {
+    const lines = Object.entries(options.activityVendors).map(
+      ([name, vendor]) => `  ${name}: ${JSON.stringify(vendor).replaceAll('"', "'")},`,
+    );
+    bodies.push(['export const __falangActivityVendors: Record<string, string> = {', ...lines, '};'].join('\n'));
   }
   return [...(hoistedImports.length > 0 ? [hoistedImports.join('\n')] : []), ...bodies, ''].join('\n\n');
 };

@@ -3,6 +3,7 @@ import { getPiece } from '../pieces/registry.js';
 import { buildPropertyContext } from '../pieces/context.js';
 import { resolveAuthValue } from '../pieces/auth-resolver.js';
 import { NotFoundError } from '../credentials.js';
+import { runWithPieceEgress } from '../egress/index.js';
 
 export const optionsRouter = Router();
 
@@ -65,8 +66,11 @@ optionsRouter.get(
         return;
       }
 
-      const authValue = await resolveAuthValue(pieceName, piece, credentialId, projectId, internalProjectToken);
-      const result = await field.options({ ...propsValue, auth: authValue }, buildPropertyContext());
+      const options = field.options;
+      const result = await runWithPieceEgress(pieceName, { projectId, internalProjectToken }, async () => {
+        const authValue = await resolveAuthValue(pieceName, piece, credentialId, projectId, internalProjectToken);
+        return options({ ...propsValue, auth: authValue }, buildPropertyContext());
+      });
       res.json(result);
     } catch (error) {
       if (error instanceof NotFoundError) {

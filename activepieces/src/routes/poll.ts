@@ -4,6 +4,7 @@ import { getPiece } from '../pieces/registry.js';
 import { buildTriggerContext, createTriggerStore } from '../pieces/context.js';
 import { resolveAuthValue } from '../pieces/auth-resolver.js';
 import { NotFoundError } from '../credentials.js';
+import { runWithPieceEgress } from '../egress/index.js';
 
 export const pollRouter = Router();
 
@@ -48,21 +49,23 @@ pollRouter.post('/credentials/:credentialId/pieces/:pieceName/triggers/:triggerN
       return;
     }
 
-    const authValue = await resolveAuthValue(pieceName, piece, credentialId, projectId, internalProjectToken);
-    const key = triggerStateKey(credentialId, pieceName, triggerName);
-    let state = triggerStates.get(key);
-    if (!state) {
-      state = new Map<string, unknown>();
-      triggerStates.set(key, state);
-    }
-    const context = buildTriggerContext(propsValue, authValue, createTriggerStore(state));
+    const items = await runWithPieceEgress(pieceName, { projectId, internalProjectToken }, async () => {
+      const authValue = await resolveAuthValue(pieceName, piece, credentialId, projectId, internalProjectToken);
+      const key = triggerStateKey(credentialId, pieceName, triggerName);
+      let state = triggerStates.get(key);
+      if (!state) {
+        state = new Map<string, unknown>();
+        triggerStates.set(key, state);
+      }
+      const context = buildTriggerContext(propsValue, authValue, createTriggerStore(state));
 
-    if (!enabledTriggers.has(key)) {
-      await trigger.onEnable(context as unknown as Parameters<typeof trigger.onEnable>[0]);
-      enabledTriggers.add(key);
-    }
+      if (!enabledTriggers.has(key)) {
+        await trigger.onEnable(context as unknown as Parameters<typeof trigger.onEnable>[0]);
+        enabledTriggers.add(key);
+      }
 
-    const items = await trigger.run(context as unknown as Parameters<typeof trigger.run>[0]);
+      return trigger.run(context as unknown as Parameters<typeof trigger.run>[0]);
+    });
     res.json({ items });
   } catch (error) {
     if (error instanceof NotFoundError) {

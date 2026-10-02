@@ -160,3 +160,19 @@ export const buildActivityProxyGroupCode = (group: IActivityProxyGroup): string 
   ];
   return [`const { ${names} } = ${proxyFn}<{ ${signatures} }>({`, ...optionsLines, '});'].join('\n');
 };
+
+/**
+ * Activity name -> vendor for every activity function a used integration contributes (actions, questions'
+ * ask/resolve/close, choices). Names come from `collectActivityProxyEntries` itself, so the map is exactly what the
+ * workflow-side proxies call. `logActivity`/`runActivepiecesAction` are not vendor activities and are omitted.
+ */
+export const collectActivityVendors = (integrations: readonly IWorkflowIntegration[]): Record<string, string> => {
+  const result: Record<string, string> = {};
+  for (const integration of integrations) {
+    for (const entry of collectActivityProxyEntries([integration], { includeActivepiecesAction: false })) {
+      if (entry.name === LOG_ACTIVITY_PROXY.name) continue;
+      result[entry.name] = integration.vendor;
+    }
+  }
+  return result;
+};
