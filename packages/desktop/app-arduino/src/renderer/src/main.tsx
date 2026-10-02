@@ -4,23 +4,25 @@ import '@falang/typescript-scheme/src/browser.js';
 import { StrictMode } from 'react';
 import { createRoot } from 'react-dom/client';
 import { App } from './app.js';
-import { initializeDriverRegistry } from '@falang/desktop-arduino-scheme';
+import { driversRegistry } from './drivers-registry-store.js';
 import { reportError } from '../../shared/report-error.js';
 
 const rootElement = document.querySelector('#root');
 if (!rootElement) throw new Error('Root element not found');
 
 /**
- * Driver configs (ADR 0023 (private)'s Phase B/C) must be loaded before the first
+ * Driver configs (ADR 0023 (private)'s Phase B/C; per-project since ADR 0054 (private) — `ArduinoProjectStore` re-fetches
+ * them once a project is open and again on every `drivers:changed`; this call gives the welcome screen bundled +
+ * library) must be loaded before the first
  * `arduinoSchemeFactory` call — which happens as soon as `ArduinoProjectStore` opens a document, itself
  * triggered from `<App>`'s very first render — so this awaits the one-shot IPC fetch before rendering
  * anything. A fast local read of a handful of small JSON files, so blocking the very first paint on it
  * is a non-issue in practice.
  */
-globalThis.falang.drivers
-  .list()
-  .then(({ drivers }) => {
-    initializeDriverRegistry(drivers.map((driver) => driver.config));
+driversRegistry.start();
+driversRegistry
+  .refresh()
+  .then(() => {
     createRoot(rootElement).render(
       <StrictMode>
         <App />

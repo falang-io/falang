@@ -155,7 +155,7 @@ export const BuildPanelModal: React.FC<Props> = observer(({ store, open, onClose
             </Button>
           </Tooltip>
         </div>
-        {error && <Alert type="error" message={error} />}
+        {error && <Alert type="error" message={<span style={{ whiteSpace: 'pre-wrap' }}>{error}</span>} />}
         {output && (
           <Input.TextArea value={output} readOnly rows={12} style={{ fontFamily: 'monospace', fontSize: 12 }} />
         )}

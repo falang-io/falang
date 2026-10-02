@@ -52,6 +52,7 @@ export const IPC = {
   menuToggleAgent: 'menu:toggle-agent',
   // Print / export to PDF (ADR 0048 (private)).
   menuExportPdf: 'menu:export-pdf',
+  menuOpenDrivers: 'menu:open-drivers',
   printToPdf: 'print:to-pdf',
   arduinoCheckCli: 'arduino:check-cli',
   arduinoGetProjectConfig: 'arduino:get-project-config',

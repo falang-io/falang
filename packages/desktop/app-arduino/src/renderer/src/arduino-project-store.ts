@@ -1,8 +1,9 @@
 // oxlint-disable max-lines -- grew past 300 lines with ADR 0029 (private)'s watcher/locks/conflict handling and ADR 0025 (private)'s versioning (a handful of small fields/methods; the bulk of that logic lives in `versioning/*.ts` to keep this file's growth minimal); @falang/desktop-app-sketch's DesktopProjectStore (the same shape, further along) carries the identical disable for the same reasons.
 import 'reflect-metadata';
-import { action, autorun, makeObservable, observable, runInAction, toJS } from 'mobx';
+import { action, autorun, makeObservable, observable, runInAction, toJS, when } from 'mobx';
 import { isValidFunctionName, type INode, type IProjectDocument } from '@falang/dto';
 import {
+  EVENT_NODE_INSERTED,
   setSchemeStartPosition,
   DebuggerModule,
   TOKEN_HISTORY,
@@ -19,7 +20,9 @@ import { resolveService, type DependencyContainer } from '@falang/di';
 import type { INodeTreeDiff, ISnapshotDocument } from '@falang/versioning';
 import type { IPrintExportHost } from '@falang/antd';
 import { AgentChatSessionStore, PrintExportStore, VersionHistoryStore } from '@falang/antd';
+import { parseDriverActionNodeName } from '@falang/desktop-arduino-dto/src/driver-node-name.js';
 import { generateUuid } from './generate-uuid.js';
+import { driversRegistry } from './drivers-registry-store.js';
 import { ElectronAgentSessionStore } from './agent/electron-agent-session-store.js';
 import { ElectronLlmClient } from './agent/electron-llm-client.js';
 import { DEFAULT_BOARD_FQBN } from '../../shared/board.js';
@@ -141,6 +144,12 @@ export class ArduinoProjectStore {
   private readonly disposeDebugSession: () => void;
   private readonly disposeProjectChangedSubscription: () => void;
   private readonly electronVersionStore: ElectronVersionStore;
+  private readonly disposeDriversSubscription: () => void;
+  /** Resolves once this project's driver set (bundled ∪ library ∪ project) is in the scheme registry — `loadTree` waits for it so no scheme is ever built from a stale set. */
+  private readonly initialDriversLoad: Promise<unknown>;
+  /** The driver set changed and open schemes still carry the old node kinds (waiting for an agent run to end, or for `rebuildOpenSchemes`). */
+  private pendingDriverRebuild = false;
+  private isDisposed = false;
 
   constructor(projectDir: string) {
     this.projectDir = projectDir;
@@ -187,6 +196,10 @@ export class ArduinoProjectStore {
     this.disposeProjectChangedSubscription = globalThis.falang.project.onChanged((event) =>
       this.handleProjectChanged(event),
     );
+    this.initialDriversLoad = driversRegistry
+      .refresh()
+      .catch((error: unknown) => reportError('Failed to load the project drivers', error));
+    this.disposeDriversSubscription = driversRegistry.onConfigsChanged(() => this.handleDriversChanged());
     this.loadTree().catch((error: unknown) => reportError('Failed to load project tree', error));
     this.refreshLocks().catch((error: unknown) => reportError('Failed to read document locks', error));
     globalThis.falang.arduino
@@ -352,6 +365,7 @@ export class ArduinoProjectStore {
   }
 
   private async loadTree(): Promise<void> {
+    await this.initialDriversLoad;
     const tree = await globalThis.falang.project.listTree(this.projectDir);
     const documents = await Promise.all(
       tree.documents.map(async (entry): Promise<DesktopDocument> => {
@@ -517,6 +531,7 @@ export class ArduinoProjectStore {
     if (!doc) return;
     doc.data = data;
     this.scheduleSave(doc.id);
+    this.adoptLibraryDriversIfReferenced(data.devices.map((device) => device.driverId));
   }
 
   getScheme(docId: string): Scheme {
@@ -705,6 +720,62 @@ export class ArduinoProjectStore {
     side: TVersionDiffSide,
   ): Scheme | null => buildReadOnlySchemeForDiffImpl({ document, diff, side, container: this.container });
 
+  /** Resolves once no agent run is in progress (an `awaiting-answer` run is idle too — nothing is being edited). */
+  whenAgentIdle(): Promise<void> {
+    return when(() => this.agentSession.status !== 'running');
+  }
+
+  /**
+   * `drivers:changed` with a different set of driver configs (ADR 0054 (private) §5): open schemes were built with
+   * the old node kinds (a Scheme's kinds are fixed at construction), so they have to be rebuilt — but never under a
+   * running agent, whose tool calls hold live schemes; the rebuild waits for the run to end.
+   */
+  private handleDriversChanged(): void {
+    this.pendingDriverRebuild = true;
+    this.whenAgentIdle()
+      .then(async () => {
+        if (this.pendingDriverRebuild && !this.isDisposed) await this.rebuildOpenSchemes();
+      })
+      .catch((error: unknown) => reportError('Failed to rebuild schemes after a driver change', error));
+  }
+
+  /**
+   * Re-reads the project's drivers and, if the set of configs changed (or a rebuild is still pending), rebuilds every
+   * open scheme — immediately, with no agent deferral (the agent's own driver tools await this). Resolves once the
+   * registry is current and the open schemes are being remounted.
+   */
+  async refreshDrivers(): Promise<void> {
+    const changed = await driversRegistry.refresh();
+    if (changed || this.pendingDriverRebuild) await this.rebuildOpenSchemes();
+  }
+
+  /**
+   * Disposes every built scheme and bumps the reload version of every open tab so `ProjectWorkspace` remounts them
+   * (and `DevicesEditor` re-reads its driver list) against the current driver registry. Documents are not re-read
+   * from disk: pending autosaves are flushed first and a live scheme keeps `doc.root` current, so the rebuilt
+   * scheme starts from the same tree. Undo history of the rebuilt schemes is reset.
+   */
+  async rebuildOpenSchemes(): Promise<void> {
+    this.pendingDriverRebuild = false;
+    await this.flushPendingSaves();
+    runInAction(() => {
+      for (const scheme of this.schemes.values()) scheme.dispose();
+      this.schemes.clear();
+      for (const id of this.openTabIds) this.reloadVersions.set(id, (this.reloadVersions.get(id) ?? 0) + 1);
+    });
+  }
+
+  /** Copies library drivers a freshly inserted node/device refers to into the project (ADR 0054 (private) §3) — fire-and-forget; a no-op unless one of `driverIds` is currently library-scoped. */
+  private adoptLibraryDriversIfReferenced(driverIds: readonly string[]): void {
+    if (!driverIds.some((id) => driversRegistry.scopeOf(id) === 'library')) return;
+    // `main` finds references by reading the documents from disk, so the edit that just introduced the reference
+    // has to land first (the sync that updates `doc.root` runs in the same tick as the event, hence the microtask).
+    Promise.resolve()
+      .then(() => this.flushPendingSaves())
+      .then(() => globalThis.falang.drivers.adoptReferenced())
+      .catch((error: unknown) => reportError('Failed to add the library driver to the project', error));
+  }
+
   /**
    * `VersionHistoryStore`'s `onRestored` hook: the working copy on disk just changed underneath
    * every open tab, so every open scheme is disposed and the tree reloaded from scratch (same "same
@@ -748,6 +819,8 @@ export class ArduinoProjectStore {
   }
 
   dispose(): void {
+    this.isDisposed = true;
+    this.disposeDriversSubscription();
     this.agentSession.cancel();
     this.printExport?.dispose();
     this.disposeFunctionsRegistrySync();
@@ -774,6 +847,11 @@ export class ArduinoProjectStore {
       doc,
       parentContainer: this.container,
       extraModules: [new DebuggerModule({ session: this.debugSession, documentId: doc.id })],
+    });
+    scheme.events.subscribeEvent(EVENT_NODE_INSERTED, ({ node }) => {
+      const parsed = parseDriverActionNodeName(node.name);
+      if (parsed) this.adoptLibraryDriversIfReferenced([parsed.driverId]);
+      return false;
     });
     subscribeDesktopDocumentSync(doc, scheme, {
       typesRegistry: resolveService(TOKEN_TYPESCRIPT_PROJECT_SERVICE, this.container).typesRegistry,

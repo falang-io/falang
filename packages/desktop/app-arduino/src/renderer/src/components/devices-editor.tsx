@@ -28,7 +28,7 @@ import {
 } from '../../../shared/devices-document.js';
 import type { ArduinoProjectStore } from '../arduino-project-store.js';
 import { DevicesDocumentStore } from '../devices-document-store.js';
-import { getDriverConfigs } from '@falang/desktop-arduino-scheme';
+import { getDriverConfigs, getDriverScopeSuffix } from '@falang/desktop-arduino-scheme';
 import { appTheme } from '../theme.js';
 
 const { Title, Text } = Typography;
@@ -119,7 +119,10 @@ export const DevicesEditor: React.FC<Props> = observer(({ store, documentId }) =
   if (!editor) return null;
 
   const addDeviceMenu: MenuProps = {
-    items: editor.deviceDrivers.map((driver) => ({ key: driver.id, label: driver.label })),
+    items: editor.deviceDrivers.map((driver) => ({
+      key: driver.id,
+      label: `${driver.label}${getDriverScopeSuffix(driver.id)}`,
+    })),
     onClick: ({ key }) => editor.addDevice(key),
   };
 

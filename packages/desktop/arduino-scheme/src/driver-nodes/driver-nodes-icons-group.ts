@@ -6,14 +6,20 @@ import { buildDriverNodeConfigs } from './driver-node-configs.js';
 import { driverActionBlockConfig } from './driver-action-block.config.js';
 
 /** Same shape as `pin-nodes-icons-group.ts`/`@falang/workflow-scheme`'s `integration-nodes-icons-group.ts` — one icon label per (driver, action) node name, all sharing `driverActionBlockConfig`. */
-export const buildDriverNodesIconsGroup = (drivers: readonly IDriverConfig[]): IconsGroup => {
+export const buildDriverNodesIconsGroup = (
+  drivers: readonly IDriverConfig[],
+  scopes: Readonly<Record<string, string>> = {},
+): IconsGroup => {
   const nodeConfigs: readonly INodeConfig[] = buildDriverNodeConfigs(drivers);
   const entries = drivers.flatMap((driver) =>
     driver.actions.map(
       (action) =>
         [
           buildDriverActionNodeName(driver.id, action.id),
-          getSimpleIconNodeConfig(driverActionBlockConfig, `${driver.label}: ${action.label}`),
+          getSimpleIconNodeConfig(
+            driverActionBlockConfig,
+            `${driver.label}${scopes[driver.id] === 'library' ? ' (library)' : ''}: ${action.label}`,
+          ),
         ] as const,
     ),
   );

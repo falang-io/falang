@@ -8,7 +8,7 @@ import { arduinoFunctionsIconsGroup } from './arduino-functions/arduino-function
 import { DriverRegistryModule } from './driver-nodes/driver-registry.module.js';
 import {
   getDriverConfigs,
-  getDriverInsertableNames,
+  getDriverInsertableItems,
   getDriverNodesIconsGroup,
 } from './driver-nodes/driver-registry-cache.js';
 
@@ -36,6 +36,6 @@ export const arduinoSchemeFactory = (params: {
   functionalSchemeFactory({
     ...params,
     extraIconsGroups: [pinNodesIconsGroup, arduinoFunctionsIconsGroup, getDriverNodesIconsGroup()],
-    extraInsertableItems: [...PIN_NODE_NAMES, ...ARDUINO_FUNCTION_NODE_NAMES, ...getDriverInsertableNames()],
+    extraInsertableItems: [...PIN_NODE_NAMES, ...ARDUINO_FUNCTION_NODE_NAMES, ...getDriverInsertableItems()],
     extraModules: [new DriverRegistryModule(getDriverConfigs()), ...(params.extraModules ?? [])],
   });

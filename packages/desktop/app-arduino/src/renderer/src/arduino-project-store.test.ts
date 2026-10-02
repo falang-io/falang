@@ -1,3 +1,4 @@
+// oxlint-disable max-lines -- one file per store; the drivers part lives in arduino-project-store-drivers.test.ts
 // @vitest-environment jsdom
 import 'reflect-metadata';
 import { describe, expect, it, vi } from 'vitest';
@@ -7,6 +8,13 @@ import { CMD_INSERT_NODE } from '@falang/scheme';
 import { DEVICES_DOCUMENT_TYPE } from '../../shared/devices-document.js';
 import { ArduinoProjectStore } from './arduino-project-store.js';
 
+/** `ArduinoProjectStore` re-reads the project's driver set on construction (ADR 0054 (private)); no drivers is a valid, empty answer. */
+const driversMock = (): unknown => ({
+  list: vi.fn().mockResolvedValue({ drivers: [], loadErrors: [] }),
+  adoptReferenced: vi.fn().mockResolvedValue({ adopted: [], missing: [] }),
+  onChanged: vi.fn().mockReturnValue(vi.fn()),
+});
+
 /** A brand-new project with no documents at all — `main`'s `ensureArduinoProjectDocuments` normally
  *  seeds `setup`/`loop`/`Devices` before this store is ever constructed (see
  *  `main/ensure-project-documents.ts`), but this store's own job is just to carry whatever's on disk
@@ -15,6 +23,7 @@ import { ArduinoProjectStore } from './arduino-project-store.js';
 const setUpEmptyProject = (): void => {
   const tree: IProjectTree = { documents: [], folders: [] };
   (globalThis as { falang?: unknown }).falang = {
+    drivers: driversMock(),
     document: {
       create: vi.fn().mockResolvedValue(null),
       delete: vi.fn().mockResolvedValue(null),
@@ -99,6 +108,7 @@ describe('ArduinoProjectStore — getAgentActiveDocumentId / getActiveHistory', 
       folders: [],
     };
     (globalThis as { falang?: unknown }).falang = {
+      drivers: driversMock(),
       document: {
         create: vi.fn().mockResolvedValue(null),
         delete: vi.fn().mockResolvedValue(null),
@@ -160,6 +170,7 @@ describe('ArduinoProjectStore — agentDocumentResolver', () => {
       folders: [],
     };
     (globalThis as { falang?: unknown }).falang = {
+      drivers: driversMock(),
       document: {
         create: vi.fn().mockResolvedValue(null),
         delete: vi.fn().mockResolvedValue(null),
@@ -256,6 +267,7 @@ describe('ArduinoProjectStore — autosave after a scheme edit', () => {
     const write = vi.fn().mockResolvedValue(null);
     const onChanged = vi.fn().mockReturnValue(vi.fn());
     (globalThis as { falang?: unknown }).falang = {
+      drivers: driversMock(),
       arduino: { getProjectConfig: vi.fn().mockResolvedValue(null) },
       debug: {
         onEvent: vi.fn().mockReturnValue(vi.fn()),

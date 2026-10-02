@@ -136,6 +136,26 @@ describe('watchProject', () => {
     await waitFor(() => events.some((event) => event.kind === 'drivers'));
   }, 10_000);
 
+  it('keeps seeing edits inside a driver folder that was written the way writeDriverBundle does (staging dir, parallel files, rename)', async () => {
+    start();
+    const root = driversDir(projectDir);
+    await fs.mkdir(root, { recursive: true });
+    const staging = path.join(root, 'sensor.tmp-1');
+    await fs.mkdir(staging);
+    await Promise.all(
+      ['driver.config.json', 'sensor.h', 'sensor.cpp'].map((name) => fs.writeFile(path.join(staging, name), '{}')),
+    );
+    await fs.rename(staging, path.join(root, 'sensor'));
+    await waitFor(() => events.some((event) => event.kind === 'drivers'));
+    await new Promise((resolve) => {
+      setTimeout(resolve, 600);
+    });
+    events.length = 0;
+
+    await fs.writeFile(path.join(root, 'sensor', 'driver.config.json'), '{"edited":true}');
+    await waitFor(() => events.some((event) => event.kind === 'drivers'));
+  });
+
   it('suppresses a drivers event for a write markOwnDriversWrite was just called for', async () => {
     await fs.mkdir(path.join(driversDir(projectDir), 'd'), { recursive: true });
     start();

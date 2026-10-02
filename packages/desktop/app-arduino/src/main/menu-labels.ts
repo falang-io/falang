@@ -16,6 +16,7 @@ interface IMenuLabels {
    *  opens the Settings → Agent… configuration modal. */
   agentPanel: string;
   exportPdf: string;
+  drivers: string;
   edit: string;
   undo: string;
   redo: string;
@@ -49,6 +50,7 @@ const EN: IMenuLabels = {
   versionHistory: 'Version History',
   agentPanel: 'Agent',
   exportPdf: 'Export PDF…',
+  drivers: 'Drivers…',
   edit: 'Edit',
   undo: 'Undo',
   redo: 'Redo',
@@ -82,6 +84,7 @@ const RU: IMenuLabels = {
   versionHistory: 'История версий',
   agentPanel: 'Агент',
   exportPdf: 'Экспорт в PDF…',
+  drivers: 'Драйверы…',
   edit: 'Правка',
   undo: 'Отменить',
   redo: 'Повторить',

@@ -70,6 +70,8 @@ const resolveDocumentId = async (
   }
 };
 
+const noop = (): null => null;
+
 /**
  * Watches `<projectDir>/falang/schemes/` (recursively — documents sit in per-folder subdirectories), `<projectDir>/falang.json` and
  * `<projectDir>/.falang-locks.json` for external changes — an MCP server (or another process, git
@@ -90,6 +92,8 @@ export const watchProject = (projectDir: string, onChange: (event: IProjectChang
   let debounceTimer: ReturnType<typeof setTimeout> | null = null;
   let stopped = false;
   let ownDriversWriteAt = 0;
+  // Assigned below, next to the watcher it re-creates (`flush` runs long after setup, so the late binding is safe).
+  let reattachDriversWatcher: () => void = noop;
 
   const flushDocuments = async (documentPaths: Map<string, number>): Promise<void> => {
     // Document files are located through the manifest (name-based paths), so map paths → ids now.
@@ -118,8 +122,13 @@ export const watchProject = (projectDir: string, onChange: (event: IProjectChang
     pending = emptyPending();
     if (toFlush.manifest) onChange({ kind: 'manifest' });
     if (toFlush.locks) onChange({ kind: 'locks' });
-    if (toFlush.drivers !== null && toFlush.drivers - ownDriversWriteAt >= OWN_WRITE_SUPPRESS_MS) {
-      onChange({ kind: 'drivers' });
+    if (toFlush.drivers !== null) {
+      // Re-scan once the burst has settled: a driver folder is written as `<id>.tmp-…` and renamed into place, and the
+      // recursive watcher only adds a watch for a new sub-directory after it has seen its creation event — by which time
+      // the staging path may already be gone, leaving the final folder unwatched (found live: an external edit of the
+      // first driver created in a session was never seen). A fresh watcher scans the tree as it is now.
+      reattachDriversWatcher();
+      if (toFlush.drivers - ownDriversWriteAt >= OWN_WRITE_SUPPRESS_MS) onChange({ kind: 'drivers' });
     }
     if (toFlush.documentPaths.size > 0) flushDocuments(toFlush.documentPaths).catch(() => null);
   };
@@ -161,6 +170,12 @@ export const watchProject = (projectDir: string, onChange: (event: IProjectChang
     } catch {
       driversWatcher = null;
     }
+  };
+  reattachDriversWatcher = (): void => {
+    if (stopped || !driversWatcher) return;
+    driversWatcher.close();
+    driversWatcher = null;
+    attachDriversWatcher();
   };
   let falangWatcher: FSWatcher | null = null;
   try {

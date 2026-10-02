@@ -12,6 +12,8 @@ export interface IAddButtonsForGroupParams {
 export interface IAddButtonForIconsItemParams {
   name: string;
   updateNode?: (node: INode) => INode;
+  /** Display text for the menu entry instead of the `icon:<name>` translation (shown verbatim). */
+  label?: string;
 }
 
 export interface IAddButtonsForIconsParams {
@@ -39,7 +41,8 @@ export class ContextMenuBuilder {
       group: params.group,
       items: params.items.map((item) => ({
         type: 'button',
-        text: `icon:${item}`,
+        text: typeof item === 'string' ? `icon:${item}` : item.label || `icon:${item.name}`,
+        ...(typeof item !== 'string' && item.label ? { raw: true } : {}),
         onClick: () => {
           let node: INode | null = null;
           if (typeof item === 'string') {

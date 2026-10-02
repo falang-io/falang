@@ -13,17 +13,45 @@ import { buildDriverNodesIconsGroup } from './driver-nodes-icons-group.js';
  * with no driver-action node kinds available, the same graceful-degradation posture
  * `registerTypescriptProjectService`'s optional resolution elsewhere in this app already uses.
  */
+export type TDriverScopeHint = 'bundled' | 'library' | 'project';
+
 let cachedDrivers: readonly IDriverConfig[] = [];
+let cachedScopes: Readonly<Record<string, TDriverScopeHint>> = {};
 let cachedIconsGroup: IconsGroup = buildDriverNodesIconsGroup([]);
 let cachedInsertableNames: readonly string[] = [];
+let cachedInsertableItems: readonly { name: string; label: string }[] = [];
 
-export const initializeDriverRegistry = (drivers: readonly IDriverConfig[]): void => {
+/**
+ * `scopes` (optional, driver id → scope) only decorates labels: a `library` driver is not part of the project
+ * until a node/device using it is added (ADR 0054 (private) §3), so the palette and the Devices "Add device" menu
+ * mark it with a "(library)" suffix. The configs themselves are what node kinds are built from.
+ */
+export const initializeDriverRegistry = (
+  drivers: readonly IDriverConfig[],
+  scopes: Readonly<Record<string, TDriverScopeHint>> = {},
+): void => {
   cachedDrivers = drivers;
-  cachedIconsGroup = buildDriverNodesIconsGroup(drivers);
+  cachedScopes = scopes;
+  cachedIconsGroup = buildDriverNodesIconsGroup(drivers, scopes);
   cachedInsertableNames = drivers.flatMap((driver) =>
     driver.actions.map((action) => buildDriverActionNodeName(driver.id, action.id)),
   );
+  cachedInsertableItems = drivers.flatMap((driver) =>
+    driver.actions.map((action) => ({
+      name: buildDriverActionNodeName(driver.id, action.id),
+      label: `${driver.label}${scopes[driver.id] === 'library' ? ' (library)' : ''} \u2014 ${action.label}`,
+    })),
+  );
 };
+
+export const getDriverScope = (driverId: string): TDriverScopeHint | undefined => cachedScopes[driverId];
+
+/** The "(library)" decoration of a driver's display label — empty for bundled/project drivers. */
+export const getDriverScopeSuffix = (driverId: string): string =>
+  cachedScopes[driverId] === 'library' ? ' (library)' : '';
+
+/** Palette entries (node name + readable label, "(library)"-marked for library drivers) for `functionalSchemeFactory`'s `extraInsertableItems`. */
+export const getDriverInsertableItems = (): readonly { name: string; label: string }[] => cachedInsertableItems;
 
 export const getDriverConfigs = (): readonly IDriverConfig[] => cachedDrivers;
 

@@ -128,5 +128,77 @@
     "timeout": "Раскладка не успела устояться",
     "portrait": "книжная",
     "landscape": "альбомная"
+  },
+  "drivers": {
+    "title": "Драйверы",
+    "close": "Закрыть",
+    "working": "Выполняется…",
+    "yes": "Да",
+    "no": "Нет",
+    "empty": "Нет драйверов",
+    "load-errors": "Некоторые папки драйверов не удалось загрузить",
+    "confirm-delete": "Удалить этот драйвер?",
+    "errors": "ошибки",
+    "warnings": "предупреждения",
+    "group": {
+      "project": "Драйверы проекта",
+      "library": "Драйверы библиотеки",
+      "bundled": "Встроенные драйверы"
+    },
+    "column": {
+      "name": "Название",
+      "id": "Id",
+      "version": "Версия",
+      "actions": "Действий",
+      "device": "Устройство",
+      "status": "Статус"
+    },
+    "status": {
+      "ok": "OK",
+      "invalid": "Повреждён на диске",
+      "load-error": "Ошибка загрузки",
+      "overrides-bundled": "Заменяет встроенный",
+      "overrides-library": "Заменяет библиотечный",
+      "differs": "Отличается от библиотеки"
+    },
+    "action": {
+      "view": "Просмотр",
+      "validate": "Проверить",
+      "download": "Скачать",
+      "open-folder": "Открыть папку",
+      "save-to-library": "Сохранить в библиотеку",
+      "replace-with-library": "Заменить версией из библиотеки",
+      "delete": "Удалить",
+      "add-to-project": "Добавить в проект"
+    },
+    "toolbar": {
+      "upload-project": "Загрузить бандл (проект)",
+      "upload-library": "Загрузить бандл (библиотека)",
+      "import-folder-project": "Импорт папки (проект)",
+      "import-folder-library": "Импорт папки (библиотека)",
+      "new-from-template": "Новый из шаблона…"
+    },
+    "template": {
+      "title": "Новый драйвер из шаблона",
+      "id": "Id",
+      "id-hint": "kebab-case, например my-sensor",
+      "label": "Название",
+      "create": "Создать"
+    },
+    "stage": {
+      "schema": "Схема",
+      "collisions": "Конфликты имён",
+      "templates": "Шаблоны кода",
+      "cli": "arduino-cli",
+      "usages": "Использование в проекте"
+    },
+    "result": {
+      "ok": "Драйвер корректен",
+      "failed": "Драйвер не сохранён — исправьте ошибки ниже"
+    },
+    "usage": {
+      "node": "Документ {{document}}: действие {{action}}",
+      "device": "Документ {{document}}: устройство на странице Devices"
+    }
   }
 }

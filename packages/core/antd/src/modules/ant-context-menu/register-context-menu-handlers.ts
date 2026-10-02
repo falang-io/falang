@@ -16,7 +16,7 @@ export const translateContextMenuItems = (items: readonly IContextMenuItem[], t:
   items.map((item) =>
     item.type === 'group'
       ? { ...item, text: t(item.text), children: translateContextMenuItems(item.children, t) }
-      : { ...item, text: t(item.text) },
+      : { ...item, text: item.raw ? item.text : t(item.text) },
   );
 
 export const registerContextMenuHandlers = (baseScheme: Scheme) => {

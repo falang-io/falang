@@ -216,10 +216,13 @@ const buildOutsMenu = (scheme: Scheme, parent: IconStore, builder: ContextMenuBu
 };
 
 class TypescriptFunctionalModule implements IModule {
-  private readonly extraInsertableItems: readonly string[];
+  private readonly extraInsertableItems: readonly (string | { name: string; label?: string })[];
   private readonly defaultInsertNodeName: () => string;
 
-  constructor(extraInsertableItems: readonly string[] = [], defaultInsertNodeName: () => string = () => 'action') {
+  constructor(
+    extraInsertableItems: readonly (string | { name: string; label?: string })[] = [],
+    defaultInsertNodeName: () => string = () => 'action',
+  ) {
     this.extraInsertableItems = extraInsertableItems;
     this.defaultInsertNodeName = defaultInsertNodeName;
   }
@@ -245,7 +248,7 @@ class TypescriptFunctionalModule implements IModule {
     contextMenuService.registerBuilderForValencePoint(({ builder, vp, parent }) => {
       if (!checker.isWithSkewer(parent)) return;
       const t = resolveService(TOKEN_I18N, scheme.container).t;
-      const addGroup = (groupKey: string, items: string[]) => {
+      const addGroup = (groupKey: string, items: (string | { name: string; label?: string })[]) => {
         if (items.length === 0) return;
         builder.addForIcons({
           group: t(groupKey),
@@ -310,7 +313,7 @@ export interface IFunctionStructureSchemeFactoryParams extends Omit<ISchemeFacto
    */
   extraIconsGroups?: IconsGroup[];
   /** Extra node-kind names appended to the valence-point "add node" menu, alongside the built-in ones. */
-  extraInsertableItems?: string[];
+  extraInsertableItems?: (string | { name: string; label?: string })[];
   /**
    * Name of the node kind a plain valence-point click inserts under a `children: true` parent (read on every
    * click). Defaults to `'action'`. See ADR 0046 (private) — the magic node.

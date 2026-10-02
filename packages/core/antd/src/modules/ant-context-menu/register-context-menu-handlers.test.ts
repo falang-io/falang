@@ -27,6 +27,12 @@ describe('translateContextMenuItems', () => {
     expect(result.type === 'group' && result.children[0].text).toBe('Break');
   });
 
+  it("passes a `raw` button's text through untouched, even when it looks like `namespace:key`", () => {
+    const items: IContextMenuItem[] = [{ type: 'button', text: 'icon:break', raw: true, onClick: vi.fn() }];
+
+    expect(translateContextMenuItems(items, t)[0].text).toBe('icon:break');
+  });
+
   it("leaves already-resolved text unchanged (e.g. `buildOutsMenu`'s pre-translated strings)", () => {
     const items: IContextMenuItem[] = [{ type: 'button', text: 'Break 2', onClick: vi.fn() }];
 

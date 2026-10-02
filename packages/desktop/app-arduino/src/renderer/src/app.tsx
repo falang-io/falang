@@ -11,6 +11,8 @@ import { ProjectWorkspace } from './components/project-workspace.js';
 import { AgentSettingsModal } from './components/agent-settings-modal.js';
 import { VersioningSettingsModal } from './components/versioning-settings-modal.js';
 import { LanguageSettingsModal } from './components/language-settings-modal.js';
+import { DriversModal } from './components/drivers-modal.js';
+import { driversModalStore } from './drivers-modal-store.js';
 import { NewProjectDialog } from './components/new-project-dialog.js';
 import { settingsModalStore } from './settings-modal-store.js';
 import { versioningSettingsModalStore } from './versioning-settings-modal-store.js';
@@ -32,7 +34,9 @@ export const App: React.FC = observer(() => {
     const unsubscribeLanguageSettings = globalThis.falang.menu.onOpenLanguageSettings(() =>
       languageSettingsModalStore.open(),
     );
+    const unsubscribeDrivers = globalThis.falang.menu.onOpenDrivers(() => driversModalStore.open());
     return () => {
+      unsubscribeDrivers();
       unsubscribeNew();
       unsubscribeOpen();
       unsubscribeSettings();
@@ -81,6 +85,7 @@ export const App: React.FC = observer(() => {
       <AgentSettingsModal />
       <VersioningSettingsModal />
       <LanguageSettingsModal />
+      <DriversModal />
       <NewProjectDialog />
     </ConfigProvider>
   );

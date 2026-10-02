@@ -124,5 +124,77 @@
     "timeout": "Layout did not settle",
     "portrait": "portrait",
     "landscape": "landscape"
+  },
+  "drivers": {
+    "title": "Drivers",
+    "close": "Close",
+    "working": "Working…",
+    "yes": "Yes",
+    "no": "No",
+    "empty": "No drivers",
+    "load-errors": "Some driver folders could not be loaded",
+    "confirm-delete": "Delete this driver?",
+    "errors": "errors",
+    "warnings": "warnings",
+    "group": {
+      "project": "Project drivers",
+      "library": "Library drivers",
+      "bundled": "Built-in drivers"
+    },
+    "column": {
+      "name": "Name",
+      "id": "Id",
+      "version": "Version",
+      "actions": "Actions",
+      "device": "Device",
+      "status": "Status"
+    },
+    "status": {
+      "ok": "OK",
+      "invalid": "Invalid on disk",
+      "load-error": "Load error",
+      "overrides-bundled": "Overrides built-in",
+      "overrides-library": "Overrides library",
+      "differs": "Differs from library"
+    },
+    "action": {
+      "view": "View",
+      "validate": "Validate",
+      "download": "Download",
+      "open-folder": "Open folder",
+      "save-to-library": "Save to library",
+      "replace-with-library": "Replace with library version",
+      "delete": "Delete",
+      "add-to-project": "Add to project"
+    },
+    "toolbar": {
+      "upload-project": "Upload bundle (project)",
+      "upload-library": "Upload bundle (library)",
+      "import-folder-project": "Import folder (project)",
+      "import-folder-library": "Import folder (library)",
+      "new-from-template": "New from template…"
+    },
+    "template": {
+      "title": "New driver from template",
+      "id": "Id",
+      "id-hint": "Kebab-case, e.g. my-sensor",
+      "label": "Label",
+      "create": "Create"
+    },
+    "stage": {
+      "schema": "Schema",
+      "collisions": "Name collisions",
+      "templates": "Code templates",
+      "cli": "arduino-cli",
+      "usages": "Project usages"
+    },
+    "result": {
+      "ok": "The driver is valid",
+      "failed": "The driver was not saved — fix the errors below"
+    },
+    "usage": {
+      "node": "Document {{document}}: action {{action}}",
+      "device": "Document {{document}}: a device on the Devices page"
+    }
   }
 }

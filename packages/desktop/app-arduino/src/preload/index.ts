@@ -207,6 +207,7 @@ const falangApi = {
     onToggleVersionHistory: subscribe(IPC.menuToggleVersionHistory),
     onToggleAgent: subscribe(IPC.menuToggleAgent),
     onExportPdf: subscribe(IPC.menuExportPdf),
+    onOpenDrivers: subscribe(IPC.menuOpenDrivers),
   },
   app: {
     // `main`'s graceful-close flow (see `main/index.ts`) — the window's `close` event is intercepted
