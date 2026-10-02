@@ -1,19 +1,7 @@
-import {
-  BadRequestException,
-  ConflictException,
-  ForbiddenException,
-  Inject,
-  Injectable,
-  NotFoundException,
-} from '@nestjs/common';
+import { ConflictException, ForbiddenException, Inject, Injectable, NotFoundException } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { InjectRepository } from '@nestjs/typeorm';
-import {
-  FUNCTION_LIKE_DOCUMENT_TYPES,
-  isValidFunctionName,
-  type IProjectDocument,
-  type IProjectTreeDocument,
-} from '@falang/dto';
+import type { IProjectDocument, IProjectTreeDocument } from '@falang/dto';
 import {
   INTEGRATIONS_DOCUMENT_TYPE,
   type IIntegrationsDocumentData,
@@ -25,10 +13,13 @@ import { encodeIntegrationsDataForWrite, maskIntegrationsDataForRead } from '../
 import { requireEncryptionKey } from '../../integrations/credentials-crypto.js';
 import { REGISTERED_INTEGRATIONS } from '../../integrations/registered-integrations.js';
 import { IntegrationVendorDataService } from '../../integrations/vendor-data/integration-vendor-data.service.js';
+import { Folder } from '../folders/folder.entity.js';
+import { resolveDocumentFolder } from '../layout/project-layout.js';
 import { ProjectsService } from '../projects/projects.service.js';
 import type { CreateDocumentDto } from './dto/create-document.dto.js';
 import type { UpdateDocumentDto } from './dto/update-document.dto.js';
 import { Document } from './document.entity.js';
+import { assertValidFunctionName } from './validate-function-name.js';
 
 /**
  * True when `value` is an explicit `null` or a real object/array — false only when the field was
@@ -50,23 +41,6 @@ const isObjectOrNull = (value: unknown): boolean => value === null || typeof val
 /** The `id`s of an `integrations` document's configured instances — used to diff old vs. new on `update` (see `IntegrationVendorDataService.removeForInstance`). */
 const integrationInstanceIds = (data: IIntegrationsDocumentData | null): ReadonlySet<string> =>
   new Set((data?.instances ?? []).map((instance) => instance.id));
-
-/** `function`/`trigger-function` documents compile `name` verbatim into a real TS function identifier
- *  (see `@falang/workflow-compiler`'s `compileFunction`/`compileTriggerFunction`) — every other type
- *  (`objects-structure`, the pinned `integrations` document, …) never reaches the compiler at all, so
- *  only `FUNCTION_LIKE_DOCUMENT_TYPES` (`@falang/dto`) is gated. The only chokepoint every write path
- *  (REST `PATCH`/`POST`, and both MCP tools in `domains/mcp/mcp-shared-tools.ts`, which call
- *  `create`/`update` directly and bypass the DTOs'/`ValidationPipe`'s class-validator rules entirely)
- *  is guaranteed to go through. */
-const assertValidFunctionName = (type: string, name: string): void => {
-  if (!FUNCTION_LIKE_DOCUMENT_TYPES.has(type)) return;
-  if (!isValidFunctionName(name)) {
-    throw new BadRequestException(
-      `Function name "${name}" is invalid — it must be an English, camelCase identifier ` +
-        '(e.g. myFunctionName), with no spaces, punctuation, or non-Latin script',
-    );
-  }
-};
 
 const toProjectDocument = (document: Document, integrations: readonly IWorkflowIntegration[]): IProjectDocument => {
   const result: IProjectDocument = { id: document.id, type: document.type, name: document.name };
@@ -108,6 +82,7 @@ const toTreeDocument = (document: Document): IProjectTreeDocumentWithLock => ({
 @Injectable()
 export class DocumentsService {
   private readonly documents: Repository<Document>;
+  private readonly folders: Repository<Folder>;
   private readonly projectsService: ProjectsService;
   private readonly config: ConfigService;
   private readonly activepiecesCatalog: ActivepiecesCatalogService;
@@ -115,12 +90,14 @@ export class DocumentsService {
 
   constructor(
     @InjectRepository(Document) documents: Repository<Document>,
+    @InjectRepository(Folder) folders: Repository<Folder>,
     @Inject(ProjectsService) projectsService: ProjectsService,
     @Inject(ConfigService) config: ConfigService,
     @Inject(ActivepiecesCatalogService) activepiecesCatalog: ActivepiecesCatalogService,
     @Inject(IntegrationVendorDataService) vendorData: IntegrationVendorDataService,
   ) {
     this.documents = documents;
+    this.folders = folders;
     this.projectsService = projectsService;
     this.config = config;
     this.activepiecesCatalog = activepiecesCatalog;
@@ -143,6 +120,7 @@ export class DocumentsService {
   async create(projectId: string, ownerId: string, input: CreateDocumentDto): Promise<IProjectDocument> {
     await this.projectsService.getOwnedProject(projectId, ownerId);
     assertValidFunctionName(input.type, input.name);
+    const folderId = await resolveDocumentFolder(this.folders, projectId, input.type, input.folderId ?? null);
     const data =
       input.type === INTEGRATIONS_DOCUMENT_TYPE
         ? await this.encodeIncomingData(input.data, null)
@@ -151,7 +129,7 @@ export class DocumentsService {
       id: input.id,
       type: input.type,
       name: input.name,
-      folderId: input.folderId ?? null,
+      folderId,
       projectId,
       root: input.root ?? null,
       data,
@@ -175,14 +153,22 @@ export class DocumentsService {
     const document = await this.getOwnedDocument(projectId, ownerId, documentId);
     this.assertNotLockedByAnotherOwner(document, lockOwner);
     const folderIdProvided = typeof input.folderId === 'string' || input.folderId === null;
-    if (document.pinned && folderIdProvided) {
-      throw new ForbiddenException(`Document "${documentId}" is pinned and cannot be moved`);
+    const requestedFolderId = folderIdProvided ? (input.folderId ?? null) : document.folderId;
+    if (document.pinned) {
+      if (folderIdProvided) {
+        throw new ForbiddenException(`Document "${documentId}" is pinned and cannot be moved`);
+      }
+      if (typeof input.name === 'string' && input.name !== document.name) {
+        throw new ForbiddenException(`Document "${documentId}" is pinned and cannot be renamed`);
+      }
     }
     if (typeof input.name === 'string') {
       assertValidFunctionName(document.type, input.name);
       document.name = input.name;
     }
-    if (folderIdProvided) document.folderId = input.folderId ?? null;
+    if (folderIdProvided && !document.pinned) {
+      document.folderId = await resolveDocumentFolder(this.folders, projectId, document.type, requestedFolderId);
+    }
     if (isObjectOrNull(input.root)) document.root = input.root ?? null;
     let removedInstanceIds: readonly string[] = [];
     if (isObjectOrNull(input.data)) {

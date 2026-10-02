@@ -17,6 +17,7 @@ import { Document } from '../documents/document.entity.js';
 import { DocumentsService } from '../documents/documents.service.js';
 import { ProjectExportService } from '../export/project-export.service.js';
 import { FoldersService } from '../folders/folders.service.js';
+import { ensureFixedFolders, normalizeStoredProjectLayout } from '../layout/project-layout.js';
 import { Project } from '../projects/project.entity.js';
 import { ProjectsService } from '../projects/projects.service.js';
 import { User } from '../../users/users/user.entity.js';
@@ -24,7 +25,7 @@ import { blobContentOf, hashBlobContent } from './blob-content.js';
 import { orderCommitsNewestFirst } from './commit-chain-order.js';
 import { ProjectBlob } from './project-blob.entity.js';
 import { ProjectCommit, type ICommitTree } from './project-commit.entity.js';
-import { reconcileDocuments, reconcileFolders } from './restore-reconciliation.js';
+import { reconcileDocuments, reconcileFolders, normalizeSnapshotForRestore } from './restore-reconciliation.js';
 import { exportPayloadToSnapshot, snapshotDocumentFromTreeEntry } from './snapshot-conversion.js';
 
 /** DI token for the session-gap window (`AUTO_VERSION_GAP_MS` env var) — see `VersioningModule`. */
@@ -172,7 +173,8 @@ export class VersioningService {
   async restore(projectId: string, ownerId: string, commitId: string): Promise<ICommitInfo> {
     await this.projectsService.getOwnedProject(projectId, ownerId);
     const commit = await this.getOwnedCommit(projectId, commitId);
-    const snapshot = await this.buildSnapshotFromTree(projectId, commit.tree);
+    const storedSnapshot = await this.buildSnapshotFromTree(projectId, commit.tree);
+    await ensureFixedFolders(this.documents.manager, projectId);
 
     const [currentFolders, currentDocuments, dynamicIntegrations] = await Promise.all([
       this.foldersService.listTree(projectId, ownerId),
@@ -186,8 +188,12 @@ export class VersioningService {
       foldersService: this.foldersService,
     };
 
+    const snapshot = normalizeSnapshotForRestore(storedSnapshot, currentFolders);
+
     await reconcileFolders(restoreDeps, projectId, ownerId, snapshot.folders, currentFolders);
     await reconcileDocuments(restoreDeps, projectId, ownerId, snapshot, currentDocuments, integrations);
+    // Safety net: whatever the reconciliation left must satisfy the fixed layout (ADR 0055 (private) §5).
+    await normalizeStoredProjectLayout(this.documents.manager, projectId);
 
     const shortId = commit.id.slice(0, 8);
     const restored = await this.commit(projectId, ownerId, {

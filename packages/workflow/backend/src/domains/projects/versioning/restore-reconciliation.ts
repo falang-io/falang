@@ -1,5 +1,7 @@
+import { randomUUID } from 'node:crypto';
 import type { IProjectTreeFolder } from '@falang/dto';
-import type { IProjectSnapshot } from '@falang/versioning';
+import type { IProjectSnapshot, ISnapshotDocument } from '@falang/versioning';
+import { normalizeWorkflowProjectLayout } from '@falang/workflow-dto';
 import {
   INTEGRATIONS_DOCUMENT_TYPE,
   type IIntegrationsDocumentData,
@@ -11,6 +13,33 @@ import type { Document } from '../documents/document.entity.js';
 import type { DocumentsService } from '../documents/documents.service.js';
 import type { FoldersService } from '../folders/folders.service.js';
 import { orderFoldersParentFirst } from './folder-order.js';
+
+/**
+ * A pre-change commit has no section folders and may keep documents at the root or in mixed folders,
+ * so the snapshot is normalised to the fixed layout before reconciling (ADR 0055 (private) §5); its
+ * section folders are then mapped onto the project's *existing* ones by `fixedKind`, so a restore
+ * never creates a second section nor needs to delete one.
+ */
+export const normalizeSnapshotForRestore = (
+  snapshot: IProjectSnapshot,
+  currentFolders: readonly IProjectTreeFolder[],
+): IProjectSnapshot => {
+  const normalized = normalizeWorkflowProjectLayout(snapshot.folders, snapshot.documents, { createId: randomUUID });
+  const idRemap = new Map<string, string>();
+  for (const folder of normalized.folders) {
+    if (!folder.fixedKind) continue;
+    const current = currentFolders.find((item) => item.fixedKind === folder.fixedKind && item.parentId === null);
+    if (current && current.id !== folder.id) idRemap.set(folder.id, current.id);
+  }
+  const remap = (id: string | null): string | null => (id === null ? null : (idRemap.get(id) ?? id));
+  const folders: IProjectTreeFolder[] = [];
+  for (const folder of normalized.folders) {
+    folders.push({ ...folder, id: remap(folder.id) as string, parentId: remap(folder.parentId) });
+  }
+  const documents: ISnapshotDocument[] = [];
+  for (const document of normalized.documents) documents.push({ ...document, folderId: remap(document.folderId) });
+  return { folders, documents };
+};
 
 export interface IRestoreDeps {
   documentsRepo: Repository<Document>;
@@ -41,26 +70,35 @@ export const reconcileFolders = async (
   const toCreate = orderFoldersParentFirst(snapshotFolders.filter((folder) => !currentById.has(folder.id)));
   for (const folder of toCreate) {
     // oxlint-disable-next-line no-await-in-loop -- must respect parent-before-child creation order.
-    await deps.foldersService.create(projectId, ownerId, {
-      id: folder.id,
-      name: folder.name,
-      parentId: folder.parentId,
-    });
+    await deps.foldersService.create(
+      projectId,
+      ownerId,
+      { id: folder.id, name: folder.name, parentId: folder.parentId },
+      { system: true },
+    );
   }
 
   for (const folder of snapshotFolders) {
     const current = currentById.get(folder.id);
-    if (!current || (current.name === folder.name && current.parentId === folder.parentId)) continue;
+    if (!current || current.fixedKind || (current.name === folder.name && current.parentId === folder.parentId))
+      continue;
     // oxlint-disable-next-line no-await-in-loop -- reparenting must complete before any delete below.
-    await deps.foldersService.update(projectId, ownerId, folder.id, { name: folder.name, parentId: folder.parentId });
+    await deps.foldersService.update(
+      projectId,
+      ownerId,
+      folder.id,
+      { name: folder.name, parentId: folder.parentId },
+      { system: true },
+    );
   }
 
   const toDelete = orderFoldersParentFirst(
-    currentFolders.filter((folder) => !snapshotById.has(folder.id)),
+    // A fixed section folder is never deleted (its FK cascade would take every document below it along).
+    currentFolders.filter((folder) => !snapshotById.has(folder.id) && !folder.fixedKind),
   ).toReversed();
   for (const folder of toDelete) {
     // oxlint-disable-next-line no-await-in-loop -- must respect children-before-parent delete order.
-    await deps.foldersService.delete(projectId, ownerId, folder.id);
+    await deps.foldersService.delete(projectId, ownerId, folder.id, { system: true });
   }
 };
 
