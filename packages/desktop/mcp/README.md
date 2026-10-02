@@ -123,13 +123,18 @@ error) — bundled drivers still work either way.
 
 `npm run build` (`build.esbuild.ts`) bundles `src/main.ts` into one self-contained `dist/index.js`
 (esbuild, `platform: 'node'`, `format: 'cjs'`, `bundle: true`, no `external` beyond Node's own
-builtins) — `node dist/index.js <dir>` works with no `node_modules` next to it. Both apps'
-`electron-builder.yml` copy it into `resources/mcp-server/index.js` via `extraResources`, and both
-apps' `package.json` gained a `prebuild:{linux,mac,win}` hook (`npm run build -w @falang/desktop-mcp`)
-so the bundle exists before `electron-builder` runs — see each `electron-builder.yml`'s own comment.
-Only `server/mcp.js` and `server/stdio.js` are ever imported from `@modelcontextprotocol/sdk`, so
-esbuild's own import-graph tracing keeps the Streamable-HTTP-only half of the SDK (`express`, `hono`,
-…) out of the bundle without needing to list them as `external` by hand (bundle size: ~1.1 MB).
+builtins) and copies TypeScript's `lib*.d.ts` files next to it (`scripts/release/copy-typescript-libs.ts`):
+the driver tools type-check through `@falang/logic-constructor`'s `ts.Program`, whose default lib
+directory is the directory of the executing file — inside a bundle, the bundle's own folder. So
+`dist/` is the bundle plus those libs, and `node dist/index.js <dir>` works with no `node_modules`
+next to it. Both apps' `electron-builder.yml` copy the whole `dist/` directory into
+`resources/mcp-server/` via `extraResources`, and both apps' `package.json` have a
+`prebuild:{linux,mac,win}` hook (`npm run build -w @falang/desktop-mcp`) so the bundle exists before
+`electron-builder` runs — see each `electron-builder.yml`'s own comment. Only `server/mcp.js` and
+`server/stdio.js` are ever imported from `@modelcontextprotocol/sdk`, so esbuild's own import-graph
+tracing keeps the Streamable-HTTP-only half of the SDK (`express`, `hono`, …) out of the bundle without
+needing to list them as `external` by hand (the bundle itself is ~11 MB since it carries the
+TypeScript compiler for the driver tools; the libs add ~4 MB).
 
 ## Testing
 

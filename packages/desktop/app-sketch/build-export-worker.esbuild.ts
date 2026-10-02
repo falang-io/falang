@@ -1,4 +1,5 @@
 import * as esbuild from 'esbuild';
+import { copyTypescriptLibs } from '../../../scripts/release/copy-typescript-libs.js';
 
 /**
  * Bundles the codegen export worker (`src/main/export-worker/worker-main.ts`) into one self-contained
@@ -25,6 +26,8 @@ const run = async (): Promise<void> => {
     platform: 'node',
     target: 'node24',
   });
+  // The TypeScript lib files must sit next to the bundle (see `copy-typescript-libs.ts`).
+  await copyTypescriptLibs('worker-dist');
 };
 
 run().catch((error: unknown) => {

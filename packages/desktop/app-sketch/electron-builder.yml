@@ -15,13 +15,13 @@ asarUnpack:
 # unpacked at exactly that path. Built by the `prebuild:*` npm hooks below (`npm run build -w
 # @falang/desktop-mcp`) before electron-builder runs; not part of this app's own `out/` output.
 extraResources:
-  - from: ../mcp/dist/index.js
+  - from: ../mcp/dist
     to: mcp-server/index.js
   # The bundled codegen export worker (ADR 0019 (private)'s "Implementation notes (export worker
   # …)") — `resolve-export-worker-command.ts` runs `<resourcesPath>/export-worker/index.js` with the app's own
   # binary in Node mode. Built by this package's own `prebuild:*` npm hooks
   # (`npm run build:export-worker`) before electron-builder runs.
-  - from: worker-dist/index.js
+  - from: worker-dist
     to: export-worker/index.js
 # File names without spaces: they become URLs in the update feed (ADR 0050 (private)).
 artifactName: falang-${version}-${arch}.${ext}

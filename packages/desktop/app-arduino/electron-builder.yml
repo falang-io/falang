@@ -20,13 +20,13 @@ extraResources:
   # the dev filesystem.
   - from: ../arduino-drivers/drivers
     to: drivers
-  - from: ../mcp/dist/index.js
+  - from: ../mcp/dist
     to: mcp-server/index.js
   # The bundled sketch-compile worker (ADR 0020 (private)'s "Implementation notes (compile worker
   # …)") — `resolve-compile-worker-command.ts` runs `<resourcesPath>/compile-worker/index.js` with the app's own
   # binary in Node mode. Built by this package's own `prebuild:*` npm hooks
   # (`npm run build:compile-worker`) before electron-builder runs.
-  - from: worker-dist/index.js
+  - from: worker-dist
     to: compile-worker/index.js
 # File names without spaces: they become URLs in the update feed (ADR 0050 (private)).
 artifactName: falang-arduino-${version}-${arch}.${ext}

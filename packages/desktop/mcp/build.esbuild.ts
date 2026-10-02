@@ -1,4 +1,5 @@
 import * as esbuild from 'esbuild';
+import { copyTypescriptLibs } from '../../../scripts/release/copy-typescript-libs.js';
 
 /**
  * Bundles the whole server into one self-contained `dist/index.js` — the packaged-build shape
@@ -27,6 +28,8 @@ const run = async (): Promise<void> => {
     platform: 'node',
     target: 'node24',
   });
+  // The TypeScript lib files must sit next to the bundle (see `copy-typescript-libs.ts`).
+  await copyTypescriptLibs('dist');
 };
 
 run().catch((error: unknown) => {

@@ -30,23 +30,66 @@ interface IAppSpec {
   readonly linuxExecutable: string;
   readonly worker: string;
   readonly workerJob: (tempDir: string) => unknown;
+  /** Throws unless the worker's answer proves a real compile happened (not just that the bundle loaded). */
+  readonly checkWorkerResult: (result: unknown) => void;
   readonly projectType: string;
 }
+
+/** A minimal `function` document (header/body/footer) — the shape the compilers' own tests build by hand. */
+const functionDocument = (id: string, name: string, body: unknown[]): unknown => ({
+  id,
+  type: 'function',
+  name,
+  root: {
+    id,
+    name: 'function',
+    children: [
+      { id: `${id}-header`, name: 'function-header', data: '' },
+      { id: `${id}-body`, name: 'function-body', data: { parameters: [] }, children: body },
+      { id: `${id}-footer`, name: 'function-footer', data: '' },
+    ],
+  },
+});
 
 const APPS: Record<TAppKind, IAppSpec> = {
   sketch: {
     appDir: 'packages/desktop/app-sketch',
     linuxExecutable: 'falang',
     worker: 'export-worker',
-    // An empty code export: enough to load the whole bundled worker and get a result back.
-    workerJob: (tempDir) => ({ kind: 'code', dir: tempDir, documents: [] }),
+    // A real logic export of a document whose expression must be type-checked: a bundled worker that cannot find
+    // TypeScript's `lib.*.d.ts` files fails here with "Cannot find global type 'Array'".
+    workerJob: (tempDir) => ({
+      kind: 'logic',
+      dir: tempDir,
+      documents: [functionDocument('doc-smoke', 'smoke', [{ id: 'log', name: 'log', data: 'x is ${1 + 2}' }])],
+      exports: [{ language: 'cpp', path: './out/cpp' }],
+    }),
+    checkWorkerResult: (result) => {
+      const items = (result as { result?: { items?: { ok: boolean; errors?: unknown }[] } }).result?.items ?? [];
+      if (items.length !== 1 || !items[0].ok) {
+        throw new Error(`logic export did not compile: ${JSON.stringify(result).slice(0, 400)}`);
+      }
+    },
     projectType: 'text',
   },
   arduino: {
     appDir: 'packages/desktop/app-arduino',
     linuxExecutable: 'falang-arduino',
     worker: 'compile-worker',
-    workerJob: () => ({ documents: [], drivers: [] }),
+    // A real compile of a non-empty `setup`/`loop`: every action expression goes through the TypeScript checker.
+    workerJob: () => ({
+      documents: [
+        functionDocument('doc-setup', 'setup', [{ id: 'a', name: 'action', data: 'pinMode(13, OUTPUT)' }]),
+        functionDocument('doc-loop', 'loop', [{ id: 'b', name: 'action', data: 'digitalWrite(13, HIGH)' }]),
+      ],
+      drivers: [],
+    }),
+    checkWorkerResult: (result) => {
+      const compiled = result as { ok?: boolean; code?: string; message?: string };
+      if (compiled.ok !== true || !compiled.code?.includes('digitalWrite(13, HIGH);')) {
+        throw new Error(`sketch compile failed: ${JSON.stringify(result).slice(0, 400)}`);
+      }
+    },
     projectType: 'arduino',
   },
 };
@@ -103,7 +146,8 @@ const checkWorker = async (app: IPackagedApp, spec: IAppSpec, tempDir: string): 
     job: spec.workerJob(tempDir),
   });
   const result = await withTimeout('worker', 60_000, handle.result);
-  console.log(`  worker answered: ${JSON.stringify(result).slice(0, 200)}`);
+  spec.checkWorkerResult(result);
+  console.log(`  worker compiled a real document: ${JSON.stringify(result).slice(0, 200)}`);
 };
 
 const checkMcpServer = async (app: IPackagedApp, spec: IAppSpec, tempDir: string): Promise<void> => {
