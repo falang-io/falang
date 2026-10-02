@@ -103,7 +103,9 @@ test.describe('tasks page', () => {
     await expect(page.getByRole('button', { name: 'Confirm' })).not.toBeVisible();
     await page.keyboard.press('Escape');
 
-    const row = page.getByRole('row', { name: /Approve order/ });
+    // Scope rows to this run's own project name: leftover tasks from earlier runs/retries share the title.
+    const projectNamePattern = new RegExp(projectName);
+    const row = page.getByRole('row', { name: /Approve order/ }).filter({ hasText: projectNamePattern });
     await expect(row.getByText('done')).toBeVisible();
 
     // The project list's own standalone "Tasks" button (`navigationStore.goToTasks()`) shows the
@@ -111,7 +113,7 @@ test.describe('tasks page', () => {
     await page.getByRole('button', { name: '← Projects' }).click();
     await expect(page.getByRole('button', { name: '+ New project' })).toBeVisible();
     await page.getByRole('button', { name: 'Tasks' }).click();
-    const standaloneRow = page.getByRole('row', { name: /Approve order/ });
+    const standaloneRow = page.getByRole('row', { name: /Approve order/ }).filter({ hasText: projectNamePattern });
     await expect(standaloneRow).toBeVisible();
     await expect(standaloneRow.getByText('done')).toBeVisible();
   });
