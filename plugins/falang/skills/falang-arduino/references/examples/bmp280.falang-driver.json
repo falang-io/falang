@@ -1,0 +1,110 @@
+{
+  "formatVersion": 1,
+  "config": {
+    "id": "bmp280",
+    "label": "BMP280 (I2C temperature/pressure)",
+    "version": "1.0.0",
+    "notes": "Bosch BMP280 barometric pressure and temperature sensor on I2C. Add it as a device in the Devices document (it initialises the sensor at the chosen address in setup), then read values with the actions.",
+    "includes": [
+      "bmp280-driver.h"
+    ],
+    "sourceFiles": [
+      "bmp280-driver.h",
+      "bmp280-driver.cpp"
+    ],
+    "declarations": [
+      "declare function bmp280_init(address: number): void;",
+      "declare function bmp280_read_temperature(address: number): number;",
+      "declare function bmp280_read_pressure(address: number): number;"
+    ],
+    "actions": [
+      {
+        "id": "read-temperature",
+        "label": "Read temperature (°C)",
+        "notes": "Reads the temperature in degrees Celsius into a new float variable.",
+        "fields": [
+          {
+            "name": "address",
+            "label": "I2C address",
+            "kind": "select",
+            "default": "118",
+            "options": [
+              {
+                "value": "118",
+                "label": "0x76"
+              },
+              {
+                "value": "119",
+                "label": "0x77"
+              }
+            ]
+          },
+          {
+            "name": "variable",
+            "label": "Result variable",
+            "kind": "new-variable",
+            "default": "temperature"
+          }
+        ],
+        "codeTemplate": "bmp280_read_temperature(${address})",
+        "resultType": "float"
+      },
+      {
+        "id": "read-pressure",
+        "label": "Read pressure (Pa)",
+        "notes": "Reads the air pressure in pascals into a new float variable (divide by 100 for hPa).",
+        "fields": [
+          {
+            "name": "address",
+            "label": "I2C address",
+            "kind": "select",
+            "default": "118",
+            "options": [
+              {
+                "value": "118",
+                "label": "0x76"
+              },
+              {
+                "value": "119",
+                "label": "0x77"
+              }
+            ]
+          },
+          {
+            "name": "variable",
+            "label": "Result variable",
+            "kind": "new-variable",
+            "default": "pressure"
+          }
+        ],
+        "codeTemplate": "bmp280_read_pressure(${address})",
+        "resultType": "float"
+      }
+    ],
+    "device": {
+      "fields": [
+        {
+          "name": "address",
+          "label": "I2C address",
+          "kind": "select",
+          "default": "118",
+          "options": [
+            {
+              "value": "118",
+              "label": "0x76"
+            },
+            {
+              "value": "119",
+              "label": "0x77"
+            }
+          ]
+        }
+      ],
+      "setupTemplate": "bmp280_init(${address})"
+    }
+  },
+  "files": {
+    "bmp280-driver.h": "#pragma once\n#include <stdint.h>\n\n// BMP280 pressure/temperature sensor on I2C (single sensor per sketch).\nvoid bmp280_init(uint8_t address);\nfloat bmp280_read_temperature(uint8_t address);\nfloat bmp280_read_pressure(uint8_t address);\n",
+    "bmp280-driver.cpp": "#include <Arduino.h>\n#include <Wire.h>\n#include \"bmp280-driver.h\"\n\nstatic uint16_t dig_T1;\nstatic int16_t dig_T2, dig_T3;\nstatic uint16_t dig_P1;\nstatic int16_t dig_P2, dig_P3, dig_P4, dig_P5, dig_P6, dig_P7, dig_P8, dig_P9;\n\nstatic uint8_t read8(uint8_t address, uint8_t reg) {\n  Wire.beginTransmission(address);\n  Wire.write(reg);\n  Wire.endTransmission();\n  Wire.requestFrom(address, (uint8_t)1);\n  return Wire.read();\n}\n\nstatic uint16_t read16le(uint8_t address, uint8_t reg) {\n  uint16_t lo = read8(address, reg);\n  uint16_t hi = read8(address, reg + 1);\n  return (hi << 8) | lo;\n}\n\nstatic int32_t read20(uint8_t address, uint8_t reg) {\n  Wire.beginTransmission(address);\n  Wire.write(reg);\n  Wire.endTransmission();\n  Wire.requestFrom(address, (uint8_t)3);\n  int32_t value = Wire.read();\n  value = (value << 8) | Wire.read();\n  value = (value << 8) | Wire.read();\n  return value >> 4;\n}\n\nvoid bmp280_init(uint8_t address) {\n  Wire.begin();\n  dig_T1 = read16le(address, 0x88);\n  dig_T2 = (int16_t)read16le(address, 0x8A);\n  dig_T3 = (int16_t)read16le(address, 0x8C);\n  dig_P1 = read16le(address, 0x8E);\n  dig_P2 = (int16_t)read16le(address, 0x90);\n  dig_P3 = (int16_t)read16le(address, 0x92);\n  dig_P4 = (int16_t)read16le(address, 0x94);\n  dig_P5 = (int16_t)read16le(address, 0x96);\n  dig_P6 = (int16_t)read16le(address, 0x98);\n  dig_P7 = (int16_t)read16le(address, 0x9A);\n  dig_P8 = (int16_t)read16le(address, 0x9C);\n  dig_P9 = (int16_t)read16le(address, 0x9E);\n  Wire.beginTransmission(address);\n  Wire.write(0xF4);\n  Wire.write(0x27);  // temperature x1, pressure x1, normal mode\n  Wire.endTransmission();\n}\n\nstatic int32_t compensate_t_fine(uint8_t address) {\n  int32_t adc = read20(address, 0xFA);\n  int32_t var1 = ((((adc >> 3) - ((int32_t)dig_T1 << 1))) * ((int32_t)dig_T2)) >> 11;\n  int32_t var2 = (((((adc >> 4) - ((int32_t)dig_T1)) * ((adc >> 4) - ((int32_t)dig_T1))) >> 12) * ((int32_t)dig_T3)) >> 14;\n  return var1 + var2;\n}\n\nfloat bmp280_read_temperature(uint8_t address) {\n  int32_t t_fine = compensate_t_fine(address);\n  return ((t_fine * 5 + 128) >> 8) / 100.0f;\n}\n\nfloat bmp280_read_pressure(uint8_t address) {\n  int32_t t_fine = compensate_t_fine(address);\n  int32_t adc = read20(address, 0xF7);\n  int64_t var1 = (int64_t)t_fine - 128000;\n  int64_t var2 = var1 * var1 * (int64_t)dig_P6;\n  var2 = var2 + ((var1 * (int64_t)dig_P5) << 17);\n  var2 = var2 + (((int64_t)dig_P4) << 35);\n  var1 = ((var1 * var1 * (int64_t)dig_P3) >> 8) + ((var1 * (int64_t)dig_P2) << 12);\n  var1 = (((((int64_t)1) << 47) + var1)) * ((int64_t)dig_P1) >> 33;\n  if (var1 == 0) return 0;\n  int64_t p = 1048576 - adc;\n  p = (((p << 31) - var2) * 3125) / var1;\n  var1 = (((int64_t)dig_P9) * (p >> 13) * (p >> 13)) >> 25;\n  var2 = (((int64_t)dig_P8) * p) >> 19;\n  p = ((p + var1 + var2) >> 8) + (((int64_t)dig_P7) << 4);\n  return (float)p / 256.0f;  // pascals\n}\n"
+  }
+}

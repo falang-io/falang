@@ -38,9 +38,31 @@ owner id, `'mcp'` (see the ADR's "Contract clarifications" §4 — one agent per
   seam (`arduino-project-type.ts`), combining `@falang/typescript-dto`'s `functionNodesGroup` with
   `@falang/desktop-arduino-dto`'s Electron-free pin node configs and every `driver-action::…` node
   config derived from the driver folders found under `--drivers-dir`.
+  An `'arduino'` project additionally gets six driver tools (below).
 
 Which registration a running server uses is decided once at startup from the project's own
 `falang.json` `type` field — see "CLI" below for how `--drivers-dir` reaches it.
+
+## Arduino driver tools (ADR 0054 (private))
+
+Registered only for `'arduino'` projects (they live here, not in `@falang/mcp-core`). `scope` is `'project'`
+(`<project>/falang/drivers/`) or `'library'` (the `--library-drivers-dir`); a driver `bundle` is
+`{ formatVersion: 1, config, files }` — the tool's input schema is the zod schema, and the skill's
+`references/driver-format.md` is generated from it.
+
+| Tool                 | Input                                             | What it does                                                                                                                                                                                                                             |
+| -------------------- | ------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `list_drivers`       | `{}`                                              | every driver (built-in/library/project): id, label, scope, notes, actions (fields, result type), `device`, `overrides`, `effective`, status `ok`/`load-error`                                                                            |
+| `get_driver`         | `{ id, scope?: 'project'\|'library'\|'bundled' }` | the bundle (effective driver when no scope)                                                                                                                                                                                              |
+| `validate_driver`    | `{ bundle, scope }`                               | schema, name collisions, template type-check, project usages (project scope) and an `arduino-cli` compile of a synthetic sketch for the project's board (`falang/config/arduino.json`; library scope: the default board). Writes nothing |
+| `set_driver`         | `{ bundle, scope }`                               | create-or-replace, full validation first; writes only when it passes                                                                                                                                                                     |
+| `delete_driver`      | `{ id, scope }`                                   | project drivers still used by nodes/`Devices` are refused with the usages, unless a library/built-in driver of that id takes over                                                                                                        |
+| `use_library_driver` | `{ id }`                                          | copies a library driver into the project (validated like `set_driver`)                                                                                                                                                                   |
+
+After any write the server reloads its drivers and re-registers the `'arduino'` project type, so
+`get_node_kinds`/`set_document` in the same session see the new `driver-action::…` kinds; the same reload
+happens lazily when a driver folder was changed by someone else (a cheap mtime comparison before each call).
+`buildMcpServer`'s `arduinoDriverCliCheck: () => null` disables the `arduino-cli` stage (tests).
 
 ## CLI
 
@@ -59,8 +81,9 @@ json` folders, only used when the project's own type is `'arduino'`. Later direc
 - `--library-drivers-dir <path>` (optional): the user's driver library (the Arduino app passes
   `<userData>/drivers`, ADR 0054 (private)). The scan order is `FALANG_ARDUINO_DRIVERS_DIRS`, the
   `--drivers-dir` flags (bundled), the library, and **always last** the project's own
-  `<projectDir>/falang/drivers/` — so project > library > bundled, like the app. Drivers are read once at
-  server start (restart the server to pick up a driver added since).
+  `<projectDir>/falang/drivers/` — so project > library > bundled, like the app. The drivers are re-read
+  after every driver tool write and whenever a driver folder's mtime changed since the last load (checked
+  before every tool call), so a driver created by the app is visible without restarting the server.
 - Never writes anything to stdout except MCP protocol frames — every diagnostic (fatal startup
   errors, a skipped malformed driver folder) goes to stderr.
 

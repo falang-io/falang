@@ -17,6 +17,7 @@
     "check": "tsc --noEmit -p tsconfig.build.json"
   },
   "dependencies": {
+    "@falang/desktop-arduino-compiler": "*",
     "@falang/desktop-arduino-dto": "*",
     "@falang/desktop-project-fs": "*",
     "@falang/dto": "*",

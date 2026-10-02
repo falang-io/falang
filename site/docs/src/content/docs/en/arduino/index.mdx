@@ -107,33 +107,9 @@ head:
 #### Your own drivers
 
 <p>
-  You can add a driver without changing the app: put a folder with a <code>driver.config.json</code> and its{' '}
-  <code>.h</code>/<code>.cpp</code> files into the <code>drivers</code> folder inside the app's data folder (under{' '}
-  <code>~/.config</code> on Linux, <code>%APPDATA%</code> on Windows, <code>~/Library/Application Support</code> on
-  macOS) and restart the app. Drivers are read once at startup; a driver with the same <code>id</code> as a bundled one
-  replaces it, and an invalid one is skipped. The bundled drivers in the app's <code>resources/drivers</code> folder are
-  good examples.
+  You can add your own device drivers — per project, or in a personal library shared by all your projects — and
+  manage them from <b>Sketch → Drivers…</b>. See <a href="./drivers/">Custom device drivers</a>.
 </p>
-<p><code>driver.config.json</code> is plain data — nothing in it is executed:</p>
-<ul>
-  <li>
-    <code>id</code> (kebab-case), <code>label</code>, <code>includes</code> (headers to <code>#include</code>),{' '}
-    <code>sourceFiles</code> (files copied next to the sketch) and <code>declarations</code> (TypeScript{' '}
-    <code>declare function …</code> lines that tell the editor about your C++ functions);
-  </li>
-  <li>
-    <code>actions</code> — each with an <code>id</code>, a <code>label</code>, <code>fields</code> (kinds{' '}
-    <code>pin</code>, <code>number</code>, <code>string</code>, <code>boolean</code>, <code>select</code>,{' '}
-    <code>new-variable</code>) and a <code>codeTemplate</code> with <code>{'${field}'}</code> placeholders; an action
-    with a <code>new-variable</code> field also sets a <code>resultType</code> (<code>int</code>, <code>float</code>,{' '}
-    <code>bool</code> or <code>string</code>);
-  </li>
-  <li>
-    optionally <code>device</code> — fields and a <code>setupTemplate</code>, which makes the driver addable in the{' '}
-    <code>Devices</code> document.
-  </li>
-</ul>
-<p>Required Arduino libraries are not installed automatically — install them with arduino-cli.</p>
 
 #### Build &amp; Upload
 

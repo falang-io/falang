@@ -102,7 +102,7 @@ export default defineConfig({
             'workflow/versioning',
           ],
         },
-        { label: ARDUINO_GROUP_LABEL[locale], items: ['arduino', 'arduino/project-setup', 'arduino/debugging'] },
+        { label: ARDUINO_GROUP_LABEL[locale], items: ['arduino', 'arduino/project-setup', 'arduino/drivers', 'arduino/debugging'] },
       ],
       // Every content page's section headings are `<h4>` (see e.g. `basics.mdx`/`logic/index.mdx`),
       // below Starlight's default "On this page" range of h2-h3 — without this, the sidebar TOC only

@@ -110,33 +110,10 @@ head:
 #### Собственные драйверы
 
 <p>
-  Драйвер можно добавить, не меняя приложение: положите папку с <code>driver.config.json</code> и его файлами{' '}
-  <code>.h</code>/<code>.cpp</code> в папку <code>drivers</code> внутри папки данных приложения (в{' '}
-  <code>~/.config</code> на Linux, <code>%APPDATA%</code> на Windows, <code>~/Library/Application Support</code> на
-  macOS) и перезапустите приложение. Драйверы читаются один раз при запуске; драйвер с тем же <code>id</code>, что у
-  встроенного, заменяет его, а некорректный пропускается. Хорошие примеры — встроенные драйверы в папке{' '}
-  <code>resources/drivers</code> приложения.
+  Можно добавлять собственные драйверы устройств — для одного проекта или в личную библиотеку, общую для всех ваших
+  проектов — и управлять ими через <b>Sketch → Drivers…</b>. Подробности в разделе{' '}
+  <a href="./drivers/">Собственные драйверы устройств</a>.
 </p>
-<p><code>driver.config.json</code> — это только данные, ничего из него не выполняется:</p>
-<ul>
-  <li>
-    <code>id</code> (в kebab-case), <code>label</code>, <code>includes</code> (заголовки для <code>#include</code>),{' '}
-    <code>sourceFiles</code> (файлы, которые копируются рядом со скетчем) и <code>declarations</code> (строки TypeScript{' '}
-    <code>declare function …</code>, которые сообщают редактору о ваших функциях на C++);
-  </li>
-  <li>
-    <code>actions</code> — у каждого <code>id</code>, <code>label</code>, <code>fields</code> (виды <code>pin</code>,{' '}
-    <code>number</code>, <code>string</code>, <code>boolean</code>, <code>select</code>, <code>new-variable</code>) и{' '}
-    <code>codeTemplate</code> с подстановками <code>{'${field}'}</code>; у действия с полем <code>new-variable</code>{' '}
-    задаётся ещё <code>resultType</code> (<code>int</code>, <code>float</code>, <code>bool</code> или{' '}
-    <code>string</code>);
-  </li>
-  <li>
-    необязательный раздел <code>device</code> — поля и <code>setupTemplate</code>; с ним драйвер можно добавить в
-    документ <code>Devices</code>.
-  </li>
-</ul>
-<p>Нужные драйверу библиотеки Arduino автоматически не устанавливаются — поставьте их через arduino-cli.</p>
 
 #### Сборка и загрузка
 

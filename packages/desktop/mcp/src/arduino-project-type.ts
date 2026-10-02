@@ -1,14 +1,6 @@
-import { NodesGroup, NodesStack } from '@falang/dto';
-import { functionNodesGroup } from '@falang/typescript-dto';
-import {
-  arduinoFunctionNodeConfigs,
-  buildDriverNodeConfigs,
-  loadDriverRegistryFromDirs,
-  pinNodeConfigs,
-  type IDriverConfig,
-  type IDriverLoadError,
-} from '@falang/desktop-arduino-dto';
+import { loadDriverRegistryFromDirs, type IDriverConfig, type IDriverLoadError } from '@falang/desktop-arduino-dto';
 import type { DocumentStackRegistry } from '@falang/mcp-core';
+import { registerArduinoStack } from './arduino-drivers-state.js';
 
 /**
  * `packages/desktop/app-arduino` writes `falang.json`'s `type` as `'arduino'` and every *scheme*
@@ -50,14 +42,6 @@ export const registerArduinoProjectType = async (
 ): Promise<IRegisterArduinoProjectTypeResult> => {
   const { drivers, errors } = await loadDriverRegistryFromDirs(driversDirs);
   const driverConfigs: readonly IDriverConfig[] = drivers.map((driver) => driver.config);
-  const stack = new NodesStack([
-    functionNodesGroup,
-    new NodesGroup(pinNodeConfigs),
-    new NodesGroup(arduinoFunctionNodeConfigs),
-    new NodesGroup(buildDriverNodeConfigs(driverConfigs)),
-  ]);
-  registry.registerProjectType(ARDUINO_PROJECT_TYPE, {
-    [ARDUINO_FUNCTION_DOCUMENT_TYPE]: { rootNodeName: ARDUINO_FUNCTION_DOCUMENT_TYPE, stack },
-  });
+  registerArduinoStack(registry, driverConfigs);
   return { driverCount: driverConfigs.length, driverErrors: errors };
 };

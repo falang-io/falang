@@ -18,7 +18,7 @@ export const DRIVER_BUNDLE_MAX_TOTAL_BYTES = 1024 * 1024;
 
 const FLAT_FILE_NAME = /^[\w.-]+$/;
 
-const driverBundleZod = zod.object({
+export const driverBundleZod = zod.object({
   formatVersion: zod.literal(DRIVER_BUNDLE_FORMAT_VERSION),
   config: driverConfigZod,
   /** File name (flat, as listed in `config.sourceFiles` ∪ `config.includes`) → its text. */

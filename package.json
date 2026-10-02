@@ -16,6 +16,7 @@
     "coverage:e2e": "./scripts/kind-e2e-setup.sh && COLLECT_COVERAGE=true docker compose -f docker-compose.workflow-e2e.yml run --build --rm e2e-tests && npm run test-e2e:workflow && docker compose -f docker-compose.workflow-e2e.yml down -v",
     "coverage:merge": "node scripts/merge-coverage.mjs",
     "coverage": "npm run coverage:unit && npm run coverage:e2e && npm run coverage:merge",
+    "generate:driver-format": "tsx plugins/falang/scripts/generate-driver-format.mts",
     "format": "prettier --write .",
     "format:check": "prettier --check .",
     "lint": "oxlint",

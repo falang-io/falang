@@ -1,0 +1,109 @@
+---
+title: Custom device drivers
+description: Where Arduino device drivers live, how to add, validate and edit your own, and how coding agents and the in-app agent create them
+head:
+  - tag: meta
+    attrs:
+      name: keywords
+      content: 'arduino, driver, custom driver, library, sensor, driver.config.json, mcp'
+---
+
+<p>
+  A <b>driver</b> teaches the app about a sensor, display or module: a small C++ file pair plus a description of the
+  icons it adds. Besides the bundled drivers, you can write your own — or have an agent write them — without changing
+  the app.
+</p>
+
+#### Where drivers live
+
+<ul>
+  <li>
+    <b>Built-in</b> — shipped with the app. Read-only.
+  </li>
+  <li>
+    <b>Project</b> — the project's own <code>falang/drivers/&lt;id&gt;/</code> folder. It is part of the project:
+    versioned with it, and it travels with the project folder to another machine.
+  </li>
+  <li>
+    <b>Personal library</b> — a <code>drivers</code> folder in the app's data folder, shared by all your projects.
+  </li>
+</ul>
+<p>
+  If the same <code>id</code> exists in several places, the project's copy wins over the library's, which wins over the
+  built-in one. When a scheme or the <code>Devices</code> document uses a driver found in the library or built in,
+  the app <b>copies it into the project automatically</b> the first time (a library driver, on project open and
+  before every build), so a project keeps building even if the library changes. Only drivers the sketch uses are
+  compiled into it.
+</p>
+
+#### The Drivers… dialog
+
+<p>
+  <b>Sketch → Drivers…</b> lists every driver with its scope and status. From there you can:
+</p>
+<ul>
+  <li>
+    <b>Create</b> a project driver from a small template, <b>upload</b> a <code>.falang-driver.json</code> file (a
+    whole driver in one file) into the project or the library, and <b>download</b> any driver as such a file to share
+    it.
+  </li>
+  <li>
+    <b>Copy</b> a driver between the library and the project, or replace a project copy with the library version.
+  </li>
+  <li>
+    <b>Validate</b> — checks the format, that C function names don't clash with other drivers or Arduino's own, that
+    every action's template type-checks, that the project's existing icons still fit, and compiles a small test sketch
+    with arduino-cli for the project's board. A missing core or library is only a warning, not a failure.
+  </li>
+  <li>
+    <b>Open folder</b> — edit the driver's files in your own editor; the app picks the changes up automatically. A
+    driver that becomes invalid is marked as such, and <b>Build blocks</b> while the project uses an invalid driver,
+    with the reason shown.
+  </li>
+  <li>
+    <b>Delete</b> — refused with a list of places while the project still uses the driver.
+  </li>
+</ul>
+
+#### The format
+
+<p>
+  A driver is a folder with <code>driver.config.json</code> and the <code>.h</code>/<code>.cpp</code> files it names;
+  the same thing in one file is the <code>.falang-driver.json</code> bundle:{' '}
+  <code>{'{ "formatVersion": 1, "config": …, "files": { "name": "text" } }'}</code>. The config is plain data — nothing
+  in it is executed:
+</p>
+<ul>
+  <li>
+    <code>id</code> (kebab-case), <code>label</code>, <code>notes</code> (a plain-English description, used by agents),{' '}
+    <code>includes</code>, <code>sourceFiles</code> and <code>declarations</code> (<code>declare function …</code>{' '}
+    lines that tell the editor about your C++ functions — give every function a prefix unique to the driver);
+  </li>
+  <li>
+    <code>actions</code> — one per user-visible operation: <code>id</code>, <code>label</code>, <code>notes</code>,{' '}
+    <code>fields</code> (<code>pin</code>, <code>number</code>, <code>string</code>, <code>boolean</code>,{' '}
+    <code>select</code>, <code>new-variable</code>) and a <code>codeTemplate</code> with <code>{'${field}'}</code>{' '}
+    placeholders; an action with a <code>new-variable</code> field also sets a <code>resultType</code> (
+    <code>int</code>, <code>float</code>, <code>bool</code> or <code>string</code>);
+  </li>
+  <li>
+    optionally <code>device</code> — fields and a <code>setupTemplate</code>: the driver can then be added in the{' '}
+    <code>Devices</code> document, which calls it once in <code>setup()</code>.
+  </li>
+</ul>
+<p>Required Arduino libraries are not installed automatically — install them with arduino-cli.</p>
+
+#### Agents
+
+<ul>
+  <li>
+    The in-app <a href="../ai-agent/">AI agent</a> can list, create and edit project drivers when you ask it to add
+    support for a part; it validates a driver before saving it.
+  </li>
+  <li>
+    A <a href="../coding-agents/">coding agent</a> connected over MCP gets driver tools in an Arduino project:{' '}
+    <code>list_drivers</code>, <code>get_driver</code>, <code>validate_driver</code>, <code>set_driver</code>,{' '}
+    <code>delete_driver</code> and <code>use_library_driver</code>. New driver icons are available to it immediately,
+    and drivers you create in the app show up without restarting the agent.
+  </li>
+</ul>

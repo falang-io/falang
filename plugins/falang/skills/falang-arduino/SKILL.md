@@ -8,8 +8,8 @@ Read `falang-schemes` first — this skill only adds what's Arduino-specific on 
 An Arduino project's documents are all `function`-type (the same document type/tools as any
 TypeScript function tree); `get_node_kinds('function')` here additionally lists the four pin node
 kinds and one `driver-action::<driverId>::<actionId>` kind per installed driver action described
-below — always call it rather than assuming this list is exhaustive, since a user's own
-`userData/drivers/` folder can add more drivers at runtime.
+below — always call it rather than assuming this list is exhaustive, since the project's own
+`falang/drivers/`, the user's library and `set_driver` add more drivers.
 
 ## `setup` and `loop` are mandatory
 
@@ -64,6 +64,34 @@ Example: read a DHT22 on pin 3 into `temperature`, then print it on an LCD:
 { "id": "n1", "name": "driver-action::dht::read-temperature", "data": { "pin": "3", "sensorType": "1", "variable": "temperature" } },
 { "id": "n2", "name": "driver-action::lcd1602-i2c::print-text", "data": { "address": "39", "col": "0", "row": "0", "text": "temp reading" } }
 ```
+
+## Writing a device driver
+
+When the user's part is not in `list_drivers` (a sensor, display or module with its own protocol), write a driver
+instead of pasting raw C++ into `action` strings — it becomes pickable icons and a `Devices` entry.
+
+1. `list_drivers` first: reuse or extend an existing one if it fits (`get_driver` shows its bundle).
+2. Wrap the library/registers in plain C functions in one `.h`/`.cpp` pair. **Give every function a prefix unique to
+   the driver** (`bmp280_read_temperature`, never `read_temperature`) — names are checked against built-ins and every
+   other driver. Keep state in file-scope statics; use only what the target board's core provides.
+3. Describe it in `config`: `id` (kebab-case), `label`, `notes` (plain English), `includes`/`sourceFiles`, one
+   `declarations` line per function (`declare function bmp280_init(address: number): void;`), and one **action per
+   user-visible operation** with `fields` (`pin`, `number`, `string`, `boolean`, `select`, `new-variable`), a
+   `codeTemplate` using `${field}` and, for a value-returning action, a `new-variable` field plus `resultType`
+   (`int`/`float`/`bool`/`string`). Fill in `notes` on every action. If the part needs initialisation in `setup()`
+   (an I2C address, a pin), add a `device` section with `fields` and a `setupTemplate` — the user then lists it in
+   `Devices` (that is the only way `setup` initialises it). Exact format: `references/driver-format.md`; a complete
+   working example (a BMP280 on I2C): `references/examples/bmp280.falang-driver.json`.
+4. `validate_driver({ bundle, scope: 'project' })` and fix every error — it type-checks the templates, checks name
+   collisions and compiles a synthetic sketch with `arduino-cli` for the project board (a missing core/library is only
+   a warning). Then `set_driver` with the same bundle (scope `project`: the driver lives in the project's
+   `falang/drivers/`; use `library` only if the user wants it in their personal library, and `use_library_driver` to
+   copy one in). `set_driver` re-runs the whole check and writes nothing unless it passes.
+5. The new `driver-action::<id>::<action>` kinds are available to `get_node_kinds`/`set_document` right away. Use them
+   in `setup`/`loop`, and tell the user to add the device in the `Devices` document if the driver has a `device`
+   section (the `Devices` document is not editable over MCP).
+
+`delete_driver` refuses a project driver that nodes or `Devices` still use (it lists the usages).
 
 ## The C++ target's real constraints
 

@@ -10,7 +10,7 @@
       "name": "falang",
       "source": "./falang",
       "description": "Edit falang projects (workflow/logic/code/Arduino) with a coding agent.",
-      "version": "0.1.0",
+      "version": "0.1.1",
       "author": {
         "name": "falang"
       }

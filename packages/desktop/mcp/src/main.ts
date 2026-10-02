@@ -20,7 +20,7 @@ const main = async (): Promise<void> => {
     driversDirs,
     libraryDriversDir,
   });
-  await startStdioServer(projectDir, { arduinoDriversDirs });
+  await startStdioServer(projectDir, { arduinoDriversDirs, arduinoLibraryDriversDir: libraryDriversDir });
 };
 
 main().catch((error: unknown) => {
