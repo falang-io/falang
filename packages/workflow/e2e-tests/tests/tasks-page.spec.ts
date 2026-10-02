@@ -103,9 +103,8 @@ test.describe('tasks page', () => {
     await expect(page.getByRole('button', { name: 'Confirm' })).not.toBeVisible();
     await page.keyboard.press('Escape');
 
-    // Scope rows to this run's own project name: leftover tasks from earlier runs/retries share the title.
-    const projectNamePattern = new RegExp(projectName);
-    const row = page.getByRole('row', { name: /Approve order/ }).filter({ hasText: projectNamePattern });
+    // The workspace Tasks view is already scoped to this project (and has no project column).
+    const row = page.getByRole('row', { name: /Approve order/ });
     await expect(row.getByText('done')).toBeVisible();
 
     // The project list's own standalone "Tasks" button (`navigationStore.goToTasks()`) shows the
@@ -113,7 +112,9 @@ test.describe('tasks page', () => {
     await page.getByRole('button', { name: '← Projects' }).click();
     await expect(page.getByRole('button', { name: '+ New project' })).toBeVisible();
     await page.getByRole('button', { name: 'Tasks' }).click();
-    const standaloneRow = page.getByRole('row', { name: /Approve order/ }).filter({ hasText: projectNamePattern });
+    // The standalone page is cross-project: scope to this run's own project name, since leftover tasks from
+    // earlier runs (or this test's own retry) share the title.
+    const standaloneRow = page.getByRole('row', { name: /Approve order/ }).filter({ hasText: new RegExp(projectName) });
     await expect(standaloneRow).toBeVisible();
     await expect(standaloneRow.getByText('done')).toBeVisible();
   });
