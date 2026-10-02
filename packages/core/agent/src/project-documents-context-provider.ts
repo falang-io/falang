@@ -5,6 +5,8 @@ export interface IProjectDocumentSummary {
   readonly id: string;
   readonly type: string;
   readonly name: string;
+  /** Optional folder path the host wants shown (e.g. `Functions/Telegram`); rendered as `in <path>`. */
+  readonly path?: string;
 }
 
 /**
@@ -16,15 +18,21 @@ export interface IProjectDocumentSummary {
  */
 export class ProjectDocumentsContextProvider implements IAgentContextProvider {
   private readonly getDocuments: () => readonly IProjectDocumentSummary[];
+  private readonly getExtraLines?: () => readonly string[];
 
-  constructor(getDocuments: () => readonly IProjectDocumentSummary[]) {
+  /** `getExtraLines` — optional host-supplied lines appended after the document list (e.g. the project's
+   *  fixed sections and their ids, so the model can pick a `folderId`); kept generic here. */
+  constructor(getDocuments: () => readonly IProjectDocumentSummary[], getExtraLines?: () => readonly string[]) {
     this.getDocuments = getDocuments;
+    this.getExtraLines = getExtraLines;
   }
 
   describe(_context: IAgentRunContext): string | null {
     const documents = this.getDocuments();
-    if (documents.length === 0) return 'This project has no documents yet.';
-    const rows = documents.map((doc) => `- ${doc.id} (${doc.type}) "${doc.name}"`);
-    return `Documents in this project (documentId, type, name):\n${rows.join('\n')}`;
+    const extra = this.getExtraLines?.() ?? [];
+    const extraText = extra.length > 0 ? `\n${extra.join('\n')}` : '';
+    if (documents.length === 0) return `This project has no documents yet.${extraText}`;
+    const rows = documents.map((doc) => `- ${doc.id} (${doc.type}) "${doc.name}"${doc.path ? ` in ${doc.path}` : ''}`);
+    return `Documents in this project (documentId, type, name):\n${rows.join('\n')}${extraText}`;
   }
 }

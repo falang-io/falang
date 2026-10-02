@@ -5,6 +5,7 @@ import { REGISTERED_INTEGRATIONS } from '../integrations-registry.js';
 import { createAgentDocumentResolver } from './create-agent-document-resolver.js';
 import { DocumentToolProvider } from './document-tool-provider.js';
 import { createWorkflowNodeKindFilter } from './integration-catalog.js';
+import { describeSections, folderPath } from './project-layout-context.js';
 import { IntegrationToolProvider } from './integration-tool-provider.js';
 import type { IWorkflowAgentStore } from './workflow-agent-store.js';
 
@@ -39,8 +40,17 @@ export const createWorkflowAgentSession = (deps: ICreateWorkflowAgentSessionDeps
     deps.llmClient,
     [
       new ScopeVariablesContextProvider(),
-      new ProjectDocumentsContextProvider(() =>
-        store.documents.filter((doc) => !doc.pinned).map((doc) => ({ id: doc.id, name: doc.name, type: doc.type })),
+      new ProjectDocumentsContextProvider(
+        () =>
+          store.documents
+            .filter((doc) => !doc.pinned)
+            .map((doc) => ({
+              id: doc.id,
+              name: doc.name,
+              path: folderPath(doc.folderId, store.folders ?? []) ?? '',
+              type: doc.type,
+            })),
+        () => describeSections(store.folders ?? []),
       ),
     ],
     {

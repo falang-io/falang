@@ -209,6 +209,10 @@
       "sync-structure-failed": "Не удалось синхронизировать структуру"
     },
     "project-tree": {
+      "section-triggers": "Триггеры",
+      "section-functions": "Функции",
+      "section-types": "Типы",
+      "new-trigger-here": "Новый триггер здесь",
       "header": "Проект",
       "add": "+ Добавить",
       "add-function": "Функция",

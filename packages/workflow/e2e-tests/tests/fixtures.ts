@@ -170,31 +170,28 @@ const PLACEHOLDER_BY_KIND = {
   folder: 'Folder name...',
 } as const;
 
+/** The root "+ Add" menu creates documents only (directly in their fixed section, ADR 0055); folders go through a folder's context menu. */
+type TRootItemKind = 'function' | 'objects-structure';
+
 /** `ProjectTree`'s single "+ Add" dropdown menu's item labels (`ADD_MENU_ITEMS`) — not the same strings as the placeholders above. */
 const MENU_ITEM_LABEL_BY_KIND = {
   function: 'Function',
   'objects-structure': 'Object',
-  folder: 'Folder',
 } as const;
 
 /**
- * Creates a folder/function/object document at the project root via the tree's single "+ Add"
+ * Creates a function/object document (placed in its fixed section) via the tree's single "+ Add"
  * dropdown (`ProjectTree`'s `ADD_MENU_ITEMS`) — picking a menu item reveals an inline name input,
  * not a modal. Returns the created id (folders and documents share the same create response shape:
  * `{ id, ... }`).
  */
-export const createTreeItemViaUI = async (
-  page: Page,
-  kind: keyof typeof PLACEHOLDER_BY_KIND,
-  name: string,
-): Promise<string> => {
+export const createTreeItemViaUI = async (page: Page, kind: TRootItemKind, name: string): Promise<string> => {
   await page.getByRole('button', { name: '+ Add' }).click();
   await page.getByRole('menuitem', { name: MENU_ITEM_LABEL_BY_KIND[kind] }).click();
   const input = page.getByPlaceholder(PLACEHOLDER_BY_KIND[kind]);
   await input.fill(name);
-  const urlFragment = kind === 'folder' ? '/folders' : '/documents';
   const [response] = await Promise.all([
-    page.waitForResponse((res) => res.url().includes(urlFragment) && res.request().method() === 'POST'),
+    page.waitForResponse((res) => res.url().includes('/documents') && res.request().method() === 'POST'),
     input.press('Enter'),
   ]);
   const body = (await response.json()) as { id: string };
@@ -256,7 +253,7 @@ const CONTEXT_MENU_LABEL_BY_KIND = {
   folder: 'New subfolder',
 } as const;
 
-/** Creates a folder/function/object document nested inside an existing folder via its right-click context menu. */
+/** Creates a folder/function/object document inside an existing section or folder via its right-click context menu (a section only offers its own document types). */
 export const createTreeItemInFolderViaUI = async (
   page: Page,
   folderName: string,

@@ -9,7 +9,12 @@ import type {
   ITriggerDescriptor,
   IWorkflowIntegration,
 } from '@falang/workflow-integrations-common';
-import type { TTriggerFunctionBodyData } from '@falang/workflow-dto';
+import {
+  checkDocumentPlacement,
+  findSectionFolder,
+  sectionForDocumentType,
+  type TTriggerFunctionBodyData,
+} from '@falang/workflow-dto';
 import { getIntegrationInstances } from '../integration-instances.js';
 import { REGISTERED_INTEGRATIONS } from '../integrations-registry.js';
 import { resolveTriggerCredentialId } from '../components/trigger-credential.js';
@@ -103,7 +108,12 @@ const TOOLS: readonly ILlmToolDefinition[] = [
       properties: {
         name: { type: 'string' },
         type: { type: 'string', enum: ['function', 'objects-structure'] },
-        folderId: { type: 'string' },
+        folderId: {
+          type: 'string',
+          description:
+            "Optional. Omit to use the document type's section (functions → Functions, objects-structure → " +
+            'Types); pass a subfolder id from the project context only to place it inside that section.',
+        },
       },
       required: ['name', 'type'],
     },
@@ -129,7 +139,10 @@ const TOOLS: readonly ILlmToolDefinition[] = [
           type: 'object',
           description: 'Extra trigger-specific fields the trigger declares, keyed by field name.',
         },
-        folderId: { type: 'string' },
+        folderId: {
+          type: 'string',
+          description: 'Optional. Omit to use the Triggers section; pass a subfolder of it to place it there.',
+        },
       },
       required: ['name', 'vendor', 'triggerName'],
     },
@@ -220,8 +233,9 @@ export class DocumentToolProvider implements IAgentToolProvider {
           'identifier (e.g. myFunctionName), no spaces, punctuation, or non-Latin script',
       );
     }
-    const folderId = params && typeof params.folderId === 'string' ? params.folderId : null;
-    const documentId = this.store.createDocument(type, name, folderId);
+    const placement = this.resolvePlacement('create_document', type, params?.folderId);
+    if ('error' in placement) return fail(placement.error);
+    const documentId = this.store.createDocument(type, name, placement.folderId);
     if (type === OBJECTS_STRUCTURE_NAME) {
       return ok(
         JSON.stringify({
@@ -272,9 +286,27 @@ export class DocumentToolProvider implements IAgentToolProvider {
       scopeType: trigger.scopeType,
       ...(configResult.config ? { triggerConfig: configResult.config } : {}),
     };
-    const folderId = typeof params.folderId === 'string' ? params.folderId : null;
-    const documentId = this.store.createTriggerFunctionDocument(name, bodyData, folderId);
+    const placement = this.resolvePlacement('create_trigger_document', 'trigger-function', params.folderId);
+    if ('error' in placement) return fail(placement.error);
+    const documentId = this.store.createTriggerFunctionDocument(name, bodyData, placement.folderId);
     return ok(JSON.stringify({ documentId }));
+  }
+
+  /** Omitted `folderId` → the type's section root (when the project has one); an explicit one is checked
+   *  against the fixed-sections rules (ADR 0055 (private)) so a violation is a tool error, not a failed request. */
+  private resolvePlacement(
+    tool: string,
+    type: string,
+    requested: unknown,
+  ): { folderId: string | null } | { error: string } {
+    const folders = this.store.folders ?? [];
+    if (typeof requested === 'string' && requested !== '') {
+      const reason = checkDocumentPlacement(type, requested, folders);
+      return reason ? { error: `${tool}: ${reason}` } : { folderId: requested };
+    }
+    const kind = sectionForDocumentType(type);
+    const section = kind ? findSectionFolder(kind, folders) : null;
+    return { folderId: section?.id ?? null };
   }
 
   /** The project's own interfaces, from the live registry (fed from every loaded objects-structure

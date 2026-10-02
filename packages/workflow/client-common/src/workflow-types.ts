@@ -7,6 +7,8 @@ export interface WorkflowFolder {
   id: string;
   name: string;
   parentId: string | null;
+  /** Set on the three fixed root section folders (ADR 0055 (private)). */
+  fixedKind?: string | null;
 }
 
 export interface WorkflowDocument {

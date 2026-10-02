@@ -29,7 +29,16 @@ import type { INodeTreeDiff, ISnapshotDocument } from '@falang/versioning';
 import { AgentChatSessionStore, PrintExportStore, VersionHistoryStore } from '@falang/antd';
 import { navigationStore } from './navigation-store.js';
 import { createPrintExportHost } from './print/create-print-export-host.js';
-import { MAGIC_NAME, TRIGGER_FUNCTION_NAME, type TTriggerFunctionBodyData } from '@falang/workflow-dto';
+import {
+  checkDocumentPlacement,
+  checkFolderPlacement,
+  findSectionFolder,
+  isFixedFolder,
+  MAGIC_NAME,
+  sectionForDocumentType,
+  TRIGGER_FUNCTION_NAME,
+  type TTriggerFunctionBodyData,
+} from '@falang/workflow-dto';
 import type { IIntegrationInstance } from '@falang/workflow-integrations-common';
 import { SCHEDULE_VENDOR } from '@falang/workflow-integrations-schedule';
 import { TOKEN_SCHEDULE_STATUS } from '@falang/workflow-scheme';
@@ -364,8 +373,16 @@ export class WorkflowStore implements IWorkflowAgentStore {
     return this.sync.stopProdRunner();
   }
 
+  /** The id of the section folder (Triggers/Functions/Types) accepting `type`, or `null` (e.g. before the tree has loaded). */
+  getSectionFolderId(type: string): string | null {
+    const kind = sectionForDocumentType(type);
+    return kind === null ? null : (findSectionFolder(kind, this.folders)?.id ?? null);
+  }
+
   @action createFolder(name: string, parentId: string | null = null): string {
     const id = generateUuid();
+    const reason = checkFolderPlacement(id, parentId, this.folders);
+    if (reason) throw new Error(reason);
     const folder: WorkflowFolder = { id, name, parentId };
     this.folders.push(folder);
     this.sync.createFolderRemote(folder);
@@ -373,6 +390,7 @@ export class WorkflowStore implements IWorkflowAgentStore {
   }
 
   @action deleteFolder(id: string): void {
+    if (isFixedFolder(this.folders.find((f) => f.id === id))) return;
     const allIds = new Set([id, ...this.getFolderDescendantIds(id)]);
     const docsToDelete = this.documents.filter((d) => d.folderId !== null && allIds.has(d.folderId));
     for (const doc of docsToDelete) {
@@ -386,7 +404,7 @@ export class WorkflowStore implements IWorkflowAgentStore {
 
   @action createDocument(type: DocumentType, name: string, folderId: string | null = null): string {
     const id = generateUuid();
-    const doc: WorkflowDocument = { id, name, type, folderId };
+    const doc: WorkflowDocument = { id, name, type, folderId: folderId ?? this.getSectionFolderId(type) };
     this.documents.push(doc);
     this.sync.createDocumentRemote(doc);
     this.openTab(id);
@@ -398,7 +416,11 @@ export class WorkflowStore implements IWorkflowAgentStore {
     bodyData: TTriggerFunctionBodyData,
     folderId: string | null = null,
   ): string {
-    const doc = buildTriggerFunctionDocument(name, bodyData, folderId);
+    const doc = buildTriggerFunctionDocument(
+      name,
+      bodyData,
+      folderId ?? this.getSectionFolderId(TRIGGER_FUNCTION_NAME),
+    );
     this.documents.push(doc);
     this.sync.createDocumentRemote(doc);
     this.openTab(doc.id);
@@ -417,18 +439,16 @@ export class WorkflowStore implements IWorkflowAgentStore {
 
   @action moveDocument(docId: string, folderId: string | null): void {
     const doc = this.documents.find((d) => d.id === docId);
-    if (!doc) return;
+    if (!doc || doc.pinned) return;
+    if (checkDocumentPlacement(doc.type, folderId, this.folders) !== null) return;
     doc.folderId = folderId;
     this.sync.updateDocumentRemote(docId, { folderId });
   }
 
   @action moveFolder(folderId: string, newParentId: string | null): void {
-    if (newParentId !== null) {
-      if (folderId === newParentId) return;
-      if (this.getFolderDescendantIds(folderId).includes(newParentId)) return;
-    }
     const folder = this.folders.find((f) => f.id === folderId);
-    if (!folder) return;
+    if (!folder || isFixedFolder(folder)) return;
+    if (checkFolderPlacement(folderId, newParentId, this.folders) !== null) return;
     folder.parentId = newParentId;
     this.sync.updateFolderRemote(folderId, { parentId: newParentId });
   }

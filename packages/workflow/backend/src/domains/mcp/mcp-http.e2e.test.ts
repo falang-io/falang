@@ -299,6 +299,39 @@ describe('/mcp (HTTP-level, PAT auth) (e2e)', () => {
     }
   });
 
+  it('fixed sections: list_documents marks them, create defaults to the section, create_folder at the root is refused', async () => {
+    const rawToken = await createPat(harness, jwt);
+    const client = await connectClient(harness, rawToken);
+    try {
+      interface TListed {
+        folders: { id: string; fixedKind?: string | null }[];
+        documents: { id: string; folderId: string | null; pinned: boolean }[];
+      }
+      const created = await client.callTool({
+        name: 'create_document',
+        arguments: { projectId, name: 'sectionFn', type: 'function' },
+      });
+      expect(created.isError).not.toBe(true);
+      const createdId = (JSON.parse(toolText(created)) as { id: string }).id;
+      const listed = JSON.parse(
+        toolText(await client.callTool({ name: 'list_documents', arguments: { projectId } })),
+      ) as TListed;
+      const functions = listed.folders.find((folder) => folder.fixedKind === 'functions');
+      expect(functions).toBeDefined();
+      expect(listed.documents.find((doc) => doc.id === createdId)?.folderId).toBe(functions?.id);
+      expect(listed.documents.some((doc) => doc.pinned)).toBe(true);
+
+      const rootFolder = await client.callTool({
+        name: 'create_folder',
+        arguments: { projectId, name: 'loose', parentId: null },
+      });
+      expect(rootFolder.isError).toBe(true);
+      expect(toolText(rootFolder)).toContain(functions?.id);
+    } finally {
+      await client.close();
+    }
+  });
+
   it('create_document then set_document with an invalid root bounces back a zod path error without changing the document', async () => {
     const rawToken = await createPat(harness, jwt);
     const client = await connectClient(harness, rawToken);

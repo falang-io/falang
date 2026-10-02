@@ -8,13 +8,17 @@ import type { IWorkflowAgentStore } from './workflow-agent-store.js';
 const finish = (): ILlmResponse => ({ text: '', toolCalls: [{ id: 'f', input: { message: 'done' }, name: 'finish' }] });
 
 const documents: WorkflowDocument[] = [
-  { folderId: null, id: 'doc-1', name: 'sendGreeting', type: 'function' },
+  { folderId: 'sub', id: 'doc-1', name: 'sendGreeting', type: 'function' },
   { folderId: null, id: 'integrations', name: 'integrations', pinned: true, type: INTEGRATIONS_DOCUMENT_TYPE },
 ];
 
 const buildStore = (): IWorkflowAgentStore =>
   ({
     documents,
+    folders: [
+      { fixedKind: 'functions', id: 'sec-fn', name: 'Functions', parentId: null },
+      { id: 'sub', name: 'Telegram', parentId: 'sec-fn' },
+    ],
     getDocument: (id: string) => documents.find((doc) => doc.id === id),
     getScheme: () => {
       throw new Error('no schemes in this test');
@@ -56,6 +60,16 @@ describe('createWorkflowAgentSession', () => {
 
     expect(client.requests[0].system).toContain('sendGreeting');
     expect(client.requests[0].system).not.toContain('integrations');
+  });
+
+  it('shows each document folder path and the fixed sections with their ids', async () => {
+    const client = new ScriptedLlmClient([finish()]);
+    const session = createWorkflowAgentSession({ llmClient: client, store: buildStore() });
+
+    await session.run('hello', { activeDocumentId: 'doc-1' });
+
+    expect(client.requests[0].system).toContain('"sendGreeting" in Functions/Telegram');
+    expect(client.requests[0].system).toContain('Functions (folderId sec-fn)');
   });
 
   it('calls onRunFinished with the session once the run settles', async () => {

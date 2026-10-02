@@ -203,6 +203,10 @@
       "sync-structure-failed": "Failed to sync structure"
     },
     "project-tree": {
+      "section-triggers": "Triggers",
+      "section-functions": "Functions",
+      "section-types": "Types",
+      "new-trigger-here": "New trigger here",
       "header": "Project",
       "add": "+ Add",
       "add-function": "Function",

@@ -6,23 +6,16 @@ import { isValidFunctionName } from '@falang/dto';
 import { ConfigProvider, Dropdown, Menu, message, Tree } from 'antd';
 import type { MenuProps, TreeDataNode } from 'antd';
 import { useWorkflowStore } from '../workflow-store-context.js';
-import type { WorkflowStore } from '../workflow-store.js';
 import type { DocumentType } from '../workflow-types.js';
 import { S } from './project-tree.styles.js';
 import { NewTriggerModal, type INewTriggerData } from './new-trigger-modal.js';
+import { idOf, getSectionLabel, toTreeData, getFolderLabel, getMenuItems } from './project-tree-helpers.js';
 import { REGISTERED_INTEGRATIONS } from '../integrations-registry.js';
-
-const DOC_ICONS: Record<string, string> = {
-  function: '⚙',
-  'objects-structure': '📦',
-  integrations: '🔌',
-  'trigger-function': '⚡',
-};
+import { buildProjectTreeNodes, canDropInProject, loadExpandedKeys, saveExpandedKeys } from './project-tree-model.js';
 
 const getAddMenuItems = (t: TFunction): MenuProps['items'] => [
   { key: 'function', label: t('client:project-tree.add-function') },
   { key: 'trigger', label: t('client:project-tree.add-trigger') },
-  { key: 'folder', label: t('client:project-tree.add-folder') },
   { key: 'objects-structure', label: t('client:project-tree.add-object') },
 ];
 const ITEM_ICONS: Record<string, string> = { folder: '📁', function: '⚙', 'objects-structure': '📦' };
@@ -44,69 +37,34 @@ interface NewItem {
   name: string;
 }
 
-const idOf = (k: string) => k.slice(k.indexOf(':') + 1);
-
-const buildTreeData = (store: WorkflowStore, parentId: string | null, expandedKeys: Set<React.Key>): TreeDataNode[] => {
-  const nodes: TreeDataNode[] = [];
-  for (const folder of store.folders) {
-    if (folder.parentId !== parentId) continue;
-    const key: React.Key = `folder:${folder.id}`;
-    nodes.push({
-      key,
-      title: folder.name,
-      icon: expandedKeys.has(key) ? '📂' : '📁',
-      isLeaf: false,
-      children: buildTreeData(store, folder.id, expandedKeys),
-    });
-  }
-  for (const doc of store.documents) {
-    if (doc.folderId !== parentId) continue;
-    nodes.push({
-      key: `doc:${doc.id}`,
-      title: doc.name,
-      icon: DOC_ICONS[doc.type],
-      isLeaf: true,
-    });
-  }
-  return nodes;
-};
-
-const getFolderLabel = (store: WorkflowStore, id: string | null, t: TFunction): string => {
-  if (!id) return t('client:project-tree.root');
-  return store.folders.find((f) => f.id === id)?.name ?? t('client:project-tree.folder-fallback');
-};
-
-const getMenuItems = (store: WorkflowStore, nodeKey: string, t: TFunction): MenuProps['items'] => {
-  if (nodeKey.startsWith('folder:')) {
-    return [
-      { key: 'new-subfolder', label: t('client:project-tree.new-subfolder') },
-      { key: 'new-function', label: t('client:project-tree.new-function-here') },
-      { key: 'new-object', label: t('client:project-tree.new-object-here') },
-      { type: 'divider' },
-      { key: 'delete', label: t('client:project-tree.delete-folder'), danger: true },
-    ];
-  }
-  const doc = store.documents.find((item) => item.id === idOf(nodeKey));
-  if (doc?.pinned) return [];
-  return [{ key: 'delete', label: t('client:project-tree.delete'), danger: true }];
-};
-
 export const ProjectTree: React.FC = observer(() => {
   const t = getGlobalI18n().t;
   const store = useWorkflowStore();
   const [contextMenu, setContextMenu] = useState<ContextMenuState | null>(null);
   const [newItem, setNewItem] = useState<NewItem | null>(null);
   const [triggerModalOpen, setTriggerModalOpen] = useState(false);
+  const [triggerTargetFolderId, setTriggerTargetFolderId] = useState<string | null>(null);
   const [expandedKeys, setExpandedKeys] = useState<React.Key[]>([]);
   const prevFolderIdsRef = useRef<Set<string>>(new Set());
 
   useEffect(() => {
     const existing = prevFolderIdsRef.current;
-    const newKeys = store.folders.filter((f) => !existing.has(f.id)).map((f): React.Key => `folder:${f.id}`);
-    if (newKeys.length > 0) setExpandedKeys((keys) => [...keys, ...newKeys]);
-    prevFolderIdsRef.current = new Set(store.folders.map((f) => f.id));
+    const isFirstLoad = existing.size === 0;
+    const stored = isFirstLoad ? loadExpandedKeys(store.projectId) : null;
+    const known = new Set(store.folders.map((f) => f.id));
+    if (stored) {
+      setExpandedKeys(stored.filter((key) => known.has(idOf(String(key)))));
+    } else {
+      const newKeys = store.folders.filter((f) => !existing.has(f.id)).map((f): React.Key => `folder:${f.id}`);
+      if (newKeys.length > 0) setExpandedKeys((keys) => [...keys, ...newKeys]);
+    }
+    prevFolderIdsRef.current = known;
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [store.folders.length]);
+
+  useEffect(() => {
+    if (store.folders.length > 0) saveExpandedKeys(store.projectId, expandedKeys.map(String));
+  }, [expandedKeys, store.folders.length, store.projectId]);
 
   useEffect(() => {
     if (!contextMenu) return;
@@ -115,7 +73,10 @@ export const ProjectTree: React.FC = observer(() => {
     return () => document.removeEventListener('click', close);
   }, [contextMenu]);
 
-  const treeData = buildTreeData(store, null, new Set(expandedKeys));
+  const treeData = toTreeData(
+    buildProjectTreeNodes(store.folders, store.documents, getSectionLabel(t)),
+    new Set(expandedKeys),
+  );
   const selectedKeys = store.activeTabId ? [`doc:${store.activeTabId}`] : [];
 
   const handleSelect = useCallback(
@@ -131,27 +92,26 @@ export const ProjectTree: React.FC = observer(() => {
 
   const handleExpand = useCallback((keys: React.Key[]) => setExpandedKeys(keys), []);
 
+  const resolveDropParent = useCallback(
+    (dropKey: string, dropToGap: boolean): string | null => {
+      if (!dropToGap && dropKey.startsWith('folder:')) return idOf(dropKey);
+      if (dropKey.startsWith('folder:')) return store.folders.find((f) => f.id === idOf(dropKey))?.parentId ?? null;
+      return store.documents.find((d) => d.id === idOf(dropKey))?.folderId ?? null;
+    },
+    [store],
+  );
+
   const handleDrop = useCallback(
     (info: { dragNode: { key: React.Key }; node: { key: React.Key }; dropToGap: boolean }) => {
       const dragKey = String(info.dragNode.key);
-      const dropKey = String(info.node.key);
-      let targetParentId: string | null = null;
-      if (info.dropToGap) {
-        targetParentId = dropKey.startsWith('folder:')
-          ? (store.folders.find((f) => f.id === idOf(dropKey))?.parentId ?? null)
-          : (store.documents.find((d) => d.id === idOf(dropKey))?.folderId ?? null);
-      } else if (dropKey.startsWith('folder:')) {
-        targetParentId = idOf(dropKey);
-      } else {
-        targetParentId = store.documents.find((d) => d.id === idOf(dropKey))?.folderId ?? null;
-      }
+      const targetParentId = resolveDropParent(String(info.node.key), info.dropToGap);
       if (dragKey.startsWith('folder:')) {
         store.moveFolder(idOf(dragKey), targetParentId);
       } else {
         store.moveDocument(idOf(dragKey), targetParentId);
       }
     },
-    [store],
+    [store, resolveDropParent],
   );
 
   const handleRightClick = useCallback(({ event, node }: { event: React.MouseEvent; node: { key: React.Key } }) => {
@@ -165,6 +125,11 @@ export const ProjectTree: React.FC = observer(() => {
       const { nodeKey } = contextMenu;
       setContextMenu(null);
       const parentId = nodeKey.startsWith('folder:') ? idOf(nodeKey) : null;
+      if (key === 'new-trigger') {
+        setTriggerTargetFolderId(parentId);
+        setTriggerModalOpen(true);
+        return;
+      }
       if (key === 'delete') {
         if (nodeKey.startsWith('folder:')) store.deleteFolder(idOf(nodeKey));
         else if (!store.documents.find((item) => item.id === idOf(nodeKey))?.pinned)
@@ -184,18 +149,13 @@ export const ProjectTree: React.FC = observer(() => {
     (options: { dragNode: { key: React.Key }; dropNode: { key: React.Key }; dropPosition: number }) => {
       const dropKey = String(options.dropNode.key);
       const dragKey = String(options.dragNode.key);
-      if (dragKey.startsWith('doc:') && store.documents.find((item) => item.id === idOf(dragKey))?.pinned) {
-        return false;
-      }
       if (options.dropPosition === 0 && dropKey.startsWith('doc:')) return false;
-      if (options.dropPosition === 0 && dragKey.startsWith('folder:') && dropKey.startsWith('folder:')) {
-        const dragId = idOf(dragKey);
-        const dropId = idOf(dropKey);
-        if (dragId === dropId || new Set(store.getFolderDescendantIds(dragId)).has(dropId)) return false;
-      }
-      return true;
+      // `dropPosition` 0 drops into the node; otherwise the item lands next to it (-1/1 = a gap).
+      const targetParentId = resolveDropParent(dropKey, options.dropPosition !== 0);
+      const drag = { kind: dragKey.startsWith('folder:') ? ('folder' as const) : ('doc' as const), id: idOf(dragKey) };
+      return canDropInProject(drag, targetParentId, store.folders, store.documents);
     },
-    [store],
+    [store, resolveDropParent],
   );
 
   const handleCreateItem = () => {
@@ -208,6 +168,10 @@ export const ProjectTree: React.FC = observer(() => {
       }
       if (newItem.type === 'folder') store.createFolder(name, newItem.parentId);
       else store.createDocument(newItem.type, name, newItem.parentId);
+      if (newItem.parentId) {
+        const key = `folder:${newItem.parentId}`;
+        setExpandedKeys((keys) => (keys.includes(key) ? keys : [...keys, key]));
+      }
     }
     setNewItem(null);
   };
@@ -218,9 +182,15 @@ export const ProjectTree: React.FC = observer(() => {
   };
 
   const handleAddMenuClick = ({ key }: { key: string }) => {
-    if (key === 'trigger') setTriggerModalOpen(true);
-    else if (key === 'folder') setNewItem({ type: 'folder', parentId: null, name: '' });
-    else setNewItem({ type: key as DocumentType, parentId: null, name: '' });
+    if (key === 'trigger') {
+      setTriggerTargetFolderId(store.getSectionFolderId('trigger-function'));
+      setTriggerModalOpen(true);
+      return;
+    }
+    const parentId = store.getSectionFolderId(key);
+    setNewItem({ type: key as DocumentType, parentId, name: '' });
+    if (parentId)
+      setExpandedKeys((keys) => (keys.includes(`folder:${parentId}`) ? keys : [...keys, `folder:${parentId}`]));
   };
 
   const handleCreateTrigger = (name: string, data: INewTriggerData) => {
@@ -228,11 +198,19 @@ export const ProjectTree: React.FC = observer(() => {
       (trigger) => trigger.name === data.triggerName,
     );
     if (!descriptor) return;
-    store.createTriggerFunctionDocument(name, {
-      ...data,
-      scopeVariableName: descriptor.scopeVariableName,
-      scopeType: descriptor.scopeType,
-    });
+    store.createTriggerFunctionDocument(
+      name,
+      {
+        ...data,
+        scopeVariableName: descriptor.scopeVariableName,
+        scopeType: descriptor.scopeType,
+      },
+      triggerTargetFolderId,
+    );
+    if (triggerTargetFolderId) {
+      const key = `folder:${triggerTargetFolderId}`;
+      setExpandedKeys((keys) => (keys.includes(key) ? keys : [...keys, key]));
+    }
   };
 
   return (
@@ -269,7 +247,10 @@ export const ProjectTree: React.FC = observer(() => {
             treeData={treeData}
             showIcon
             switcherIcon={() => null}
-            draggable={{ icon: false }}
+            draggable={{
+              icon: false,
+              nodeDraggable: (node) => !(node as TreeDataNode & { disableDrag?: boolean }).disableDrag,
+            }}
             blockNode
             selectedKeys={selectedKeys}
             expandedKeys={expandedKeys}
