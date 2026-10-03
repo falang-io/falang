@@ -32,8 +32,8 @@ const isFixed = (node: NodeStore): boolean => Boolean((node.data as IOptionChild
 
 /** A fixed (timeout) option must stay at the tail — the sidebar editor syncs the children by index. */
 const keepsFixedAtTail = (children: readonly NodeStore[]): boolean => {
-  const firstFixed = children.findIndex(isFixed);
-  return firstFixed === -1 || children.slice(firstFixed).every(isFixed);
+  const firstFixed = children.findIndex((child) => isFixed(child));
+  return firstFixed === -1 || children.slice(firstFixed).every((child) => isFixed(child));
 };
 
 const simulateMove = (
@@ -67,9 +67,10 @@ export const registerOptionsSyncOnMove = (scheme: Scheme, registry: Integrations
       if (reentrant) return false;
       const parents = [params.oldParentId, params.newParentId]
         .filter((id, index, ids) => ids.indexOf(id) === index)
-        .map((id) => scheme.nodes.getNodeSafe(id))
-        .filter((node): node is NodeStore => Boolean(node))
-        .map((node) => ({ node, kind: optionsKind(registry, node) }))
+        .flatMap((id) => {
+          const node = scheme.nodes.getNodeSafe(id);
+          return node ? [{ node, kind: optionsKind(registry, node) }] : [];
+        })
         .filter((entry): entry is { node: NodeStore; kind: TOptionsKind } => entry.kind !== null);
       if (parents.length === 0) return false;
 

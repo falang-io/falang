@@ -32,8 +32,8 @@ const optionsIconsGroup = () => {
 };
 
 const registry = {
-  findQuestion: (name: string) => (name === 'ask' ? {} : undefined),
-  findChoice: (name: string) => (name === 'pick' ? {} : undefined),
+  findQuestion: (name: string) => (name === 'ask' ? {} : null),
+  findChoice: (name: string) => (name === 'pick' ? {} : null),
 } as unknown as IntegrationsRegistryStore;
 
 const askOption = (id: string, label: string, fixed = false): INode => ({
