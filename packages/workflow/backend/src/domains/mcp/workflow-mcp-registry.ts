@@ -1,4 +1,4 @@
-import { NodesGroup, NodesStack } from '@falang/dto';
+import { commentCfg, NodesGroup, NodesStack } from '@falang/dto';
 import { createDefaultDocumentStackRegistry, type DocumentStackRegistry } from '@falang/mcp-core';
 import { functionNodesGroup } from '@falang/typescript-dto';
 import {
@@ -42,6 +42,7 @@ export const buildWorkflowMcpRegistry = (integrations: readonly IWorkflowIntegra
     functionNodesGroup,
     new NodesGroup(triggerFunctionNodesGroup),
     new NodesGroup(magicNodesGroup),
+    new NodesGroup([commentCfg()]),
     new NodesGroup(activepiecesActionNodesGroup),
     new NodesGroup(getIntegrationNodeConfigs(integrations)),
     new NodesGroup(getQuestionNodeConfigs(questions)),

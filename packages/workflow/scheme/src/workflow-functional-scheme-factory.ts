@@ -1,3 +1,4 @@
+import { COMMENT_NAME } from '@falang/dto';
 import { functionalSchemeFactory, type IFunctionStructureSchemeFactoryParams } from '@falang/typescript-scheme';
 import { ACTIVEPIECES_ACTION_NAME } from '@falang/workflow-dto';
 import type { IIntegrationInstance, IWorkflowIntegration } from '@falang/workflow-integrations-common';
@@ -13,6 +14,7 @@ import { buildChoiceNodesIconsGroup } from './integrations-nodes/choice-nodes-ic
 import { buildIntegrationNodesIconsGroup } from './integrations-nodes/integration-nodes-icons-group.js';
 import { buildQuestionNodesIconsGroup } from './integrations-nodes/question-nodes-icons-group.js';
 import { buildMagicIconsGroup } from './magic/magic-icons-group.js';
+import { buildCommentIconsGroup } from './comment/comment-icons-group.js';
 import { MagicModule } from './magic/magic-module.js';
 import { buildTriggerFunctionIconsGroup } from './trigger-function/trigger-function-icons-group.js';
 
@@ -56,11 +58,12 @@ export const workflowFunctionalSchemeFactory = ({
       buildChoiceNodesIconsGroup(integrations),
       buildActivepiecesActionIconsGroup(),
       buildMagicIconsGroup(),
+      buildCommentIconsGroup(),
       ...(extraIconsGroups ?? []),
     ],
     // Per-vendor actions/questions/choices are added by `IntegrationsModule`'s own nested
     // "Integrations → vendor" menu (filtered by the project's configured instances).
-    extraInsertableItems: [ACTIVEPIECES_ACTION_NAME],
+    extraInsertableItems: [ACTIVEPIECES_ACTION_NAME, COMMENT_NAME],
     extraModules: [
       new IntegrationsModule(
         integrations,

@@ -6,6 +6,7 @@ export * from './cmp/scheme.cmp.js';
 export * from './scheme/scheme-infrastructure.js';
 export * from './icons/simple/simple.icon.config.js';
 export * from './shapes/rectangle.js';
+export * from './shapes/comment.js';
 export * from './icons/foreach/foreach.icon.config.js';
 export * from './modules/mouse-navigation/mouse-navigation.module.js';
 export * from './scheme/scheme-factory.js';

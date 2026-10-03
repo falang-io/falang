@@ -1,5 +1,5 @@
 import type { INode } from '@falang/dto';
-import { mindTreeCfg, NodesGroup, NodesStack } from '@falang/dto';
+import { commentCfg, mindTreeCfg, NodesGroup, NodesStack } from '@falang/dto';
 import {
   CODE_LANGUAGES,
   codeFunctionNodesGroup,
@@ -175,6 +175,7 @@ const buildWorkflowFunctionRegistration = (): IDocumentTypeRegistration => {
     functionNodesGroup,
     new NodesGroup(triggerFunctionNodesGroup),
     new NodesGroup(magicNodesGroup),
+    new NodesGroup([commentCfg()]),
     new NodesGroup(activepiecesActionNodesGroup),
   ]);
   return { rootNodeName: 'function', stack };
