@@ -2,6 +2,7 @@
 import type { ILlmToolCall, ILlmToolDefinition, TToolExecutionResult } from '@falang/agent';
 import type { IAgentToolProvider } from '@falang/agent';
 import { isValidFunctionName } from '@falang/dto';
+import { findDocumentNameConflict } from '../document-names.js';
 import { OBJECTS_STRUCTURE_NAME } from '@falang/typescript-dto';
 import type {
   IIntegrationInstance,
@@ -102,7 +103,7 @@ const TOOLS: readonly ILlmToolDefinition[] = [
       "Creates a new 'function' or 'objects-structure' document in this project and opens its tab. For a " +
       'trigger-bound function, use create_trigger_document instead. A function name must be an English, ' +
       'camelCase identifier (e.g. myFunctionName) — no spaces, punctuation, Cyrillic, or other non-Latin ' +
-      `script — since it is compiled verbatim into the generated code as a real function name.\n\n${OBJECTS_STRUCTURE_DESCRIPTION}`,
+      `script — since it is compiled verbatim into the generated code as a real function name. Document names are unique in a project, case-insensitively and across all types.\n\n${OBJECTS_STRUCTURE_DESCRIPTION}`,
     inputSchema: {
       type: 'object',
       properties: {
@@ -233,6 +234,8 @@ export class DocumentToolProvider implements IAgentToolProvider {
           'identifier (e.g. myFunctionName), no spaces, punctuation, or non-Latin script',
       );
     }
+    const conflict = this.nameConflictError('create_document', name);
+    if (conflict) return fail(conflict);
     const placement = this.resolvePlacement('create_document', type, params?.folderId);
     if ('error' in placement) return fail(placement.error);
     const documentId = this.store.createDocument(type, name, placement.folderId);
@@ -265,6 +268,9 @@ export class DocumentToolProvider implements IAgentToolProvider {
       );
     }
 
+    const conflict = this.nameConflictError('create_trigger_document', name);
+    if (conflict) return fail(conflict);
+
     const integration = REGISTERED_INTEGRATIONS.find((item) => item.vendor === vendor);
     if (!integration) return fail(`create_trigger_document: unknown vendor "${vendor}"`);
     const trigger = integration.triggers.find((item) => item.name === triggerName);
@@ -290,6 +296,15 @@ export class DocumentToolProvider implements IAgentToolProvider {
     if ('error' in placement) return fail(placement.error);
     const documentId = this.store.createTriggerFunctionDocument(name, bodyData, placement.folderId);
     return ok(JSON.stringify({ documentId }));
+  }
+
+  /** Document names are unique per project, case-insensitively, across every type (the backend enforces it too). */
+  private nameConflictError(tool: string, name: string): string | null {
+    const existing = findDocumentNameConflict(this.store.documents, name);
+    return existing
+      ? `${tool}: a document named "${existing.name}" already exists in this project (names are unique ` +
+          'case-insensitively across all document types) — pick a different name, or edit the existing document'
+      : null;
   }
 
   /** Omitted `folderId` → the type's section root (when the project has one); an explicit one is checked

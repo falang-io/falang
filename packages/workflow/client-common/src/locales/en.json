@@ -142,13 +142,17 @@
       "trigger-type-required": "Trigger type is required",
       "trigger-type-placeholder": "Select a trigger",
       "field-required": "{{label}} is required",
-      "credential-label": "Credential",
+      "credential-label": "Credentials",
       "credential-required": "Credential is required",
       "credential-placeholder": "Select a credential",
       "no-credentials": "No credentials configured for this integration yet — add one in the Integrations tab first.",
       "cron-builder-custom-hint": "This expression can't be shown in the builder — edit it as text instead.",
       "next-fire-times-label": "Next fire times:",
-      "create": "Create"
+      "create": "Create",
+      "name-taken": "A document with this name already exists in the project (names are case-insensitive)",
+      "group-credentials": "Credentials",
+      "group-no-credentials": "No credentials needed",
+      "no-credentials-hint": "No integration with triggers is available yet — first create an integration (credentials) in the Integrations tab."
     },
     "versions-modal": {
       "title": "Published versions",
@@ -225,7 +229,13 @@
       "delete": "Delete",
       "root": "root",
       "folder-fallback": "folder",
-      "invalid-function-name": "Function name must be English, camelCase (e.g. myFunctionName) — no spaces, punctuation, or a leading digit"
+      "invalid-function-name": "Function name must be English, camelCase (e.g. myFunctionName) — no spaces, punctuation, or a leading digit",
+      "rename": "Rename",
+      "rename-document": "Rename document",
+      "rename-folder": "Rename folder",
+      "rename-ok": "Rename",
+      "name-required": "Name is required",
+      "name-taken": "A document with this name already exists in the project (names are case-insensitive)"
     },
     "runs-page": {
       "title": "Runs",

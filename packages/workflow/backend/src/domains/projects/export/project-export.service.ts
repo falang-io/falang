@@ -1,3 +1,4 @@
+import { dedupeDocumentNames } from './unique-document-names.js';
 import { randomUUID } from 'node:crypto';
 import type { IProjectTreeFolder } from '@falang/dto';
 import { BadRequestException, Inject, Injectable } from '@nestjs/common';
@@ -153,8 +154,13 @@ export class ProjectExportService {
     // Any other pinned singleton is skipped: the freshly created project already seeded its own,
     // and there is currently no update path for a pinned document kind other than `integrations`.
     // Every remaining document is independent of its siblings, so all creates run in parallel.
-    const regularDocuments = normalizedDocuments.filter(
-      (document) => document.type !== INTEGRATIONS_DOCUMENT_TYPE && !document.pinned,
+    const seededDocuments = await this.documents.find({
+      where: { projectId: project.id },
+      select: { id: true, name: true },
+    });
+    const regularDocuments = dedupeDocumentNames(
+      normalizedDocuments.filter((document) => document.type !== INTEGRATIONS_DOCUMENT_TYPE && !document.pinned),
+      seededDocuments.map((document) => document.name),
     );
     await Promise.all(
       regularDocuments.map((document) => {

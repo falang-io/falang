@@ -203,7 +203,7 @@ export const createTreeItemViaUI = async (page: Page, kind: TRootItemKind, name:
  * unlike Function/Folder/Object, its `trigger-function-body` data is fixed at creation (vendor/
  * trigger/credential), so this can't go through the generic "+ Add" flow above. `vendorLabel`/
  * `triggerLabel` are the integration's/trigger's display `label` (e.g. `'Telegram'`/`'On message'`),
- * `credentialName` is the seeded credential instance's `name` — all rendered as antd `Select` option
+ * `credentialName` is the seeded credential instance's `name` (listed as `name (vendorLabel)`) — all rendered as antd `Select` option
  * text in the modal.
  */
 export const createTriggerFunctionViaUI = async (
@@ -228,12 +228,12 @@ export const createTriggerFunctionViaUI = async (
   // `page.getByTitle(...)` locator ambiguous once a field already has a value.
   const openDropdownOption = (label: string) =>
     page.locator('.ant-select-dropdown:not(.ant-select-dropdown-hidden)').getByTitle(label, { exact: true });
-  await page.getByRole('combobox', { name: 'Integration' }).click();
-  await openDropdownOption(vendorLabel).click();
+  // The modal lists the project's credential instances (the vendor is derived from the picked one),
+  // each shown as `<instance name> (<vendor label>)`, then the trigger types of that vendor.
+  await page.getByRole('combobox', { name: 'Credentials' }).click();
+  await openDropdownOption(`${credentialName} (${vendorLabel})`).click();
   await page.getByRole('combobox', { name: 'Trigger type' }).click();
   await openDropdownOption(triggerLabel).click();
-  await page.getByRole('combobox', { name: 'Credential' }).click();
-  await openDropdownOption(credentialName).click();
   const [response] = await Promise.all([
     page.waitForResponse((res) => res.url().includes('/documents') && res.request().method() === 'POST'),
     page.getByRole('dialog').getByRole('button', { name: 'Create' }).click(),

@@ -65,7 +65,7 @@ export const buildProjectTreeNodes = (
   return nodes;
 };
 
-export type TFolderMenuKey = 'new-subfolder' | 'new-trigger' | 'new-function' | 'new-object' | 'delete';
+export type TFolderMenuKey = 'new-subfolder' | 'rename' | 'new-trigger' | 'new-function' | 'new-object' | 'delete';
 
 const MENU_KEY_BY_TYPE: Record<string, TFolderMenuKey> = {
   'trigger-function': 'new-trigger',
@@ -84,9 +84,15 @@ export const getFolderMenuKeys = (folderId: string, folders: readonly WorkflowFo
     const key = MENU_KEY_BY_TYPE[type];
     if (key) keys.push(key);
   }
-  if (!isFixedFolder(folder)) keys.push('delete');
+  if (!isFixedFolder(folder)) keys.push('rename', 'delete');
   return keys;
 };
+
+export type TDocumentMenuKey = 'rename' | 'delete';
+
+/** Context-menu entries of a document: none for a pinned one (`Integrations`). */
+export const getDocumentMenuKeys = (doc?: Pick<WorkflowDocument, 'pinned'>): TDocumentMenuKey[] =>
+  !doc || doc.pinned ? [] : ['rename', 'delete'];
 
 /** Where a drag may land; `targetParentId === null` (the project root) is always refused. */
 export const canDropInProject = (

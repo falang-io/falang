@@ -3,7 +3,12 @@ import type { TFunction } from '@falang/scheme';
 import { isFixedFolder } from '@falang/workflow-dto';
 import type { MenuProps, TreeDataNode } from 'antd';
 import type { WorkflowStore } from '../workflow-store.js';
-import { getFolderMenuKeys, type IProjectTreeNode, type TFolderMenuKey } from './project-tree-model.js';
+import {
+  getDocumentMenuKeys,
+  getFolderMenuKeys,
+  type IProjectTreeNode,
+  type TFolderMenuKey,
+} from './project-tree-model.js';
 
 export const DOC_ICONS: Record<string, string> = {
   function: '⚙',
@@ -50,6 +55,7 @@ export const FOLDER_MENU_LABELS: Record<TFolderMenuKey, string> = {
   'new-trigger': 'client:project-tree.new-trigger-here',
   'new-function': 'client:project-tree.new-function-here',
   'new-object': 'client:project-tree.new-object-here',
+  rename: 'client:project-tree.rename',
   delete: 'client:project-tree.delete-folder',
 };
 
@@ -63,6 +69,9 @@ export const getMenuItems = (store: WorkflowStore, nodeKey: string, t: TFunction
     );
   }
   const doc = store.documents.find((item) => item.id === idOf(nodeKey));
-  if (doc?.pinned) return [];
-  return [{ key: 'delete', label: t('client:project-tree.delete'), danger: true }];
+  return getDocumentMenuKeys(doc).map((key) =>
+    key === 'delete'
+      ? { key, label: t('client:project-tree.delete'), danger: true }
+      : { key, label: t('client:project-tree.rename') },
+  );
 };

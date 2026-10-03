@@ -72,6 +72,21 @@ describe('DocumentToolProvider', () => {
     expect(parseOk(result)).toEqual({ documentId: 'new-doc-id' });
   });
 
+  it('create_document and create_trigger_document reject a name already used by any document, case-insensitively', () => {
+    const existing: WorkflowDocument = { folderId: null, id: 'd1', name: 'Order', type: 'objects-structure' };
+    const { createDocument, createTriggerFunctionDocument, store } = buildStore([existing]);
+    const provider = new DocumentToolProvider(store);
+
+    const first = provider.execute(call('create_document', { name: 'order', type: 'function' }));
+    expect(first).toMatchObject({ ok: false, error: expect.stringContaining('already exists') });
+    const second = provider.execute(
+      call('create_trigger_document', { name: 'order', triggerName: WEBHOOK_TRIGGER_NAME, vendor: WEBHOOK_VENDOR }),
+    );
+    expect(second).toMatchObject({ ok: false, error: expect.stringContaining('already exists') });
+    expect(createDocument).not.toHaveBeenCalled();
+    expect(createTriggerFunctionDocument).not.toHaveBeenCalled();
+  });
+
   it('create_document rejects a function name that is not a camelCase English identifier', () => {
     const { createDocument, store } = buildStore();
     const provider = new DocumentToolProvider(store);

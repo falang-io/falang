@@ -1,6 +1,11 @@
 import { describe, expect, it } from 'vitest';
 import type { WorkflowDocument, WorkflowFolder } from '../workflow-types.js';
-import { buildProjectTreeNodes, canDropInProject, getFolderMenuKeys } from './project-tree-model.js';
+import {
+  buildProjectTreeNodes,
+  canDropInProject,
+  getDocumentMenuKeys,
+  getFolderMenuKeys,
+} from './project-tree-model.js';
 
 const folders: WorkflowFolder[] = [
   { id: 'f', name: 'Functions', parentId: null, fixedKind: 'functions' },
@@ -29,7 +34,13 @@ describe('project tree model', () => {
   it('builds menus per section', () => {
     expect(getFolderMenuKeys('t', folders)).toEqual(['new-subfolder', 'new-trigger']);
     expect(getFolderMenuKeys('y', folders)).toEqual(['new-subfolder', 'new-object']);
-    expect(getFolderMenuKeys('sub', folders)).toEqual(['new-subfolder', 'new-function', 'delete']);
+    expect(getFolderMenuKeys('sub', folders)).toEqual(['new-subfolder', 'new-function', 'rename', 'delete']);
+  });
+
+  it('offers rename/delete for documents except pinned ones', () => {
+    expect(getDocumentMenuKeys(documents[0])).toEqual(['rename', 'delete']);
+    expect(getDocumentMenuKeys(documents[2])).toEqual([]);
+    expect(getDocumentMenuKeys()).toEqual([]);
   });
 
   it('allows drops only within the right section and never at the root', () => {
