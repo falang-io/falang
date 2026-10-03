@@ -70,7 +70,7 @@ export const PrintPage: React.FC<IPrintPageProps> = observer(({ store, page, ind
           }}
         >
           <strong>{page.name}</strong>
-          <span style={{ color: '#666' }}>
+          <span>
             {store.projectName} · {store.printedAt.toLocaleDateString()} · {index + 1}/{total}
           </span>
         </div>

@@ -61,6 +61,7 @@ import { fromToCycleHeaderBlockConfig } from './blocks/from-to-cycle-header/from
 import { actionBlockConfig } from './blocks/action/action.block.config.js';
 import { logBlockConfig } from './blocks/log/log.block.config.js';
 import { ifBlockConfig } from './blocks/if/if.block.config.js';
+import { expressionBlockConfig } from './blocks/expression/expression.block.config.js';
 
 const getFunctionIconsGroup = () => {
   const block = textBlockConfig;
@@ -80,13 +81,13 @@ const getFunctionIconsGroup = () => {
     }),
     foreach: getForeachIconNodeConfig({ block: foreachHeaderBlockConfig }),
     'from-to-cycle': getForeachIconNodeConfig({ block: fromToCycleHeaderBlockConfig }),
-    while: getWhileIconNodeConfig({ block }),
+    while: getWhileIconNodeConfig({ block: expressionBlockConfig }),
     'pseudo-cycle': getPseudoCycleIconNodeConfig('pseudo-cycle'),
     ...getParallelIconConfig('parallel'),
     ...getSwitchIconConfig({
       name: 'switch',
-      block,
-      child: block,
+      block: expressionBlockConfig,
+      child: expressionBlockConfig,
     }),
     'call-function': getSimpleIconNodeConfig(callFunctionBlockConfig, true),
     'call-api': getSimpleIconNodeConfig(callApiBlockConfig, true),
@@ -98,12 +99,12 @@ const getFunctionIconsGroup = () => {
     'arr-slice': getSimpleIconNodeConfig(arrSliceBlockConfig, true),
     'arr-unshift': getSimpleIconNodeConfig(arrOpInputBlockConfig, true),
     throw: {
-      block,
+      block: expressionBlockConfig,
       icon: outIconConfig,
       shape: rectangleShape,
     },
     return: {
-      block,
+      block: expressionBlockConfig,
       icon: outIconConfig,
       shape: rectangleShape,
     },

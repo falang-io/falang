@@ -7,6 +7,8 @@ export const TextBlockEditorComponent: TBlockEditorView<TextBlockEditorStore> = 
 
   useEffect(() => {
     if (divRef.current) {
+      // Plain text, never HTML: `innerHTML` round-trips would store `<` as `&lt;`.
+      divRef.current.textContent = editor.data;
       divRef.current.focus();
 
       const range = document.createRange();
@@ -16,15 +18,15 @@ export const TextBlockEditorComponent: TBlockEditorView<TextBlockEditorStore> = 
       selection?.removeAllRanges();
       selection?.addRange(range);
     }
-  }, []);
+  }, [editor]);
 
   return (
     <div
       ref={divRef}
-      contentEditable
+      contentEditable={'plaintext-only' as unknown as boolean}
+      suppressContentEditableWarning
       className="editable-content"
-      onInput={(e) => editor.setValue(e.currentTarget.innerHTML)}
-      dangerouslySetInnerHTML={{ __html: editor.data }}
+      onInput={(e) => editor.setValue(e.currentTarget.textContent ?? '')}
     />
   );
 };

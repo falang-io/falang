@@ -9,6 +9,10 @@ import { PrintExportStore } from './print-export.store.js';
 import { usePrintExportT } from './use-print-export-t.js';
 
 const PRINT_LAYER_CSS = `
+.falang-print-page, .falang-print-page :where(div, span, p, pre, code, a, b, i, u, s, li, td, th, label, input, textarea, select, .token) { color: #000 !important; }
+.falang-print-page :where(code, pre, .token) { text-shadow: none !important; }
+.falang-print-page :where(svg text, svg tspan) { fill: #000 !important; }
+.falang-print-page .mtk1, .falang-print-page [class*="mtk"] { color: #000 !important; }
 .falang-print-page { position: relative; overflow: hidden; box-sizing: border-box; background: white; width: 210mm; height: 297mm; }
 @media screen {
   .falang-print-root { position: fixed; inset: 0; z-index: 3000; background: #525659; overflow: auto; display: flex; flex-direction: column; align-items: center; padding: 72px 24px 24px; box-sizing: border-box; }

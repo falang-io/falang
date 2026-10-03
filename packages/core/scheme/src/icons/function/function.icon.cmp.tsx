@@ -11,9 +11,16 @@ import type { FunctionIconStore } from './function.icon.store.js';
 export const FunctionIconComponent: IIconView<FunctionIconStore> = observer(({ icon }) => {
   const selection = useService(TOKEN_SELECTION);
   const body = icon.body;
+  const header = icon.header;
   if (!checker.isFunctionBody(body)) return null;
   return (
     <>
+      {header ? (
+        <VerticalLine
+          line={{ x: body.skewer.x, y1: header.y + header.height, y2: body.y }}
+          isSelected={selection.isInSelected(icon.id) || selection.isHighlighted(icon.id)}
+        />
+      ) : null}
       {body.hasReturns ? (
         <HorisontalLine
           isSelected={selection.isInSelected(icon.id) || selection.isHighlighted(icon.id)}
