@@ -2,96 +2,34 @@ import type { Piece } from '@activepieces/pieces-framework';
 import { resolveCredential } from '../credentials.js';
 import { selectPieceAuth } from './select-auth.js';
 
-const REFRESH_SKEW_MS = 60_000;
-
-interface IOAuth2Auth {
-  readonly tokenUrl: string;
-  readonly authorizationMethod?: 'HEADER' | 'BODY';
+interface IOAuth2AccessTokenResponse {
+  readonly accessToken: string;
+  readonly data?: Record<string, unknown>;
 }
 
-interface ITokenResponse {
-  readonly access_token: string;
-  readonly refresh_token?: string;
-  readonly expires_in?: number;
-  readonly [key: string]: unknown;
-}
-
-/** Same `application/x-www-form-urlencoded` shape `backend`'s `oauth2-token-request.ts` builds for
- * the authorization-code exchange — hand-duplicated since `activepieces/` shares no workspace
- * package with `backend` (see `catalog-types.ts`'s own doc comment for the existing precedent). */
-const buildTokenRequest = (
-  auth: IOAuth2Auth,
-  clientId: string,
-  clientSecret: string,
-  params: Record<string, string>,
-): { url: string; init: RequestInit } => {
-  const body = new URLSearchParams(params);
-  const headers: Record<string, string> = { 'content-type': 'application/x-www-form-urlencoded' };
-  if (auth.authorizationMethod === 'HEADER') {
-    headers.authorization = `Basic ${Buffer.from(`${clientId}:${clientSecret}`).toString('base64')}`;
-  } else {
-    body.set('client_id', clientId);
-    body.set('client_secret', clientSecret);
-  }
-  return { url: auth.tokenUrl, init: { method: 'POST', headers, body } };
-};
-
-/** Best-effort: the fresh token is still used for this run even if persistence fails (e.g. `backend` unreachable). */
-const persistRefreshedTokens = async (
-  credentialId: string,
-  vendor: string,
-  projectId: string,
-  internalProjectToken: string,
-  tokens: ITokenResponse,
-): Promise<void> => {
-  const backendUrl = process.env.BACKEND_INTERNAL_URL;
-  if (!backendUrl) return;
-  try {
-    await fetch(`${backendUrl}/internal/credentials/oauth2-refresh`, {
-      method: 'POST',
-      headers: { 'content-type': 'application/json', 'x-internal-project-token': internalProjectToken },
-      body: JSON.stringify({
-        credentialId,
-        vendor,
-        projectId,
-        accessToken: tokens.access_token,
-        ...(tokens.refresh_token ? { refreshToken: tokens.refresh_token } : {}),
-        ...(tokens.expires_in ? { expiresAt: String(Date.now() + tokens.expires_in * 1000) } : {}),
-      }),
-    });
-  } catch {
-    // best-effort — see doc comment above.
-  }
-};
-
+/**
+ * Asks `backend` for a valid access token — it refreshes on its side with the platform's OAuth2
+ * client secret (which must never reach this service or a runner pod) and persists the new tokens.
+ * See ADR 0016 (private) security audit P0-9.
+ */
 const resolveOAuth2AuthValue = async (
-  pieceName: string,
-  auth: IOAuth2Auth,
   vendor: string,
   credentialId: string,
   projectId: string,
   internalProjectToken: string,
 ): Promise<unknown> => {
-  const [accessToken, refreshToken, expiresAtRaw, clientId, clientSecret] = await Promise.all([
-    resolveCredential(credentialId, vendor, 'access_token', projectId, internalProjectToken),
-    resolveCredential(credentialId, vendor, 'refresh_token', projectId, internalProjectToken).catch(() => ''),
-    resolveCredential(credentialId, vendor, 'expires_at', projectId, internalProjectToken).catch(() => ''),
-    resolveCredential(credentialId, vendor, 'client_id', projectId, internalProjectToken),
-    resolveCredential(credentialId, vendor, 'client_secret', projectId, internalProjectToken),
-  ]);
-  const expiresAt = Number(expiresAtRaw) || 0;
-  if (expiresAt > 0 && Date.now() >= expiresAt - REFRESH_SKEW_MS && refreshToken) {
-    const { url, init } = buildTokenRequest(auth, clientId, clientSecret, {
-      grant_type: 'refresh_token',
-      refresh_token: refreshToken,
-    });
-    const response = await fetch(url, init);
-    if (!response.ok) throw new Error(`OAuth2 refresh failed for "${pieceName}": ${response.status}`);
-    const refreshed = (await response.json()) as ITokenResponse;
-    await persistRefreshedTokens(credentialId, vendor, projectId, internalProjectToken, refreshed);
-    return { type: 'OAUTH2', access_token: refreshed.access_token, data: refreshed };
+  const backendUrl = process.env.BACKEND_INTERNAL_URL;
+  if (!backendUrl) throw new Error('BACKEND_INTERNAL_URL is not configured');
+  const response = await fetch(`${backendUrl}/internal/credentials/oauth2-access-token`, {
+    method: 'POST',
+    headers: { 'content-type': 'application/json', 'x-internal-project-token': internalProjectToken },
+    body: JSON.stringify({ credentialId, vendor, projectId }),
+  });
+  if (!response.ok) {
+    throw new Error(`OAuth2 access token resolve failed with status ${response.status}: ${await response.text()}`);
   }
-  return { type: 'OAUTH2', access_token: accessToken, data: {} };
+  const body = (await response.json()) as IOAuth2AccessTokenResponse;
+  return { type: 'OAUTH2', access_token: body.accessToken, data: body.data ?? {} };
 };
 
 /**
@@ -145,15 +83,6 @@ export const resolveAuthValue = async (
     );
     return { type, props: Object.fromEntries(entries) };
   }
-  if (type === 'OAUTH2') {
-    return resolveOAuth2AuthValue(
-      pieceName,
-      auth as unknown as IOAuth2Auth,
-      vendor,
-      credentialId,
-      projectId,
-      internalProjectToken,
-    );
-  }
+  if (type === 'OAUTH2') return resolveOAuth2AuthValue(vendor, credentialId, projectId, internalProjectToken);
   throw new Error(`Unsupported auth type "${type}" for piece "${pieceName}" (see ADR 0010's scope)`);
 };

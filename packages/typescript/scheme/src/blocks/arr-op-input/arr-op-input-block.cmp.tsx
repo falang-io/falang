@@ -3,6 +3,14 @@ import { observer } from 'mobx-react-lite';
 import type { IArrOpInput } from './arr-op-input-editor.store.js';
 import { TypeScriptBlockContainer } from '../../cmp/typescript-block-container.js';
 import { CodeViewComponent } from '../../block-elements/code/code.view.cmp.js';
+import { TemplateStringViewComponent } from '../../block-elements/template-string/template-string-view.cmp.js';
+import { stringLiteralText } from '../../block-elements/template-string/string-value-expression.js';
+
+/** A string/template literal value reads as text, the same way the editor shows it for an array of strings. */
+const ValueView: React.FC<{ value: string }> = ({ value }) => {
+  const text = stringLiteralText(value);
+  return text === null ? <CodeViewComponent value={value} /> : <TemplateStringViewComponent value={text} />;
+};
 
 export const ArrOpInputBlockComponent: IBlockView<IArrOpInput> = observer(({ data }) => {
   if (!data) return <div>&nbsp;</div>;
@@ -23,7 +31,7 @@ export const ArrOpInputBlockComponent: IBlockView<IArrOpInput> = observer(({ dat
               <div className="ts-label">value</div>
             </td>
             <td>
-              <CodeViewComponent value={data.value} />
+              <ValueView value={data.value} />
             </td>
           </tr>
         </tbody>

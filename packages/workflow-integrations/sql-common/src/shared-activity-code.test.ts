@@ -36,7 +36,7 @@ describe('buildSqlSharedActivityCode', () => {
 
   it(
     'mysql: the SET SESSION MAX_EXECUTION_TIME connection hook uses the callback form, not ' +
-      '`.catch()` — the pool\'s \'connection\' event actually hands back mysql2\'s raw callback-API ' +
+      "`.catch()` — the pool's 'connection' event actually hands back mysql2's raw callback-API " +
       'connection (a real live-e2e bug: "connection.query(...).catch is not a function")',
     () => {
       const code = buildSqlSharedActivityCode('mysql');
@@ -133,5 +133,11 @@ describe('buildSqlSharedActivityCode', () => {
       }
       expect(duplicates).toEqual([]);
     });
+  });
+
+  it('pods disable LOAD DATA LOCAL (audit P0-11)', () => {
+    const mysqlCode = buildSqlSharedActivityCode('mysql');
+    expect(mysqlCode).toContain("flags: ['-LOCAL_FILES']");
+    expect(mysqlCode).toContain('infileStreamFactory');
   });
 });

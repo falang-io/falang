@@ -10,8 +10,8 @@ export interface IStartAndAwaitWorkflowParams {
   readonly workflowId: string;
   readonly functionName: string;
   readonly args: readonly unknown[];
-  readonly temporalAddress?: string;
-  readonly namespace?: string;
+  /** Picks the project's own Temporal namespace/client — see `ITemporalTenancy` (ADR 0057 (private)). */
+  readonly projectId: string;
 }
 
 /** Starts a workflow execution and resolves once it completes or fails — see the real implementation in `build.module.ts` (wraps `@temporalio/client`). */
@@ -19,8 +19,8 @@ export type TStartAndAwaitWorkflow = (params: IStartAndAwaitWorkflowParams) => P
 
 export interface ITerminateRunningExecutionsParams {
   readonly taskQueue: string;
-  readonly temporalAddress?: string;
-  readonly namespace?: string;
+  /** Picks the project's own Temporal namespace/client — see `ITemporalTenancy` (ADR 0057 (private)). */
+  readonly projectId: string;
 }
 
 /** Clears out every open execution on `taskQueue` (cancel first, then terminate whatever doesn't finish in time — see ADR 0040 (private) §4/§5), returning how many were found — see the real implementation in `build.module.ts` (wraps `@temporalio/client`). */
@@ -31,8 +31,10 @@ export interface IStartWorkflowParams {
   readonly workflowId: string;
   readonly functionName: string;
   readonly args: readonly unknown[];
-  readonly temporalAddress?: string;
-  readonly namespace?: string;
+  /** Picks the project's own Temporal namespace/client — see `ITemporalTenancy` (ADR 0057 (private)). */
+  readonly projectId: string;
+  /** Delivered with the start (`signalWithStart`) — a signal-delivery trigger's test payload. */
+  readonly signal?: { readonly name: string; readonly args: readonly unknown[] };
 }
 
 /** Starts a workflow execution and returns as soon as Temporal has accepted it — the live-tracked counterpart of `TStartAndAwaitWorkflow`, see the real implementation in `build.module.ts`. */
@@ -43,8 +45,6 @@ export interface IWorkflowRunServiceParams {
   readonly terminateRunningExecutions: TTerminateRunningExecutions;
   readonly startWorkflow: TStartWorkflow;
   readonly getWorkflowPosition: TGetWorkflowPosition;
-  readonly temporalAddress?: string;
-  readonly namespace?: string;
   /** How long a manual run waits for completion before reporting `'timeout'`; defaults to 30s. */
   readonly timeoutMs?: number;
 }
@@ -81,8 +81,6 @@ export class WorkflowRunService {
   private readonly terminateRunningExecutions: TTerminateRunningExecutions;
   private readonly startWorkflow: TStartWorkflow;
   private readonly getWorkflowPosition: TGetWorkflowPosition;
-  private readonly temporalAddress: string | undefined;
-  private readonly namespace: string | undefined;
   private readonly timeoutMs: number;
 
   constructor(params: IWorkflowRunServiceParams) {
@@ -90,8 +88,6 @@ export class WorkflowRunService {
     this.terminateRunningExecutions = params.terminateRunningExecutions;
     this.startWorkflow = params.startWorkflow;
     this.getWorkflowPosition = params.getWorkflowPosition;
-    this.temporalAddress = params.temporalAddress;
-    this.namespace = params.namespace;
     this.timeoutMs = params.timeoutMs ?? DEFAULT_TIMEOUT_MS;
   }
 
@@ -100,22 +96,28 @@ export class WorkflowRunService {
    * (ADR 0022 (private)), which then follows the execution through `getPosition` instead of
    * blocking on a result like `run()` does. Same `manual-<function>-<uuid>` workflowId convention.
    */
-  async start(taskQueue: string, functionName: string, args: readonly unknown[]): Promise<IStartedRun> {
+  async start(
+    projectId: string,
+    taskQueue: string,
+    functionName: string,
+    args: readonly unknown[],
+    signal?: IStartWorkflowParams['signal'],
+  ): Promise<IStartedRun> {
     const workflowId = `manual-${functionName}-${randomUUID()}`;
     const { runId } = await this.startWorkflow({
+      projectId,
       taskQueue,
       workflowId,
       functionName,
       args,
-      temporalAddress: this.temporalAddress,
-      namespace: this.namespace,
+      ...(signal ? { signal } : {}),
     });
     return { workflowId, runId, taskQueue };
   }
 
   /** Where an execution currently is in its diagram — see `IWorkflowPosition`. `null` if Temporal has no such execution. */
-  getPosition(workflowId: string, runId: string): Promise<IWorkflowPosition | null> {
-    return this.getWorkflowPosition({ workflowId, runId, temporalAddress: this.temporalAddress, namespace: this.namespace });
+  getPosition(projectId: string, workflowId: string, runId: string): Promise<IWorkflowPosition | null> {
+    return this.getWorkflowPosition({ projectId, workflowId, runId });
   }
 
     /**
@@ -132,25 +134,18 @@ export class WorkflowRunService {
    * gives each cancelled execution a bounded grace window to actually finish before falling back to
    * `terminate()` for whatever's still running after that.
    */
-  terminateRunningOn(taskQueue: string): Promise<number> {
-    return this.terminateRunningExecutions({ taskQueue, temporalAddress: this.temporalAddress, namespace: this.namespace });
+  terminateRunningOn(projectId: string, taskQueue: string): Promise<number> {
+    return this.terminateRunningExecutions({ projectId, taskQueue });
   }
 
-  async run(taskQueue: string, functionName: string, args: readonly unknown[]): Promise<IRunFunctionResult> {
+  async run(projectId: string, taskQueue: string, functionName: string, args: readonly unknown[]): Promise<IRunFunctionResult> {
     const workflowId = `manual-${functionName}-${randomUUID()}`;
 
     const timeout = new Promise<'timeout'>((resolve) => {
       setTimeout(() => resolve('timeout'), this.timeoutMs);
     });
     const outcome = await Promise.race([
-      this.startAndAwaitWorkflow({
-        taskQueue,
-        workflowId,
-        functionName,
-        args,
-        temporalAddress: this.temporalAddress,
-        namespace: this.namespace,
-      }),
+      this.startAndAwaitWorkflow({ projectId, taskQueue, workflowId, functionName, args }),
       timeout,
     ]);
 

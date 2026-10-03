@@ -45,7 +45,7 @@ export const yookassaIntegration: IWorkflowIntegration = {
       // Documentation only — the real per-trigger-function path is built dynamically by
       // registerYookassaBackend (one `uri` per bound trigger-function), same as
       // @falang/workflow-integrations-webhook's webhook-trigger.
-      webhookPath: '/webhooks/yookassa/:credentialId/:env/:triggerFunctionId',
+      webhookPath: '/webhooks/yookassa/:projectId/:credentialId/:env/:triggerFunctionId',
       notes: [
         'Fires on a ЮKassa payment/refund event (e.g. payment.succeeded, refund.succeeded) — this is the',
         'only way to react to a ЮKassa payment event; there is no separate trigger per event type.',

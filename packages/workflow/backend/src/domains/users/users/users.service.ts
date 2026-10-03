@@ -11,7 +11,7 @@ const DEFAULT_ADMIN_USERNAME = 'admin';
 const DEFAULT_ADMIN_PASSWORD = 'admin';
 
 /**
- * Seeds a default `admin`/`admin` user on boot, behind `SEED_DEFAULT_ADMIN` (default `true`) —
+ * Seeds a default `admin`/`admin` user on boot, behind `SEED_DEFAULT_ADMIN` (default `false`; set `SEED_DEFAULT_ADMIN=true` for local dev/e2e) —
  * dev/test convenience so there's always an account to log in with without registering one. See
  * ADR 0016 (private) Phase 0: a public deployment must set
  * `SEED_DEFAULT_ADMIN=false`, now that `POST /auth/register` (`AuthService.register`) is the real
@@ -38,8 +38,8 @@ export class UsersService implements OnModuleInit {
 
   async onModuleInit(): Promise<void> {
     // `ConfigService.get` returns raw env strings, not real booleans — compare against the
-    // string 'false' explicitly, since e.g. the non-empty string "false" is JS-truthy.
-    if (this.config.get<string>('SEED_DEFAULT_ADMIN', 'true') !== 'false') {
+    // string 'true' explicitly, since e.g. the non-empty string "false" is JS-truthy.
+    if (this.config.get<string>('SEED_DEFAULT_ADMIN', 'false') === 'true') {
       const count = await this.users.count();
       if (count === 0) {
         await this.create({ username: DEFAULT_ADMIN_USERNAME, password: DEFAULT_ADMIN_PASSWORD, role: 'admin' });

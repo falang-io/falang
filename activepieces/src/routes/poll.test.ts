@@ -49,6 +49,22 @@ describe('POST /credentials/:credentialId/pieces/:pieceName/triggers/:triggerNam
     expect(run).toHaveBeenCalledTimes(2);
   });
 
+  it('keeps poll/enable state per project: the same credential id in two projects never shares it', async () => {
+    const onEnable = vi.fn().mockResolvedValue(undefined);
+    const run = vi.fn().mockResolvedValue([]);
+    vi.mocked(getPiece).mockReturnValue({
+      getTrigger: () => ({ type: TriggerStrategy.POLLING, onEnable, run }),
+    } as unknown as Piece);
+
+    const app = createApp();
+    const path = '/credentials/cred-1/pieces/mock/triggers/cross-project-poll-test/poll';
+    await authedPost(app, path).send({ propsValue: {}, projectId: 'project-A', internalProjectToken: 'a' });
+    await authedPost(app, path).send({ propsValue: {}, projectId: 'project-B', internalProjectToken: 'b' });
+
+    // project-B must get its own onEnable and its own store, not project-A's already-enabled state.
+    expect(onEnable).toHaveBeenCalledTimes(2);
+  });
+
   it('400s a trigger that is not a POLLING trigger (e.g. a callback/webhook trigger)', async () => {
     vi.mocked(getPiece).mockReturnValue({
       getTrigger: () => ({ type: TriggerStrategy.WEBHOOK, onEnable: vi.fn(), run: vi.fn() }),

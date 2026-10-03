@@ -1,0 +1,118 @@
+# Static config of temporalio/server 1.32.x WITH JWT authorization (`TEMPORAL_TENANT_ISOLATION=per-project`,
+# ADR 0057 (private)). The 1.32 image has no config_template.yaml/dockerize/`DB=…` variables (the old
+# `auto-setup` image ended at 1.29.7), so this is a plain static file — no templating, hence the
+# literals below (one Temporal container, DB host `postgresql`, JWKS served by `backend`).
+# Selected in the compose files via TEMPORAL_SERVER_CONFIG_FILE_PATH. The no-authorization twin is
+# server.noauth.yaml — keep the two in sync except for `global.authorization`.
+#
+# Layout of the roles:
+#   frontend (7233)          — public gRPC, JWT-authorized. Runner pods (token `falang-<id>:write`) and
+#                              `backend` (token `temporal-system:admin`) connect here.
+#   internal-frontend (7236) — NO authorization at all: used only by Temporal's own system worker, setup
+#                              jobs and admin-tools. Never publish it to the host and never reach it
+#                              from runner pods.
+log:
+  stdout: true
+  level: info
+persistence:
+  numHistoryShards: 4
+  defaultStore: default
+  visibilityStore: visibility
+  datastores:
+    default:
+      sql:
+        pluginName: postgres12
+        databaseName: temporal
+        connectAddr: postgresql:5432
+        connectProtocol: tcp
+        user: temporal
+        password: temporal
+        maxConns: 20
+        maxIdleConns: 20
+        maxConnLifetime: 1h
+    visibility:
+      sql:
+        pluginName: postgres12
+        databaseName: temporal_visibility
+        connectAddr: postgresql:5432
+        connectProtocol: tcp
+        user: temporal
+        password: temporal
+        maxConns: 10
+        maxIdleConns: 10
+        maxConnLifetime: 1h
+dynamicConfigClient:
+  filepath: /cfg/dynamicconfig.yaml
+  pollInterval: 10s
+global:
+  membership:
+    maxJoinDuration: 30s
+    broadcastAddress: 127.0.0.1
+  pprof:
+    port: 7936
+  authorization:
+    jwtKeyProvider:
+      keySourceURIs:
+        # Served by `backend` on its internal port (no authentication on that route).
+        - http://backend:3001/internal/temporal/jwks.json
+      # Short here so a cold start (Temporal comes up before `backend` serves the JWKS) converges
+      # quickly; production uses 1m. An unreachable JWKS is not fatal — all requests are just
+      # "Request unauthorized" until the next refresh.
+      refreshInterval: 5s
+    permissionsClaimName: permissions
+    authorizer: default
+    claimMapper: default
+    audience: falang-temporal
+services:
+  frontend:
+    rpc:
+      grpcPort: 7233
+      membershipPort: 6933
+      bindOnIP: 0.0.0.0
+      httpPort: 7243
+  internal-frontend:
+    rpc:
+      grpcPort: 7236
+      membershipPort: 6936
+      bindOnIP: 0.0.0.0
+  history:
+    rpc:
+      grpcPort: 7234
+      membershipPort: 6934
+      bindOnIP: 0.0.0.0
+  matching:
+    rpc:
+      grpcPort: 7235
+      membershipPort: 6935
+      bindOnIP: 0.0.0.0
+  worker:
+    rpc:
+      grpcPort: 7239
+      membershipPort: 6939
+      bindOnIP: 0.0.0.0
+# `publicClient` must stay unset: with internal-frontend the config validation fails otherwise.
+clusterMetadata:
+  enableGlobalNamespace: false
+  failoverVersionIncrement: 10
+  masterClusterName: active
+  currentClusterName: active
+  clusterInformation:
+    active:
+      enabled: true
+      initialFailoverVersion: 1
+      rpcName: frontend
+      rpcAddress: localhost:7233
+      httpAddress: localhost:7243
+dcRedirectionPolicy:
+  policy: noop
+archival:
+  history:
+    state: disabled
+  visibility:
+    state: disabled
+namespaceDefaults:
+  archival:
+    history:
+      state: disabled
+    visibility:
+      state: disabled

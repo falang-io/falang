@@ -1,6 +1,6 @@
-import type { ConfigService } from '@nestjs/config';
+import type { ITemporalTenancy } from '@falang/workflow-gateway';
 import { DEBUG_CONFIGURE_SIGNAL_NAME, DEBUG_STATE_QUERY_NAME, type IDebugQueryState } from '@falang/workflow-compiler';
-import { Client, Connection, WorkflowNotFoundError } from '@temporalio/client';
+import { WorkflowNotFoundError } from '@temporalio/client';
 import { temporal } from '@temporalio/proto';
 import type { DocumentsService } from '../../projects/documents/documents.service.js';
 import type { BuildService } from '../build/build.service.js';
@@ -21,24 +21,20 @@ import type {
 /** Same reasoning as `build.module.ts`'s own `POSITION_QUERY_DEADLINE_MS` — the client polls debug state every 500ms (ADR 0021 (private) §5), so this stays short. */
 const DEBUG_QUERY_DEADLINE_MS = 3000;
 
-const connect = (temporalAddress: string | undefined): Promise<Connection> =>
-  temporalAddress ? Connection.connect({ address: temporalAddress }) : Connection.connect();
-
-// Connects fresh per call, same posture as every other Temporal-touching function in this domain —
-// a debug session is a single developer clicking buttons, not a hot path.
-export const signalWithStartDebug: TDebugSignalWithStart = async ({
-  taskQueue,
-  workflowId,
-  functionName,
-  args,
-  breakpoints,
-  pauseOnEntry,
-  temporalAddress,
-  namespace,
-}) => {
-  const connection = await connect(temporalAddress);
-  try {
-    const client = new Client({ connection, namespace });
+// Every call resolves the project's own namespace client through `ITemporalTenancy` (a shared, pooled
+// connection that is never closed here) — ADR 0057 (private).
+const createDebugClient = (tenancy: ITemporalTenancy) => {
+  const signalWithStartDebug: TDebugSignalWithStart = async ({
+    projectId,
+    taskQueue,
+    workflowId,
+    functionName,
+    args,
+    breakpoints,
+    pauseOnEntry,
+    followUpSignal,
+  }) => {
+    const client = await tenancy.getClient(projectId);
     const handle = await client.workflow.signalWithStart(functionName, {
       workflowId,
       taskQueue,
@@ -46,26 +42,17 @@ export const signalWithStartDebug: TDebugSignalWithStart = async ({
       signal: DEBUG_CONFIGURE_SIGNAL_NAME,
       signalArgs: [{ breakpoints: [...breakpoints], pauseOnEntry }],
     });
+    if (followUpSignal) await handle.signal(followUpSignal.name, ...followUpSignal.args);
     return { runId: handle.signaledRunId };
-  } finally {
-    await connection.close();
-  }
-};
+  };
 
-export const sendDebugSignal: TSendDebugSignal = async ({ workflowId, signalName, signalArgs, temporalAddress, namespace }) => {
-  const connection = await connect(temporalAddress);
-  try {
-    const client = new Client({ connection, namespace });
+  const sendDebugSignal: TSendDebugSignal = async ({ projectId, workflowId, signalName, signalArgs }) => {
+    const client = await tenancy.getClient(projectId);
     await client.workflow.getHandle(workflowId).signal(signalName, ...signalArgs);
-  } finally {
-    await connection.close();
-  }
-};
+  };
 
-export const describeDebugWorkflow: TDescribeDebugWorkflow = async ({ workflowId, temporalAddress, namespace }) => {
-  const connection = await connect(temporalAddress);
-  try {
-    const client = new Client({ connection, namespace });
+  const describeDebugWorkflow: TDescribeDebugWorkflow = async ({ projectId, workflowId }) => {
+    const client = await tenancy.getClient(projectId);
     const handle = client.workflow.getHandle(workflowId);
     const description = await handle.describe().catch((error: unknown) => {
       if (error instanceof WorkflowNotFoundError) return null;
@@ -81,36 +68,26 @@ export const describeDebugWorkflow: TDescribeDebugWorkflow = async ({ workflowId
     )?.workflowExecutionFailedEventAttributes?.failure;
     const failureMessage = readFailureMessage(failure);
     return failureMessage === null ? base : { ...base, failureMessage };
-  } finally {
-    await connection.close();
-  }
-};
+  };
 
-export const queryDebugState: TQueryDebugState = async ({ workflowId, temporalAddress, namespace }) => {
-  const connection = await connect(temporalAddress);
-  try {
-    const client = new Client({ connection, namespace });
+  const queryDebugState: TQueryDebugState = async ({ projectId, workflowId }) => {
+    const client = await tenancy.getClient(projectId);
     const handle = client.workflow.getHandle(workflowId);
     try {
-      return await connection.withDeadline(Date.now() + DEBUG_QUERY_DEADLINE_MS, () =>
+      return await client.connection.withDeadline(Date.now() + DEBUG_QUERY_DEADLINE_MS, () =>
         handle.query<IDebugQueryState>(DEBUG_STATE_QUERY_NAME),
       );
     } catch {
       return 'unavailable';
     }
-  } finally {
-    await connection.close();
-  }
-};
+  };
 
-export const terminateDebugWorkflow: TTerminateDebugWorkflow = async ({ workflowId, temporalAddress, namespace }) => {
-  const connection = await connect(temporalAddress);
-  try {
-    const client = new Client({ connection, namespace });
+  const terminateDebugWorkflow: TTerminateDebugWorkflow = async ({ projectId, workflowId }) => {
+    const client = await tenancy.getClient(projectId);
     await client.workflow.getHandle(workflowId).terminate('debug session stopped');
-  } finally {
-    await connection.close();
-  }
+  };
+
+  return { signalWithStartDebug, sendDebugSignal, describeDebugWorkflow, queryDebugState, terminateDebugWorkflow };
 };
 
 /** `build.module.ts`'s `DebugService` factory provider body, pulled out here purely to keep that file under its line cap — `buildService.ensureRunnerDeps()` is reused verbatim (a debug session's `ensureRunnerRunning` call is always `env: 'dev'`, see that method's own doc comment). */
@@ -119,18 +96,13 @@ export const createDebugService = (
   devArtifacts: DevArtifactStore,
   workflowRunService: WorkflowRunService,
   buildService: BuildService,
-  config: ConfigService,
+  tenancy: ITemporalTenancy,
 ): DebugService =>
   new DebugService({
     documentsService,
     devArtifacts,
     workflowRunService,
     ensureRunnerDeps: buildService.ensureRunnerDeps(),
-    signalWithStartDebug,
-    sendDebugSignal,
-    describeDebugWorkflow,
-    queryDebugState,
-    terminateDebugWorkflow,
-    temporalAddress: config.get<string>('TEMPORAL_ADDRESS'),
-    namespace: config.get<string>('TEMPORAL_NAMESPACE'),
+    resolveRunEntry: (projectId, ownerId, input) => buildService.resolveRunEntry(projectId, ownerId, input),
+    ...createDebugClient(tenancy),
   });

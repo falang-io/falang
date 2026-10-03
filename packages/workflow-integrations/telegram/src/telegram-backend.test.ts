@@ -100,7 +100,7 @@ describe('registerTelegramBackend', () => {
 
   describe('webhook mode (ctx.webhookUrl set)', () => {
     it('registers a local webhook handler and calls Telegram setWebhook', async () => {
-      const ctx = buildCtx({ webhookUrl: 'https://bots.example.com/webhooks/telegram/cred-1/prod' });
+      const ctx = buildCtx({ webhookUrl: 'https://bots.example.com/webhooks/telegram/p/cred-1/prod' });
       await registerTelegramBackend(ctx);
 
       expect(ctx.registerWebHook).toHaveBeenCalledWith('', expect.any(Function));
@@ -108,19 +108,19 @@ describe('registerTelegramBackend', () => {
         'https://api.telegram.org/botbot-token/setWebhook',
         expect.objectContaining({
           method: 'POST',
-          body: JSON.stringify({ url: 'https://bots.example.com/webhooks/telegram/cred-1/prod' }),
+          body: JSON.stringify({ url: 'https://bots.example.com/webhooks/telegram/p/cred-1/prod' }),
         }),
       );
     });
 
     it('throws when Telegram setWebhook responds with a non-ok status', async () => {
       fetchMock.mockResolvedValue(jsonResponse({ ok: false }, false));
-      const ctx = buildCtx({ webhookUrl: 'https://bots.example.com/webhooks/telegram/cred-1/prod' });
+      const ctx = buildCtx({ webhookUrl: 'https://bots.example.com/webhooks/telegram/p/cred-1/prod' });
       await expect(registerTelegramBackend(ctx)).rejects.toThrow(/Telegram setWebhook failed/);
     });
 
     it('signals the bound trigger-function, mapping snake_case (message_id/from.first_name/from.is_bot) to camelCase', async () => {
-      const ctx = buildCtx({ webhookUrl: 'https://bots.example.com/webhooks/telegram/cred-1/prod' });
+      const ctx = buildCtx({ webhookUrl: 'https://bots.example.com/webhooks/telegram/p/cred-1/prod' });
       await registerTelegramBackend(ctx);
 
       const update = {
@@ -153,7 +153,7 @@ describe('registerTelegramBackend', () => {
     });
 
     it('the registered handler does not signal when the update has no chat', async () => {
-      const ctx = buildCtx({ webhookUrl: 'https://bots.example.com/webhooks/telegram/cred-1/prod' });
+      const ctx = buildCtx({ webhookUrl: 'https://bots.example.com/webhooks/telegram/p/cred-1/prod' });
       await registerTelegramBackend(ctx);
 
       await ctx.registeredWebhook?.(
@@ -164,7 +164,7 @@ describe('registerTelegramBackend', () => {
 
     it('the registered handler does not signal when no trigger-function is bound to this credential', async () => {
       const ctx = buildCtx({
-        webhookUrl: 'https://bots.example.com/webhooks/telegram/cred-1/prod',
+        webhookUrl: 'https://bots.example.com/webhooks/telegram/p/cred-1/prod',
         getDocumentsByType: vi.fn().mockResolvedValue([]),
       });
       await registerTelegramBackend(ctx);
@@ -175,7 +175,7 @@ describe('registerTelegramBackend', () => {
     });
 
     it('dispose() calls Telegram deleteWebhook', async () => {
-      const ctx = buildCtx({ webhookUrl: 'https://bots.example.com/webhooks/telegram/cred-1/prod' });
+      const ctx = buildCtx({ webhookUrl: 'https://bots.example.com/webhooks/telegram/p/cred-1/prod' });
       const dispose = asDispose(await registerTelegramBackend(ctx));
       fetchMock.mockClear();
 
@@ -187,7 +187,7 @@ describe('registerTelegramBackend', () => {
 
   describe('callback_query updates (button presses)', () => {
     it('signals telegramQuestionAnswer, normalized to { messageId, value }, and acks the callback', async () => {
-      const ctx = buildCtx({ webhookUrl: 'https://bots.example.com/webhooks/telegram/cred-1/prod' });
+      const ctx = buildCtx({ webhookUrl: 'https://bots.example.com/webhooks/telegram/p/cred-1/prod' });
       await registerTelegramBackend(ctx);
 
       const update = {
@@ -216,7 +216,7 @@ describe('registerTelegramBackend', () => {
     });
 
     it('does not signal when the callback has no chat/message', async () => {
-      const ctx = buildCtx({ webhookUrl: 'https://bots.example.com/webhooks/telegram/cred-1/prod' });
+      const ctx = buildCtx({ webhookUrl: 'https://bots.example.com/webhooks/telegram/p/cred-1/prod' });
       await registerTelegramBackend(ctx);
 
       await ctx.registeredWebhook?.(

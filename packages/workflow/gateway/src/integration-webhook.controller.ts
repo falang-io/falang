@@ -50,26 +50,28 @@ export class IntegrationWebhookController {
   }
 
   @SetMetadata(IS_PUBLIC_KEY, true)
-  @Post(':vendor/:credentialId/:env')
+  @Post(':vendor/:projectId/:credentialId/:env')
   handleRoot(
     @Param('vendor') vendor: string,
+    @Param('projectId') projectId: string,
     @Param('credentialId') credentialId: string,
     @Param('env') env: string,
     @Req() req: IRawBodyRequest,
   ): Promise<{ status: number }> {
-    return this.dispatch(vendor, credentialId, env, '', req);
+    return this.dispatch(vendor, projectId, credentialId, env, '', req);
   }
 
   @SetMetadata(IS_PUBLIC_KEY, true)
-  @Post(':vendor/:credentialId/:env/:uri')
+  @Post(':vendor/:projectId/:credentialId/:env/:uri')
   handleWithUri(
     @Param('vendor') vendor: string,
+    @Param('projectId') projectId: string,
     @Param('credentialId') credentialId: string,
     @Param('env') env: string,
     @Param('uri') uri: string,
     @Req() req: IRawBodyRequest,
   ): Promise<{ status: number }> {
-    return this.dispatch(vendor, credentialId, env, uri, req);
+    return this.dispatch(vendor, projectId, credentialId, env, uri, req);
   }
 
   /**
@@ -92,15 +94,16 @@ export class IntegrationWebhookController {
    */
   private async dispatch(
     vendor: string,
+    projectId: string,
     credentialId: string,
     env: string,
     uri: string,
     req: IRawBodyRequest,
   ): Promise<{ status: number }> {
     if (!isEnvironment(env)) throw new BadRequestException(`Invalid env "${env}", expected "dev" or "prod"`);
-    const handler = this.runtime.findWebhookHandler(vendor, credentialId, env, uri);
+    const handler = this.runtime.findWebhookHandler(vendor, projectId, credentialId, env, uri);
     if (!handler) {
-      throw new NotFoundException(`No webhook handler registered for ${vendor}/${credentialId}/${env}`);
+      throw new NotFoundException(`No webhook handler registered for ${vendor}/${projectId}/${credentialId}/${env}`);
     }
     const contentType = req.headers['content-type'];
     const contentTypeHeader = Array.isArray(contentType) ? contentType[0] : contentType;

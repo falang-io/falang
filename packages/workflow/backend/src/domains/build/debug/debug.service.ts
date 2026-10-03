@@ -7,6 +7,14 @@ import type { DevArtifactStore } from '../build/dev-artifact-store.service.js';
 import { devTaskQueue } from '../build/task-queue-names.js';
 import { ensureRunnerRunning, type IEnsureRunnerRunningDeps } from '../build/ensure-runner-running.js';
 import type { WorkflowRunService } from '../build/workflow-run.service.js';
+import type { IStartDeliveryResolution } from '../build/start-delivery-args.js';
+
+/** `BuildService.resolveRunEntry` — see `IDebugServiceParams.resolveRunEntry`. */
+export type TResolveRunEntry = (
+  projectId: string,
+  ownerId: string,
+  input: { readonly functionName: string; readonly args: readonly unknown[]; readonly triggerPayload?: unknown },
+) => Promise<{ readonly resolution: IStartDeliveryResolution }>;
 import { resolveIndexToLocation, resolveLocationsToIndices, resolveVariables } from './debug-map-resolver.js';
 import type {
   TDebugSignalWithStart,
@@ -46,13 +54,13 @@ export interface IDebugServiceParams {
   readonly devArtifacts: DevArtifactStore;
   readonly workflowRunService: WorkflowRunService;
   readonly ensureRunnerDeps: IEnsureRunnerRunningDeps;
+  /** Resolves what a session starts (`BuildService.resolveRunEntry`): a function, or a trigger-function with its test payload. Without it only plain `function` documents are debuggable. */
+  readonly resolveRunEntry?: TResolveRunEntry;
   readonly signalWithStartDebug: TDebugSignalWithStart;
   readonly sendDebugSignal: TSendDebugSignal;
   readonly describeDebugWorkflow: TDescribeDebugWorkflow;
   readonly queryDebugState: TQueryDebugState;
   readonly terminateDebugWorkflow: TTerminateDebugWorkflow;
-  readonly temporalAddress?: string;
-  readonly namespace?: string;
 }
 
 /**
@@ -72,26 +80,24 @@ export class DebugService {
   private readonly devArtifacts: DevArtifactStore;
   private readonly workflowRunService: WorkflowRunService;
   private readonly ensureRunnerDeps: IEnsureRunnerRunningDeps;
+  private readonly resolveRunEntry: TResolveRunEntry | undefined;
   private readonly signalWithStartDebug: TDebugSignalWithStart;
   private readonly sendDebugSignal: TSendDebugSignal;
   private readonly describeDebugWorkflow: TDescribeDebugWorkflow;
   private readonly queryDebugState: TQueryDebugState;
   private readonly terminateDebugWorkflow: TTerminateDebugWorkflow;
-  private readonly temporalAddress: string | undefined;
-  private readonly namespace: string | undefined;
 
   constructor(params: IDebugServiceParams) {
     this.documentsService = params.documentsService;
     this.devArtifacts = params.devArtifacts;
     this.workflowRunService = params.workflowRunService;
     this.ensureRunnerDeps = params.ensureRunnerDeps;
+    this.resolveRunEntry = params.resolveRunEntry;
     this.signalWithStartDebug = params.signalWithStartDebug;
     this.sendDebugSignal = params.sendDebugSignal;
     this.describeDebugWorkflow = params.describeDebugWorkflow;
     this.queryDebugState = params.queryDebugState;
     this.terminateDebugWorkflow = params.terminateDebugWorkflow;
-    this.temporalAddress = params.temporalAddress;
-    this.namespace = params.namespace;
   }
 
   /**
@@ -108,13 +114,10 @@ export class DebugService {
       readonly args: readonly unknown[];
       readonly breakpoints: readonly IDebugLocation[];
       readonly pauseOnEntry: boolean;
+      readonly triggerPayload?: unknown;
     },
   ): Promise<IStartedDebugSession> {
-    const documents = await this.documentsService.listFull(projectId, ownerId);
-    const exists = documents.some((document) => document.type === 'function' && document.name === input.functionName);
-    if (!exists) {
-      throw new NotFoundException(`Function "${input.functionName}" not found in project "${projectId}"`);
-    }
+    const resolution = await this.resolveEntry(projectId, ownerId, input);
     const artifact = this.devArtifacts.get(projectId);
     if (!artifact) {
       throw new ConflictException('Build the project first — there is no dev build to debug');
@@ -122,21 +125,38 @@ export class DebugService {
 
     const taskQueue = devTaskQueue(projectId);
     await ensureRunnerRunning(this.ensureRunnerDeps, projectId, 'dev', taskQueue);
-    const terminatedExecutionsCount = await this.workflowRunService.terminateRunningOn(taskQueue);
+    const terminatedExecutionsCount = await this.workflowRunService.terminateRunningOn(projectId, taskQueue);
 
     const workflowId = `debug-${input.functionName}-${randomUUID()}`;
     const breakpoints = resolveLocationsToIndices(artifact.debugMap ?? { tracePoints: [] }, input.breakpoints);
     const { runId } = await this.signalWithStartDebug({
+      projectId,
       taskQueue,
       workflowId,
       functionName: input.functionName,
-      args: input.args,
+      args: resolution.args ?? input.args,
       breakpoints,
       pauseOnEntry: input.pauseOnEntry,
-      temporalAddress: this.temporalAddress,
-      namespace: this.namespace,
+      ...(resolution.signal ? { followUpSignal: resolution.signal } : {}),
     });
     return { workflowId, runId, taskQueue, terminatedExecutionsCount };
+  }
+
+  private async resolveEntry(
+    projectId: string,
+    ownerId: string,
+    input: { readonly functionName: string; readonly args: readonly unknown[]; readonly triggerPayload?: unknown },
+  ): Promise<IStartDeliveryResolution> {
+    if (this.resolveRunEntry) {
+      const { resolution } = await this.resolveRunEntry(projectId, ownerId, input);
+      return resolution;
+    }
+    const documents = await this.documentsService.listFull(projectId, ownerId);
+    const exists = documents.some((document) => document.type === 'function' && document.name === input.functionName);
+    if (!exists) {
+      throw new NotFoundException(`Function "${input.functionName}" not found in project "${projectId}"`);
+    }
+    return { runnable: true, args: input.args };
   }
 
   /** Polled by the client every 500ms while a session is `running`/`paused` — see ADR 0021 (private) §5. */
@@ -149,7 +169,7 @@ export class DebugService {
       return { status: reason, location: null, variables: [], reason: null, message: descriptor.failureMessage };
     }
 
-    const query = await this.queryDebugState({ workflowId, temporalAddress: this.temporalAddress, namespace: this.namespace });
+    const query = await this.queryDebugState({ projectId, workflowId });
     if (query === 'unavailable') {
       await ensureRunnerRunning(this.ensureRunnerDeps, projectId, 'dev', descriptor.taskQueue);
       return { status: 'runner-stopped', location: null, variables: [], reason: null };
@@ -177,28 +197,26 @@ export class DebugService {
     await this.authorize(projectId, ownerId, workflowId);
     const map = this.devArtifacts.get(projectId)?.debugMap ?? { tracePoints: [] };
     await this.sendDebugSignal({
+      projectId,
       workflowId,
       signalName: DEBUG_CONFIGURE_SIGNAL_NAME,
       signalArgs: [{ breakpoints: resolveLocationsToIndices(map, breakpoints), pauseOnEntry: false }],
-      temporalAddress: this.temporalAddress,
-      namespace: this.namespace,
     });
   }
 
   async resume(projectId: string, ownerId: string, workflowId: string, mode: 'continue' | 'step-over'): Promise<void> {
     await this.authorize(projectId, ownerId, workflowId);
     await this.sendDebugSignal({
+      projectId,
       workflowId,
       signalName: DEBUG_RESUME_SIGNAL_NAME,
       signalArgs: [{ mode }],
-      temporalAddress: this.temporalAddress,
-      namespace: this.namespace,
     });
   }
 
   async stop(projectId: string, ownerId: string, workflowId: string): Promise<void> {
     await this.authorize(projectId, ownerId, workflowId);
-    await this.terminateDebugWorkflow({ workflowId, temporalAddress: this.temporalAddress, namespace: this.namespace });
+    await this.terminateDebugWorkflow({ projectId, workflowId });
   }
 
   /** Confirms `workflowId` actually belongs to this project's dev task queue before acting on it — never trusting a client-supplied workflowId on its own, the same rule `BuildService.getRunPosition` follows for the "Запуски" panel. */
@@ -206,7 +224,7 @@ export class DebugService {
     // `listFull` throws 404 if the project isn't owned by `ownerId` — reused purely for that
     // authorization check here (its documents aren't needed by the callers of `authorize`).
     await this.documentsService.listFull(projectId, ownerId);
-    const descriptor = await this.describeDebugWorkflow({ workflowId, temporalAddress: this.temporalAddress, namespace: this.namespace });
+    const descriptor = await this.describeDebugWorkflow({ projectId, workflowId });
     if (!descriptor || descriptor.taskQueue !== devTaskQueue(projectId)) {
       throw new NotFoundException(`Debug session "${workflowId}" not found in project "${projectId}"`);
     }

@@ -37,6 +37,14 @@ export interface IOAuth2Config {
    * (`kind: 'text', hidden: true`) in `credentialFields`.
    */
   readonly accountDomainCallbackParam?: string;
+  /**
+   * Required whenever `accountDomainCallbackParam` is set (fail-closed — a vendor with the param but no
+   * allowlist rejects every callback): the account host captured off the callback is attacker-influenced
+   * and the backend then sends the token request to it (SSRF), so it must be a subdomain of one of
+   * these suffixes (e.g. `['.amocrm.ru', '.amocrm.com', '.kommo.com']`; matched on whole labels,
+   * https only, no port/userinfo/IP). See ADR 0016 (private) security audit P0-11.
+   */
+  readonly accountDomainSuffixes?: readonly string[];
   /** Vendor's refresh grant also validates `redirect_uri` against the original connect (e.g. amoCRM) — unlike bare RFC 6749 refresh, which doesn't need it. Requires `BACKEND_PUBLIC_URL` to be available wherever the refresh call is made from (both `backend` and, via `RunnerProcessManager`, `runner` pods). */
   readonly includeRedirectUriOnRefresh?: boolean;
   /**

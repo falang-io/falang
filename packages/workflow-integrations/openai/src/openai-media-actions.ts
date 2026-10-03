@@ -34,7 +34,7 @@ const callAiImageAction: IActionDescriptor = {
       label: 'openai:field.model',
       kind: 'select',
       vendor: OPENAI_VENDOR,
-      loadOptions: (fields) => fetchOpenAiModelOptions(fields, ['image', 'dall-e', 'gpt-image']),
+      loadOptions: (fields, ctx) => fetchOpenAiModelOptions(fields, ctx?.egress, ['image', 'dall-e', 'gpt-image']),
     },
     { name: 'prompt', label: 'openai:field.prompt', kind: 'template-string' },
     {

@@ -108,7 +108,7 @@ export interface IIntegrationBackendContext {
   readonly taskQueue: string;
 
   /**
-   * Mounts `handler` under this ctx's webhook route (`/webhooks/:vendor/:credentialId/:env/<uri>`) —
+   * Mounts `handler` under this ctx's webhook route (`/webhooks/:vendor/:projectId/:credentialId/:env/<uri>`) —
    * only meaningful when `webhookUrl` is set. Standard fetch-API `Request`/`Response`, so vendor code
    * carries no Express/NestJS dependency. The host removes every route registered through a given
    * `ctx` automatically when that target stops (see `TRegisterIntegrationBackend`'s return value) —

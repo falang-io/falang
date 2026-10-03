@@ -5,7 +5,7 @@ import type {
   TRegisterIntegrationBackend,
 } from '@falang/workflow-integrations-common';
 import { BITRIX24_SIGNAL_NAME } from './constants.js';
-import { parseBracketFormBody } from './parse-bracket-form-body.js';
+import { parseBracketFormBody, readApplicationToken, safeEqual } from './parse-bracket-form-body.js';
 
 interface ITriggerFunctionBodyData {
   readonly vendor: string;
@@ -69,10 +69,13 @@ export const registerBitrix24Backend: TRegisterIntegrationBackend = async (ctx) 
   const expectedToken = ctx.fields.application_token;
   for (const triggerFunction of triggerFunctions) {
     ctx.registerWebHook(triggerFunction.id, async (request) => {
-      const parsed = parseBracketFormBody(await request.text()) as IBitrix24OutgoingWebhookBody;
-      if (!expectedToken || parsed.auth?.application_token !== expectedToken) {
+      const rawBody = await request.text();
+      // Verify first, on the flat token only — nothing nested is parsed for an unauthenticated caller.
+      const receivedToken = readApplicationToken(rawBody);
+      if (!expectedToken || typeof receivedToken !== 'string' || !safeEqual(receivedToken, expectedToken)) {
         return new Response(null, { status: 403 });
       }
+      const parsed = parseBracketFormBody(rawBody) as IBitrix24OutgoingWebhookBody;
       await ctx.signalWorkflow({
         workflowId: `bitrix24-${triggerFunction.id}`,
         workflowType: triggerFunction.name,

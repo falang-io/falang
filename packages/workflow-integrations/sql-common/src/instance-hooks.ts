@@ -1,4 +1,9 @@
-import type { IIntegrationInstance, IIntegrationStructType } from '@falang/workflow-integrations-common';
+import type {
+  IBackendEgress,
+  IIntegrationInstance,
+  IIntegrationStructType,
+} from '@falang/workflow-integrations-common';
+import { isIpLiteral, parseSqlConnectionString } from './connection-string.js';
 import { buildTableStructTypes } from './filter-types.js';
 import {
   MYSQL_INTROSPECTION_SQL,
@@ -18,13 +23,41 @@ import type { ISyncedSchema, TSqlDialectName } from './schema-types.js';
 /** `ssl` resolves to `''` when the user never touched the field — same "not configured, use a safe default" fallback `credential-resolution.ts`'s `resolveSqlCredentialField` applies at runtime. */
 const sslOrDefault = (credentialFields: Readonly<Record<string, string>>): string => credentialFields.ssl || 'prefer';
 
-const syncPostgresSchema = async (credentialFields: Readonly<Record<string, string>>): Promise<ISyncedSchema> => {
+const requireEgress = (egress: IBackendEgress | undefined): IBackendEgress => {
+  if (!egress)
+    throw new Error('"Sync structure" needs the backend egress guard (IBackendEgress) for network databases');
+  return egress;
+};
+
+const CONNECT_TIMEOUT_MS = 10_000;
+
+const portOption = (port: number | null): { port?: number } => (port === null ? {} : { port });
+
+/** TLS options for the connection to the *checked IP*: certificate verification still happens against the original host name. */
+const tlsOptions = (sslMode: string, host: string, mode: 'pg' | 'mysql'): { ssl?: Record<string, unknown> } => {
+  if (sslMode === 'disable') return {};
+  const servername = isIpLiteral(host) ? {} : { servername: host };
+  return { ssl: mode === 'pg' ? { rejectUnauthorized: sslMode === 'require', ...servername } : { ...servername } };
+};
+
+const syncPostgresSchema = async (
+  credentialFields: Readonly<Record<string, string>>,
+  egress: IBackendEgress | undefined,
+): Promise<ISyncedSchema> => {
+  const target = parseSqlConnectionString('postgres', credentialFields.connectionString ?? '');
+  // Connect to the checked IP, not the name (DNS rebinding); TLS keeps verifying against the original name.
+  const address = await requireEgress(egress).resolveHost(target.host);
   const { Client } = await import('pg');
   const sslMode = sslOrDefault(credentialFields);
   const client = new Client({
-    connectionString: credentialFields.connectionString,
-    // oxlint-disable-next-line no-undefined -- `pg`'s own `ssl` option type distinguishes "off" (undefined) from a config object; there's no other way to say "no TLS" here.
-    ssl: sslMode === 'disable' ? undefined : { rejectUnauthorized: sslMode === 'require' },
+    host: address,
+    ...portOption(target.port),
+    user: target.user,
+    password: target.password,
+    database: target.database,
+    connectionTimeoutMillis: CONNECT_TIMEOUT_MS,
+    statement_timeout: 50_000,
+    ...tlsOptions(sslMode, target.host, 'pg'),
   });
   await client.connect();
   try {
@@ -36,13 +69,28 @@ const syncPostgresSchema = async (credentialFields: Readonly<Record<string, stri
   }
 };
 
-const syncMysqlSchema = async (credentialFields: Readonly<Record<string, string>>): Promise<ISyncedSchema> => {
+const syncMysqlSchema = async (
+  credentialFields: Readonly<Record<string, string>>,
+  egress: IBackendEgress | undefined,
+): Promise<ISyncedSchema> => {
+  const target = parseSqlConnectionString('mysql', credentialFields.connectionString ?? '');
+  const address = await requireEgress(egress).resolveHost(target.host);
   const mysql = await import('mysql2/promise');
   const sslMode = sslOrDefault(credentialFields);
   const connection = await mysql.createConnection({
-    uri: credentialFields.connectionString,
-    // oxlint-disable-next-line no-undefined -- same tension as syncPostgresSchema's own ssl option above.
-    ssl: sslMode === 'disable' ? undefined : {},
+    host: address,
+    ...portOption(target.port),
+    user: target.user,
+    password: target.password,
+    database: target.database,
+    connectTimeout: CONNECT_TIMEOUT_MS,
+    // Never let a (malicious) server read files off the backend via LOAD DATA LOCAL INFILE.
+    flags: ['-LOCAL_FILES'],
+    infileStreamFactory: () => {
+      throw new Error('LOAD DATA LOCAL INFILE is disabled');
+    },
+    // `servername` is a valid `tls.connect` option that mysql2's own `SslOptions` typing just doesn't list.
+    ...(tlsOptions(sslMode, target.host, 'mysql') as { ssl?: never }),
   });
   try {
     const [databaseRows] = await connection.query('SELECT DATABASE() AS db');
@@ -84,14 +132,17 @@ export const buildSqlSyncVendorData =
   ): ((
     credentialFields: Readonly<Record<string, string>>,
     env: 'dev' | 'prod',
+    ctx?: { readonly egress?: IBackendEgress },
   ) => Promise<Record<string, Record<string, unknown>>>) =>
-  async (credentialFields) => {
+  async (credentialFields, _env, ctx) => {
     switch (dialectName) {
       case 'postgres': {
-        return { schema: (await syncPostgresSchema(credentialFields)) as unknown as Record<string, unknown> };
+        return {
+          schema: (await syncPostgresSchema(credentialFields, ctx?.egress)) as unknown as Record<string, unknown>,
+        };
       }
       case 'mysql': {
-        return { schema: (await syncMysqlSchema(credentialFields)) as unknown as Record<string, unknown> };
+        return { schema: (await syncMysqlSchema(credentialFields, ctx?.egress)) as unknown as Record<string, unknown> };
       }
       case 'sqlite': {
         return { schema: (await syncSqliteSchema(credentialFields)) as unknown as Record<string, unknown> };

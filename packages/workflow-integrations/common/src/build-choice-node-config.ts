@@ -1,7 +1,7 @@
 import { zod, type INodeConfig } from '@falang/dto';
 import { variableInfoZod, type TVariableInfo } from '@falang/typescript-dto';
 import { nanoid } from 'nanoid';
-import { buildActionDataSchema } from './build-node-config.js';
+import { buildActionDataSchema, defaultFieldValue } from './build-node-config.js';
 import type { IChoiceDescriptor } from './types.js';
 
 export interface IChoiceOption {
@@ -58,7 +58,7 @@ export const buildChoiceNodeConfig = (descriptor: IChoiceDescriptor): readonly I
   const optionNodeName = `${descriptor.name}-option`;
   const dataSchema = buildChoiceHeaderDataSchema(descriptor);
   const defaultData = (): TChoiceHeaderData => ({
-    ...Object.fromEntries(getChoiceHeaderFields(descriptor).map((field) => [field.name, ''])),
+    ...Object.fromEntries(getChoiceHeaderFields(descriptor).map((field) => [field.name, defaultFieldValue(field)])),
     options: DEFAULT_OPTIONS,
   });
 

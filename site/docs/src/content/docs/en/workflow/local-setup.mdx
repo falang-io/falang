@@ -26,7 +26,7 @@ head:
   <li>
     Copy <code>.env.example</code> to <code>.env</code> at the repo root. For a clean local run you don't need to
     change anything — every secret (<code>JWT_SECRET</code>, <code>CREDENTIALS_ENCRYPTION_KEY</code>, etc.) has a
-    dev-only default baked in.
+    dev-only default baked in (the bundled compose file also sets <code>SEED_DEFAULT_ADMIN=true</code>; the backend itself defaults it to <code>false</code>). With <code>NODE_ENV=production</code> the backend refuses to start unless <code>JWT_SECRET</code>, <code>DB_PASSWORD</code> and <code>CREDENTIALS_ENCRYPTION_KEY</code> are set to non-default values of at least 32 characters.
   </li>
   <li>
     Bring the stack up:
@@ -44,7 +44,7 @@ head:
     (displayed in the toolbar next to the status dot, and via <code>kubectl -n workflow get pods</code>).
   </li>
   <li>
-    Open the function and click <b>Run</b> in the toolbar (it asks for the function's parameters, if any): the icon it is
+    Open the function and choose <b>Dev → Run function</b> in the toolbar (it asks for the function's parameters, if any): the icon it is
     executing lights up on the canvas and a side panel shows its status and history. You can also start an execution
     with the Temporal admin CLI:
     <pre><code>{`docker compose -f docker-compose.workflow.yml exec temporal-admin-tools \\
@@ -62,7 +62,7 @@ head:
 #### What's in the stack
 <p><code>docker-compose.workflow.yml</code> brings up:</p>
 <ul>
-  <li>a self-hosted <b>Temporal</b> server (with its own Postgres) and its web UI;</li>
+  <li>a self-hosted <b>Temporal</b> server (version 1.32, with its own Postgres, a one-shot schema job and a job creating the <code>default</code> namespace), its admin CLI and web UI;</li>
   <li>a separate Postgres database for the <b>backend</b> (projects, folders, documents, users);</li>
   <li>the <b>backend</b> — stores projects, compiles functions, and manages starting/stopping runner pods via the Kubernetes API;</li>
   <li>the <b>client</b> — the web scheme editor (the Admin app is served at <code>/admin</code>);</li>
@@ -81,6 +81,60 @@ head:
   Kubernetes — which is why the local kind cluster is needed.
 </p>
 
+#### Isolating projects in Temporal
+<p>
+  By default (<code>TEMPORAL_TENANT_ISOLATION=shared</code>) every project's workflows run in Temporal's single
+  <code>default</code> namespace with no authorization — fine for local development and for an instance whose
+  projects all belong to people you trust. A runner pod runs a project's own code, so on a multi-tenant instance
+  switch on <code>per-project</code> mode: each project gets its own namespace (<code>falang-&lt;projectId&gt;</code>),
+  runner pods authenticate with a short-lived JWT valid for that namespace only, and cross-namespace commands are
+  disabled on the server. Start the stack like this (use the same private key every time):
+</p>
+<pre><code>{`export TEMPORAL_JWT_PRIVATE_KEY="$(openssl genpkey -algorithm RSA -pkeyopt rsa_keygen_bits:2048)"
+export PROJECT_TOKEN_SECRET="$(openssl rand -hex 32)"
+TEMPORAL_SERVER_CONFIG=server.yaml TEMPORAL_TENANT_ISOLATION=per-project \\
+  docker compose -f docker-compose.workflow.yml up --build`}</code></pre>
+<p>
+  The Temporal server fetches the public key from the backend's internal port
+  (<code>/internal/temporal/jwks.json</code>), so a key rotation needs only a backend restart. In this mode the
+  Temporal web UI on port 8080 can no longer log in; use the admin CLI instead, which talks to Temporal's internal
+  frontend (port 7236, never published to the host):
+</p>
+<pre><code>{`docker compose -f docker-compose.workflow.yml exec temporal-admin-tools \\
+  temporal workflow list --namespace falang-<projectId>`}</code></pre>
+<p>
+  The backend variables behind this mode:
+</p>
+<ul>
+  <li>
+    <code>TEMPORAL_TENANT_ISOLATION</code> — <code>shared</code> (default) or <code>per-project</code>. In
+    <code>per-project</code> mode the backend refuses to start without <code>TEMPORAL_JWT_PRIVATE_KEY</code>, and at
+    startup it checks that Temporal really rejects requests without a token or with a token it can't verify (it
+    refuses to start if it doesn't, because the isolation would be worth nothing).
+  </li>
+  <li>
+    <code>TEMPORAL_JWT_PRIVATE_KEY</code> — an RSA private key in PKCS#8 PEM format (RS256 signing). Optional:
+    <code>TEMPORAL_JWT_KEY_ID</code> (defaults to the key's thumbprint), <code>TEMPORAL_JWT_PREVIOUS_PUBLIC_KEY</code>
+    (the old public key, published next to the new one while you rotate), <code>TEMPORAL_JWT_TTL_SECONDS</code> (pod
+    token lifetime, default 3600; pods renew it on their own).
+  </li>
+  <li>
+    <code>PROJECT_TOKEN_SECRET</code> — the key the per-project tokens runner pods use to talk to the backend are
+    derived from (in production, at least 32 characters and not a default value; the same value on every backend
+    replica).
+  </li>
+  <li>
+    <code>TEMPORAL_NAMESPACE_RETENTION_DAYS</code> — how long finished executions are kept in each project's namespace
+    (default 7). <code>TEMPORAL_TLS=true</code> — if your Temporal frontend terminates TLS.
+  </li>
+</ul>
+<p>
+  A deleted project's namespace is removed by the backend about a day after the project is deleted. Switching an
+  existing instance from <code>shared</code> to <code>per-project</code> does not move old executions out of
+  <code>default</code>; the backend pauses the schedules it left there, and republishing a project starts it in its own
+  namespace.
+</p>
+
 #### A known quirk
 <p>
   On the very first <code>docker compose up</code> after the <code>falang-workflow-network</code> network is
@@ -89,3 +143,13 @@ head:
 </p>
 <pre><code>docker compose -f docker-compose.workflow.yml restart backend</code></pre>
 <p>It doesn't recur once both networks are actually attached.</p>
+
+#### Public and internal ports
+<p>
+  The backend listens on two ports. The public one (<code>PORT</code>, 4000 in the compose files) serves the
+  application API and is the only one to publish through a reverse proxy or ingress. The internal one
+  (<code>INTERNAL_PORT</code>, default 3001) serves only <code>/internal/*</code> — the API used by runner pods, the
+  ActivePieces service and the media service; the public port answers 404 for those paths. Never expose the internal
+  port to the internet: point <code>BACKEND_INTERNAL_URL</code> of those services at it (inside a cluster, a ClusterIP
+  Service).
+</p>

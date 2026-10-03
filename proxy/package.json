@@ -1,0 +1,22 @@
+{
+  "name": "falang-proxy",
+  "version": "1.0.0",
+  "description": "Standalone HTTP forward proxy (CONNECT + absolute-URI HTTP) with token auth — deliberately outside the npm workspace, zero runtime dependencies.",
+  "private": true,
+  "license": "AGPL-3.0-only",
+  "type": "commonjs",
+  "main": "src/main.ts",
+  "scripts": {
+    "start": "tsx src/main.ts",
+    "dev": "tsx watch src/main.ts",
+    "check": "tsc --noEmit -p tsconfig.json",
+    "test": "vitest run"
+  },
+  "devDependencies": {
+    "@types/node": "^25.5.0",
+    "tsx": "^4.23.0",
+    "typescript": "^6.0.2",
+    "undici": "^7.29.1",
+    "vitest": "^4.0.18"
+  }
+}

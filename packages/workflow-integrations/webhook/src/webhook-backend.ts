@@ -50,7 +50,7 @@ const noopDispose = async (): Promise<void> => {};
  * fallback — nothing to poll, requests only ever arrive pushed. So this ignores `ctx.webhookUrl`
  * entirely and always registers one local route per bound `trigger-function`: `ctx.registerWebHook`
  * works regardless of public-host mode (see `IntegrationsRuntimeService`'s `startTarget` — it just adds
- * an entry to the host's local route table), reachable at `/webhooks/webhook/:credentialId/:env/:uri`
+ * an entry to the host's local route table), reachable at `/webhooks/webhook/:projectId/:credentialId/:env/:uri`
  * whether or not that's *externally* reachable — fine for `curl`-driven local testing, and for real
  * external callers once a public host is configured.
  *

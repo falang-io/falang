@@ -69,10 +69,10 @@
     "toolbar": {
       "back": "← Projects",
       "view-code": "View Code",
-      "export": "Export",
+      "export": "Save as JSON",
       "exporting": "Exporting…",
       "export-failed": "Failed to export project",
-      "export-pdf": "PDF",
+      "export-pdf": "Download PDF",
       "versions": "Versions",
       "files": "Files",
       "tasks": "Tasks",
@@ -90,7 +90,8 @@
         "label": "Dev",
         "start": "Start",
         "stop": "Stop",
-        "run": "Run function"
+        "run": "Run function…",
+        "restart": "Restart"
       },
       "prod-menu": {
         "label": "Prod",
@@ -101,13 +102,14 @@
         "publish": "Publish version",
         "publish-success": "Version published"
       },
-      "run": "Run",
+      "run": "Run function",
       "run-starting": "Starting…",
       "debug": "Debug",
       "runs": "Runs",
       "magic-insert": "Magic insert",
       "magic-insert-tooltip": "A click on a valence point inserts a magic node: describe the step in words and the agent builds it",
-      "magic-insert-disabled": "Magic insert needs the AI agent to be configured by an administrator"
+      "magic-insert-disabled": "Magic insert needs the AI agent to be configured by an administrator",
+      "project-menu": "Project"
     },
     "run-function-modal": {
       "title": "Run function",
@@ -142,13 +144,17 @@
       "trigger-type-required": "Trigger type is required",
       "trigger-type-placeholder": "Select a trigger",
       "field-required": "{{label}} is required",
-      "credential-label": "Credential",
+      "credential-label": "Credentials",
       "credential-required": "Credential is required",
       "credential-placeholder": "Select a credential",
       "no-credentials": "No credentials configured for this integration yet — add one in the Integrations tab first.",
       "cron-builder-custom-hint": "This expression can't be shown in the builder — edit it as text instead.",
       "next-fire-times-label": "Next fire times:",
-      "create": "Create"
+      "create": "Create",
+      "name-taken": "A document with this name already exists in the project (names are case-insensitive)",
+      "group-credentials": "Credentials",
+      "group-no-credentials": "No credentials needed",
+      "no-credentials-hint": "No integration with triggers is available yet — first create an integration (credentials) in the Integrations tab."
     },
     "versions-modal": {
       "title": "Published versions",
@@ -203,6 +209,10 @@
       "sync-structure-failed": "Failed to sync structure"
     },
     "project-tree": {
+      "section-triggers": "Triggers",
+      "section-functions": "Functions",
+      "section-types": "Types",
+      "new-trigger-here": "New trigger here",
       "header": "Project",
       "add": "+ Add",
       "add-function": "Function",
@@ -221,7 +231,13 @@
       "delete": "Delete",
       "root": "root",
       "folder-fallback": "folder",
-      "invalid-function-name": "Function name must be English, camelCase (e.g. myFunctionName) — no spaces, punctuation, or a leading digit"
+      "invalid-function-name": "Function name must be English, camelCase (e.g. myFunctionName) — no spaces, punctuation, or a leading digit",
+      "rename": "Rename",
+      "rename-document": "Rename document",
+      "rename-folder": "Rename folder",
+      "rename-ok": "Rename",
+      "name-required": "Name is required",
+      "name-taken": "A document with this name already exists in the project (names are case-insensitive)"
     },
     "runs-page": {
       "title": "Runs",
@@ -428,6 +444,24 @@
       "placeholder": "Write to the administrator… (Enter to send, Shift+Enter for a new line)",
       "send": "Send",
       "empty": "No messages yet. Ask us anything."
+    },
+    "terminate-run": {
+      "failed": "Failed to terminate the run",
+      "confirm": "Terminate this run? It will be stopped immediately.",
+      "ok": "Terminate",
+      "cancel": "Cancel",
+      "button": "Terminate"
+    },
+    "trigger-payload-modal": {
+      "title-run": "Run trigger \"{{name}}\"",
+      "title-debug": "Debug trigger \"{{name}}\"",
+      "hint": "The event the trigger would deliver, as JSON (e.g. an incoming Telegram message). It is checked against the trigger's payload type; the last payload is remembered.",
+      "unknown-type": "The payload type of this trigger is unknown — any JSON object is accepted.",
+      "type-mismatch": "The payload does not match the trigger's type — fix the underlined places.",
+      "reset": "Reset to sample",
+      "cancel": "Cancel",
+      "run": "Run",
+      "debug": "Debug"
     }
   },
   "version-history": {

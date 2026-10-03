@@ -1,9 +1,18 @@
+import { dedupeDocumentNames } from './unique-document-names.js';
 import { randomUUID } from 'node:crypto';
+import type { IProjectTreeFolder } from '@falang/dto';
 import { BadRequestException, Inject, Injectable } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
+import type { INode } from '@falang/dto';
 import { INTEGRATIONS_DOCUMENT_TYPE, type IIntegrationsDocumentData } from '@falang/workflow-integrations-common';
+import { normalizeWorkflowProjectLayout } from '@falang/workflow-dto';
 import type { Repository } from 'typeorm';
 import { ActivepiecesCatalogService } from '../../integrations/activepieces-catalog.service.js';
+import {
+  buildCredentialIdMap,
+  remapCredentialRefs,
+  remapIntegrationsData,
+} from '../../integrations/credential-id-remap.js';
 import { stripIntegrationsSecretsForExport } from '../../integrations/credentials-codec.js';
 import { REGISTERED_INTEGRATIONS } from '../../integrations/registered-integrations.js';
 import { Document } from '../documents/document.entity.js';
@@ -11,13 +20,15 @@ import { DocumentsService } from '../documents/documents.service.js';
 import { FoldersService } from '../folders/folders.service.js';
 import type { Project } from '../projects/project.entity.js';
 import { ProjectsService } from '../projects/projects.service.js';
+import type { ImportProjectDocumentDto } from './dto/import-project-document.dto.js';
 import type { ImportProjectDto } from './dto/import-project.dto.js';
-import type { ImportProjectFolderDto } from './dto/import-project-folder.dto.js';
 
 export interface IProjectExportFolder {
   id: string;
   name: string;
   parentId: string | null;
+  /** Fixed section kind (`'triggers' | 'functions' | 'types'`), absent/`null` on user folders and in files exported before ADR 0055 (private). */
+  fixedKind?: string | null;
 }
 
 export interface IProjectExportDocument {
@@ -76,7 +87,12 @@ export class ProjectExportService {
     return {
       formatVersion: 1,
       project: { id: '', name: project.name },
-      folders: folders.map((folder) => ({ id: folder.id, name: folder.name, parentId: folder.parentId })),
+      folders: folders.map((folder) => ({
+        id: folder.id,
+        name: folder.name,
+        parentId: folder.parentId,
+        fixedKind: folder.fixedKind ?? null,
+      })),
       documents: documents.map((document) => ({
         id: document.id,
         type: document.type,
@@ -102,16 +118,44 @@ export class ProjectExportService {
    */
   async importProject(ownerId: string, payload: ImportProjectDto): Promise<Project> {
     const project = await this.projectsService.create(ownerId, payload.project.name);
-    const folderIdMap = await this.createFolders(project.id, ownerId, payload.folders);
+    // The new project already seeded its own section folders (`ProjectsService.create`); the payload is
+    // normalised to the fixed layout first, then its section folders are mapped onto the seeded ones
+    // (the same "merge into the seeded singleton" path as `Integrations` below).
+    const normalized = normalizeWorkflowProjectLayout(
+      payload.folders.map((folder) => ({
+        id: folder.id,
+        name: folder.name,
+        parentId: folder.parentId ?? null,
+        fixedKind: folder.fixedKind ?? null,
+      })),
+      payload.documents.map((document) => ({
+        id: document.id,
+        type: document.type,
+        folderId: document.folderId ?? null,
+        pinned: document.pinned ?? false,
+        source: document,
+      })),
+      { createId: () => randomUUID() },
+    );
+    const seededFolders = await this.foldersService.listTree(project.id, ownerId);
+    const seededSections = seededFolders.filter((folder) => Boolean(folder.fixedKind));
+    const folderIdMap = await this.createFolders(project.id, ownerId, normalized.folders, seededSections);
 
-    const integrationsPayload = payload.documents.find((document) => document.type === INTEGRATIONS_DOCUMENT_TYPE);
+    const normalizedDocuments: ImportProjectDocumentDto[] = [];
+    for (const document of normalized.documents) {
+      normalizedDocuments.push({ ...document.source, folderId: document.folderId });
+    }
+    const integrationsPayload = normalizedDocuments.find((document) => document.type === INTEGRATIONS_DOCUMENT_TYPE);
+    // Instance ids are client-chosen and become platform-wide routing keys, so an import never keeps
+    // the ids of the file it came from — every instance gets a fresh one and every reference follows.
+    const credentialIdMap = buildCredentialIdMap(integrationsPayload?.data);
     if (integrationsPayload?.data) {
       const integrationsDocument = await this.documents.findOne({
         where: { projectId: project.id, type: INTEGRATIONS_DOCUMENT_TYPE },
       });
       if (integrationsDocument) {
         await this.documentsService.update(project.id, ownerId, integrationsDocument.id, {
-          data: integrationsPayload.data,
+          data: remapIntegrationsData(integrationsPayload.data, credentialIdMap),
         });
       }
     }
@@ -119,8 +163,13 @@ export class ProjectExportService {
     // Any other pinned singleton is skipped: the freshly created project already seeded its own,
     // and there is currently no update path for a pinned document kind other than `integrations`.
     // Every remaining document is independent of its siblings, so all creates run in parallel.
-    const regularDocuments = payload.documents.filter(
-      (document) => document.type !== INTEGRATIONS_DOCUMENT_TYPE && !document.pinned,
+    const seededDocuments = await this.documents.find({
+      where: { projectId: project.id },
+      select: { id: true, name: true },
+    });
+    const regularDocuments = dedupeDocumentNames(
+      normalizedDocuments.filter((document) => document.type !== INTEGRATIONS_DOCUMENT_TYPE && !document.pinned),
+      seededDocuments.map((document) => document.name),
     );
     await Promise.all(
       regularDocuments.map((document) => {
@@ -130,8 +179,8 @@ export class ProjectExportService {
           type: document.type,
           name: document.name,
           folderId,
-          root: document.root ?? null,
-          data: document.data ?? null,
+          root: remapCredentialRefs(document.root ?? null, credentialIdMap) as INode | null,
+          data: remapCredentialRefs(document.data ?? null, credentialIdMap),
         });
       }),
     );
@@ -150,10 +199,15 @@ export class ProjectExportService {
   private async createFolders(
     projectId: string,
     ownerId: string,
-    folders: readonly ImportProjectFolderDto[],
+    folders: readonly IProjectExportFolder[],
+    seededSections: readonly IProjectTreeFolder[],
   ): Promise<Map<string, string>> {
     const idMap = new Map<string, string>();
-    let remaining = [...folders];
+    for (const folder of folders) {
+      const seeded = folder.fixedKind ? seededSections.find((section) => section.fixedKind === folder.fixedKind) : null;
+      if (seeded) idMap.set(folder.id, seeded.id);
+    }
+    let remaining = folders.filter((folder) => !idMap.has(folder.id));
 
     while (remaining.length > 0) {
       const resolvable = remaining.filter((folder) => !folder.parentId || idMap.has(folder.parentId));

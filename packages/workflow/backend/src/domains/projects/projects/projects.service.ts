@@ -4,6 +4,7 @@ import { InjectRepository } from '@nestjs/typeorm';
 import { INTEGRATIONS_DOCUMENT_TYPE } from '@falang/workflow-integrations-common';
 import type { Repository } from 'typeorm';
 import { Document } from '../documents/document.entity.js';
+import { ensureFixedFolders } from '../layout/project-layout.js';
 import { Project } from './project.entity.js';
 
 @Injectable()
@@ -27,6 +28,7 @@ export class ProjectsService {
     const project = this.projects.create({ name, ownerId });
     const savedProject = await this.projects.save(project);
     await this.seedIntegrationsDocument(savedProject.id);
+    await ensureFixedFolders(this.projects.manager, savedProject.id);
     return savedProject;
   }
 

@@ -27,7 +27,8 @@ export class RunsController {
     @Param('workflowId') workflowId: string,
     @Param('runId') runId: string,
     @CurrentUser() user: IJwtPayloadUser,
+    @Query('projectId') projectId?: string,
   ): Promise<IWorkflowRunDetail> {
-    return this.runsService.getRunDetail(user.id, workflowId, runId);
+    return this.runsService.getRunDetail(user.id, workflowId, runId, projectId);
   }
 }

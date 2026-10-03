@@ -40,12 +40,15 @@ describe('project export/import (e2e)', () => {
       })
       .expect(200);
 
+    const functionsSection: string = tree.body.folders.find(
+      (f: { fixedKind: string }) => f.fixedKind === 'functions',
+    ).id;
     const folderId = '3ad0f6d5-d449-4945-b5f4-9f8d7041a3e9';
     const docId = '8b2e45d1-fa81-4ddb-a012-dde04d7ee4e4';
     await request(app.getHttpServer())
       .post(`/projects/${projectId}/folders`)
       .set(auth(token))
-      .send({ id: folderId, name: 'Functions', parentId: null })
+      .send({ id: folderId, name: 'Helpers', parentId: functionsSection })
       .expect(201);
     await request(app.getHttpServer())
       .post(`/projects/${projectId}/documents`)
@@ -64,7 +67,13 @@ describe('project export/import (e2e)', () => {
     expect(response.status).toBe(200);
 
     expect(response.body).toMatchObject({ formatVersion: 1, project: { id: '', name: 'Source project' } });
-    expect(response.body.folders).toEqual([{ id: folderId, name: 'Functions', parentId: null }]);
+    expect(response.body.folders).toContainEqual({
+      id: folderId,
+      name: 'Helpers',
+      parentId: expect.any(String),
+      fixedKind: null,
+    });
+    expect(response.body.folders.filter((f: { fixedKind: string | null }) => f.fixedKind)).toHaveLength(3);
 
     const integrationsDoc = response.body.documents.find((doc: { type: string }) => doc.type === 'integrations');
     expect(integrationsDoc.data.instances[0].fields.botToken).toEqual({ dev: '', prod: '' });
@@ -104,13 +113,17 @@ describe('project export/import (e2e)', () => {
 
     const newProjectId: string = imported.body.id;
     const tree = await request(app.getHttpServer()).get(`/projects/${newProjectId}/tree`).set(auth(token));
-    expect(tree.body.folders).toHaveLength(1);
-    expect(tree.body.folders[0]).toMatchObject({ name: 'Functions' });
-    expect(tree.body.folders[0].id).not.toBe(sourceFolderId);
+    expect(tree.body.folders).toHaveLength(4);
+    const helpers = tree.body.folders.find((f: { name: string }) => f.name === 'Helpers');
+    expect(helpers).toBeDefined();
+    expect(helpers.id).not.toBe(sourceFolderId);
+    expect(tree.body.folders.find((f: { id: string }) => f.id === helpers.parentId)).toMatchObject({
+      fixedKind: 'functions',
+    });
     expect(tree.body.documents).toEqual(
       expect.arrayContaining([
         expect.objectContaining({ type: 'integrations', pinned: true }),
-        expect.objectContaining({ type: 'function', name: 'run', folderId: tree.body.folders[0].id }),
+        expect.objectContaining({ type: 'function', name: 'run', folderId: helpers.id }),
       ]),
     );
     expect(tree.body.documents).toHaveLength(2);
@@ -124,6 +137,73 @@ describe('project export/import (e2e)', () => {
       .get(`/projects/${sourceProjectId}/documents`)
       .set(auth(token));
     expect(originalDocuments.body).toHaveLength(2);
+  });
+
+  it('mints fresh credential ids on import and rewrites every reference to them', async () => {
+    const token = await login(app);
+    const docId = '5d1d9a64-2f4b-4e4b-9d54-0b5b6b4a7c11';
+    const payload = {
+      formatVersion: 1,
+      project: { id: '', name: 'Refs' },
+      folders: [],
+      documents: [
+        {
+          id: '0f0f0f0f-0f0f-4f0f-8f0f-0f0f0f0f0f0f',
+          type: 'integrations',
+          name: 'Integrations',
+          folderId: null,
+          pinned: true,
+          root: null,
+          data: { instances: [{ id: 'cred-1', vendor: 'telegram', name: 'Bot', fields: {} }] },
+        },
+        {
+          id: docId,
+          type: 'function',
+          name: 'run',
+          folderId: null,
+          pinned: false,
+          root: {
+            id: docId,
+            name: 'function',
+            children: [{ id: 'n1', name: 'x', data: { credentialId: 'cred-1', text: 'cred-1' } }],
+          },
+          data: null,
+        },
+      ],
+    };
+    const imported = await request(app.getHttpServer()).post('/projects/import').set(auth(token)).send(payload);
+    expect(imported.status).toBe(201);
+    const documents = await request(app.getHttpServer())
+      .get(`/projects/${imported.body.id}/documents`)
+      .set(auth(token));
+    const integrations = documents.body.find((doc: { type: string }) => doc.type === 'integrations');
+    const newId: string = integrations.data.instances[0].id;
+    expect(newId).not.toBe('cred-1');
+    const fn = documents.body.find((doc: { type: string }) => doc.type === 'function');
+    expect(fn.root.children[0].data).toEqual({ credentialId: newId, text: 'cred-1' });
+  });
+
+  it('rejects (409) an integrations document that uses a credential id already taken by another project', async () => {
+    const token = await login(app);
+    const first = await setUpProject(token);
+    expect(first.projectId).toBeTruthy();
+
+    const second = await request(app.getHttpServer()).post('/projects').set(auth(token)).send({ name: 'Other' });
+    const tree = await request(app.getHttpServer()).get(`/projects/${second.body.id}/tree`).set(auth(token));
+    const integrationsDocId: string = tree.body.documents[0].id;
+
+    const response = await request(app.getHttpServer())
+      .patch(`/projects/${second.body.id}/documents/${integrationsDocId}`)
+      .set(auth(token))
+      .send({ data: { instances: [{ id: 'cred-1', vendor: 'telegram', name: 'Stolen', fields: {} }] } });
+    expect(response.status).toBe(409);
+
+    // The same project keeps being able to re-save its own id.
+    await request(app.getHttpServer())
+      .patch(`/projects/${first.projectId}/documents/${first.integrationsDocId}`)
+      .set(auth(token))
+      .send({ data: { instances: [{ id: 'cred-1', vendor: 'telegram', name: 'Renamed', fields: {} }] } })
+      .expect(200);
   });
 
   it('rejects an import payload with a cyclic folder parentId', async () => {

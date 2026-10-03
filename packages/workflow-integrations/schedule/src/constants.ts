@@ -25,8 +25,8 @@ export const SCHEDULE_CRON_UNUSED_SIGNAL_NAME = 'scheduleCronFireUnused';
  * `registerScheduleBackend` never calls `ctx.registerWebHook`. Distinct, documentation-only paths (no
  * route is ever actually mounted at them).
  */
-export const SCHEDULE_INTERVAL_UNUSED_WEBHOOK_PATH = '/webhooks/schedule/:credentialId/:env/interval-unused';
-export const SCHEDULE_CRON_UNUSED_WEBHOOK_PATH = '/webhooks/schedule/:credentialId/:env/cron-unused';
+export const SCHEDULE_INTERVAL_UNUSED_WEBHOOK_PATH = '/webhooks/schedule/:projectId/:credentialId/:env/interval-unused';
+export const SCHEDULE_CRON_UNUSED_WEBHOOK_PATH = '/webhooks/schedule/:projectId/:credentialId/:env/cron-unused';
 
 export const SCHEDULE_INTERVAL_EVERY_FIELD_NAME = 'every';
 export const SCHEDULE_INTERVAL_UNIT_FIELD_NAME = 'unit';

@@ -14,9 +14,14 @@ test.describe('projects', () => {
 
     await openProjectViaUI(page, name);
     await expect(page.getByText(name, { exact: true })).toBeVisible();
-    // Every project is seeded with a pinned `integrations` document — a fresh tree is never truly
-    // empty, so this is the only tree item a brand-new project shows.
+    // Every project is seeded with a pinned `integrations` document and the three fixed sections
+    // (ADR 0055 (private)) — a fresh tree is never truly empty.
     await expect(page.getByRole('treeitem', { name: '🔌 Integrations' })).toBeVisible();
+    await Promise.all(
+      ['Triggers', 'Functions', 'Types'].map((section) =>
+        expect(page.getByRole('treeitem', { name: section })).toBeVisible(),
+      ),
+    );
   });
 
   test('lists multiple projects and opens the right one', async ({ page }) => {

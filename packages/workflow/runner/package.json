@@ -12,6 +12,7 @@
     "check": "tsc --noEmit -p tsconfig.build.json"
   },
   "dependencies": {
+    "@falang/workflow-egress": "*",
     "@temporalio/activity": "^1.13.0",
     "@temporalio/worker": "^1.13.0",
     "@types/node": "^25.5.0"

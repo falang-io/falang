@@ -35,7 +35,9 @@ export const MCP_TOOLS: readonly IMcpToolDefinition[] = [
     annotations: { readOnlyHint: true },
     description:
       'Read-only. Lists every document and folder in the project (id, name, type, folderId, and — for ' +
-      'documents — current lock state). Call this to find a documentId before get_document/set_document.',
+      'documents — current lock state). Hosts with fixed sections also mark a section folder with `fixedKind` ' +
+      'and a pinned (undeletable, unrenamable) document with `pinned`. Call this to find a documentId before ' +
+      'get_document/set_document.',
     inputSchema: zod.object({}),
     name: 'list_documents',
   },
@@ -60,7 +62,8 @@ export const MCP_TOOLS: readonly IMcpToolDefinition[] = [
     description:
       'Creates a new document of the given type. root is optional — call get_node_kinds first if you intend ' +
       "to pass one; when omitted, the document type's own default (blank) tree is used, ready for a follow-up " +
-      'set_document. A passed root is validated the same way set_document validates one (see its own ' +
+      "set_document. A host may restrict where documents can be placed; omit folderId to use the type's default " +
+      'location, and the error names the allowed location if a given folderId is not allowed. A passed root is validated the same way set_document validates one (see its own ' +
       'description for the first-child/out rule and for `mods`).',
     inputSchema: zod.object({
       folderId: zod.string().nullable().optional(),
@@ -94,7 +97,10 @@ export const MCP_TOOLS: readonly IMcpToolDefinition[] = [
     name: 'rename_document',
   },
   {
-    description: 'Moves a document into a different folder (folderId: null moves it to the project root).',
+    description:
+      'Moves a document into a different folder. folderId: null moves it to the default location (the project ' +
+      "root, or the document type's section in hosts with fixed sections). A host may restrict where documents " +
+      'can be placed; the error names the allowed location.',
     inputSchema: zod.object({ documentId: zod.string(), folderId: nodeIdOrNull }),
     name: 'move_document',
   },
@@ -105,7 +111,9 @@ export const MCP_TOOLS: readonly IMcpToolDefinition[] = [
     name: 'delete_document',
   },
   {
-    description: 'Creates a new, empty folder.',
+    description:
+      'Creates a new, empty folder. A host may restrict where folders can be created (e.g. only inside a ' +
+      'fixed section, never at the project root); the error names the allowed locations.',
     inputSchema: zod.object({ name: zod.string(), parentId: zod.string().nullable().optional() }),
     name: 'create_folder',
   },

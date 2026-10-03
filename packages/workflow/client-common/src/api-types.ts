@@ -26,6 +26,8 @@ export interface IApiUser {
 export interface IApiAuthConfig {
   readonly selfServiceSignup: boolean;
   readonly termsUrl: string | null;
+  /** Integration vendors the deployment switched off (e.g. `sqlite` unless `ENABLE_SQLITE_INTEGRATION=true`) — hidden from the "add integration" picker. */
+  readonly disabledVendors?: readonly string[];
   /** Absent on an older backend — derive from `selfServiceSignup` then. */
   readonly signupMode?: 'off' | 'open' | 'application';
   readonly captcha?: { readonly provider: 'recaptcha'; readonly siteKey: string } | null;

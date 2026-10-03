@@ -6,6 +6,11 @@ import { REGISTERED_INTEGRATIONS } from '../../integrations/registered-integrati
 import { compileProjectDocuments } from './compile-project-documents.js';
 import { typeCheckProject } from './type-check-project.js';
 
+// The `sqlite` vendor is off unless ENABLE_SQLITE_INTEGRATION=true (security audit P0-11); `vi.hoisted` runs before the imports below.
+vi.hoisted(() => {
+  process.env.ENABLE_SQLITE_INTEGRATION = 'true';
+});
+
 // `compileProjectDocuments` type-checks via a real TS program — cold-start cost can exceed
 // vitest's default 5s test timeout when this file runs alongside the rest of the monorepo's suite
 // (confirmed flaky at the default timeout; reliably under it at 20s) — see type-check-project.test.ts.
@@ -36,6 +41,57 @@ describe('compileProjectDocuments', () => {
     // the same strict `ts.Program` as the user's own code (ADR 0022 (private)).
     expect(result.workflows).toContain('__falangEnter("doc-1");');
     expect(result.workflows).toContain('__falangAt("l1");');
+  });
+
+  it('type-checks a debug build with a trigger-function and a function returning returnValue', () => {
+    const trigger: IProjectDocument = {
+      id: 'doc-trigger',
+      type: 'trigger-function',
+      name: 'onMessage',
+      root: {
+        id: 'tf',
+        name: 'trigger-function',
+        children: [
+          { id: 'tf-h', name: 'function-header', data: '' },
+          {
+            id: 'tf-b',
+            name: 'trigger-function-body',
+            data: { vendor: 'telegram', triggerName: 'telegram-trigger', credentialId: 'cred-1' },
+            children: [
+              { id: 'c1', name: 'comment', data: 'Greets back' },
+              { id: 'l1', name: 'log', data: 'got ${message.text}' },
+            ],
+          },
+          { id: 'tf-f', name: 'function-footer', data: '' },
+        ],
+      },
+    };
+    const withReturn: IProjectDocument = {
+      id: 'doc-fn',
+      type: 'function',
+      name: 'isPositive',
+      root: {
+        id: 'fn',
+        name: 'function',
+        children: [
+          { id: 'fn-h', name: 'function-header', data: '' },
+          {
+            id: 'fn-b',
+            name: 'function-body',
+            data: { parameters: [{ name: 'count', type: { type: 'number' } }], returnValue: { type: 'boolean' } },
+            children: [
+              { id: 'a1', name: 'action', data: 'returnValue = count > 0' },
+              { id: 'a2', name: 'action', data: 'count = count + 1', out: { id: 'r1', name: 'return', data: 'returnValue' } },
+            ],
+          },
+          { id: 'fn-f', name: 'function-footer', data: '' },
+        ],
+      },
+    };
+
+    const result = compileProjectDocuments([trigger, withReturn], REGISTERED_INTEGRATIONS, { debug: true });
+    expect(result.workflows).toContain('__falangDebug.trace');
+    expect(result.workflows).toContain('let returnValue!: boolean;');
   });
 
   it('leaves the preview (trackPosition: false) free of the position-tracking runtime', () => {

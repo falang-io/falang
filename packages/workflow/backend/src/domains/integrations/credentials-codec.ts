@@ -6,6 +6,8 @@ import {
   type IIntegrationsDocumentData,
   type IWorkflowIntegration,
 } from '@falang/workflow-integrations-common';
+import { BadRequestException } from '@nestjs/common';
+import { getDisabledVendors } from './optional-vendors.js';
 import { decryptSecret, encryptSecret } from './credentials-crypto.js';
 
 export { SECRET_MASK };
@@ -43,7 +45,12 @@ export const encodeIntegrationsDataForWrite = (
 ): IIntegrationsDocumentData => ({
   instances: incoming.instances.map((instance) => {
     const integration = findIntegration(integrations, instance.vendor);
-    if (!integration) return instance;
+    if (!integration) {
+      if (getDisabledVendors().includes(instance.vendor)) {
+        throw new BadRequestException(`Integration "${instance.vendor}" is disabled on this instance`);
+      }
+      return instance;
+    }
     const previousInstance = findPreviousInstance(previous, instance.id);
 
     const fields: Record<string, IEnvironmentValue | string> = {};

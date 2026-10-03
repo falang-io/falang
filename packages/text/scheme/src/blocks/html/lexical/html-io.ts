@@ -1,5 +1,6 @@
 import type { LexicalEditor, LexicalNode } from 'lexical';
 import { $createParagraphNode, $getRoot, $isDecoratorNode, $isElementNode, CLEAR_HISTORY_COMMAND } from 'lexical';
+import { sanitizeHtml } from '../../../utils/sanitize-html.js';
 import { $generateHtmlFromNodes, $generateNodesFromDOM } from '@lexical/html';
 
 /**
@@ -27,7 +28,7 @@ export const htmlToNodes = (editor: LexicalEditor, html: string): void => {
   // a pre-existing mismatch outside this package) — `DOMParser.parseFromString` stringifies a
   // non-string argument (`null` -> the literal 4-character text "null"), so guard here rather than
   // ever hand it anything but a real string.
-  const safeHtml = typeof html === 'string' ? html : '';
+  const safeHtml = typeof html === 'string' ? sanitizeHtml(html) : '';
   editor.update(
     () => {
       const root = $getRoot();

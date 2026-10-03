@@ -40,6 +40,7 @@ import { LoginDto } from './dto/login.dto.js';
 import { RegisterDto } from './dto/register.dto.js';
 // oxlint-disable-next-line consistent-type-imports
 import { UpdateLanguageDto } from './dto/update-language.dto.js';
+import { getDisabledVendors } from '../../integrations/optional-vendors.js';
 import { Public } from './public.decorator.js';
 import { resolveSignupMode, type TSignupMode } from './signup-mode.js';
 import type { IJwtPayloadUser } from './jwt.strategy.js';
@@ -89,6 +90,7 @@ export class AuthController {
     captcha: ICaptchaPublicConfig | null;
     mailConfigured: boolean;
     selfServiceSignup: boolean;
+    disabledVendors: string[];
   } {
     const signupMode = this.signupMode();
     return {
@@ -97,6 +99,7 @@ export class AuthController {
       captcha: this.captcha.getPublicConfig(),
       mailConfigured: this.mail.isConfigured,
       selfServiceSignup: signupMode !== 'off',
+      disabledVendors: getDisabledVendors(),
     };
   }
 

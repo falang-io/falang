@@ -27,10 +27,10 @@ test.describe('documents and folders', () => {
     const projectName = `Folders ${Date.now()}`;
     await createProjectViaUI(page, projectName);
 
-    await createTreeItemViaUI(page, 'folder', 'Functions');
-    await expect(page.getByRole('treeitem', { name: 'Functions' })).toBeVisible();
+    await createTreeItemInFolderViaUI(page, 'Functions', 'folder', 'Helpers');
+    await expect(page.getByRole('treeitem', { name: 'Helpers' })).toBeVisible();
 
-    await createTreeItemInFolderViaUI(page, 'Functions', 'function', 'nested');
+    await createTreeItemInFolderViaUI(page, 'Helpers', 'function', 'nested');
     await expect(page.getByRole('treeitem', { name: 'nested' })).toBeVisible();
 
     // Reopening the project (no deep-linking — a reload always lands back on the project list,
@@ -38,7 +38,7 @@ test.describe('documents and folders', () => {
     // actually persisted, not just held in local state.
     await page.reload();
     await openProjectViaUI(page, projectName);
-    await expect(page.getByRole('treeitem', { name: 'Functions' })).toBeVisible();
+    await expect(page.getByRole('treeitem', { name: 'Helpers' })).toBeVisible();
     await expect(page.getByRole('treeitem', { name: 'nested' })).toBeVisible();
   });
 
@@ -52,7 +52,7 @@ test.describe('documents and folders', () => {
     await deleteTreeItemViaUI(page, 'standalone');
     await expect(page.getByRole('treeitem', { name: 'standalone' })).toHaveCount(0);
 
-    await createTreeItemViaUI(page, 'folder', 'ToDelete');
+    await createTreeItemInFolderViaUI(page, 'Functions', 'folder', 'ToDelete');
     await createTreeItemInFolderViaUI(page, 'ToDelete', 'function', 'insideFolder');
     await expect(page.getByRole('treeitem', { name: 'insideFolder' })).toBeVisible();
 

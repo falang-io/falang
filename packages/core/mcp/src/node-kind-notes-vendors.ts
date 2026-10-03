@@ -80,18 +80,18 @@ export const VENDOR_NODE_KIND_NOTES: Record<string, string> = {
   ].join(' '),
   'human-task': [
     'BLOCKS the whole workflow until the project owner resolves it from the Tasks page — place it',
-    "AFTER whatever data it needs (`payload`/`attachments`) has already been gathered, never before.",
+    'AFTER whatever data it needs (`payload`/`attachments`) has already been gathered, never before.',
     'Set `timeout` (e.g. `48h`, `3d`) to add a mandatory extra `timeout` branch the flow takes if',
     'nobody resolves it in time — this branch always exists once `timeout` is non-empty and cannot be',
-    "deleted. Each `human-task-option` child is one button the owner can press; a `task` variable",
+    'deleted. Each `human-task-option` child is one button the owner can press; a `task` variable',
     '(`task.resolvedBy`, `task.resolvedAt`) is in scope inside every branch, including `timeout`.',
   ].join(' '),
   'human-task-option': [
     "One button on the task page — `data.label` is the button's visible text. `data.dataType`",
-    "controls what the owner enters before confirming: `void` is a bare button with nothing else;",
-    "`string`/`number`/`boolean` show a typed input (captioned by `data.prompt`, e.g. \"Reason\") whose",
+    'controls what the owner enters before confirming: `void` is a bare button with nothing else;',
+    '`string`/`number`/`boolean` show a typed input (captioned by `data.prompt`, e.g. "Reason") whose',
     'value is bound to a `data` variable in scope for this branch only — this is how you collect a',
-    "rejection reason or a corrected amount, there is no separate free-text comment field. Set its",
+    'rejection reason or a corrected amount, there is no separate free-text comment field. Set its',
     "`out` the same way a `switch-option`'s branch would.",
   ].join(' '),
 };

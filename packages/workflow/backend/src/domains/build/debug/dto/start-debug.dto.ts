@@ -1,5 +1,5 @@
 import { Type } from 'class-transformer';
-import { IsArray, IsBoolean, IsString, MinLength, ValidateNested } from 'class-validator';
+import { IsArray, IsBoolean, IsObject, IsOptional, IsString, MinLength, ValidateNested } from 'class-validator';
 import { DebugLocationDto } from './debug-location.dto.js';
 
 /** Body of `POST /projects/:projectId/debug/start` — mirrors `StartRunDto` plus the breakpoint set to arm before the first statement can run. */
@@ -19,4 +19,9 @@ export class StartDebugDto {
 
   @IsBoolean()
   pauseOnEntry!: boolean;
+
+  /** See `StartRunDto.triggerPayload`. */
+  @IsOptional()
+  @IsObject()
+  triggerPayload?: Record<string, unknown>;
 }

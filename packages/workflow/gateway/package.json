@@ -12,6 +12,7 @@
     "check": "tsc --noEmit -p tsconfig.build.json"
   },
   "dependencies": {
+    "@falang/workflow-egress": "*",
     "@falang/workflow-integrations-common": "*",
     "@nestjs/common": "^11.1.28",
     "@nestjs/config": "^4.0.4",

@@ -1,6 +1,6 @@
 import type { TVariableInfo } from '@falang/typescript-dto';
 import type { TRegisterIntegrationBackend } from './backend-runtime.js';
-import type { IFieldOptionsContext } from './field-options-context.js';
+import type { IBackendEgress, IFieldOptionsContext } from './field-options-context.js';
 import type { IIntegrationInstance } from './integrations-document.js';
 import type { IOAuth2Config } from './oauth2-config.js';
 import type { IQuestionDescriptorExtensions } from './question-extensions.js';
@@ -67,6 +67,8 @@ export interface IFieldConfig {
   ) => Promise<readonly IFieldSelectOption[]>;
   /** Only meaningful for `kind: 'credential-ref'` — restricts to this vendor's instances. */
   readonly vendor?: string;
+  /** Initial value of this field on a freshly inserted node (and what the editor shows for a stored-empty one), e.g. `'[]'` for an optional array expression. Defaults to `''`. */
+  readonly defaultValue?: string;
   /**
    * Only meaningful for `kind: 'expression'`. When set, the editor forces the field to type-check
    * against this type (hidden `let _value: T =` prefix) instead of only the bare enclosing scope —
@@ -275,6 +277,7 @@ export interface IWorkflowIntegration {
   readonly syncVendorData?: (
     credentialFields: Readonly<Record<string, string>>,
     env: 'dev' | 'prod',
+    ctx?: { readonly egress?: IBackendEgress },
   ) => Promise<Record<string, Record<string, unknown>>>;
   /** Struct types derived from one instance's synced vendor data (ADR 0039 (private) §5, e.g. one struct per synced table), registered under a `db:<instanceId>` parent — `[]` (not a throw) when nothing is synced yet. */
   readonly instanceTypes?: (

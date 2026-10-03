@@ -2,6 +2,7 @@ import { Module } from '@nestjs/common';
 import { ConfigModule, ConfigService } from '@nestjs/config';
 import { JwtModule } from '@nestjs/jwt';
 import { PassportModule } from '@nestjs/passport';
+import { resolveJwtSecret } from '../../../config/validate-secrets.js';
 import { MailModule } from '../../mail/mail.module.js';
 import { UsersModule } from '../../users/users/users.module.js';
 import { AuthTokensModule } from '../auth-tokens/auth-tokens.module.js';
@@ -24,7 +25,7 @@ const ACCESS_TOKEN_EXPIRY = '7d';
       imports: [ConfigModule],
       inject: [ConfigService],
       useFactory: (config: ConfigService) => ({
-        secret: config.get<string>('JWT_SECRET', 'dev-secret-change-me'),
+        secret: resolveJwtSecret(config.get<string>('JWT_SECRET'), config.get<string>('NODE_ENV')),
         signOptions: { expiresIn: ACCESS_TOKEN_EXPIRY },
       }),
     }),

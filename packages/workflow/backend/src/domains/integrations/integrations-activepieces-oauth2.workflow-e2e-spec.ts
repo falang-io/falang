@@ -20,6 +20,17 @@ const delay = (ms: number): Promise<void> =>
     setTimeout(resolve, ms);
   });
 
+/** Import mints fresh credential ids (security audit P0-6), so the id the fixture used is not the stored one. */
+const findImportedInstanceId = async (token: string, projectId: string): Promise<string> => {
+  const response = await workflowE2eApi().get(`/projects/${projectId}/documents`).set(workflowE2eAuth(token));
+  const integrations = (
+    response.body as readonly { type: string; data?: { instances: readonly { id: string }[] } }[]
+  ).find((doc) => doc.type === 'integrations');
+  const id = integrations?.data?.instances[0]?.id;
+  if (!id) throw new Error(`No integration instance in project ${projectId}`);
+  return id;
+};
+
 /**
  * Workflow-tier port of the *runtime* half of `@falang/workflow-e2e-tests`'
  * `integrations-activepieces-mock-oauth2.spec.ts` — see ADR 0018 (private).
@@ -114,13 +125,14 @@ describe('integrations (workflow tier, mock service): ActivePieces OAuth2', () =
     expect(importResponse.status).toBe(201);
     const projectId = importResponse.body.id as string;
 
+    const importedCredentialId = await findImportedInstanceId(token, projectId);
     try {
       // Same dance a real "Connect" click drives: POST /oauth2/start for the authorizeUrl, follow
       // it to the mock's auto-approving redirect, follow *that* to the backend's own callback —
       // see this file's own doc comment for why each hop's docker-internal hostname is rewritten
       // first.
       const startResponse = await workflowE2eApi()
-        .post(`/projects/${projectId}/integrations/${credentialId}/oauth2/start`)
+        .post(`/projects/${projectId}/integrations/${importedCredentialId}/oauth2/start`)
         .set(workflowE2eAuth(token));
       expect(startResponse.status).toBe(201);
       const authorizeUrl = (startResponse.body as { authorizeUrl: string }).authorizeUrl.replace(

@@ -177,10 +177,10 @@ const FieldEditorComponent: React.FC<{
 /** The compact single-row-per-field layout every inline action (e.g. `telegram-send-message`) uses. */
 const InlineActionEditorComponent: TBlockEditorView<IntegrationActionEditorStore> = observer(({ editor }) => {
   const t = useService(TOKEN_I18N).t;
+  // No title here: the icon's own `BlockTitle` (`title` of the node config) stays rendered above the editor.
   return (
     <TypeScriptBlockContainer>
       <div className="workflow-integration-editor">
-        <div className="workflow-integration-editor__title">{t(editor.action.label)}</div>
         <table className="ts-table ts-table--fixed">
           <tbody>
             {editor.action.fields.map((field) => (

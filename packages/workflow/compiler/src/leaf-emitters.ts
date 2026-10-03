@@ -1,4 +1,4 @@
-import type { INode } from '@falang/dto';
+import { COMMENT_NAME, type INode } from '@falang/dto';
 import { defaultValueExpression, variableInfoToTsType, type TVariableInfo } from '@falang/typescript-dto';
 import { ACTIVEPIECES_ACTION_NAME, type TActivepiecesActionData } from '@falang/workflow-dto';
 import { escapeTemplateLiteralBody } from './escape-template-literal.js';
@@ -95,6 +95,16 @@ export const emitCallFunction = (node: INode, resolveFunctionName: TResolveFunct
 
 const emitThrow = (node: INode): string => `throw ${asExpression(node.data as string)};`;
 
+/** A comment node (`@falang/dto`'s `commentCfg`): each line becomes a `//` comment — safe for any text, unlike `/* … *\/`. */
+export const emitComment = (node: INode): string => {
+  const text = (typeof node.data === 'string' ? node.data : '').trim();
+  if (text === '') return '';
+  return text
+    .split(/\r?\n/)
+    .map((line) => (line.trim() === '' ? '//' : `// ${line.trimEnd()}`))
+    .join('\n');
+};
+
 const emitReturn = (node: INode): string => `return ${asExpression(node.data as string)};`;
 
 /**
@@ -128,5 +138,6 @@ export const LEAF_EMITTERS: Record<string, (node: INode) => string> = {
   'arr-slice': emitArrSlice,
   throw: emitThrow,
   return: emitReturn,
+  [COMMENT_NAME]: emitComment,
   [ACTIVEPIECES_ACTION_NAME]: emitActivepiecesAction,
 };

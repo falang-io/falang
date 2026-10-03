@@ -1,3 +1,4 @@
+import { WORKFLOW_FIXED_FOLDER_KINDS } from '@falang/workflow-dto';
 import type { DependencyContainer } from '@falang/di';
 import type { INode } from '@falang/dto';
 import { getDto, type Scheme, type ITheme } from '@falang/scheme';
@@ -29,9 +30,16 @@ const orderLikeTree = (
   parentId: string | null,
 ): WorkflowDocument[] => {
   const result: WorkflowDocument[] = [];
-  for (const folder of folders) {
-    if (folder.parentId === parentId) result.push(...orderLikeTree(folders, documents, folder.id));
+  const level = folders.filter((folder) => folder.parentId === parentId);
+  if (parentId === null) {
+    // Fixed sections first, in config order (ADR 0055 (private)); anything else after them.
+    const rank = (folder: WorkflowFolder): number => {
+      const index = (WORKFLOW_FIXED_FOLDER_KINDS as readonly (string | null | undefined)[]).indexOf(folder.fixedKind);
+      return index === -1 ? WORKFLOW_FIXED_FOLDER_KINDS.length : index;
+    };
+    level.sort((a, b) => rank(a) - rank(b));
   }
+  for (const folder of level) result.push(...orderLikeTree(folders, documents, folder.id));
   for (const doc of documents) {
     if (doc.folderId === parentId) result.push(doc);
   }

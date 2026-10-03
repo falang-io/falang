@@ -3,6 +3,7 @@ import type { TypesRegistryStore } from '@falang/typescript-scheme';
 import type { TTriggerFunctionBodyData } from '@falang/workflow-dto';
 import type { IIntegrationInstance } from '@falang/workflow-integrations-common';
 import type { IApiVendorData } from '../api-types.js';
+import type { IProjectTreeFolder } from '@falang/dto';
 import type { DocumentType, WorkflowDocument } from '../workflow-types.js';
 
 /**
@@ -16,6 +17,8 @@ import type { DocumentType, WorkflowDocument } from '../workflow-types.js';
 export interface IWorkflowAgentStore {
   /** Every project document (pinned ones included — the `integrations` document is where instances live). */
   readonly documents: readonly WorkflowDocument[];
+  /** Every project folder (`fixedKind` marks the root section folders, ADR 0055 (private)). */
+  readonly folders: readonly IProjectTreeFolder[];
   getDocument(documentId: string): WorkflowDocument | undefined;
   /** The document's live `Scheme`, built on demand; throws for an unknown or pinned document. */
   getScheme(documentId: string): Scheme;

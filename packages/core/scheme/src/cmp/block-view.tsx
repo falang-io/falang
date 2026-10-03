@@ -131,7 +131,7 @@ export const BlockView: React.FC<{ icon: IconStore }> = observer(({ icon }) => {
   return (
     <BlockEventsDiv icon={icon} scheme={scheme}>
       <BlockShapeContainer theme={scheme.theme.value}>
-        <ShapeView {...blockPosition} className={shapeClassName} height={icon.blockHeight} />
+        <ShapeView {...blockPosition} className={shapeClassName} height={icon.blockHeight} icon={icon} />
       </BlockShapeContainer>
       <BlockContainer icon={icon} key={icon.id}>
         {BlockExtraView ? (

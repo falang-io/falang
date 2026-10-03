@@ -12,7 +12,7 @@ describe('IntegrationWebhookController', () => {
     const controller = buildController(vi.fn().mockReturnValue(handler));
 
     const rawBody = Buffer.from('event=ONCRMLEADADD&data%5BFIELDS%5D%5BID%5D=123');
-    const result = await controller.handleRoot('bitrix24', 'cred-1', 'dev', {
+    const result = await controller.handleRoot('bitrix24', 'project-1', 'cred-1', 'dev', {
       headers: { 'content-type': 'application/x-www-form-urlencoded' },
       rawBody,
     });
@@ -31,7 +31,7 @@ describe('IntegrationWebhookController', () => {
     const controller = buildController(vi.fn().mockReturnValue(handler));
 
     const rawBody = Buffer.from(JSON.stringify({ type: 'notification', event: 'payment.succeeded' }));
-    await controller.handleRoot('yookassa', 'cred-1', 'dev', {
+    await controller.handleRoot('yookassa', 'project-1', 'cred-1', 'dev', {
       headers: { 'content-type': 'application/json' },
       rawBody,
     });
@@ -47,12 +47,12 @@ describe('IntegrationWebhookController', () => {
     const findWebhookHandler = vi.fn().mockReturnValue(vi.fn().mockResolvedValue(new Response(null, { status: 200 })));
     const controller = buildController(findWebhookHandler);
 
-    await controller.handleWithUri('webhook', 'cred-1', 'prod', 'trigger-doc-1', {
+    await controller.handleWithUri('webhook', 'project-1', 'cred-1', 'prod', 'trigger-doc-1', {
       headers: {},
       rawBody: Buffer.from('{}'),
     });
 
-    expect(findWebhookHandler).toHaveBeenCalledWith('webhook', 'cred-1', 'prod', 'trigger-doc-1');
+    expect(findWebhookHandler).toHaveBeenCalledWith('webhook', 'project-1', 'cred-1', 'prod', 'trigger-doc-1');
   });
 
   it('rejects an invalid env before ever looking up a handler', async () => {
@@ -60,7 +60,7 @@ describe('IntegrationWebhookController', () => {
     const controller = buildController(findWebhookHandler);
 
     await expect(
-      controller.handleRoot('webhook', 'cred-1', 'staging', { headers: {}, rawBody: Buffer.from('{}') }),
+      controller.handleRoot('webhook', 'project-1', 'cred-1', 'staging', { headers: {}, rawBody: Buffer.from('{}') }),
     ).rejects.toBeInstanceOf(BadRequestException);
     expect(findWebhookHandler).not.toHaveBeenCalled();
   });
@@ -69,7 +69,7 @@ describe('IntegrationWebhookController', () => {
     const controller = buildController(vi.fn().mockReturnValue(null));
 
     await expect(
-      controller.handleRoot('webhook', 'cred-1', 'dev', { headers: {}, rawBody: Buffer.from('{}') }),
+      controller.handleRoot('webhook', 'project-1', 'cred-1', 'dev', { headers: {}, rawBody: Buffer.from('{}') }),
     ).rejects.toBeInstanceOf(NotFoundException);
   });
 
@@ -77,7 +77,7 @@ describe('IntegrationWebhookController', () => {
     const handler = vi.fn((_request: Request) => new Response(null, { status: 200 }));
     const controller = buildController(vi.fn().mockReturnValue(handler));
 
-    await controller.handleRoot('webhook', 'cred-1', 'dev', { headers: {}, rawBody: Buffer.from('') });
+    await controller.handleRoot('webhook', 'project-1', 'cred-1', 'dev', { headers: {}, rawBody: Buffer.from('') });
 
     const capturedRequest = handler.mock.calls[0][0];
     expect(capturedRequest.headers.has('content-type')).toBe(false);

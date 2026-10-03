@@ -1,0 +1,106 @@
+# Static config of temporalio/server 1.32.x WITHOUT authorization (`TEMPORAL_TENANT_ISOLATION=shared`, the
+# dev/self-host default; ADR 0057 (private)). Anyone who can reach port 7233 has full access — do not
+# expose it beyond the docker network / localhost. (1.32 logs a warning about the missing authorizer;
+# the `--allow-no-auth` flag it mentions is not defined yet in 1.32.0.)
+# The 1.32 image has no config_template.yaml/dockerize/`DB=…` variables (the old `auto-setup` image ended
+# at 1.29.7), so this is a plain static file — no templating, hence the literals below (one Temporal
+# container, DB host `postgresql`, password `temporal` — change it here too if you override
+# TEMPORAL_DB_PASSWORD in the compose file).
+# Selected in docker-compose.workflow.yml via TEMPORAL_SERVER_CONFIG. The authorized twin is server.yaml —
+# keep the two in sync except for `global.authorization`.
+#
+# Layout of the roles:
+#   frontend (7233)          — public gRPC (no authorization in this file).
+#   internal-frontend (7236) — Temporal's own system worker, setup jobs and admin-tools. Never publish it.
+log:
+  stdout: true
+  level: info
+persistence:
+  numHistoryShards: 4
+  defaultStore: default
+  visibilityStore: visibility
+  datastores:
+    default:
+      sql:
+        pluginName: postgres12
+        databaseName: temporal
+        connectAddr: postgresql:5432
+        connectProtocol: tcp
+        user: temporal
+        password: temporal
+        maxConns: 20
+        maxIdleConns: 20
+        maxConnLifetime: 1h
+    visibility:
+      sql:
+        pluginName: postgres12
+        databaseName: temporal_visibility
+        connectAddr: postgresql:5432
+        connectProtocol: tcp
+        user: temporal
+        password: temporal
+        maxConns: 10
+        maxIdleConns: 10
+        maxConnLifetime: 1h
+dynamicConfigClient:
+  filepath: /cfg/dynamicconfig.yaml
+  pollInterval: 10s
+global:
+  membership:
+    maxJoinDuration: 30s
+    broadcastAddress: 127.0.0.1
+  pprof:
+    port: 7936
+services:
+  frontend:
+    rpc:
+      grpcPort: 7233
+      membershipPort: 6933
+      bindOnIP: 0.0.0.0
+      httpPort: 7243
+  internal-frontend:
+    rpc:
+      grpcPort: 7236
+      membershipPort: 6936
+      bindOnIP: 0.0.0.0
+  history:
+    rpc:
+      grpcPort: 7234
+      membershipPort: 6934
+      bindOnIP: 0.0.0.0
+  matching:
+    rpc:
+      grpcPort: 7235
+      membershipPort: 6935
+      bindOnIP: 0.0.0.0
+  worker:
+    rpc:
+      grpcPort: 7239
+      membershipPort: 6939
+      bindOnIP: 0.0.0.0
+# `publicClient` must stay unset: with internal-frontend the config validation fails otherwise.
+clusterMetadata:
+  enableGlobalNamespace: false
+  failoverVersionIncrement: 10
+  masterClusterName: active
+  currentClusterName: active
+  clusterInformation:
+    active:
+      enabled: true
+      initialFailoverVersion: 1
+      rpcName: frontend
+      rpcAddress: localhost:7233
+      httpAddress: localhost:7243
+dcRedirectionPolicy:
+  policy: noop
+archival:
+  history:
+    state: disabled
+  visibility:
+    state: disabled
+namespaceDefaults:
+  archival:
+    history:
+      state: disabled
+    visibility:
+      state: disabled

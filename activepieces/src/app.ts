@@ -28,7 +28,11 @@ export const createApp = (): Express => {
     app.use(mockOAuth2Router);
   }
 
-  app.use(requireServiceSecret, piecesRouter, runRouter, pollRouter, optionsRouter);
+  // `runRouter` authenticates per route with the caller's own project token (runner pods hold no
+  // shared secret), so it must not sit behind `requireServiceSecret`. Everything below is
+  // backend -> activepieces only (catalog, polling, field options) and uses the shared secret.
+  app.use(runRouter);
+  app.use(requireServiceSecret, piecesRouter, pollRouter, optionsRouter);
   // Test-only fixture endpoints — see `mock-piece.ts` and ADR 0013 (private).
   if (process.env.NODE_ENV === 'test') {
     app.use(requireServiceSecret, mockRouter);

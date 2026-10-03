@@ -1,3 +1,5 @@
+import { parseSqlConnectionString } from './connection-string.js';
+
 /**
  * Resolves one SQL credential field (`connectionString`/`ssl`) to its real, decrypted value via
  * `@falang/workflow-backend`'s internal credential-resolve endpoint — same trust boundary/mechanism
@@ -48,5 +50,9 @@ export const resolveSqlCredentialField = async (
     throw new Error(`Failed to resolve SQL credential ${credentialId}: ${response.status} ${await response.text()}`);
   }
   const data = (await response.json()) as { value: string };
+  // Same allow-list the backend applies: a pod never connects with a socket path / file-reading parameter either.
+  if (field === 'connectionString' && (vendor === 'postgres' || vendor === 'mysql')) {
+    parseSqlConnectionString(vendor, data.value);
+  }
   return data.value;
 };

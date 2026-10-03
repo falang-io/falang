@@ -7,10 +7,21 @@ export interface IRunnerConfig {
   readonly taskQueue: string;
   readonly temporalAddress?: string;
   readonly namespace?: string;
+  /**
+   * Where to fetch (and every half-TTL refresh) this pod's Temporal JWT from — set by `backend` only in
+   * `per-project` tenant-isolation mode (ADR 0057 (private)); absent = the pre-isolation tokenless connection.
+   */
+  readonly temporalTokenUrl?: string;
+  /** `TEMPORAL_TLS` — `undefined` when not set (the SDK default applies: no TLS without a token). With a token the SDK would turn TLS on by itself, so `start-runner.ts` pins `tls: false` unless this is `true`. */
+  readonly temporalTls?: boolean;
   /** Worker Deployment name (see ADR 0004 (private)) — set together with `buildId`, or omitted for the unversioned dev pod. */
   readonly deploymentName?: string;
   /** Worker Deployment version's build ID — set together with `deploymentName`; also selects the published-version artifact endpoint over the dev one, see `fetch-artifact.ts`. */
   readonly buildId?: string;
+  /** `backend`'s in-cluster URL (egress proxy config, ADR 0056 (private)); egress routing is skipped when unset. */
+  readonly backendUrl?: string;
+  /** Sibling services whose origins are never routed through an egress proxy. */
+  readonly internalServiceUrls?: readonly string[];
 }
 
 const REQUIRED_ENV_VARS = ['ARTIFACT_BASE_URL', 'PROJECT_ID', 'INTERNAL_PROJECT_TOKEN', 'TASK_QUEUE'] as const;
@@ -34,7 +45,13 @@ export const readRunnerConfigFromEnv = (env: NodeJS.ProcessEnv = process.env): I
     taskQueue: env.TASK_QUEUE as string,
     temporalAddress: env.TEMPORAL_ADDRESS,
     namespace: env.TEMPORAL_NAMESPACE,
+    temporalTokenUrl: env.TEMPORAL_TOKEN_URL,
+    ...(env.TEMPORAL_TLS ? { temporalTls: env.TEMPORAL_TLS === 'true' } : {}),
     deploymentName: env.DEPLOYMENT_NAME,
     buildId: env.BUILD_ID,
+    backendUrl: env.BACKEND_INTERNAL_URL,
+    internalServiceUrls: [env.ACTIVEPIECES_SERVICE_URL, env.MEDIA_SERVICE_URL].filter(
+      (url): url is string => typeof url === 'string' && url !== '',
+    ),
   };
 };

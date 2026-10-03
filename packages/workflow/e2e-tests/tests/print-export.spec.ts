@@ -2,6 +2,7 @@ import { mkdirSync, writeFileSync } from 'node:fs';
 import { PDFDocument } from 'pdf-lib';
 import { test, expect } from './fixtures.js';
 import {
+  clickProjectMenuItem,
   createApiContext,
   createProjectViaUI,
   createTreeItemViaUI,
@@ -39,7 +40,7 @@ test.describe('print export to PDF', () => {
     await api.patch(`/projects/${projectId}/documents/${smallId}`, {
       data: { root: buildFunctionNode(smallId, [buildLogNode(`${smallId}-log`, 'hi')]) },
     });
-    const manyLogs = Array.from({ length: 90 }, (_, i) => buildLogNode(`${tallId}-log-${i}`, `line ${i}`));
+    const manyLogs = Array.from({ length: 60 }, (_, i) => buildLogNode(`${tallId}-log-${i}`, `line ${i}`));
     await api.patch(`/projects/${projectId}/documents/${tallId}`, {
       data: { root: buildFunctionNode(tallId, manyLogs) },
     });
@@ -47,7 +48,7 @@ test.describe('print export to PDF', () => {
     await openProjectViaUI(page, projectName);
     await page.getByRole('treeitem', { name: 'small' }).waitFor();
 
-    await page.getByRole('button', { name: 'PDF' }).click();
+    await clickProjectMenuItem(page, 'Download PDF');
     await expect(page.getByTestId('print-export-modal')).toBeVisible();
     await page.getByTestId('print-export-ok').click();
 

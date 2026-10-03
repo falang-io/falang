@@ -4,6 +4,7 @@ import { getPiece } from '../pieces/registry.js';
 import { buildTriggerContext, createTriggerStore } from '../pieces/context.js';
 import { resolveAuthValue } from '../pieces/auth-resolver.js';
 import { NotFoundError } from '../credentials.js';
+import { runWithPieceEgress } from '../egress/index.js';
 
 export const pollRouter = Router();
 
@@ -16,8 +17,9 @@ const triggerStates = new Map<string, Map<string, unknown>>();
 /** Tracks which keys have already had `onEnable` run once — required before the first `run()` so pieces like WordPress can seed `lastPoll`/`lastItem` to "now" instead of replaying history. */
 const enabledTriggers = new Set<string>();
 
-const triggerStateKey = (credentialId: string, pieceName: string, triggerName: string): string =>
-  `${credentialId}:${pieceName}:${triggerName}`;
+/** **Must** include `projectId`: credential ids are client-chosen, so two projects can share one and would otherwise share poll state (security audit P0-6, ADR 0044 (private)). */
+const triggerStateKey = (projectId: string, credentialId: string, pieceName: string, triggerName: string): string =>
+  JSON.stringify([projectId, credentialId, pieceName, triggerName]);
 
 /**
  * Polled by `@falang/workflow-integrations-activepieces`'s `registerBackend` on an interval — see
@@ -48,21 +50,23 @@ pollRouter.post('/credentials/:credentialId/pieces/:pieceName/triggers/:triggerN
       return;
     }
 
-    const authValue = await resolveAuthValue(pieceName, piece, credentialId, projectId, internalProjectToken);
-    const key = triggerStateKey(credentialId, pieceName, triggerName);
-    let state = triggerStates.get(key);
-    if (!state) {
-      state = new Map<string, unknown>();
-      triggerStates.set(key, state);
-    }
-    const context = buildTriggerContext(propsValue, authValue, createTriggerStore(state));
+    const items = await runWithPieceEgress(pieceName, { projectId, internalProjectToken }, async () => {
+      const authValue = await resolveAuthValue(pieceName, piece, credentialId, projectId, internalProjectToken);
+      const key = triggerStateKey(projectId, credentialId, pieceName, triggerName);
+      let state = triggerStates.get(key);
+      if (!state) {
+        state = new Map<string, unknown>();
+        triggerStates.set(key, state);
+      }
+      const context = buildTriggerContext(propsValue, authValue, createTriggerStore(state));
 
-    if (!enabledTriggers.has(key)) {
-      await trigger.onEnable(context as unknown as Parameters<typeof trigger.onEnable>[0]);
-      enabledTriggers.add(key);
-    }
+      if (!enabledTriggers.has(key)) {
+        await trigger.onEnable(context as unknown as Parameters<typeof trigger.onEnable>[0]);
+        enabledTriggers.add(key);
+      }
 
-    const items = await trigger.run(context as unknown as Parameters<typeof trigger.run>[0]);
+      return trigger.run(context as unknown as Parameters<typeof trigger.run>[0]);
+    });
     res.json({ items });
   } catch (error) {
     if (error instanceof NotFoundError) {

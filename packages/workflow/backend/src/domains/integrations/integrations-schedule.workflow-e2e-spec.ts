@@ -245,7 +245,7 @@ describe('integrations (workflow tier): Schedule', () => {
       const started = runResponse.body as IStartedDevRun;
       expect(started.workflowId).toBeTruthy();
 
-      const result = await workflowE2eAwaitWorkflowResult(started.workflowId);
+      const result = await workflowE2eAwaitWorkflowResult(started.workflowId, projectId);
       expect(result).toBeUndefined();
 
       await workflowE2eApi().post(`/projects/${projectId}/stop`).set(workflowE2eAuth(token)).expect(204);

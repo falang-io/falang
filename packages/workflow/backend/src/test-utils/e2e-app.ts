@@ -20,6 +20,7 @@ import { PersonalAccessToken } from '../domains/auth/personal-access-tokens/pers
 import { PersonalAccessTokensModule } from '../domains/auth/personal-access-tokens/personal-access-tokens.module.js';
 import { FILE_STORAGE } from '../domains/files/file-storage.js';
 import { File } from '../domains/files/file.entity.js';
+import { EgressProxyModule } from '../domains/egress-proxy/egress-proxy.module.js';
 import { FilesModule } from '../domains/files/files.module.js';
 import { InMemoryFileStorage } from '../domains/files/in-memory-file-storage.js';
 import { IntegrationsModule } from '../domains/integrations/integrations.module.js';
@@ -32,6 +33,7 @@ import { FoldersModule } from '../domains/projects/folders/folders.module.js';
 import { AgentUsage } from '../domains/agent-chat/agent-usage.entity.js';
 import { Project } from '../domains/projects/projects/project.entity.js';
 import { ProjectsModule } from '../domains/projects/projects/projects.module.js';
+import { TemporalModule } from '../domains/temporal/temporal.module.js';
 import { ProjectTemplate } from '../domains/projects/templates/project-template.entity.js';
 import { ProjectTemplatesModule } from '../domains/projects/templates/project-templates.module.js';
 import { TreeModule } from '../domains/projects/tree/tree.module.js';
@@ -97,6 +99,8 @@ export const buildTestAppImports = (extraModules: TAppImport[] = []) => [
   AgentChatModule,
   SupportModule,
   FilesModule,
+  TemporalModule,
+  EgressProxyModule,
   GatewayModule.forRoot([], noopDiscoveryPort),
   ...extraModules,
 ];
@@ -124,6 +128,8 @@ export const createTestApp = async (
   // Signup is off by default in production; most suites register users through the API, so the
   // harness opts in unless a test explicitly set the flag first (`vi.stubEnv` after this call wins).
   process.env.SELF_SERVICE_SIGNUP ??= 'true';
+  // The default admin seed is off by default (P0-12); the specs log in as admin/admin.
+  process.env.SEED_DEFAULT_ADMIN ??= 'true';
   const moduleRef = await Test.createTestingModule({
     imports: buildTestAppImports(),
     providers: [{ provide: APP_GUARD, useClass: JwtAuthGuard }],

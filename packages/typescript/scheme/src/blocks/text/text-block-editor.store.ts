@@ -1,4 +1,5 @@
 import { BlockEditorStore, type IBlockEditorFactoryParams } from '@falang/scheme';
+import { decodeLegacyHtml } from '../expression/decode-legacy-html.js';
 import { action, makeObservable, observable } from 'mobx';
 
 export class TextBlockEditorStore extends BlockEditorStore<string> {
@@ -6,7 +7,7 @@ export class TextBlockEditorStore extends BlockEditorStore<string> {
 
   constructor(params: IBlockEditorFactoryParams<string>) {
     super(params);
-    this.data = params.data;
+    this.data = decodeLegacyHtml(params.data ?? '');
     makeObservable(this);
   }
 

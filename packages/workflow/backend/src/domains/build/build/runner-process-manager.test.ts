@@ -308,4 +308,69 @@ describe('RunnerProcessManager', () => {
     expect(containerSecurity?.allowPrivilegeEscalation).toBe(false);
     expect(containerSecurity?.capabilities?.drop).toEqual(['ALL']);
   });
+
+  it('never mounts a service-account token or service-link env vars into the pod, and omits serviceAccountName when unset', async () => {
+    const { manager, client } = createManager();
+
+    await manager.start({ taskQueue: 'workflow-1', projectId: 'p', internalProjectToken: 't', workflowEnv: 'dev' });
+
+    const podSpec = client.deployments.get('workflow-1')?.spec?.template?.spec;
+    expect(podSpec?.automountServiceAccountToken).toBe(false);
+    expect(podSpec?.enableServiceLinks).toBe(false);
+    expect(podSpec?.serviceAccountName).toBeUndefined();
+  });
+
+  it('sets serviceAccountName from runnerServiceAccount (RUNNER_SERVICE_ACCOUNT)', async () => {
+    const { manager, client } = createManager({ runnerServiceAccount: 'workflow-runner' });
+
+    await manager.start({ taskQueue: 'workflow-1', projectId: 'p', internalProjectToken: 't', workflowEnv: 'dev' });
+
+    const podSpec = client.deployments.get('workflow-1')?.spec?.template?.spec;
+    expect(podSpec?.serviceAccountName).toBe('workflow-runner');
+    expect(podSpec?.automountServiceAccountToken).toBe(false);
+  });
+});
+
+describe('RunnerProcessManager tenant isolation (ADR 0057 (private))', () => {
+  it("registers the project's Temporal namespace before the pod is created, and gives the pod its own namespace and token URL", async () => {
+    const calls: string[] = [];
+    const { manager, client } = createManager({
+      internalApiUrl: 'http://backend:3001',
+      tenancy: {
+        mode: 'per-project',
+        namespaceFor: (projectId) => `falang-${projectId}`,
+        ensureNamespace: (projectId) => {
+          calls.push(`ensure:${projectId}`);
+          return Promise.resolve();
+        },
+      },
+    });
+    const originalApply = client.apply.bind(client);
+    client.apply = (namespace, deployment) => {
+      calls.push('apply');
+      return originalApply(namespace, deployment);
+    };
+
+    await manager.start({ taskQueue: 'workflow-dev-p1', projectId: 'p1', internalProjectToken: 't', workflowEnv: 'dev' });
+
+    expect(calls).toEqual(['ensure:p1', 'apply']);
+    const deployment = client.deployments.get('workflow-dev-p1');
+    expect(envOf(deployment, 'TEMPORAL_NAMESPACE')).toBe('falang-p1');
+    expect(envOf(deployment, 'TEMPORAL_TOKEN_URL')).toBe('http://backend:3001/internal/projects/p1/temporal-token');
+  });
+
+  it('does not create the pod when the namespace cannot be registered', async () => {
+    const { manager, client } = createManager({
+      tenancy: {
+        mode: 'per-project',
+        namespaceFor: (projectId) => `falang-${projectId}`,
+        ensureNamespace: () => Promise.reject(new Error('Request unauthorized.')),
+      },
+    });
+
+    await expect(
+      manager.start({ taskQueue: 'workflow-p1', projectId: 'p1', internalProjectToken: 't', workflowEnv: 'prod', buildId: 'v1' }),
+    ).rejects.toThrow('Request unauthorized.');
+    expect(client.deployments.size).toBe(0);
+  });
 });

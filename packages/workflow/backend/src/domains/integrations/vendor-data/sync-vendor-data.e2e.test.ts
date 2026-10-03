@@ -7,6 +7,11 @@ import request from 'supertest';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { auth, createTestApp, login } from '../../../test-utils/e2e-app.js';
 
+// The `sqlite` vendor is off unless ENABLE_SQLITE_INTEGRATION=true (security audit P0-11); `vi.hoisted` runs before the imports below.
+vi.hoisted(() => {
+  process.env.ENABLE_SQLITE_INTEGRATION = 'true';
+});
+
 /**
  * Covers ADR 0039 (private) §4's
  * `POST /projects/:id/integrations/:credentialId/sync-schema` route, using the real (in-process)

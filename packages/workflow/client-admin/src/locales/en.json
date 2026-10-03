@@ -9,7 +9,8 @@
       "logout": "Logout",
       "change-password": "Change password",
       "project-templates-menu": "Project templates",
-      "support-menu": "User support"
+      "support-menu": "User support",
+      "proxy-menu": "Proxy"
     },
     "forbidden": {
       "title": "403",
@@ -170,6 +171,29 @@
       "empty": "No messages.",
       "you": "Administrator",
       "no-threads": "No conversations yet."
+    },
+    "proxy-settings-page": {
+      "description": "Route outgoing HTTP requests of selected integrations through a proxy service, for APIs that are not reachable from this deployment's region. Run the falang-proxy service in a region where those APIs are reachable and enter its address here. Database integrations (postgres, mysql, sqlite) are not HTTP and are not affected.",
+      "configured": "Configured",
+      "not-configured": "Not configured",
+      "updated-at": "Last updated {{date}}",
+      "url-label": "Proxy URL",
+      "url-invalid": "The URL must start with http:// or https://",
+      "token-label": "Proxy token",
+      "token-extra": "Leave empty to keep the currently stored token.",
+      "vendors-label": "Integrations",
+      "vendors-placeholder": "Select integrations whose requests go through the proxy",
+      "group-builtin": "Built-in",
+      "group-activepieces": "ActivePieces",
+      "save": "Save",
+      "saved": "Proxy settings saved",
+      "reset": "Reset",
+      "reset-title": "Reset proxy settings",
+      "reset-description": "Remove the proxy URL, token and the integration list? All integrations will connect directly again.",
+      "load-failed": "Failed to load proxy settings",
+      "vendors-load-failed": "Failed to load the integrations list",
+      "save-failed": "Failed to save proxy settings",
+      "delete-failed": "Failed to reset proxy settings"
     }
   }
 }

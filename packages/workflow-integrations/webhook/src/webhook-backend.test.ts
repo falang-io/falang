@@ -71,7 +71,7 @@ describe('registerWebhookBackend', () => {
     expect(ctxNoPublicHost.registerWebHook).toHaveBeenCalled();
     expect(ctxNoPublicHost.registerInterval).not.toHaveBeenCalled();
 
-    const ctxPublicHost = buildCtx({ webhookUrl: 'https://example.com/webhooks/webhook/cred-1/dev' });
+    const ctxPublicHost = buildCtx({ webhookUrl: 'https://example.com/webhooks/webhook/p/cred-1/dev' });
     await registerWebhookBackend(ctxPublicHost);
     expect(ctxPublicHost.registerWebHook).toHaveBeenCalled();
   });
@@ -94,7 +94,7 @@ describe('registerWebhookBackend', () => {
     await registerWebhookBackend(ctx);
 
     const handler = ctx.registeredWebhooks.get('doc-trigger-1');
-    const request = new Request('http://localhost/webhooks/webhook/cred-1/dev/doc-trigger-1', {
+    const request = new Request('http://localhost/webhooks/webhook/p/cred-1/dev/doc-trigger-1', {
       method: 'POST',
       headers: { 'content-type': 'application/json' },
       body: JSON.stringify({ hello: 'world' }),

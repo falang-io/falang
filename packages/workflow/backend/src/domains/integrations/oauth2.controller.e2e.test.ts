@@ -1,7 +1,17 @@
 import type { INestApplication } from '@nestjs/common';
 import request from 'supertest';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import type * as EgressGuardModule from '../../net/egress-guard.js';
 import { auth, createTestApp, login } from '../../test-utils/e2e-app.js';
+
+// The real egress guard talks to the network; these tests stub the global `fetch`, so route the guard's `fetch` to it.
+vi.mock('../../net/egress-guard.js', async (importOriginal) => ({
+  ...(await importOriginal<typeof EgressGuardModule>()),
+  getBackendEgress: () => ({
+    fetch: (url: string, init?: RequestInit) => globalThis.fetch(url, init),
+    resolveHost: (host: string) => Promise.resolve(host),
+  }),
+}));
 
 const oauthPieceCatalog = [
   {
@@ -184,6 +194,18 @@ describe('OAuth2 authorization-code flow (/oauth2/start + /oauth2/callback)', ()
     const integrationsDoc = documentsResponse.body.find((doc: { id: string }) => doc.id === integrationsDocId);
     const instance = integrationsDoc.data.instances.find((candidate: { id: string }) => candidate.id === 'cred-1');
     expect(instance.fields.access_token).toEqual({ dev: '••••••••', prod: '' });
+  });
+
+  it('escapes attacker-controlled callback parameters and sends hardening headers (reflected XSS)', async () => {
+    const payload = encodeURIComponent('</script><script>alert(1)</script>');
+    const response = await request(app.getHttpServer()).get(
+      `/oauth2/callback/activepieces-oauthpiece?error=${payload}&state=x`,
+    );
+
+    expect(response.text).not.toContain('<script>alert(1)');
+    expect(response.headers['content-security-policy']).toMatch(/script-src 'sha256-/);
+    expect(response.headers['content-security-policy']).not.toContain('unsafe-inline');
+    expect(response.headers['x-content-type-options']).toBe('nosniff');
   });
 
   it('rejects a reused or unknown state', async () => {

@@ -54,7 +54,7 @@ const buildCtx = (
     projectId: 'project-1',
     env: 'prod',
     fields: { botToken: 'bot-token' },
-    webhookUrl: 'https://bots.example.com/webhooks/telegram/cred-1/prod',
+    webhookUrl: 'https://bots.example.com/webhooks/telegram/p/cred-1/prod',
     taskQueue: 'workflow-project-1',
     registerWebHook: vi.fn((_uri: string, handler: (request: Request) => Promise<Response>) => {
       ctx.registeredWebhook = handler;

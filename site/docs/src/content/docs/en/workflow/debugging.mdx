@@ -32,13 +32,27 @@ head:
 
 #### Starting a session
 <p>
-  Click <b>Debug</b> in the toolbar next to <b>Run</b>. If the function takes parameters, you'll be asked for them
-  first, the same as with <b>Run</b>. If you haven't set any breakpoints yet, the session pauses immediately on the
+  Open the <b>Dev</b> menu in the toolbar and choose <b>Debug</b> (next to <b>Run function</b>). If the function takes parameters, you'll be asked for them
+  first, the same as with <b>Run function</b>. If you haven't set any breakpoints yet, the session pauses immediately on the
   function's first statement — otherwise it runs until the first breakpoint it hits.
 </p>
 <p>
   Only one dev execution runs at a time: starting a debug session stops whatever the dev stand was previously
   running, the same rule <b>Run</b> already follows.
+</p>
+
+#### Running and debugging a trigger function
+<p>
+  A trigger function normally starts when its event arrives (a Telegram message, a webhook call, …). To run or debug
+  one on the dev stand without waiting for a real event, open it and choose <b>Run function</b> or <b>Debug</b> in the
+  <b>Dev</b> menu: a dialog asks for the <b>test payload</b> — the event the trigger would deliver, as JSON. The editor
+  checks it against the trigger's payload type (e.g. a Telegram message) and underlines what doesn't fit; a payload
+  that isn't valid JSON or doesn't match the type is not sent. The first time the dialog offers a skeleton of the type,
+  after that the last payload you ran the function with (remembered in this browser); <b>Reset to sample</b> brings
+  the skeleton back.
+</p>
+<p>
+  Schedule triggers need no payload — they start with the current time, the same as a scheduled run.
 </p>
 
 #### While paused
@@ -64,5 +78,4 @@ head:
     same idle scale-down that applies to an idle dev stand generally). The execution itself isn't lost — it's
     durable — but the first click after a long pause can be slow while the pod wakes back up.
   </li>
-  <li>Trigger functions (started by an external event) can't be debugged yet.</li>
 </ul>

@@ -1,4 +1,6 @@
 // oxlint-disable max-classes-per-file -- tiny Nest fixture classes, one per concern.
+import http from 'node:http';
+import type { AddressInfo } from 'node:net';
 import { Controller, Get, Module, type INestApplication } from '@nestjs/common';
 import { APP_GUARD } from '@nestjs/core';
 import request from 'supertest';
@@ -20,7 +22,16 @@ class ExtraController {
   }
 }
 
-@Module({ controllers: [ExtraController] })
+@Controller('internal/ping')
+class InternalPingController {
+  @Public()
+  @Get()
+  ping(): { ok: true } {
+    return { ok: true };
+  }
+}
+
+@Module({ controllers: [ExtraController, InternalPingController] })
 class ExtraModule {}
 
 const mountSpy = vi.fn();
@@ -66,5 +77,56 @@ describe('createApp', () => {
     expect(dynamic.module).toBe(AppModule);
     expect(dynamic.imports?.at(-1)).toBe(ExtraModule);
     expect(AppModule.forRoot().imports?.length).toBe((dynamic.imports?.length ?? 0) - 1);
+  });
+});
+
+describe('createApp port split (internal API only on the internal port)', () => {
+  let app: INestApplication | null = null;
+  let internalServer: http.Server | null = null;
+
+  afterEach(async () => {
+    internalServer?.close();
+    internalServer = null;
+    await app?.close();
+    app = null;
+    vi.unstubAllEnvs();
+  });
+
+  it('serves /internal/* only on the internal port and public routes only on the public one', async () => {
+    vi.stubEnv('CREDENTIALS_ENCRYPTION_KEY', 'test-encryption-key');
+    const listen = (server: http.Server): Promise<number> =>
+      new Promise((resolve) => {
+        server.listen(0, () => resolve((server.address() as AddressInfo).port));
+      });
+    // Reserve a free port number for the internal listener before building the app.
+    const probe = http.createServer();
+    const internalPort = await listen(probe);
+    probe.close();
+
+    const created = await createApp({ appModule: TestRootModule, internalPort });
+    app = created;
+    await created.listen(0);
+    const publicPort = (created.getHttpServer().address() as AddressInfo).port;
+    internalServer = http.createServer(created.getHttpAdapter().getInstance());
+    await new Promise<void>((resolve) => {
+      internalServer?.listen(internalPort, resolve);
+    });
+
+    const statusOf = async (port: number, method: 'get' | 'post', path: string): Promise<number> => {
+      const response = await request(`http://127.0.0.1:${port}`)[method](path);
+      return response.status;
+    };
+
+    // internal route: 404 publicly (any spelling), a normal guarded answer internally
+    expect(await statusOf(publicPort, 'get', '/internal/ping')).toBe(404);
+    expect(await statusOf(publicPort, 'get', '/Internal/ping')).toBe(404);
+    expect(await statusOf(publicPort, 'get', '//internal/ping')).toBe(404);
+    expect(await statusOf(publicPort, 'post', '/internal/credentials/resolve')).toBe(404);
+    expect(await statusOf(internalPort, 'get', '/internal/ping')).toBe(200);
+
+    // public routes: fine publicly, 404 on the internal port (except /health)
+    expect(await statusOf(publicPort, 'get', '/extra/ping')).toBe(200);
+    expect(await statusOf(internalPort, 'get', '/extra/ping')).toBe(404);
+    expect(await statusOf(internalPort, 'get', '/health')).toBe(200);
   });
 });

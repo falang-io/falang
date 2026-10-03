@@ -98,6 +98,7 @@ export default defineConfig({
             'workflow/ai-agent',
             'workflow/magic-node',
             'workflow/administration',
+            'workflow/integration-proxy',
             'workflow/debugging',
             'workflow/versioning',
           ],

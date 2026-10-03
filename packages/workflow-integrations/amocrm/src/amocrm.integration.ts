@@ -22,6 +22,8 @@ const amocrmOAuth2Config: IOAuth2Config = {
   scope: [],
   tokenRequestFormat: 'json',
   accountDomainCallbackParam: 'referer',
+  // amoCRM account hosts: `<sub>.amocrm.ru` / `<sub>.amocrm.com` (+ Kommo, the international rebrand, `<sub>.kommo.com`).
+  accountDomainSuffixes: ['.amocrm.ru', '.amocrm.com', '.kommo.com'],
   includeRedirectUriOnRefresh: true,
 };
 

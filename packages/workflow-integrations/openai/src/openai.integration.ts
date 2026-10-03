@@ -57,7 +57,7 @@ export const openaiIntegration: IWorkflowIntegration = {
           label: 'openai:field.model',
           kind: 'select',
           vendor: OPENAI_VENDOR,
-          loadOptions: (fields) => fetchOpenAiModelOptions(fields),
+          loadOptions: (fields, ctx) => fetchOpenAiModelOptions(fields, ctx?.egress),
         },
         { name: 'prompt', label: 'openai:field.prompt', kind: 'template-string' },
         {
@@ -65,6 +65,7 @@ export const openaiIntegration: IWorkflowIntegration = {
           label: 'openai:field.attachments',
           kind: 'expression',
           expectedType: fileArrayTypeInfo(),
+          defaultValue: '[]',
         },
         { name: 'result', label: 'openai:field.result', kind: 'result-type' },
         { name: 'resultVariable', label: 'openai:field.resultVariable', kind: 'new-variable' },
@@ -143,7 +144,7 @@ export const openaiIntegration: IWorkflowIntegration = {
           label: 'openai:field.model',
           kind: 'select',
           vendor: OPENAI_VENDOR,
-          loadOptions: (fields) => fetchOpenAiModelOptions(fields),
+          loadOptions: (fields, ctx) => fetchOpenAiModelOptions(fields, ctx?.egress),
         },
       ],
       promptFields: [
@@ -153,6 +154,7 @@ export const openaiIntegration: IWorkflowIntegration = {
           label: 'openai:field.attachments',
           kind: 'expression',
           expectedType: fileArrayTypeInfo(),
+          defaultValue: '[]',
         },
       ],
       // `attachments: … | undefined` (not a plain `readonly ${FILE_REF_TYPE}[]`, unlike `callAiText`'s

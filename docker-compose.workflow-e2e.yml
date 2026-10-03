@@ -7,9 +7,9 @@
 # `client`'s browser here is Playwright's Chromium running *inside* the `e2e-tests` container, on
 # this compose file's own internal network — so, unlike the dev stack (whose browser runs on the
 # host), `client` is configured with `VITE_BACKEND_URL=http://backend:4000` (the internal service
-# name/port), not a host-published one. The published host ports below (4001/5176/7234/8081/5433)
+# name/port), not a host-published one. The published host ports below (4001/5176/7234/5433; no Temporal UI since ADR 0057 (private), see `temporal` below)
 # exist purely so a developer can inspect this stack from outside Docker while it runs (now also
-# 4103 for `activepieces`).
+# 4103 for `activepieces`, 4301 for `proxy`).
 #
 # Like docker-compose.workflow.yml, `backend` here compiles a project's `function` documents
 # in-process but runs the compiled workflow as its own pod on a *local `kind` Kubernetes cluster* —
@@ -165,45 +165,79 @@ services:
         mc mb --ignore-existing local/falang-files
     networks: [falang-workflow-e2e-network]
 
-  temporal:
-    image: temporalio/auto-setup:1.29.1
-    container_name: falang-workflow-e2e-temporal
+  # Temporal 1.32 with JWT authorization, one namespace per project, internal-frontend and
+  # cross-namespace commands off — ADR 0057 (private). The `auto-setup` image ended at 1.29.7, so
+  # this is the plain `temporalio/server` image + static config (docker/temporal/server.yaml,
+  # dynamicconfig.yaml) + two one-shot jobs on `admin-tools` (DB schema, namespace `default`).
+  # Host port 7234 -> frontend 7233 (runner pods in `kind` reach it as ${KIND_GATEWAY_IP}:7234,
+  # with a project JWT). internal-frontend 7236 has NO authorization: never published, never
+  # reachable from runner pods. Temporal UI is removed (it can't authenticate against the JWT
+  # authorizer); use `docker compose ... run --rm temporal-admin-tools temporal ...` (profile
+  # `tools`, talks to 7236) to poke the server by hand.
+  temporal-schema:
+    image: temporalio/admin-tools:1.32.0
+    container_name: falang-workflow-e2e-temporal-schema
     depends_on: [postgresql]
+    restart: 'no'
+    entrypoint: ['/bin/sh', '-c']
+    command:
+      - |
+        set -e
+        T="temporal-sql-tool --plugin postgres12 --ep postgresql -u temporal --pw temporal -p 5432"
+        until $$T --db temporal create-database 2>/dev/null; do sleep 1; done
+        $$T --db temporal setup-schema -v 0.0
+        $$T --db temporal update-schema -d /etc/temporal/schema/postgresql/v12/temporal/versioned
+        $$T --db temporal_visibility create-database
+        $$T --db temporal_visibility setup-schema -v 0.0
+        $$T --db temporal_visibility update-schema -d /etc/temporal/schema/postgresql/v12/visibility/versioned
+    networks: [falang-workflow-e2e-network]
+
+  temporal:
+    image: temporalio/server:1.32.0
+    container_name: falang-workflow-e2e-temporal
+    depends_on:
+      temporal-schema:
+        condition: service_completed_successfully
     environment:
-      - DB=postgres12
-      - DB_PORT=5432
-      - POSTGRES_USER=temporal
-      - POSTGRES_PWD=temporal
-      - POSTGRES_SEEDS=postgresql
-      - DYNAMIC_CONFIG_FILE_PATH=config/dynamicconfig/development-sql.yaml
-      - TEMPORAL_ADDRESS=temporal:7233
-      - TEMPORAL_CLI_ADDRESS=temporal:7233
+      - TEMPORAL_SERVER_CONFIG_FILE_PATH=/cfg/server.yaml
+    entrypoint:
+      - temporal-server
+      - start
+      - --service=frontend
+      - --service=internal-frontend
+      - --service=history
+      - --service=matching
+      - --service=worker
     ports:
       - '7234:7233'
     volumes:
-      - ./docker/temporal-dynamicconfig:/etc/temporal/config/dynamicconfig
+      - ./docker/temporal:/cfg:ro
+    networks: [falang-workflow-e2e-network]
+
+  # Creates the `default` namespace (no longer created by the image) via internal-frontend. Per-project
+  # namespaces are created by `backend` itself; `default` only holds legacy/shared-mode data and is
+  # what the legacy-schedule sweep looks at.
+  temporal-setup:
+    image: temporalio/admin-tools:1.32.0
+    container_name: falang-workflow-e2e-temporal-setup
+    depends_on: [temporal]
+    restart: 'no'
+    environment:
+      - TEMPORAL_ADDRESS=temporal:7236
+    entrypoint: ['/bin/sh', '-c']
+    command:
+      - |
+        until temporal operator namespace describe default >/dev/null 2>&1 || temporal operator namespace create --retention 24h default; do sleep 2; done
+        echo "namespace default ready"
     networks: [falang-workflow-e2e-network]
 
   temporal-admin-tools:
-    image: temporalio/admin-tools:1.29.1-tctl-1.18.4-cli-1.5.0
+    image: temporalio/admin-tools:1.32.0
     container_name: falang-workflow-e2e-temporal-admin-tools
+    profiles: [tools]
     depends_on: [temporal]
     environment:
-      - TEMPORAL_ADDRESS=temporal:7233
-      - TEMPORAL_CLI_ADDRESS=temporal:7233
-    stdin_open: true
-    tty: true
-    networks: [falang-workflow-e2e-network]
-
-  temporal-ui:
-    image: temporalio/ui:2.34.0
-    container_name: falang-workflow-e2e-temporal-ui
-    depends_on: [temporal]
-    environment:
-      - TEMPORAL_ADDRESS=temporal:7233
-      - TEMPORAL_CORS_ORIGINS=http://localhost:5176
-    ports:
-      - '8081:8080'
+      - TEMPORAL_ADDRESS=temporal:7236
     networks: [falang-workflow-e2e-network]
 
   mocks:
@@ -217,14 +251,42 @@ services:
       - '4102:4100'
     networks: [falang-workflow-e2e-network]
 
+  # Egress proxy (ADR 0056 (private)) — standalone forward proxy, built from `./proxy` alone. Not used
+  # unless an admin sets `PUT /admin/settings/proxy`; `PROXY_EXPOSE_STATS` is for test stacks only.
+  proxy:
+    build:
+      context: ./proxy
+      dockerfile: Dockerfile
+    container_name: falang-workflow-e2e-proxy
+    environment:
+      - HTTP_PORT=8080
+      - PROXY_TOKENS=e2e-proxy-token
+      - PROXY_ALLOWED_PORTS=*
+      - PROXY_EXPOSE_STATS=true
+    ports:
+      - '4301:8080'
+    healthcheck:
+      test:
+        [
+          'CMD',
+          'node',
+          '-e',
+          "fetch('http://localhost:8080/health').then((r) => process.exit(r.ok ? 0 : 1), () => process.exit(1))",
+        ]
+      interval: 5s
+      timeout: 5s
+      retries: 20
+    networks: [falang-workflow-e2e-network]
+
   backend:
     build:
       context: .
       dockerfile: docker/backend.Dockerfile
     container_name: falang-workflow-e2e-backend
     depends_on:
-      temporal:
-        condition: service_started
+      # Namespace `default` exists and the server is accepting requests.
+      temporal-setup:
+        condition: service_completed_successfully
       app-postgres:
         condition: service_started
       mocks:
@@ -246,15 +308,25 @@ services:
     command: ['sh', '-c', 'exec npx tsx src/main.ts']
     environment:
       - PORT=4000
+      # `/internal/*` is served ONLY on this second port; the public port 404s it.
+      - INTERNAL_PORT=3001
       - TSX_TSCONFIG_PATH=../../../tsconfig.base.json
       - TEMPORAL_ADDRESS=temporal:7233
       - TEMPORAL_NAMESPACE=default
+      # ADR 0057 (private): a namespace per project + JWT. The RS256 key is generated by
+      # `scripts/temporal-e2e-env.sh` (sourced by `npm run test-e2e`/`coverage:e2e` before compose) into a
+      # gitignored file and exported — the workflow-tier spec temporal-isolation reads the very same
+      # TEMPORAL_JWT_PRIVATE_KEY from its host environment to mint tokens. Temporal fetches the JWKS from
+      # `backend`'s internal port (docker/temporal/server.yaml).
+      - TEMPORAL_TENANT_ISOLATION=per-project
+      - TEMPORAL_JWT_PRIVATE_KEY=${TEMPORAL_JWT_PRIVATE_KEY:-}
+      - PROJECT_TOKEN_SECRET=e2e-project-token-secret-at-least-32-chars
       # Runner pods live on the `kind` docker network below, not this one — same reachability
       # requirement as docker-compose.workflow.yml's `backend`, see its comments for the full
       # explanation. Host ports differ here (this stack's own `temporal`/`backend`/`activepieces`
       # host-published ports: 7234/4001/4103), so the values below don't match the dev stack's.
       - RUNNER_TEMPORAL_ADDRESS=${KIND_GATEWAY_IP:-172.18.0.1}:7234
-      - BACKEND_INTERNAL_URL=http://${KIND_GATEWAY_IP:-172.18.0.1}:4001
+      - BACKEND_INTERNAL_URL=http://${KIND_GATEWAY_IP:-172.18.0.1}:4011
       # `RunnerProcessManager` creates runner Deployments here — see
       # ADR 0016 (private)'s Phase 2. This stack's own `kind`
       # cluster (`falang-workflow-e2e`, see `scripts/kind-e2e-setup.sh`) is separate from the dev
@@ -277,8 +349,16 @@ services:
       # See ADR 0030 (private) — unused here, this
       # stack's seeded admin/admin account already has the `admin` role by default.
       - ADMIN_USERNAMES=
+      # Off by default in the backend; the e2e specs log in as the seeded admin/admin.
+      - SEED_DEFAULT_ADMIN=true
       # Off by default in the backend; the e2e specs register users through POST /auth/register.
       - SELF_SERVICE_SIGNUP=true
+      # SSRF/file-read hardening (security audit P0-11): the backend refuses to connect to private/loopback/
+      # link-local addresses taken from tenant data (loadOptions, "Sync structure") unless allowed here, and
+      # the sqlite vendor (a tenant-supplied file path) is off unless enabled. Dev/e2e databases and mocks
+      # live on docker-internal addresses, so both are opted in for this stack.
+      - EGRESS_ALLOW_PRIVATE=true
+      - ENABLE_SQLITE_INTEGRATION=true
       # Mail: captured by Mailpit; specs register username+password, so signup stays `open`.
       - SMTP_URL=smtp://mailpit:1025
       - MAIL_FROM=noreply@falang.local
@@ -331,6 +411,8 @@ services:
       - NODE_V8_COVERAGE=/coverage/node
     ports:
       - '4001:4000'
+      # Internal API for runner pods in `kind` (reached via the docker-network gateway, host port 4011).
+      - '${KIND_GATEWAY_IP:-172.18.0.1}:4011:3001'
     volumes:
       - ./coverage/e2e-node:/coverage/node
       # Generated by `scripts/kind-e2e-setup.sh` — run automatically by `npm run
@@ -350,7 +432,7 @@ services:
     depends_on: [backend]
     environment:
       - PORT=4100
-      - BACKEND_INTERNAL_URL=http://backend:4000
+      - BACKEND_INTERNAL_URL=http://backend:3001
       - ACTIVEPIECES_SERVICE_SECRET=e2e-activepieces-secret
       # Registers the `mock`/`mockBasicAuth`/`mockOAuth2` pieces (see `src/pieces/mock-piece.ts` and
       # ADR 0013 (private)) and mounts their test-only fixture routes
@@ -377,7 +459,7 @@ services:
         condition: service_started
     environment:
       - PORT=4200
-      - BACKEND_INTERNAL_URL=http://backend:4000
+      - BACKEND_INTERNAL_URL=http://backend:3001
       - MEDIA_WORK_DIR=/work
     ports:
       - '4204:4200'
@@ -424,8 +506,8 @@ services:
         condition: service_started
       client:
         condition: service_started
-      temporal:
-        condition: service_started
+      temporal-setup:
+        condition: service_completed_successfully
       mocks:
         condition: service_started
       activepieces:
@@ -435,6 +517,10 @@ services:
       # via apt), the same "started is good enough" call this stack already makes for its siblings.
       media:
         condition: service_started
+      # Used only by the workflow-tier egress-proxy spec (host-side, after this container exits) —
+      # declared here so `run --rm e2e-tests` brings it up, like the two DB services below.
+      proxy:
+        condition: service_healthy
       # Not touched directly by this container (the workflow-tier spec that uses them is a
       # host-side Vitest process run *after* `e2e-tests` exits, reusing this same still-running
       # stack — see this file's own header note) — declared as a dependency here purely so
@@ -453,6 +539,11 @@ services:
       # `media`'s own job API — for a future workflow-tier media spec to drive/inspect jobs
       # directly, mirroring `MOCKS_URL` above. See ADR 0041 (private).
       - MEDIA_URL=http://media:4200
+      # Egress proxy (ADR 0056 (private)): ONE URL for both `backend` (docker network) and runner pods
+      # (kind cluster) — the host-published port via the docker-bridge gateway, same pattern as
+      # `RUNNER_MOCKS_URL` below. `E2E_PROXY_ADMIN_URL` is for this test process's own `/__stats` calls.
+      - E2E_PROXY_URL=http://${KIND_GATEWAY_IP:-172.18.0.1}:4301
+      - E2E_PROXY_TOKEN=e2e-proxy-token
       # Some specs (integrations-http.spec.ts, integrations-openai.spec.ts) embed a mocks URL
       # directly into workflow-node/credential *data* that a runner pod's compiled activity later
       # fetches at execution time (an HTTP Request node's URL, an OpenAI credential's `baseUrl`) —

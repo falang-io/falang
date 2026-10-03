@@ -1,4 +1,4 @@
-import type { IFieldSelectOption } from '@falang/workflow-integrations-common';
+import type { IBackendEgress, IFieldSelectOption } from '@falang/workflow-integrations-common';
 
 /**
  * Fetches `<baseUrl>/models` and maps it to select options — shared by every OpenAI-compatible
@@ -10,9 +10,12 @@ import type { IFieldSelectOption } from '@falang/workflow-integrations-common';
  */
 export const fetchOpenAiModelOptions = async (
   fields: Readonly<Record<string, string>>,
+  /** Backend SSRF guard (`ctx.egress` of `loadOptions`): `baseUrl` is tenant data and this runs inside the backend, so every real call goes through it. */
+  egress?: IBackendEgress,
   keywords?: readonly string[],
 ): Promise<readonly IFieldSelectOption[]> => {
-  const response = await fetch(`${fields.baseUrl}/models`, {
+  const doFetch = egress ? egress.fetch : fetch;
+  const response = await doFetch(`${fields.baseUrl}/models`, {
     headers: { Authorization: `Bearer ${fields.apiKey}` },
   });
   if (!response.ok) {

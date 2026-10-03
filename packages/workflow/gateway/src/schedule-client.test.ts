@@ -1,7 +1,8 @@
+// oxlint-disable no-undefined, unicorn/no-useless-undefined -- test fixtures: explicit "no value" fixtures, fake-timer scaffolding and long per-case suites.
 // oxlint-disable max-lines -- covers upsert (create + ScheduleAlreadyRunning->update fallback), list/listAll's
 // memo-based filtering, and pause/delete, each needing its own fake Client/handle setup; not accumulated
 // complexity.
-import { ScheduleAlreadyRunning } from '@temporalio/client';
+import { NamespaceNotFoundError, ScheduleAlreadyRunning } from '@temporalio/client';
 import type {
   Client,
   ScheduleDescription,
@@ -12,6 +13,7 @@ import type {
 import { describe, expect, it, vi } from 'vitest';
 import { createTemporalScheduleClient } from './schedule-client.js';
 import type { IUpsertScheduleTargetParams } from './schedule-client.js';
+import type { ITemporalTenancy } from './temporal-tenancy.js';
 
 const UPSERT_PARAMS: IUpsertScheduleTargetParams = {
   scheduleId: 'sched-dev-doc-1',
@@ -96,9 +98,15 @@ interface IFakeClient {
 }
 
 const buildGetClient = (client: IFakeClient) => {
-  // oxlint-disable-next-line no-undefined, unicorn/no-useless-undefined -- a real explicit "resolves to undefined" mock return, needed so TS can infer this vi.fn()'s Promise<void> return type.
-  const close = vi.fn().mockResolvedValue(undefined);
-  return { getClient: vi.fn().mockResolvedValue({ client: client as unknown as Client, close }), close };
+  const tenancy: ITemporalTenancy = {
+    mode: 'per-project',
+    namespaceFor: (projectId) => `falang-${projectId}`,
+    ensureNamespace: vi.fn().mockResolvedValue(undefined),
+    getClient: vi.fn().mockResolvedValue(client as unknown as Client),
+    getClientForNamespace: vi.fn().mockResolvedValue(client as unknown as Client),
+    listTenantNamespaces: vi.fn().mockResolvedValue(['falang-project-1']),
+  };
+  return { getClient: tenancy, tenancy };
 };
 
 describe('createTemporalScheduleClient', () => {
@@ -112,7 +120,7 @@ describe('createTemporalScheduleClient', () => {
           list: vi.fn(),
         },
       };
-      const { getClient, close } = buildGetClient(fakeClient);
+      const { getClient, tenancy } = buildGetClient(fakeClient);
       const port = createTemporalScheduleClient(getClient);
 
       await port.upsert(UPSERT_PARAMS);
@@ -136,7 +144,7 @@ describe('createTemporalScheduleClient', () => {
       });
       expect(fakeClient.schedule.getHandle).not.toHaveBeenCalled();
       expect(handle.update).not.toHaveBeenCalled();
-      expect(close).toHaveBeenCalledTimes(1);
+      expect(tenancy.getClient).toHaveBeenCalledWith(UPSERT_PARAMS.projectId);
     });
 
     it('falls back to update (spec/action refreshed, unpaused) when create() throws ScheduleAlreadyRunning', async () => {
@@ -195,11 +203,11 @@ describe('createTemporalScheduleClient', () => {
           list: vi.fn(),
         },
       };
-      const { getClient, close } = buildGetClient(fakeClient);
+      const { getClient, tenancy } = buildGetClient(fakeClient);
       const port = createTemporalScheduleClient(getClient);
 
       await expect(port.upsert(UPSERT_PARAMS)).rejects.toThrow('temporal unreachable');
-      expect(close).toHaveBeenCalledTimes(1);
+      expect(tenancy.getClient).toHaveBeenCalledWith(UPSERT_PARAMS.projectId);
     });
   });
 
@@ -225,10 +233,10 @@ describe('createTemporalScheduleClient', () => {
           }),
         },
       };
-      const { getClient, close } = buildGetClient(fakeClient);
+      const { getClient, tenancy } = buildGetClient(fakeClient);
       const port = createTemporalScheduleClient(getClient);
 
-      const states = await port.list(UPSERT_PARAMS.taskQueue);
+      const states = await port.list(UPSERT_PARAMS.projectId, UPSERT_PARAMS.taskQueue);
 
       expect(states).toHaveLength(1);
       expect(states[0]).toEqual({
@@ -240,7 +248,7 @@ describe('createTemporalScheduleClient', () => {
         missedCatchupCount: 1,
       });
       expect(matchingHandle.describe).toHaveBeenCalledTimes(1);
-      expect(close).toHaveBeenCalledTimes(1);
+      expect(tenancy.getClient).toHaveBeenCalledWith(UPSERT_PARAMS.projectId);
     });
 
     it('reports the last fire time from the most recent action, when there is one', async () => {
@@ -287,7 +295,7 @@ describe('createTemporalScheduleClient', () => {
       const { getClient } = buildGetClient(fakeClient);
       const port = createTemporalScheduleClient(getClient);
 
-      const states = await port.list(UPSERT_PARAMS.taskQueue);
+      const states = await port.list(UPSERT_PARAMS.projectId, UPSERT_PARAMS.taskQueue);
 
       expect(states[0]?.lastFireTime).toBe('2026-09-28T10:00:02.000Z');
     });
@@ -328,13 +336,13 @@ describe('createTemporalScheduleClient', () => {
       const fakeClient: IFakeClient = {
         schedule: { create: vi.fn(), getHandle: vi.fn().mockReturnValue(handle), list: vi.fn() },
       };
-      const { getClient, close } = buildGetClient(fakeClient);
+      const { getClient, tenancy } = buildGetClient(fakeClient);
       const port = createTemporalScheduleClient(getClient);
 
-      await port.pause(UPSERT_PARAMS.scheduleId, 'runner idle');
+      await port.pause(UPSERT_PARAMS.projectId, UPSERT_PARAMS.scheduleId, 'runner idle');
 
       expect(handle.pause).toHaveBeenCalledWith('runner idle');
-      expect(close).toHaveBeenCalledTimes(1);
+      expect(tenancy.getClient).toHaveBeenCalledWith(UPSERT_PARAMS.projectId);
     });
 
     it('delete delegates to the schedule handle', async () => {
@@ -342,13 +350,154 @@ describe('createTemporalScheduleClient', () => {
       const fakeClient: IFakeClient = {
         schedule: { create: vi.fn(), getHandle: vi.fn().mockReturnValue(handle), list: vi.fn() },
       };
-      const { getClient, close } = buildGetClient(fakeClient);
+      const { getClient, tenancy } = buildGetClient(fakeClient);
       const port = createTemporalScheduleClient(getClient);
 
-      await port.delete(UPSERT_PARAMS.scheduleId);
+      await port.delete(UPSERT_PARAMS.projectId, UPSERT_PARAMS.scheduleId);
 
       expect(handle.delete).toHaveBeenCalledTimes(1);
-      expect(close).toHaveBeenCalledTimes(1);
+      expect(tenancy.getClient).toHaveBeenCalledWith(UPSERT_PARAMS.projectId);
+    });
+  });
+
+  describe('per-project namespaces (ADR 0057 (private))', () => {
+    const namespaceClients = (byNamespace: Record<string, IFakeClient>) => {
+      const getClientForNamespace = vi.fn((namespace: string) => {
+        const client = byNamespace[namespace];
+        return client
+          ? Promise.resolve(client as unknown as Client)
+          : Promise.reject(new NamespaceNotFoundError(namespace));
+      });
+      const tenancy: ITemporalTenancy = {
+        mode: 'per-project',
+        namespaceFor: (projectId) => `falang-${projectId}`,
+        ensureNamespace: vi.fn().mockResolvedValue(undefined),
+        getClient: vi.fn(),
+        getClientForNamespace,
+        listTenantNamespaces: vi.fn().mockResolvedValue(Object.keys(byNamespace)),
+      };
+      return { tenancy, getClientForNamespace };
+    };
+    const clientWith = (summaries: ScheduleSummary[], handle: IFakeScheduleHandle): IFakeClient => ({
+      schedule: {
+        create: vi.fn(),
+        getHandle: vi.fn().mockReturnValue(handle),
+        list: vi.fn().mockImplementation(async function* listGenerator() {
+          yield* summaries;
+        }),
+      },
+    });
+
+    it('upsert creates the schedule in the namespace of its own project, not another one', async () => {
+      const handle = buildFakeHandle(UPSERT_PARAMS.scheduleId, buildDescription());
+      const own = {
+        ...clientWith([], handle),
+        schedule: { ...clientWith([], handle).schedule, create: vi.fn().mockResolvedValue(handle) },
+      };
+      const other = clientWith([], handle);
+      const tenancy: ITemporalTenancy = {
+        mode: 'per-project',
+        namespaceFor: (projectId) => `falang-${projectId}`,
+        ensureNamespace: vi.fn(),
+        getClient: vi.fn((projectId: string) =>
+          Promise.resolve((projectId === 'project-1' ? own : other) as unknown as Client),
+        ),
+        getClientForNamespace: vi.fn(),
+        listTenantNamespaces: vi.fn(),
+      };
+
+      await createTemporalScheduleClient(tenancy).upsert(UPSERT_PARAMS);
+
+      expect(tenancy.getClient).toHaveBeenCalledWith('project-1');
+      expect(own.schedule.create).toHaveBeenCalledTimes(1);
+      expect(other.schedule.create).not.toHaveBeenCalled();
+    });
+
+    it('listAll visits every tenant namespace and merges their schedules, skipping one deleted meanwhile', async () => {
+      const handleA = buildFakeHandle('sched-a', buildDescription({ scheduleId: 'sched-a' }));
+      const handleB = buildFakeHandle('sched-b', buildDescription({ scheduleId: 'sched-b' }));
+      const { tenancy, getClientForNamespace } = namespaceClients({
+        'falang-project-1': clientWith([buildSummary({ scheduleId: 'sched-a' })], handleA),
+        'falang-project-2': clientWith(
+          [
+            buildSummary({
+              scheduleId: 'sched-b',
+              memo: { falangProjectId: 'project-2', falangEnv: 'prod', falangTaskQueue: 'workflow-project-2' },
+            }),
+          ],
+          handleB,
+        ),
+      });
+      (tenancy.listTenantNamespaces as ReturnType<typeof vi.fn>).mockResolvedValue([
+        'falang-project-1',
+        'falang-gone',
+        'falang-project-2',
+      ]);
+
+      const states = await createTemporalScheduleClient(tenancy).listAll();
+
+      expect(states.map((state) => `${state.projectId}/${state.scheduleId}`)).toEqual([
+        'project-1/sched-a',
+        'project-2/sched-b',
+      ]);
+      expect(getClientForNamespace).toHaveBeenCalledWith('falang-gone');
+    });
+
+    it("listForProject reads only that project's namespace and only its own schedules", async () => {
+      const handle = buildFakeHandle(UPSERT_PARAMS.scheduleId, buildDescription());
+      const { tenancy, getClientForNamespace } = namespaceClients({
+        'falang-project-1': clientWith(
+          [
+            buildSummary(),
+            buildSummary({
+              scheduleId: 'sched-foreign',
+              memo: { falangProjectId: 'someone-else', falangEnv: 'dev', falangTaskQueue: 'workflow-dev-someone-else' },
+            }),
+          ],
+          handle,
+        ),
+      });
+
+      const states = await createTemporalScheduleClient(tenancy).listForProject('project-1');
+
+      expect(getClientForNamespace).toHaveBeenCalledExactlyOnceWith('falang-project-1');
+      expect(states.map((state) => state.scheduleId)).toEqual([UPSERT_PARAMS.scheduleId]);
+    });
+
+    it('listForProject is empty (and registers nothing) when the project namespace does not exist yet', async () => {
+      const { tenancy } = namespaceClients({});
+
+      expect(await createTemporalScheduleClient(tenancy).listForProject('never-ran')).toEqual([]);
+      expect(tenancy.ensureNamespace).not.toHaveBeenCalled();
+    });
+
+    it("deleteAllForProject deletes the project's tagged schedules only", async () => {
+      const handle = buildFakeHandle(UPSERT_PARAMS.scheduleId, buildDescription());
+      const foreignHandle = buildFakeHandle('sched-foreign', buildDescription());
+      const client = clientWith(
+        [
+          buildSummary(),
+          buildSummary({
+            scheduleId: 'sched-foreign',
+            memo: { falangProjectId: 'someone-else', falangEnv: 'dev', falangTaskQueue: 'q' },
+          }),
+        ],
+        handle,
+      );
+      client.schedule.getHandle.mockImplementation((id: string) => (id === 'sched-foreign' ? foreignHandle : handle));
+      const { tenancy } = namespaceClients({ 'falang-project-1': client });
+
+      const deleted = await createTemporalScheduleClient(tenancy).deleteAllForProject('project-1');
+
+      expect(deleted).toEqual([UPSERT_PARAMS.scheduleId]);
+      expect(handle.delete).toHaveBeenCalledTimes(1);
+      expect(foreignHandle.delete).not.toHaveBeenCalled();
+    });
+
+    it('deleteAllForProject is a no-op for a project whose namespace is already gone', async () => {
+      const { tenancy } = namespaceClients({});
+
+      expect(await createTemporalScheduleClient(tenancy).deleteAllForProject('p')).toEqual([]);
     });
   });
 });

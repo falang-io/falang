@@ -37,7 +37,7 @@ const buildTriggerDescriptor = (pieceName: string, trigger: IActivepiecesTrigger
     scopeType: { type: 'any' },
     scopeVariableName: ACTIVEPIECES_SCOPE_VARIABLE_NAME,
     signalName: qualifiedName,
-    webhookPath: `/webhooks/${activepiecesVendorFor(pieceName)}/:credentialId/:env`,
+    webhookPath: `/webhooks/${activepiecesVendorFor(pieceName)}/:projectId/:credentialId/:env`,
     ...(trigger.props.length > 0
       ? {
           contextFields: trigger.props.map((prop) => ({

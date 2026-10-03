@@ -13,6 +13,12 @@ describe('AdminNavigationStore', () => {
     expect(store.page).toBe('oauth-credentials');
   });
 
+  it('switches to the proxy page', () => {
+    const store = new AdminNavigationStore();
+    store.setPage('proxy');
+    expect(store.page).toBe('proxy');
+  });
+
   it('switches to the agent settings page', () => {
     const store = new AdminNavigationStore();
     store.setPage('agent-settings');

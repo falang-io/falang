@@ -136,7 +136,7 @@ describe('tasks (workflow tier): human-task', () => {
         .send({ answer: 'Reject', data: 'too expensive' });
       expect(resolveResponse.status).toBe(200);
 
-      const result = await workflowE2eAwaitWorkflowResult(started.workflowId);
+      const result = await workflowE2eAwaitWorkflowResult(started.workflowId, projectId);
       expect(result).toEqual({ branch: 'reject', reason: 'too expensive', by: adminUserId });
 
       const resolved = await getTask(task.id);
@@ -235,7 +235,7 @@ describe('tasks (workflow tier): human-task', () => {
       const started = await buildAndRun(projectId, 'timeoutTask');
       const task = await findOpenTaskByTitle('Timeout check', projectId);
 
-      const result = await workflowE2eAwaitWorkflowResult(started.workflowId);
+      const result = await workflowE2eAwaitWorkflowResult(started.workflowId, projectId);
       expect(result).toEqual({ branch: 'timeout' });
 
       const expired = await getTask(task.id);

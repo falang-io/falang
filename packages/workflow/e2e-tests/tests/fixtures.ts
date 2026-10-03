@@ -110,7 +110,7 @@ export const createProjectViaUI = async (page: Page, name: string): Promise<stri
 /** Opens a project from the project list by name. */
 export const openProjectViaUI = async (page: Page, name: string): Promise<void> => {
   await page.getByText(name, { exact: true }).click();
-  await expect(page.getByRole('button', { name: '+ Add' })).toBeVisible();
+  await expect(page.getByRole('button', { name: '+ Add', exact: true })).toBeVisible();
 };
 
 /** Opens the pinned "Integrations" document as a tab, so `IntegrationsEditor` renders. */
@@ -150,17 +150,29 @@ const waitForDevRunnerStatus = async (projectId: string, running: boolean, timeo
  */
 export const startDevRunnerViaUI = async (page: Page, projectId: string): Promise<void> => {
   await page.getByRole('button', { name: 'Dev' }).click();
-  await page.getByRole('menuitem', { name: 'Start' }).click();
+  await page.getByRole('menuitem', { name: 'Start', exact: true }).click();
   // Generous under a heavily-loaded box (the full suite runs multiple specs' webpack-bundle +
   // runner spawn concurrently against one shared backend container) — seen to occasionally exceed
   // 30-45s there even though a single spec in isolation settles in ~15s.
   await waitForDevRunnerStatus(projectId, true, 60_000);
 };
 
+/** Opens the toolbar's "Project" menu and clicks one of its items (Code/Files/Tasks/History/Runs/Save as JSON/Download PDF). */
+export const clickProjectMenuItem = async (page: Page, name: string): Promise<void> => {
+  await page.getByTestId('toolbar-project-menu').click();
+  await page.getByRole('menuitem', { name }).click();
+};
+
+/** Clicks an item of the toolbar's "Dev" dropdown (Start/Stop/Restart/Run function/Debug/…). */
+export const clickDevMenuItem = async (page: Page, name: string): Promise<void> => {
+  await page.getByRole('button', { name: 'Dev' }).click();
+  await page.getByRole('menuitem', { name, exact: true }).click();
+};
+
 /** Stops the project's dev runner through the toolbar's "Dev" dropdown — see `startDevRunnerViaUI`. */
 export const stopDevRunnerViaUI = async (page: Page, projectId: string): Promise<void> => {
   await page.getByRole('button', { name: 'Dev' }).click();
-  await page.getByRole('menuitem', { name: 'Stop' }).click();
+  await page.getByRole('menuitem', { name: 'Stop', exact: true }).click();
   await waitForDevRunnerStatus(projectId, false, 20_000);
 };
 
@@ -170,31 +182,28 @@ const PLACEHOLDER_BY_KIND = {
   folder: 'Folder name...',
 } as const;
 
+/** The root "+ Add" menu creates documents only (directly in their fixed section, ADR 0055); folders go through a folder's context menu. */
+type TRootItemKind = 'function' | 'objects-structure';
+
 /** `ProjectTree`'s single "+ Add" dropdown menu's item labels (`ADD_MENU_ITEMS`) — not the same strings as the placeholders above. */
 const MENU_ITEM_LABEL_BY_KIND = {
   function: 'Function',
   'objects-structure': 'Object',
-  folder: 'Folder',
 } as const;
 
 /**
- * Creates a folder/function/object document at the project root via the tree's single "+ Add"
+ * Creates a function/object document (placed in its fixed section) via the tree's single "+ Add"
  * dropdown (`ProjectTree`'s `ADD_MENU_ITEMS`) — picking a menu item reveals an inline name input,
  * not a modal. Returns the created id (folders and documents share the same create response shape:
  * `{ id, ... }`).
  */
-export const createTreeItemViaUI = async (
-  page: Page,
-  kind: keyof typeof PLACEHOLDER_BY_KIND,
-  name: string,
-): Promise<string> => {
-  await page.getByRole('button', { name: '+ Add' }).click();
+export const createTreeItemViaUI = async (page: Page, kind: TRootItemKind, name: string): Promise<string> => {
+  await page.getByRole('button', { name: '+ Add', exact: true }).click();
   await page.getByRole('menuitem', { name: MENU_ITEM_LABEL_BY_KIND[kind] }).click();
   const input = page.getByPlaceholder(PLACEHOLDER_BY_KIND[kind]);
   await input.fill(name);
-  const urlFragment = kind === 'folder' ? '/folders' : '/documents';
   const [response] = await Promise.all([
-    page.waitForResponse((res) => res.url().includes(urlFragment) && res.request().method() === 'POST'),
+    page.waitForResponse((res) => res.url().includes('/documents') && res.request().method() === 'POST'),
     input.press('Enter'),
   ]);
   const body = (await response.json()) as { id: string };
@@ -206,7 +215,7 @@ export const createTreeItemViaUI = async (
  * unlike Function/Folder/Object, its `trigger-function-body` data is fixed at creation (vendor/
  * trigger/credential), so this can't go through the generic "+ Add" flow above. `vendorLabel`/
  * `triggerLabel` are the integration's/trigger's display `label` (e.g. `'Telegram'`/`'On message'`),
- * `credentialName` is the seeded credential instance's `name` — all rendered as antd `Select` option
+ * `credentialName` is the seeded credential instance's `name` (listed as `name (vendorLabel)`) — all rendered as antd `Select` option
  * text in the modal.
  */
 export const createTriggerFunctionViaUI = async (
@@ -216,7 +225,7 @@ export const createTriggerFunctionViaUI = async (
   triggerLabel: string,
   credentialName: string,
 ): Promise<string> => {
-  await page.getByRole('button', { name: '+ Add' }).click();
+  await page.getByRole('button', { name: '+ Add', exact: true }).click();
   await page.getByRole('menuitem', { name: 'Trigger' }).click();
   await page.getByPlaceholder('Trigger name...').fill(name);
   // antd renders each required Form.Item's accessible name with a `* ` prefix (e.g. `* Integration`)
@@ -231,12 +240,12 @@ export const createTriggerFunctionViaUI = async (
   // `page.getByTitle(...)` locator ambiguous once a field already has a value.
   const openDropdownOption = (label: string) =>
     page.locator('.ant-select-dropdown:not(.ant-select-dropdown-hidden)').getByTitle(label, { exact: true });
-  await page.getByRole('combobox', { name: 'Integration' }).click();
-  await openDropdownOption(vendorLabel).click();
+  // The modal lists the project's credential instances (the vendor is derived from the picked one),
+  // each shown as `<instance name> (<vendor label>)`, then the trigger types of that vendor.
+  await page.getByRole('combobox', { name: 'Credentials' }).click();
+  await openDropdownOption(`${credentialName} (${vendorLabel})`).click();
   await page.getByRole('combobox', { name: 'Trigger type' }).click();
   await openDropdownOption(triggerLabel).click();
-  await page.getByRole('combobox', { name: 'Credential' }).click();
-  await openDropdownOption(credentialName).click();
   const [response] = await Promise.all([
     page.waitForResponse((res) => res.url().includes('/documents') && res.request().method() === 'POST'),
     page.getByRole('dialog').getByRole('button', { name: 'Create' }).click(),
@@ -256,7 +265,7 @@ const CONTEXT_MENU_LABEL_BY_KIND = {
   folder: 'New subfolder',
 } as const;
 
-/** Creates a folder/function/object document nested inside an existing folder via its right-click context menu. */
+/** Creates a folder/function/object document inside an existing section or folder via its right-click context menu (a section only offers its own document types). */
 export const createTreeItemInFolderViaUI = async (
   page: Page,
   folderName: string,

@@ -2,7 +2,8 @@ import { DatabaseSync } from 'node:sqlite';
 import { mkdtempSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import { afterEach, beforeEach, describe, expect, it } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import { SqlConnectionStringError } from './connection-string.js';
 import { buildSqlInstanceTypes, buildSqlSyncVendorData } from './instance-hooks.js';
 import type { ISyncedSchema } from './schema-types.js';
 
@@ -60,5 +61,40 @@ describe('buildSqlSyncVendorData / buildSqlInstanceTypes (sqlite)', () => {
     expect(types.map((t) => t.id).toSorted()).toEqual(
       ['db:inst1:orders', 'db:inst1:orders#insert', 'db:inst1:orders#patch', 'db:inst1:orders#where'].toSorted(),
     );
+  });
+});
+
+describe('buildSqlSyncVendorData — network dialect hardening (security audit P0-11)', () => {
+  const blockingEgress = {
+    fetch: () => Promise.reject(new Error('unused')),
+    resolveHost: (host: string) => Promise.reject(new Error(`blocked ${host}`)),
+  };
+
+  it.each(['postgres', 'mysql'] as const)(
+    '%s: connects only to the address the egress guard approves',
+    async (dialect) => {
+      const sync = buildSqlSyncVendorData(dialect);
+      await expect(
+        sync({ connectionString: `${dialect}://u:p@169.254.169.254:1/db` }, 'dev', { egress: blockingEgress }),
+      ).rejects.toThrow('blocked 169.254.169.254');
+    },
+  );
+
+  it.each(['postgres', 'mysql'] as const)('%s: refuses to run without the egress guard', async (dialect) => {
+    const sync = buildSqlSyncVendorData(dialect);
+    await expect(sync({ connectionString: `${dialect}://u:p@db.example.com/db` }, 'dev')).rejects.toThrow(/egress/);
+  });
+
+  it.each([
+    ['postgres', 'postgres://u:p@h/db?sslrootcert=/etc/passwd'],
+    ['postgres', 'postgres://u:p@/db?host=/var/run/postgresql'],
+    ['mysql', 'mysql://u:p@h/db?socketPath=/var/run/mysqld/mysqld.sock'],
+    ['mysql', 'mysql://u:p@h/db?flags=%2BLOCAL_FILES'],
+  ] as const)('%s: rejects %s before resolving or connecting', async (dialect, connectionString) => {
+    const resolveHost = vi.fn();
+    await expect(
+      buildSqlSyncVendorData(dialect)({ connectionString }, 'dev', { egress: { fetch: vi.fn(), resolveHost } }),
+    ).rejects.toThrow(SqlConnectionStringError);
+    expect(resolveHost).not.toHaveBeenCalled();
   });
 });

@@ -90,6 +90,33 @@ describe('DocumentStackRegistry', () => {
       expect(root?.name).toBe('function');
     });
 
+    it('accepts a comment node in a workflow function body', () => {
+      const result = validateDocument(
+        'workflow',
+        {
+          id: 'doc',
+          type: 'function',
+          name: 'withComment',
+          root: {
+            id: 'root',
+            name: 'function',
+            children: [
+              { id: 'h', name: 'function-header', data: '' },
+              {
+                id: 'b',
+                name: 'function-body',
+                data: { parameters: [] },
+                children: [{ id: 'c', name: 'comment', data: 'Why this step exists' }],
+              },
+              { id: 'f', name: 'function-footer', data: '' },
+            ],
+          },
+        },
+        registry,
+      );
+      expect(result.ok).toBe(true);
+    });
+
     it('registers the workflow project type\'s "trigger-function" document sharing the same stack', () => {
       const functionStack = registry.getStack('workflow', 'function');
       const triggerStack = registry.getStack('workflow', 'trigger-function');

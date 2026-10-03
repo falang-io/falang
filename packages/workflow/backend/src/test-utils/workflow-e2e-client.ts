@@ -1,5 +1,8 @@
 import { Client, Connection } from '@temporalio/client';
 import request from 'supertest';
+import { resolveTemporalConfig } from '../domains/temporal/temporal-config.js';
+import { temporalNamespaceFor } from '../domains/temporal/temporal-namespace.js';
+import { TemporalTokenService } from '../domains/temporal/temporal-token.service.js';
 
 /**
  * Base URL for `backend`'s real, already-running instance in `docker-compose.workflow-e2e.yml` —
@@ -81,6 +84,16 @@ export const WORKFLOW_E2E_MEDIA_URL = process.env.MEDIA_URL ?? 'http://localhost
 export const WORKFLOW_E2E_RUNNER_MEDIA_URL =
   process.env.RUNNER_MEDIA_SERVICE_URL ?? `http://${process.env.KIND_GATEWAY_IP ?? '172.18.0.1'}:4204`;
 
+/**
+ * Egress proxy (ADR 0056 (private)) as configured into admin settings — the one URL both `backend` (docker
+ * network) and runner pods (kind) can reach (`docker-compose.workflow-e2e.yml`'s `proxy`, host port `4301` via the
+ * docker-bridge gateway). `WORKFLOW_E2E_PROXY_STATS_URL` is the same service as seen from this test process.
+ */
+export const WORKFLOW_E2E_PROXY_URL =
+  process.env.E2E_PROXY_URL ?? `http://${process.env.KIND_GATEWAY_IP ?? '172.18.0.1'}:4301`;
+export const WORKFLOW_E2E_PROXY_TOKEN = process.env.E2E_PROXY_TOKEN ?? 'e2e-proxy-token';
+export const WORKFLOW_E2E_PROXY_STATS_URL = process.env.E2E_PROXY_STATS_URL ?? 'http://localhost:4301';
+
 const ADMIN_USERNAME = 'admin';
 const ADMIN_PASSWORD = 'admin';
 
@@ -151,11 +164,37 @@ export const workflowE2eGetIntegrationsDocumentId = async (token: string, projec
   return doc.id;
 };
 
-/** Starts the given compiled workflow function on `taskQueue` and awaits its result — mirrors `@falang/workflow-e2e-tests`' `integration-test-helpers.ts` `startAndAwaitResult`. */
+/**
+ * A Temporal client for `projectId` as the e2e stack runs it (ADR 0057 (private)): with
+ * `TEMPORAL_TENANT_ISOLATION=per-project` (+ `TEMPORAL_JWT_PRIVATE_KEY`, the same env `backend` has) it
+ * connects with a short-lived admin JWT (plaintext, `tls: false`) to the project's own `falang-<projectId>`
+ * namespace; otherwise it is the old tokenless client on the shared namespace. Close `connection` when done.
+ */
+export const workflowE2eTemporalClient = async (
+  projectId: string,
+): Promise<{ client: Client; connection: Connection }> => {
+  const config = resolveTemporalConfig(process.env);
+  if (config.mode === 'shared' || !config.jwt) {
+    const connection = await Connection.connect({ address: WORKFLOW_E2E_TEMPORAL_ADDRESS });
+    return { client: new Client({ connection, namespace: config.sharedNamespace }), connection };
+  }
+  const tokens = new TemporalTokenService(config.jwt);
+  const connection = await Connection.connect({
+    address: WORKFLOW_E2E_TEMPORAL_ADDRESS,
+    apiKey: () => tokens.mintAdminToken().token,
+    tls: config.tls,
+  });
+  return { client: new Client({ connection, namespace: temporalNamespaceFor(projectId) }), connection };
+};
+
+/** `workflow-dev-<projectId>` / `workflow-<projectId>` → `<projectId>` (see `task-queue-names.ts`). */
+const projectIdOfTaskQueue = (taskQueue: string): string =>
+  taskQueue.replace(/^workflow-dev-/, '').replace(/^workflow-/, '');
+
+/** Starts the given compiled workflow function on `taskQueue` and awaits its result — mirrors `@falang/workflow-e2e-tests`' `integration-test-helpers.ts` `startAndAwaitResult`. The project (hence its Temporal namespace) is read off the task queue name. */
 export const workflowE2eStartAndAwaitResult = async (functionName: string, taskQueue: string): Promise<unknown> => {
-  const connection = await Connection.connect({ address: WORKFLOW_E2E_TEMPORAL_ADDRESS });
+  const { client, connection } = await workflowE2eTemporalClient(projectIdOfTaskQueue(taskQueue));
   try {
-    const client = new Client({ connection });
     const handle = await client.workflow.start(functionName, {
       taskQueue,
       workflowId: `workflow-e2e-${functionName}-${Date.now()}`,
@@ -167,11 +206,10 @@ export const workflowE2eStartAndAwaitResult = async (functionName: string, taskQ
   }
 };
 
-/** Awaits the result of a workflow already started elsewhere (e.g. a `signalWithStart` triggered by a webhook POST) — mirrors `@falang/workflow-e2e-tests`' `integration-test-helpers.ts` `awaitWorkflowResult`. */
-export const workflowE2eAwaitWorkflowResult = async (workflowId: string): Promise<unknown> => {
-  const connection = await Connection.connect({ address: WORKFLOW_E2E_TEMPORAL_ADDRESS });
+/** Awaits the result of a workflow already started elsewhere (e.g. a `signalWithStart` triggered by a webhook POST) in `projectId`'s namespace — mirrors `@falang/workflow-e2e-tests`' `integration-test-helpers.ts` `awaitWorkflowResult`. */
+export const workflowE2eAwaitWorkflowResult = async (workflowId: string, projectId: string): Promise<unknown> => {
+  const { client, connection } = await workflowE2eTemporalClient(projectId);
   try {
-    const client = new Client({ connection });
     return await client.workflow.getHandle(workflowId).result();
   } finally {
     await connection.close();

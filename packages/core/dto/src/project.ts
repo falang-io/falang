@@ -31,6 +31,8 @@ export interface IProjectTreeFolder {
   id: string;
   name: string;
   parentId: string | null;
+  /** Set only on a fixed root section folder (workflow projects, ADR 0055 (private)); a domain-defined kind string. */
+  fixedKind?: string | null;
 }
 
 export interface IProjectTreeDocument {

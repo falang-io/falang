@@ -122,6 +122,25 @@ describe('compileTriggerFunction', () => {
     );
   });
 
+  it('instruments the body for debugging when asked, with the trigger payload in the captured scope', () => {
+    const sites: { nodeId: string }[] = [];
+    let next = 0;
+    const result = compileTriggerFunction(buildTriggerFunctionNode(), 'onMessage', [telegramIntegration], {
+      debug: {
+        documentId: 'doc-1',
+        allocateIndex: () => {
+          next += 1;
+          return next - 1;
+        },
+        onTracePoint: (site) => sites.push(site),
+      },
+    });
+    expect(sites.map((site) => site.nodeId)).toEqual(['send1']);
+    // The signal wait stays before the first trace point, so breakpoints arm before any statement runs.
+    expect(result.indexOf('await condition(() => hasSignal);')).toBeLessThan(result.indexOf('send1'));
+    expect(result).toMatch(/message/);
+  });
+
   it('throws when bound to a vendor/trigger not present in the given integrations', () => {
     expect(() => compileTriggerFunction(buildTriggerFunctionNode(), 'onMessage', [])).toThrow(/unknown trigger/);
   });

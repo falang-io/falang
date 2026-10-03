@@ -12,6 +12,17 @@ import {
 } from '../../test-utils/workflow-e2e-client.js';
 import { buildReturnNode, buildTriggerFunctionRootNode } from '../../test-utils/workflow-e2e-fixtures.js';
 
+/** Import mints fresh credential ids (security audit P0-6), so the id the fixture used is not the stored one. */
+const findImportedInstanceId = async (token: string, projectId: string): Promise<string> => {
+  const response = await workflowE2eApi().get(`/projects/${projectId}/documents`).set(workflowE2eAuth(token));
+  const integrations = (
+    response.body as readonly { type: string; data?: { instances: readonly { id: string }[] } }[]
+  ).find((doc) => doc.type === 'integrations');
+  const id = integrations?.data?.instances[0]?.id;
+  if (!id) throw new Error(`No integration instance in project ${projectId}`);
+  return id;
+};
+
 /**
  * Workflow-tier port of `@falang/workflow-e2e-tests`' `integrations-webhook.spec.ts` — see
  * ADR 0018 (private). Same assertion (an inbound POST signals a real
@@ -98,6 +109,7 @@ describe('integrations (workflow tier): Webhook', () => {
 
     try {
       const triggerId = await findDocumentIdByName(projectId, 'onWebhook');
+      const importedCredentialId = await findImportedInstanceId(token, projectId);
 
       const buildResponse = await workflowE2eApi().post(`/projects/${projectId}/build`).set(workflowE2eAuth(token));
       expect(buildResponse.status).toBe(202);
@@ -109,17 +121,20 @@ describe('integrations (workflow tier): Webhook', () => {
       // for a bare `@Post`), and the route only exists once `IntegrationsRuntimeService`'s discovery
       // tick has actually registered it — retry rather than assume it's already live.
       await workflowE2eWaitForValue(async () => {
-        const res = await fetch(`${WORKFLOW_E2E_BACKEND_URL}/webhooks/webhook/${credentialId}/dev/${triggerId}`, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify(payload),
-        });
+        const res = await fetch(
+          `${WORKFLOW_E2E_BACKEND_URL}/webhooks/webhook/${projectId}/${importedCredentialId}/dev/${triggerId}`,
+          {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(payload),
+          },
+        );
         if (!res.ok) return;
         const body = (await res.json()) as { status: number };
         if (body.status === 200) return body;
       }, 60_000);
 
-      const result = await workflowE2eAwaitWorkflowResult(`webhook-${triggerId}`);
+      const result = await workflowE2eAwaitWorkflowResult(`webhook-${triggerId}`, projectId);
       expect(result).toBe(JSON.stringify(payload));
 
       await workflowE2eApi().post(`/projects/${projectId}/stop`).set(workflowE2eAuth(token)).expect(204);

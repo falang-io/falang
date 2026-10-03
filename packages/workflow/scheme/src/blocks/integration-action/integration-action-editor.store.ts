@@ -16,6 +16,7 @@ import {
   TOKEN_INTEGRATIONS_REGISTRY,
   type IFieldOptionsProvider,
 } from '../../registry/di-tokens.js';
+import { initialFieldValue } from '../../registry/initial-field-value.js';
 
 export type TIntegrationActionData = Readonly<Record<string, string>>;
 
@@ -81,7 +82,7 @@ export class IntegrationActionEditorStore extends ExpressionBlockEditorStore<TIn
     this.dynamicOptionsField = descriptor.fields.find((field) => field.kind === 'select' && field.loadOptions);
 
     for (const field of descriptor.fields) {
-      const value = params.data[field.name] ?? '';
+      const value = initialFieldValue(field, params.data[field.name], this.credentialInstances);
       if (field.kind === 'expression') {
         this.codeStores.set(
           field.name,

@@ -1,3 +1,4 @@
+// oxlint-disable max-lines -- document CRUD, locks and integrations-document encoding share one service.
 import {
   BadRequestException,
   ConflictException,
@@ -8,12 +9,7 @@ import {
 } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { InjectRepository } from '@nestjs/typeorm';
-import {
-  FUNCTION_LIKE_DOCUMENT_TYPES,
-  isValidFunctionName,
-  type IProjectDocument,
-  type IProjectTreeDocument,
-} from '@falang/dto';
+import type { IProjectDocument, IProjectTreeDocument } from '@falang/dto';
 import {
   INTEGRATIONS_DOCUMENT_TYPE,
   type IIntegrationsDocumentData,
@@ -21,14 +17,19 @@ import {
 } from '@falang/workflow-integrations-common';
 import { MoreThan, type Repository } from 'typeorm';
 import { ActivepiecesCatalogService } from '../../integrations/activepieces-catalog.service.js';
+import { assertCredentialIdsNotOwnedByOtherProject } from '../../integrations/credential-id-ownership.js';
 import { encodeIntegrationsDataForWrite, maskIntegrationsDataForRead } from '../../integrations/credentials-codec.js';
 import { requireEncryptionKey } from '../../integrations/credentials-crypto.js';
 import { REGISTERED_INTEGRATIONS } from '../../integrations/registered-integrations.js';
 import { IntegrationVendorDataService } from '../../integrations/vendor-data/integration-vendor-data.service.js';
+import { Folder } from '../folders/folder.entity.js';
+import { resolveDocumentFolder } from '../layout/project-layout.js';
 import { ProjectsService } from '../projects/projects.service.js';
 import type { CreateDocumentDto } from './dto/create-document.dto.js';
 import type { UpdateDocumentDto } from './dto/update-document.dto.js';
 import { Document } from './document.entity.js';
+import { assertUniqueDocumentName } from './unique-document-name.js';
+import { assertValidFunctionName } from './validate-function-name.js';
 
 /**
  * True when `value` is an explicit `null` or a real object/array — false only when the field was
@@ -50,23 +51,6 @@ const isObjectOrNull = (value: unknown): boolean => value === null || typeof val
 /** The `id`s of an `integrations` document's configured instances — used to diff old vs. new on `update` (see `IntegrationVendorDataService.removeForInstance`). */
 const integrationInstanceIds = (data: IIntegrationsDocumentData | null): ReadonlySet<string> =>
   new Set((data?.instances ?? []).map((instance) => instance.id));
-
-/** `function`/`trigger-function` documents compile `name` verbatim into a real TS function identifier
- *  (see `@falang/workflow-compiler`'s `compileFunction`/`compileTriggerFunction`) — every other type
- *  (`objects-structure`, the pinned `integrations` document, …) never reaches the compiler at all, so
- *  only `FUNCTION_LIKE_DOCUMENT_TYPES` (`@falang/dto`) is gated. The only chokepoint every write path
- *  (REST `PATCH`/`POST`, and both MCP tools in `domains/mcp/mcp-shared-tools.ts`, which call
- *  `create`/`update` directly and bypass the DTOs'/`ValidationPipe`'s class-validator rules entirely)
- *  is guaranteed to go through. */
-const assertValidFunctionName = (type: string, name: string): void => {
-  if (!FUNCTION_LIKE_DOCUMENT_TYPES.has(type)) return;
-  if (!isValidFunctionName(name)) {
-    throw new BadRequestException(
-      `Function name "${name}" is invalid — it must be an English, camelCase identifier ` +
-        '(e.g. myFunctionName), with no spaces, punctuation, or non-Latin script',
-    );
-  }
-};
 
 const toProjectDocument = (document: Document, integrations: readonly IWorkflowIntegration[]): IProjectDocument => {
   const result: IProjectDocument = { id: document.id, type: document.type, name: document.name };
@@ -108,6 +92,7 @@ const toTreeDocument = (document: Document): IProjectTreeDocumentWithLock => ({
 @Injectable()
 export class DocumentsService {
   private readonly documents: Repository<Document>;
+  private readonly folders: Repository<Folder>;
   private readonly projectsService: ProjectsService;
   private readonly config: ConfigService;
   private readonly activepiecesCatalog: ActivepiecesCatalogService;
@@ -115,11 +100,13 @@ export class DocumentsService {
 
   constructor(
     @InjectRepository(Document) documents: Repository<Document>,
+    @InjectRepository(Folder) folders: Repository<Folder>,
     @Inject(ProjectsService) projectsService: ProjectsService,
     @Inject(ConfigService) config: ConfigService,
     @Inject(ActivepiecesCatalogService) activepiecesCatalog: ActivepiecesCatalogService,
     @Inject(IntegrationVendorDataService) vendorData: IntegrationVendorDataService,
   ) {
+    this.folders = folders;
     this.documents = documents;
     this.projectsService = projectsService;
     this.config = config;
@@ -143,21 +130,41 @@ export class DocumentsService {
   async create(projectId: string, ownerId: string, input: CreateDocumentDto): Promise<IProjectDocument> {
     await this.projectsService.getOwnedProject(projectId, ownerId);
     assertValidFunctionName(input.type, input.name);
+    await assertUniqueDocumentName(this.documents, projectId, input.name, null);
+    const folderId = await resolveDocumentFolder(this.folders, projectId, input.type, input.folderId ?? null);
     const data =
       input.type === INTEGRATIONS_DOCUMENT_TYPE
-        ? await this.encodeIncomingData(input.data, null)
+        ? await this.encodeIncomingData(projectId, input.data, null)
         : (input.data ?? null);
     const document = this.documents.create({
       id: input.id,
       type: input.type,
       name: input.name,
-      folderId: input.folderId ?? null,
+      folderId,
       projectId,
       root: input.root ?? null,
       data,
     });
-    const [saved, integrations] = await Promise.all([this.documents.save(document), this.getIntegrationsList()]);
-    return toProjectDocument(saved, integrations);
+    await this.assertFolderInProject(projectId, document.folderId);
+    // Strict insert, never `save()`: with a client-supplied id `save()` would silently UPDATE an
+    // existing row — including one that belongs to another project (IDOR).
+    try {
+      await this.documents.insert(document as Parameters<Repository<Document>['insert']>[0]);
+    } catch (error) {
+      if (await this.documents.existsBy({ id: input.id })) {
+        throw new ConflictException(`Document "${input.id}" already exists`);
+      }
+      throw error;
+    }
+    const integrations = await this.getIntegrationsList();
+    return toProjectDocument(document, integrations);
+  }
+
+  /** A folder id from the client must name a folder of the very same project. */
+  private async assertFolderInProject(projectId: string, folderId: string | null): Promise<void> {
+    if (folderId === null) return;
+    const exists = await this.folders.existsBy({ id: folderId, projectId });
+    if (!exists) throw new BadRequestException(`Folder "${folderId}" not found in this project`);
   }
 
   /**
@@ -175,20 +182,34 @@ export class DocumentsService {
     const document = await this.getOwnedDocument(projectId, ownerId, documentId);
     this.assertNotLockedByAnotherOwner(document, lockOwner);
     const folderIdProvided = typeof input.folderId === 'string' || input.folderId === null;
-    if (document.pinned && folderIdProvided) {
-      throw new ForbiddenException(`Document "${documentId}" is pinned and cannot be moved`);
+    const requestedFolderId = folderIdProvided ? (input.folderId ?? null) : document.folderId;
+    if (document.pinned) {
+      if (folderIdProvided) {
+        throw new ForbiddenException(`Document "${documentId}" is pinned and cannot be moved`);
+      }
+      if (typeof input.name === 'string' && input.name !== document.name) {
+        throw new ForbiddenException(`Document "${documentId}" is pinned and cannot be renamed`);
+      }
     }
     if (typeof input.name === 'string') {
       assertValidFunctionName(document.type, input.name);
+      await assertUniqueDocumentName(this.documents, projectId, input.name, document.id);
       document.name = input.name;
     }
-    if (folderIdProvided) document.folderId = input.folderId ?? null;
+    if (folderIdProvided && !document.pinned) {
+      document.folderId = await resolveDocumentFolder(this.folders, projectId, document.type, requestedFolderId);
+      await this.assertFolderInProject(projectId, document.folderId);
+    }
     if (isObjectOrNull(input.root)) document.root = input.root ?? null;
     let removedInstanceIds: readonly string[] = [];
     if (isObjectOrNull(input.data)) {
       if (document.type === INTEGRATIONS_DOCUMENT_TYPE) {
         const previousInstanceIds = integrationInstanceIds(document.data as IIntegrationsDocumentData | null);
-        document.data = await this.encodeIncomingData(input.data, document.data as IIntegrationsDocumentData | null);
+        document.data = await this.encodeIncomingData(
+          projectId,
+          input.data,
+          document.data as IIntegrationsDocumentData | null,
+        );
         const newInstanceIds = integrationInstanceIds(document.data as IIntegrationsDocumentData | null);
         removedInstanceIds = [...previousInstanceIds].filter((id) => !newInstanceIds.has(id));
       } else {
@@ -281,10 +302,12 @@ export class DocumentsService {
 
   /** Encrypts every `secret`-kind credential field before an `integrations` document is persisted — see `credentials-codec.ts`. */
   private async encodeIncomingData(
+    projectId: string,
     incoming: unknown,
     previous: IIntegrationsDocumentData | null,
   ): Promise<IIntegrationsDocumentData | null> {
     if (!isObjectOrNull(incoming) || incoming === null) return null;
+    await assertCredentialIdsNotOwnedByOtherProject(this.documents, projectId, incoming);
     const encryptionKey = requireEncryptionKey(this.config.get<string>('CREDENTIALS_ENCRYPTION_KEY'));
     const integrations = await this.getIntegrationsList();
     return encodeIntegrationsDataForWrite(incoming as IIntegrationsDocumentData, previous, integrations, encryptionKey);

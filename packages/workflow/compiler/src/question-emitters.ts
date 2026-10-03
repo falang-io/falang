@@ -121,7 +121,13 @@ const buildQuestionEmitter = (
       // own declaration above.
       return `const data = ${prefix}Payload!.data as ${optionData.dataType};`;
     };
-    const cases = buildSwitchCases(children, compile, getCaseValue, buildCasePrefix);
+    // Without a timeout value there is no timeout case at all — a leftover `fixed` branch (kept in the
+    // tree by the editor only because it still has content, so it isn't deleted silently) is skipped
+    // rather than compiled into an unreachable `case '__timeout__'`.
+    const caseOptions = hasTimeout
+      ? children
+      : children.filter((option) => !(option.data as IQuestionOptionData).fixed);
+    const cases = buildSwitchCases(caseOptions, compile, getCaseValue, buildCasePrefix);
 
     // `descriptor.optionDataTypes` (`human-task`) declares `askActivitySignature`'s `options` param
     // as a plain `string` (the activity itself `JSON.parse`s it — see `tasks.integration.ts`), unlike

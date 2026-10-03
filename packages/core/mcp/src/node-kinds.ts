@@ -48,6 +48,11 @@ export interface INodeKindDescription {
  * buttons rather than text to match against.
  */
 const NODE_KIND_NOTES: Record<string, string> = {
+  comment: [
+    'A comment for human readers: `data` is plain text (may span lines), drawn as a sheet with a folded corner.',
+    'It compiles to a code comment only — never to behaviour. Use it to explain a non-obvious step, not to',
+    'disable code.',
+  ].join(' '),
   magic: [
     'A transparent group: `data.spell` is a human, plain-language description of the step (shown as the',
     'only thing on the canvas), its children are the real nodes and compile inlined, as if they stood in the',

@@ -31,12 +31,12 @@ describe('workflow-backend (e2e)', () => {
     // No `Authorization` header — if `@falang/workflow-gateway`'s public-route metadata didn't match
     // `JwtAuthGuard`'s expected key, this would 401 before ever reaching the controller.
     // No integration registered — GatewayModule.forRoot([], ...) in this test app — so it 404s past the guard.
-    const response = await request(app.getHttpServer()).post('/webhooks/telegram/cred-1/prod').send({});
+    const response = await request(app.getHttpServer()).post('/webhooks/telegram/project-1/cred-1/prod').send({});
     expect(response.status).toBe(404);
   });
 
   it('rejects a webhook request with an invalid env segment', async () => {
-    const response = await request(app.getHttpServer()).post('/webhooks/telegram/cred-1/staging').send({});
+    const response = await request(app.getHttpServer()).post('/webhooks/telegram/project-1/cred-1/staging').send({});
     expect(response.status).toBe(400);
   });
 
@@ -120,6 +120,10 @@ describe('workflow-backend (e2e)', () => {
     // Every project is seeded with one pinned `integrations` document at creation — see ADR 0006.
     const initialTree = await request(app.getHttpServer()).get(`/projects/${project.id}/tree`).set(auth(token));
     expect(initialTree.body.documents).toHaveLength(1);
+    // ...plus the three fixed section folders (ADR 0055 (private); asserted in fixed-folders.e2e.test.ts).
+    const functionsSection: string = initialTree.body.folders.find(
+      (f: { fixedKind: string }) => f.fixedKind === 'functions',
+    ).id;
     const integrationsDoc = initialTree.body.documents[0];
     expect(integrationsDoc).toMatchObject({ type: 'integrations', name: 'Integrations', folderId: null, pinned: true });
 
@@ -129,7 +133,7 @@ describe('workflow-backend (e2e)', () => {
     await request(app.getHttpServer())
       .post(`/projects/${project.id}/folders`)
       .set(auth(token))
-      .send({ id: folderId, name: 'Functions', parentId: null })
+      .send({ id: folderId, name: 'Helpers', parentId: functionsSection })
       .expect(201);
 
     await request(app.getHttpServer())
@@ -139,7 +143,13 @@ describe('workflow-backend (e2e)', () => {
       .expect(201);
 
     const tree = await request(app.getHttpServer()).get(`/projects/${project.id}/tree`).set(auth(token));
-    expect(tree.body.folders).toEqual([{ id: folderId, name: 'Functions', parentId: null }]);
+    expect(tree.body.folders).toContainEqual({
+      id: folderId,
+      name: 'Helpers',
+      parentId: functionsSection,
+      fixedKind: null,
+    });
+    expect(tree.body.folders).toHaveLength(4);
     expect(tree.body.documents).toEqual(
       expect.arrayContaining([integrationsDoc, { id: docId, type: 'function', name: 'run', folderId, pinned: false }]),
     );

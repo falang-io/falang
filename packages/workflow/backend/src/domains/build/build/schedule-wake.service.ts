@@ -1,6 +1,7 @@
 import { Inject, Injectable, Logger, type OnModuleDestroy, type OnModuleInit } from '@nestjs/common';
 import { SCHEDULE_CLIENT_PORT, type IScheduleClientPort, type IScheduleStateWithTarget } from '@falang/workflow-gateway';
 import { BuildService } from './build.service.js';
+import { reportIfPermissionDenied } from '../../temporal/temporal-errors.js';
 import type { IEnsureRunnerRunningOptions } from './ensure-runner-running.js';
 
 /** How often the wake sweep re-lists schedules — same cadence as `RunnerIdleSweepService`'s own timer. */
@@ -67,6 +68,7 @@ export class ScheduleWakeService implements OnModuleInit, OnModuleDestroy {
       this.sweeping = true;
       this.sweep()
         .catch((error: unknown) => {
+          reportIfPermissionDenied(this.logger, 'schedule wake sweep', error);
           this.logger.error('Schedule wake sweep failed', error instanceof Error ? error.stack : error);
         })
         .finally(() => {

@@ -116,9 +116,10 @@ describe('DebugService.start', () => {
       terminatedExecutionsCount: 2,
     });
     expect(ensureRunnerDeps.runnerProcessManager.start).toHaveBeenCalled();
-    expect(workflowRunService.terminateRunningOn).toHaveBeenCalledWith(TASK_QUEUE);
+    expect(workflowRunService.terminateRunningOn).toHaveBeenCalledWith('proj-1', TASK_QUEUE);
     expect(signalWithStartDebug).toHaveBeenCalledWith(
       expect.objectContaining({
+        projectId: PROJECT_ID,
         taskQueue: TASK_QUEUE,
         functionName: 'greet',
         args: [1, 'a'],

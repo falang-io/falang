@@ -113,6 +113,18 @@ import Gallery from '../../../components/gallery.astro';
   <img src='/img/docs/outs-types.png' />
 </Gallery>
 <p>In the case of nested loops, the "Exit" and "Continue" icons at the end have indexes 1,2,... The index indicates the level of the outer loop to which the exit applies.</p>
+<p>
+  In a function that returns nothing, <b>Return</b> looks like <b>Exit</b> and <b>Continue</b> — just a label. In a function
+  with a return value it is a titled block holding the returned expression, checked against the function's return
+  type; a new <b>Return</b> returns <code>returnValue</code> (the function's result variable) by default.
+</p>
+
+#### Comment
+<p>
+  A comment is a note for the reader, drawn as a sheet with a folded corner. It holds plain text and never affects
+  execution — in generated code it becomes a code comment. Insert it from the insertion point's context menu
+  ("Comment"). Available in workflow functions for now.
+</p>
 
 #### Timer
 <p>

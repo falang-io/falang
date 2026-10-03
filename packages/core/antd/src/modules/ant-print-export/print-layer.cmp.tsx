@@ -9,6 +9,10 @@ import { PrintExportStore } from './print-export.store.js';
 import { usePrintExportT } from './use-print-export-t.js';
 
 const PRINT_LAYER_CSS = `
+.falang-print-page, .falang-print-page :where(div, span, p, pre, code, a, b, i, u, s, li, td, th, label, input, textarea, select, .token) { color: #000 !important; }
+.falang-print-page :where(code, pre, .token) { text-shadow: none !important; }
+.falang-print-page :where(svg text, svg tspan) { fill: #000 !important; }
+.falang-print-page .mtk1, .falang-print-page [class*="mtk"] { color: #000 !important; }
 .falang-print-page { position: relative; overflow: hidden; box-sizing: border-box; background: white; width: 210mm; height: 297mm; }
 @media screen {
   .falang-print-root { position: fixed; inset: 0; z-index: 3000; background: #525659; overflow: auto; display: flex; flex-direction: column; align-items: center; padding: 72px 24px 24px; box-sizing: border-box; }
@@ -17,7 +21,7 @@ const PRINT_LAYER_CSS = `
   .falang-print-toolbar { position: fixed; top: 0; left: 0; right: 0; height: 56px; display: flex; align-items: center; gap: 12px; padding: 0 24px; background: #2b2d30; z-index: 1; }
 }
 @media print {
-  html, body { height: auto !important; overflow: visible !important; margin: 0 !important; }
+  html, body { height: auto !important; min-height: 0 !important; overflow: visible !important; margin: 0 !important; padding: 0 !important; background: #fff !important; }
   body > :not(.falang-print-root) { display: none !important; }
   .falang-print-root { position: static !important; overflow: visible !important; display: block !important; }
   .falang-print-chrome { display: none !important; }

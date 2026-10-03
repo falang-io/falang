@@ -209,6 +209,18 @@ describe('/mcp (HTTP-level, PAT auth) (e2e)', () => {
     }
   });
 
+  it('list_integrations does not offer sqlite while ENABLE_SQLITE_INTEGRATION is off', async () => {
+    const rawToken = await createPat(harness, jwt);
+    const client = await connectClient(harness, rawToken);
+    try {
+      const result = await client.callTool({ name: 'list_integrations', arguments: { keywords: ['sqlite'] } });
+      expect(result.isError).not.toBe(true);
+      expect(toolText(result)).not.toContain('"vendor":"sqlite"');
+    } finally {
+      await client.close();
+    }
+  });
+
   // ADR 0034 (private)'s 2026-09-28 follow-up: action/field/question labels used to reach the agent as raw
   // i18n keys (`telegram:action.sendMessage`) — now resolved through the vendor's own English locale.
   it('list_integrations resolves i18n-key labels to English text', async () => {
@@ -294,6 +306,39 @@ describe('/mcp (HTTP-level, PAT auth) (e2e)', () => {
       const listed = await client.callTool({ name: 'list_documents', arguments: { projectId } });
       const documents = (JSON.parse(toolText(listed)) as { documents: { name: string }[] }).documents;
       expect(documents.some((doc) => doc.name === 'Мой бот')).toBe(false);
+    } finally {
+      await client.close();
+    }
+  });
+
+  it('fixed sections: list_documents marks them, create defaults to the section, create_folder at the root is refused', async () => {
+    const rawToken = await createPat(harness, jwt);
+    const client = await connectClient(harness, rawToken);
+    try {
+      interface TListed {
+        folders: { id: string; fixedKind?: string | null }[];
+        documents: { id: string; folderId: string | null; pinned: boolean }[];
+      }
+      const created = await client.callTool({
+        name: 'create_document',
+        arguments: { projectId, name: 'sectionFn', type: 'function' },
+      });
+      expect(created.isError).not.toBe(true);
+      const createdId = (JSON.parse(toolText(created)) as { id: string }).id;
+      const listed = JSON.parse(
+        toolText(await client.callTool({ name: 'list_documents', arguments: { projectId } })),
+      ) as TListed;
+      const functions = listed.folders.find((folder) => folder.fixedKind === 'functions');
+      expect(functions).toBeDefined();
+      expect(listed.documents.find((doc) => doc.id === createdId)?.folderId).toBe(functions?.id);
+      expect(listed.documents.some((doc) => doc.pinned)).toBe(true);
+
+      const rootFolder = await client.callTool({
+        name: 'create_folder',
+        arguments: { projectId, name: 'loose', parentId: null },
+      });
+      expect(rootFolder.isError).toBe(true);
+      expect(toolText(rootFolder)).toContain(functions?.id);
     } finally {
       await client.close();
     }

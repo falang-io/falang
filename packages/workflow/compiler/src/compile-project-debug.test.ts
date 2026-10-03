@@ -117,7 +117,7 @@ describe('compileProject — debug instrumentation (ADR 0021 (private))', () => 
     });
   });
 
-  it('does not instrument trigger-function documents (Phase 1 only debugs plain functions)', () => {
+  it('instruments trigger-function documents too, after their trigger signal wait', () => {
     const integration: IWorkflowIntegration = {
       vendor: 'acme',
       actions: [],
@@ -147,8 +147,11 @@ describe('compileProject — debug instrumentation (ADR 0021 (private))', () => 
     const document: IProjectDocument = { id: 'doc-t', type: 'trigger-function', name: 'onThing', root };
 
     const result = compileProject({ documents: [document], integrations: [integration], debug: true });
-    expect(result.workflows).not.toContain('__falangDebug.trace');
-    expect(result.debugMap).toEqual({ tracePoints: [] });
+    expect(result.workflows).toContain('__falangDebug.trace');
+    expect(result.debugMap?.tracePoints.map((point) => [point.documentId, point.nodeId])).toEqual([['doc-t', 'l1']]);
+    expect(result.workflows.indexOf('await condition(() => hasSignal);')).toBeLessThan(
+      result.workflows.indexOf('__falangDebug.trace('),
+    );
   });
 
   it('combines with trackPosition: __falangAt then __falangDebug.trace at each statement, debug wrap outside the position wrap', () => {

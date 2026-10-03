@@ -1,5 +1,6 @@
 // oxlint-disable no-await-in-loop -- every loop below is a sequential, deliberately-not-parallel drive over targets (discovery, startup registration — low-frequency, not a hot path).
 // oxlint-disable max-lines -- over the default cap because of the new `ensureRunnerRunning`/`setEnsureRunnerRunning` wake-on-signal wiring (ADR 0016 (private)'s Phase 2 "Scale-to-zero" follow-up), not accumulated complexity.
+import { runWithEgressVendor } from '@falang/workflow-egress';
 import { Logger, type OnModuleDestroy, type OnModuleInit } from '@nestjs/common';
 import type { IIntegrationBackendHandle, IWorkflowIntegration } from '@falang/workflow-integrations-common';
 import type { IIntegrationCredentialInstance, IIntegrationsDiscoveryPort } from './discovery-port.js';
@@ -47,8 +48,9 @@ interface IKnownTarget {
 const targetKey = (target: Pick<IKnownTarget, 'vendor' | 'credentialId' | 'projectId' | 'env'>): string =>
   `${target.vendor}:${target.credentialId}:${target.projectId}:${target.env}`;
 
-const webhookHandlerKey = (vendor: string, credentialId: string, env: string, uri: string): string =>
-  `${vendor}/${credentialId}/${env}/${uri}`;
+/** **Must** include `projectId`: credential ids are client-chosen, so two projects can share one — see ADR 0044 (private) security audit P0-6. */
+const webhookHandlerKey = (vendor: string, projectId: string, credentialId: string, env: string, uri: string): string =>
+  `${vendor}/${projectId}/${credentialId}/${env}/${uri}`;
 
 interface IActiveTarget {
   readonly dispose: () => Promise<void>;
@@ -69,8 +71,6 @@ export interface IIntegrationsRuntimeParams {
   readonly signalWorkflowWithStart: TSignalWorkflowWithStart;
   /** Base URL this process is externally reachable at (e.g. `https://bots.example.com`) — omit for the polling fallback. See ADR 0006. */
   readonly publicHost?: string;
-  readonly temporalAddress?: string;
-  readonly namespace?: string;
   /**
    * Backs `ctx.getInternalProjectToken()` — see `@falang/workflow-integrations-common`'s
    * `IIntegrationBackendContext` doc comment and ADR 0016 (private)'s
@@ -115,8 +115,6 @@ export class IntegrationsRuntimeService implements OnModuleInit, OnModuleDestroy
   private readonly discovery: IIntegrationsDiscoveryPort;
   private readonly signalWorkflowWithStart: TSignalWorkflowWithStart;
   private readonly publicHost: string | undefined;
-  private readonly temporalAddress: string | undefined;
-  private readonly namespace: string | undefined;
   private readonly getInternalProjectToken: ((projectId: string) => string) | undefined;
   private readonly scheduleClient: IScheduleClientPort | undefined;
   private readonly fileUpload: IFileUploadPort | undefined;
@@ -145,8 +143,6 @@ export class IntegrationsRuntimeService implements OnModuleInit, OnModuleDestroy
     this.discovery = params.discovery;
     this.signalWorkflowWithStart = params.signalWorkflowWithStart;
     this.publicHost = params.publicHost;
-    this.temporalAddress = params.temporalAddress;
-    this.namespace = params.namespace;
     this.getInternalProjectToken = params.getInternalProjectToken;
     this.scheduleClient = params.scheduleClient;
     this.fileUpload = params.fileUpload;
@@ -165,14 +161,15 @@ export class IntegrationsRuntimeService implements OnModuleInit, OnModuleDestroy
     }
   }
 
-  /** Consulted by `IntegrationWebhookController` for every inbound `POST /webhooks/:vendor/:credentialId/:env[/:uri]`. */
+  /** Consulted by `IntegrationWebhookController` for every inbound `POST /webhooks/:vendor/:projectId/:credentialId/:env[/:uri]`. */
   findWebhookHandler(
     vendor: string,
+    projectId: string,
     credentialId: string,
     env: string,
     uri: string,
   ): ((request: Request) => Promise<Response>) | undefined {
-    return this.webhookHandlers.get(webhookHandlerKey(vendor, credentialId, env, uri));
+    return this.webhookHandlers.get(webhookHandlerKey(vendor, projectId, credentialId, env, uri));
   }
 
   /**
@@ -391,7 +388,12 @@ export class IntegrationsRuntimeService implements OnModuleInit, OnModuleDestroy
     }
     if (this.activeTargets.has(key) || this.stoppedTargets.has(key)) return;
 
-    const fields = await this.discovery.resolveCredentialFields(instance.vendor, instance.instanceId, env);
+    const fields = await this.discovery.resolveCredentialFields(
+      instance.vendor,
+      instance.instanceId,
+      env,
+      instance.projectId,
+    );
     // Not configured for this env yet — leave it out of `activeTargets` so the next discovery tick retries it.
     if (!fields) return;
 
@@ -418,84 +420,88 @@ export class IntegrationsRuntimeService implements OnModuleInit, OnModuleDestroy
     const intervalHandles: NodeJS.Timeout[] = [];
     const taskQueue = this.discovery.taskQueueFor(target.projectId, target.env);
     const webhookUrl = this.publicHost
-      ? `${this.publicHost}/webhooks/${target.vendor}/${target.credentialId}/${target.env}`
+      ? `${this.publicHost}/webhooks/${target.vendor}/${target.projectId}/${target.credentialId}/${target.env}`
       : null;
 
-    const registerResult = await registerBackend({
-      vendor: target.vendor,
-      credentialId: target.credentialId,
-      projectId: target.projectId,
-      env: target.env,
-      fields,
-      webhookUrl,
-      taskQueue,
-      registerWebHook: (uri, handler) => {
-        const handlerKey = webhookHandlerKey(target.vendor, target.credentialId, target.env, uri);
-        this.webhookHandlers.set(handlerKey, handler);
-        webhookKeys.push(handlerKey);
-      },
-      registerInterval: (callback, intervalMs) => {
-        let running = false;
-        const handle = setInterval(() => {
-          if (running) return;
-          running = true;
-          callback()
-            .catch((error: unknown) => {
+    const vendorId = target.vendor;
+    const inVendor = <T>(fn: () => T): T => runWithEgressVendor(vendorId, fn);
+    const registerResult = await inVendor(() =>
+      registerBackend({
+        vendor: target.vendor,
+        credentialId: target.credentialId,
+        projectId: target.projectId,
+        env: target.env,
+        fields,
+        webhookUrl,
+        taskQueue,
+        registerWebHook: (uri, handler) => {
+          const handlerKey = webhookHandlerKey(target.vendor, target.projectId, target.credentialId, target.env, uri);
+          this.webhookHandlers.set(handlerKey, (request) => inVendor(() => handler(request)));
+          webhookKeys.push(handlerKey);
+        },
+        registerInterval: (callback, intervalMs) => {
+          let running = false;
+          const handle = setInterval(() => {
+            if (running) return;
+            running = true;
+            inVendor(() => callback())
+              .catch((error: unknown) => {
+                this.logger.error(
+                  `Interval callback failed for ${target.vendor}/${target.credentialId}/${target.env}`,
+                  error instanceof Error ? error.stack : error,
+                );
+              })
+              .finally(() => {
+                running = false;
+              });
+          }, intervalMs);
+          intervalHandles.push(handle);
+        },
+        signalWorkflow: async (signal) => {
+          if (this.ensureRunnerRunning) {
+            try {
+              await this.ensureRunnerRunning({ projectId: target.projectId, env: target.env, taskQueue });
+            } catch (error) {
+              // Best-effort: fall through to signaling anyway — no worse than the pre-wake status quo.
               this.logger.error(
-                `Interval callback failed for ${target.vendor}/${target.credentialId}/${target.env}`,
+                `ensureRunnerRunning failed for ${target.vendor}/${target.credentialId}/${target.env}`,
                 error instanceof Error ? error.stack : error,
               );
-            })
-            .finally(() => {
-              running = false;
-            });
-        }, intervalMs);
-        intervalHandles.push(handle);
-      },
-      signalWorkflow: async (signal) => {
-        if (this.ensureRunnerRunning) {
-          try {
-            await this.ensureRunnerRunning({ projectId: target.projectId, env: target.env, taskQueue });
-          } catch (error) {
-            // Best-effort: fall through to signaling anyway — no worse than the pre-wake status quo.
-            this.logger.error(
-              `ensureRunnerRunning failed for ${target.vendor}/${target.credentialId}/${target.env}`,
-              error instanceof Error ? error.stack : error,
-            );
+            }
           }
-        }
-        await this.signalWorkflowWithStart({
-          ...signal,
-          taskQueue,
-          temporalAddress: this.temporalAddress,
-          namespace: this.namespace,
-        });
-      },
-      getDocumentsByType: (type) => this.discovery.getDocumentsByType(target.projectId, type),
-      getInternalProjectToken: () => {
-        if (!this.getInternalProjectToken) {
-          throw new Error('No internal project token source configured for this IntegrationsRuntimeService');
-        }
-        return this.getInternalProjectToken(target.projectId);
-      },
-      upsertSchedule: (scheduleParams) =>
-        this.requireScheduleClient().upsert({
-          ...scheduleParams,
-          taskQueue,
-          projectId: target.projectId,
-          env: target.env,
-        }),
-      pauseSchedule: (scheduleId, note) => this.requireScheduleClient().pause(scheduleId, note),
-      deleteSchedule: (scheduleId) => this.requireScheduleClient().delete(scheduleId),
-      listSchedules: () => this.requireScheduleClient().list(taskQueue),
-      uploadFile: (source, meta) => this.requireFileUploadPort().upload(target.projectId, source, meta),
-    });
+          await this.signalWorkflowWithStart({
+            ...signal,
+            taskQueue,
+            projectId: target.projectId,
+          });
+        },
+        getDocumentsByType: (type) => this.discovery.getDocumentsByType(target.projectId, type),
+        getInternalProjectToken: () => {
+          if (!this.getInternalProjectToken) {
+            throw new Error('No internal project token source configured for this IntegrationsRuntimeService');
+          }
+          return this.getInternalProjectToken(target.projectId);
+        },
+        upsertSchedule: (scheduleParams) =>
+          this.requireScheduleClient().upsert({
+            ...scheduleParams,
+            taskQueue,
+            projectId: target.projectId,
+            env: target.env,
+          }),
+        pauseSchedule: (scheduleId, note) => this.requireScheduleClient().pause(target.projectId, scheduleId, note),
+        deleteSchedule: (scheduleId) => this.requireScheduleClient().delete(target.projectId, scheduleId),
+        listSchedules: () => this.requireScheduleClient().list(target.projectId, taskQueue),
+        uploadFile: (source, meta) => this.requireFileUploadPort().upload(target.projectId, source, meta),
+      }),
+    );
 
     const backendHandle = normalizeBackendHandle(registerResult);
+    const { onRunnerIdle, onRunnerResume } = backendHandle;
     this.activeTargets.set(key, {
-      dispose: backendHandle.dispose,
-      onRunnerIdle: backendHandle.onRunnerIdle?.bind(backendHandle),
-      onRunnerResume: backendHandle.onRunnerResume?.bind(backendHandle),
+      dispose: () => inVendor(() => backendHandle.dispose()),
+      onRunnerIdle: onRunnerIdle && (() => inVendor(() => onRunnerIdle.call(backendHandle))),
+      onRunnerResume: onRunnerResume && (() => inVendor(() => onRunnerResume.call(backendHandle))),
       webhookKeys,
       intervalHandles,
     });
