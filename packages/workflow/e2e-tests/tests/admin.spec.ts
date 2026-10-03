@@ -106,8 +106,21 @@ test.describe('admin app', () => {
       await createProjectViaUI(page, projectName);
       await openIntegrationsViaUI(page);
       await page.getByRole('button', { name: '+ Add integration' }).click();
-      await page.getByRole('combobox', { name: 'Vendor' }).click();
-      const enabledOption = await findVendorOption(page, MOCK_OAUTH2_LABEL);
+      // The ActivePieces catalog loads asynchronously (slow on a cold stack, under a busy parallel run):
+      // re-open the dropdown a few times before giving up.
+      let enabledOption: Locator | null = null;
+      for (let attempt = 0; attempt < 6 && !enabledOption; attempt += 1) {
+        // oxlint-disable-next-line no-await-in-loop -- inherently sequential retries.
+        await page.getByRole('combobox', { name: 'Vendor' }).click();
+        // oxlint-disable-next-line no-await-in-loop -- inherently sequential retries.
+        enabledOption = await findVendorOption(page, MOCK_OAUTH2_LABEL);
+        if (!enabledOption) {
+          // oxlint-disable-next-line no-await-in-loop -- inherently sequential retries.
+          await page.keyboard.press('Escape');
+          // oxlint-disable-next-line no-await-in-loop -- inherently sequential retries.
+          await page.waitForTimeout(2000);
+        }
+      }
       expect(enabledOption, `"${MOCK_OAUTH2_LABEL}" never scrolled into the virtualized dropdown`).not.toBeNull();
       await enabledOption?.click();
       await expect(page.getByLabel('Name', { exact: true })).toBeVisible();

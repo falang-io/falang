@@ -21,7 +21,7 @@ const PRINT_LAYER_CSS = `
   .falang-print-toolbar { position: fixed; top: 0; left: 0; right: 0; height: 56px; display: flex; align-items: center; gap: 12px; padding: 0 24px; background: #2b2d30; z-index: 1; }
 }
 @media print {
-  html, body { height: auto !important; overflow: visible !important; margin: 0 !important; }
+  html, body { height: auto !important; min-height: 0 !important; overflow: visible !important; margin: 0 !important; padding: 0 !important; background: #fff !important; }
   body > :not(.falang-print-root) { display: none !important; }
   .falang-print-root { position: static !important; overflow: visible !important; display: block !important; }
   .falang-print-chrome { display: none !important; }

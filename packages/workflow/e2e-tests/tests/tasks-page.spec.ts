@@ -92,8 +92,8 @@ test.describe('tasks page', () => {
     await openProjectViaUI(page, projectName);
 
     await clickProjectMenuItem(page, 'Tasks');
-    await expect(page.getByText('Approve order', { exact: true })).toBeVisible();
-    await page.getByText('Approve order', { exact: true }).click();
+    await expect(page.getByRole('cell', { name: 'Approve order', exact: true })).toBeVisible();
+    await page.getByRole('cell', { name: 'Approve order', exact: true }).click();
 
     await expect(page.getByRole('button', { name: 'Reject' })).toBeVisible();
     await page.getByRole('button', { name: 'Reject' }).click();
@@ -111,8 +111,8 @@ test.describe('tasks page', () => {
     // same task, cross-project.
     await page.getByRole('button', { name: '← Projects' }).click();
     await expect(page.getByRole('button', { name: '+ New project' })).toBeVisible();
-    await clickProjectMenuItem(page, 'Tasks');
-    const standaloneRow = page.getByRole('row', { name: /Approve order/ });
+    await page.getByRole('button', { name: 'Tasks', exact: true }).click();
+    const standaloneRow = page.getByRole('row', { name: new RegExp(`Approve order.*${projectName}`) });
     await expect(standaloneRow).toBeVisible();
     await expect(standaloneRow.getByText('done')).toBeVisible();
   });

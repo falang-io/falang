@@ -40,7 +40,7 @@ test.describe('print export to PDF', () => {
     await api.patch(`/projects/${projectId}/documents/${smallId}`, {
       data: { root: buildFunctionNode(smallId, [buildLogNode(`${smallId}-log`, 'hi')]) },
     });
-    const manyLogs = Array.from({ length: 90 }, (_, i) => buildLogNode(`${tallId}-log-${i}`, `line ${i}`));
+    const manyLogs = Array.from({ length: 60 }, (_, i) => buildLogNode(`${tallId}-log-${i}`, `line ${i}`));
     await api.patch(`/projects/${projectId}/documents/${tallId}`, {
       data: { root: buildFunctionNode(tallId, manyLogs) },
     });

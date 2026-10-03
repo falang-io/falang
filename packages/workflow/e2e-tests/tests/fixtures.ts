@@ -110,7 +110,7 @@ export const createProjectViaUI = async (page: Page, name: string): Promise<stri
 /** Opens a project from the project list by name. */
 export const openProjectViaUI = async (page: Page, name: string): Promise<void> => {
   await page.getByText(name, { exact: true }).click();
-  await expect(page.getByRole('button', { name: '+ Add' })).toBeVisible();
+  await expect(page.getByRole('button', { name: '+ Add', exact: true })).toBeVisible();
 };
 
 /** Opens the pinned "Integrations" document as a tab, so `IntegrationsEditor` renders. */
@@ -150,7 +150,7 @@ const waitForDevRunnerStatus = async (projectId: string, running: boolean, timeo
  */
 export const startDevRunnerViaUI = async (page: Page, projectId: string): Promise<void> => {
   await page.getByRole('button', { name: 'Dev' }).click();
-  await page.getByRole('menuitem', { name: 'Start' }).click();
+  await page.getByRole('menuitem', { name: 'Start', exact: true }).click();
   // Generous under a heavily-loaded box (the full suite runs multiple specs' webpack-bundle +
   // runner spawn concurrently against one shared backend container) — seen to occasionally exceed
   // 30-45s there even though a single spec in isolation settles in ~15s.
@@ -172,7 +172,7 @@ export const clickDevMenuItem = async (page: Page, name: string): Promise<void> 
 /** Stops the project's dev runner through the toolbar's "Dev" dropdown — see `startDevRunnerViaUI`. */
 export const stopDevRunnerViaUI = async (page: Page, projectId: string): Promise<void> => {
   await page.getByRole('button', { name: 'Dev' }).click();
-  await page.getByRole('menuitem', { name: 'Stop' }).click();
+  await page.getByRole('menuitem', { name: 'Stop', exact: true }).click();
   await waitForDevRunnerStatus(projectId, false, 20_000);
 };
 
@@ -198,7 +198,7 @@ const MENU_ITEM_LABEL_BY_KIND = {
  * `{ id, ... }`).
  */
 export const createTreeItemViaUI = async (page: Page, kind: TRootItemKind, name: string): Promise<string> => {
-  await page.getByRole('button', { name: '+ Add' }).click();
+  await page.getByRole('button', { name: '+ Add', exact: true }).click();
   await page.getByRole('menuitem', { name: MENU_ITEM_LABEL_BY_KIND[kind] }).click();
   const input = page.getByPlaceholder(PLACEHOLDER_BY_KIND[kind]);
   await input.fill(name);
@@ -225,7 +225,7 @@ export const createTriggerFunctionViaUI = async (
   triggerLabel: string,
   credentialName: string,
 ): Promise<string> => {
-  await page.getByRole('button', { name: '+ Add' }).click();
+  await page.getByRole('button', { name: '+ Add', exact: true }).click();
   await page.getByRole('menuitem', { name: 'Trigger' }).click();
   await page.getByPlaceholder('Trigger name...').fill(name);
   // antd renders each required Form.Item's accessible name with a `* ` prefix (e.g. `* Integration`)
