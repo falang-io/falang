@@ -28,6 +28,9 @@ import { container, resolveService, type DependencyContainer } from '@falang/di'
 import type { INodeTreeDiff, ISnapshotDocument } from '@falang/versioning';
 import { AgentChatSessionStore, PrintExportStore, VersionHistoryStore } from '@falang/antd';
 import { navigationStore } from './navigation-store.js';
+import { pruneKeepAlive, touchKeepAlive } from './keep-alive.js';
+import type { IProjectTabs } from './project-tabs-storage.js';
+import { startWorkspaceSync } from './workspace-sync.js';
 import { createPrintExportHost } from './print/create-print-export-host.js';
 import {
   checkDocumentPlacement,
@@ -58,6 +61,7 @@ import { IndexedDbAgentSessionStore } from './agent/indexed-db-session-store.js'
 import type { IWorkflowAgentStore } from './agent/workflow-agent-store.js';
 import { buildWorkflowDocumentScheme } from './build-workflow-document-scheme.js';
 import { subscribeWorkflowDocumentSync } from './sync-document-from-scheme.js';
+import { findDocumentNameConflict } from './document-names.js';
 import { generateUuid } from './generate-uuid.js';
 import { REGISTERED_INTEGRATIONS } from './integrations-registry.js';
 import {
@@ -168,7 +172,16 @@ export class WorkflowStore implements IWorkflowAgentStore {
    */
   @observable activeView: 'files' | 'tasks' | null = null;
 
+  /**
+   * Scheme tabs that stay mounted (the active one plus the most recently active others, hidden) so a
+   * tab switch doesn't rebuild the canvas — see `keep-alive.ts` and `ProjectWorkspace`. Closing a tab
+   * drops it (unmounts).
+   */
+  @observable keepAliveSchemeIds: string[] = [];
+
   private readonly sync: ProjectSync;
+  private readonly workspaceSyncDisposer: () => void;
+  private readonly keepAliveDisposer: IReactionDisposer;
   private readonly schemes = new Map<string, Scheme>();
   private readonly followRunDisposer: IReactionDisposer;
   private readonly persistBreakpointsDisposer: IReactionDisposer;
@@ -285,6 +298,43 @@ export class WorkflowStore implements IWorkflowAgentStore {
         this.loadVendorData();
       },
     );
+    // Keep-alive bookkeeping: whenever the active tab is a scheme document, it becomes the most recent.
+    this.keepAliveDisposer = reaction(
+      () => this.activeSchemeDocumentId,
+      (id) => {
+        if (id) this.touchKeepAlive(id);
+      },
+      { fireImmediately: true },
+    );
+    // Restore/persist the open tabs and mirror the active one into the URL (`workspace-sync.ts`).
+    this.workspaceSyncDisposer = startWorkspaceSync(this);
+  }
+
+  /** The active tab's id when it is a document with a scheme editor (not the pinned `integrations`, not a loading placeholder). */
+  get activeSchemeDocumentId(): string | null {
+    const id = this.activeTabId;
+    if (!id) return null;
+    const doc = this.getDocument(id);
+    return doc && !doc.pinned ? id : null;
+  }
+
+  @action private touchKeepAlive(id: string): void {
+    this.keepAliveSchemeIds = touchKeepAlive(this.keepAliveSchemeIds, id);
+  }
+
+  hasDocument(documentId: string): boolean {
+    return this.documents.some((d) => d.id === documentId);
+  }
+
+  /** Replaces the open tabs wholesale (restoring a remembered/URL state) — no scheme is built until a tab is shown. */
+  @action restoreTabs(tabs: IProjectTabs): void {
+    this.openTabIds = tabs.openTabIds;
+    this.activeTabId = tabs.activeTabId;
+    this.keepAliveSchemeIds = pruneKeepAlive(this.keepAliveSchemeIds, (id) => tabs.openTabIds.includes(id));
+  }
+
+  @action setActiveView(view: 'files' | 'tasks' | null): void {
+    this.activeView = view;
   }
 
   get isLoadingTree(): boolean {
@@ -406,7 +456,13 @@ export class WorkflowStore implements IWorkflowAgentStore {
     this.sync.deleteFolderRemote(id);
   }
 
+  /** Whether another document (any type) of this project already holds `name` — case-insensitive. */
+  hasDocumentName(name: string, exceptId: string | null = null): boolean {
+    return Boolean(findDocumentNameConflict(this.documents, name, exceptId));
+  }
+
   @action createDocument(type: DocumentType, name: string, folderId: string | null = null): string {
+    if (this.hasDocumentName(name)) throw new Error(`A document named "${name}" already exists`);
     const id = generateUuid();
     const doc: WorkflowDocument = { id, name, type, folderId: folderId ?? this.getSectionFolderId(type) };
     this.documents.push(doc);
@@ -420,6 +476,7 @@ export class WorkflowStore implements IWorkflowAgentStore {
     bodyData: TTriggerFunctionBodyData,
     folderId: string | null = null,
   ): string {
+    if (this.hasDocumentName(name)) throw new Error(`A document named "${name}" already exists`);
     const doc = buildTriggerFunctionDocument(
       name,
       bodyData,
@@ -429,6 +486,31 @@ export class WorkflowStore implements IWorkflowAgentStore {
     this.sync.createDocumentRemote(doc);
     this.openTab(doc.id);
     return doc.id;
+  }
+
+  /**
+   * Renames a document locally and on the backend. Refused (no-op, `false`) for a pinned document, an
+   * unknown id, an unchanged name, or one that is taken by another document (case-insensitive); the
+   * caller validates first to show the reason.
+   */
+  @action renameDocument(id: string, name: string): boolean {
+    const doc = this.documents.find((d) => d.id === id);
+    const trimmed = name.trim();
+    if (!doc || doc.pinned || !trimmed || trimmed === doc.name) return false;
+    if (this.hasDocumentName(trimmed, id)) return false;
+    doc.name = trimmed;
+    this.sync.updateDocumentRemote(id, { name: trimmed });
+    return true;
+  }
+
+  /** Renames a user folder; section folders (and an unchanged/empty name) are refused with `false`. */
+  @action renameFolder(id: string, name: string): boolean {
+    const folder = this.folders.find((f) => f.id === id);
+    const trimmed = name.trim();
+    if (!folder || isFixedFolder(folder) || !trimmed || trimmed === folder.name) return false;
+    folder.name = trimmed;
+    this.sync.updateFolderRemote(id, { name: trimmed });
+    return true;
   }
 
   @action deleteDocument(id: string): void {
@@ -479,6 +561,7 @@ export class WorkflowStore implements IWorkflowAgentStore {
 
   @action closeTab(id: string): void {
     this.openTabIds = this.openTabIds.filter((t) => t !== id);
+    this.keepAliveSchemeIds = this.keepAliveSchemeIds.filter((item) => item !== id);
     if (this.activeTabId === id) {
       this.activeTabId = this.openTabIds.at(-1) ?? null;
     }
@@ -738,6 +821,8 @@ export class WorkflowStore implements IWorkflowAgentStore {
   }
 
   dispose(): void {
+    this.workspaceSyncDisposer();
+    this.keepAliveDisposer();
     this.printExport?.dispose();
     this.magicRuns.dispose();
     this.agentSettings.dispose();

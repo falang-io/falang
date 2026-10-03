@@ -2,12 +2,13 @@ import type React from 'react';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { observer } from 'mobx-react-lite';
 import { getGlobalI18n, type TFunction } from '@falang/scheme';
-import { isValidFunctionName } from '@falang/dto';
 import { ConfigProvider, Dropdown, Menu, message, Tree } from 'antd';
 import type { MenuProps, TreeDataNode } from 'antd';
+import { validateDocumentName } from '../document-names.js';
 import { useWorkflowStore } from '../workflow-store-context.js';
 import type { DocumentType } from '../workflow-types.js';
 import { S } from './project-tree.styles.js';
+import { useProjectTreeRename } from './project-tree-rename.js';
 import { NewTriggerModal, type INewTriggerData } from './new-trigger-modal.js';
 import { idOf, getSectionLabel, toTreeData, getFolderLabel, getMenuItems } from './project-tree-helpers.js';
 import { REGISTERED_INTEGRATIONS } from '../integrations-registry.js';
@@ -40,6 +41,7 @@ interface NewItem {
 export const ProjectTree: React.FC = observer(() => {
   const t = getGlobalI18n().t;
   const store = useWorkflowStore();
+  const { startRename, renameModal, nameErrorMessage } = useProjectTreeRename(store);
   const [contextMenu, setContextMenu] = useState<ContextMenuState | null>(null);
   const [newItem, setNewItem] = useState<NewItem | null>(null);
   const [triggerModalOpen, setTriggerModalOpen] = useState(false);
@@ -130,6 +132,10 @@ export const ProjectTree: React.FC = observer(() => {
         setTriggerModalOpen(true);
         return;
       }
+      if (key === 'rename') {
+        startRename(nodeKey);
+        return;
+      }
       if (key === 'delete') {
         if (nodeKey.startsWith('folder:')) store.deleteFolder(idOf(nodeKey));
         else if (!store.documents.find((item) => item.id === idOf(nodeKey))?.pinned)
@@ -162,8 +168,9 @@ export const ProjectTree: React.FC = observer(() => {
     if (!newItem) return;
     const name = newItem.name.trim();
     if (name) {
-      if (newItem.type === 'function' && !isValidFunctionName(name)) {
-        message.warning(t('client:project-tree.invalid-function-name'));
+      const nameError = newItem.type === 'folder' ? null : validateDocumentName(store.documents, newItem.type, name);
+      if (nameError) {
+        message.warning(nameErrorMessage(nameError));
         return;
       }
       if (newItem.type === 'folder') store.createFolder(name, newItem.parentId);
@@ -270,6 +277,8 @@ export const ProjectTree: React.FC = observer(() => {
         onClose={() => setTriggerModalOpen(false)}
         onCreate={handleCreateTrigger}
       />
+
+      {renameModal}
 
       {contextMenu && (
         <div style={{ ...S.ctxWrap, top: contextMenu.y, left: contextMenu.x }} onClick={(e) => e.stopPropagation()}>

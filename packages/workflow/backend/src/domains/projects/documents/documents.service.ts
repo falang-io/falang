@@ -19,6 +19,7 @@ import { ProjectsService } from '../projects/projects.service.js';
 import type { CreateDocumentDto } from './dto/create-document.dto.js';
 import type { UpdateDocumentDto } from './dto/update-document.dto.js';
 import { Document } from './document.entity.js';
+import { assertUniqueDocumentName } from './unique-document-name.js';
 import { assertValidFunctionName } from './validate-function-name.js';
 
 /**
@@ -120,6 +121,7 @@ export class DocumentsService {
   async create(projectId: string, ownerId: string, input: CreateDocumentDto): Promise<IProjectDocument> {
     await this.projectsService.getOwnedProject(projectId, ownerId);
     assertValidFunctionName(input.type, input.name);
+    await assertUniqueDocumentName(this.documents, projectId, input.name, null);
     const folderId = await resolveDocumentFolder(this.folders, projectId, input.type, input.folderId ?? null);
     const data =
       input.type === INTEGRATIONS_DOCUMENT_TYPE
@@ -164,6 +166,7 @@ export class DocumentsService {
     }
     if (typeof input.name === 'string') {
       assertValidFunctionName(document.type, input.name);
+      await assertUniqueDocumentName(this.documents, projectId, input.name, document.id);
       document.name = input.name;
     }
     if (folderIdProvided && !document.pinned) {
