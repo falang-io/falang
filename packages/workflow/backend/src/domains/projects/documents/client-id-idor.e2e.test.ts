@@ -2,6 +2,7 @@ import type { INestApplication } from '@nestjs/common';
 import request from 'supertest';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { auth, createTestApp, login } from '../../../test-utils/e2e-app.js';
+import { sectionId } from '../layout/fixed-folders-helpers.js';
 
 const DOC_ID = '33333333-3333-4333-8333-333333333333';
 const FOLDER_ID = '44444444-4444-4444-8444-444444444444';
@@ -56,6 +57,11 @@ describe('client-supplied ids cannot overwrite another project rows (IDOR)', () 
     expect((full2.body as { id: string }[]).some((d) => d.id === DOC_ID)).toBe(false);
   });
 
+  const functionsSection = async (token: string, projectId: string): Promise<string> => {
+    const tree = await http().get(`/projects/${projectId}/tree`).set(auth(token)).expect(200);
+    return sectionId(tree.body.folders, 'functions');
+  };
+
   it('create folder with an existing foreign id is 409 and leaves the row untouched', async () => {
     const tokenA = await login(app);
     const tokenB = await registerUser('mallory');
@@ -64,12 +70,12 @@ describe('client-supplied ids cannot overwrite another project rows (IDOR)', () 
     await http()
       .post(`/projects/${projectA}/folders`)
       .set(auth(tokenA))
-      .send({ id: FOLDER_ID, name: 'orig' })
+      .send({ id: FOLDER_ID, name: 'orig', parentId: await functionsSection(tokenA, projectA) })
       .expect(201);
     await http()
       .post(`/projects/${projectB}/folders`)
       .set(auth(tokenB))
-      .send({ id: FOLDER_ID, name: 'pwned' })
+      .send({ id: FOLDER_ID, name: 'pwned', parentId: await functionsSection(tokenB, projectB) })
       .expect(409);
     const folders = await http().get(`/projects/${projectA}/folders`).set(auth(tokenA));
     if (folders.status === 200) {
@@ -82,7 +88,11 @@ describe('client-supplied ids cannot overwrite another project rows (IDOR)', () 
     const tokenB = await registerUser('mallory');
     const projectA = await createProject(tokenA);
     const projectB = await createProject(tokenB);
-    await http().post(`/projects/${projectA}/folders`).set(auth(tokenA)).send({ id: FOLDER_ID, name: 'f' }).expect(201);
+    await http()
+      .post(`/projects/${projectA}/folders`)
+      .set(auth(tokenA))
+      .send({ id: FOLDER_ID, name: 'f', parentId: await functionsSection(tokenA, projectA) })
+      .expect(201);
 
     const docId = '55555555-5555-4555-8555-555555555555';
     const body = { id: docId, type: 'function', name: 'x', root: { id: docId, name: 'function', children: [] } };
@@ -90,17 +100,17 @@ describe('client-supplied ids cannot overwrite another project rows (IDOR)', () 
       .post(`/projects/${projectB}/documents`)
       .set(auth(tokenB))
       .send({ ...body, folderId: FOLDER_ID })
-      .expect(400);
+      .expect(422);
     await http().post(`/projects/${projectB}/documents`).set(auth(tokenB)).send(body).expect(201);
     await http()
       .patch(`/projects/${projectB}/documents/${docId}`)
       .set(auth(tokenB))
       .send({ folderId: FOLDER_ID })
-      .expect(400);
+      .expect(422);
     await http()
       .post(`/projects/${projectB}/folders`)
       .set(auth(tokenB))
       .send({ id: '66666666-6666-4666-8666-666666666666', name: 'c', parentId: FOLDER_ID })
-      .expect(400);
+      .expect(422);
   });
 });
