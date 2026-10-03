@@ -1,0 +1,165 @@
+---
+title: Integration proxy
+description: Route the traffic of selected integrations through an HTTP proxy running in another region
+head:
+  - tag: meta
+    attrs:
+      name: keywords
+      content: 'proxy, egress, telegram, openai, region, admin, workflow'
+---
+
+<p>
+  Some vendor APIs can't be reached from the region where your Falang deployment runs — for example Telegram or OpenAI
+  from Russia, or a Russian marketplace from abroad. Instead of moving the whole deployment, an administrator can run a
+  small forward proxy in a place that <i>can</i> reach those APIs and tell Falang which integrations should use it. All
+  other traffic keeps going out directly.
+</p>
+
+#### Run the proxy
+
+<p>
+  The proxy is the standalone <code>falang-proxy</code> service from the <code>proxy/</code> folder of the repository
+  (Node 24, no runtime dependencies). Build and run it on a host in the right region:
+</p>
+
+```sh
+cd proxy
+docker build -t falang-proxy .
+docker run -d --restart unless-stopped \
+  -e PROXY_TOKENS=a-long-random-secret \
+  -p 8080:8080 falang-proxy
+```
+
+<table>
+  <thead>
+    <tr>
+      <th>Variable</th>
+      <th>Default</th>
+      <th>Meaning</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td>
+        <code>HTTP_PORT</code>
+      </td>
+      <td>
+        <code>8080</code>
+      </td>
+      <td>Listen port.</td>
+    </tr>
+    <tr>
+      <td>
+        <code>PROXY_TOKENS</code>
+      </td>
+      <td>required</td>
+      <td>Comma-separated list of accepted tokens. The service refuses to start without one.</td>
+    </tr>
+    <tr>
+      <td>
+        <code>PROXY_ALLOWED_PORTS</code>
+      </td>
+      <td>
+        <code>443,80</code>
+      </td>
+      <td>
+        Ports the proxy may connect to; <code>*</code> allows any. Keep it narrow.
+      </td>
+    </tr>
+    <tr>
+      <td>
+        <code>PROXY_EXPOSE_STATS</code>
+      </td>
+      <td>
+        <code>false</code>
+      </td>
+      <td>Exposes a per-destination connection counter; meant for test stacks only.</td>
+    </tr>
+  </tbody>
+</table>
+<p>
+  Check that it is alive with <code>curl http://your-proxy:8080/health</code> — it answers <code>200 ok</code> without
+  authentication.
+</p>
+<p>
+  <b>Protect the token.</b> Falang sends the token in the <code>Proxy-Authorization</code> header of every request to
+  the proxy. Put the proxy behind HTTPS termination (a reverse proxy in front of it, then use an <code>https://</code>{' '}
+  URL in Falang) or keep it on a private network. The traffic <i>tunnelled</i> through the proxy to HTTPS APIs stays
+  end-to-end TLS — the proxy only sees which host and port are being contacted, never the request contents.
+</p>
+
+#### Configure it in the Admin app
+
+<ol>
+  <li>
+    Open the Admin app and go to the <b>Proxy</b> page.
+  </li>
+  <li>
+    Enter the proxy <b>URL</b> (<code>http://…</code> or <code>https://…</code>) and the <b>token</b>. When settings are
+    already saved, leave the token blank to keep the stored one.
+  </li>
+  <li>
+    In <b>Integrations</b>, pick the vendors whose traffic should go through the proxy. The list is searchable and
+    grouped into built-in integrations and ActivePieces pieces.
+  </li>
+  <li>
+    Click <b>Save</b>. <b>Reset</b> removes the URL, the token and the selection — everything goes out directly again.
+  </li>
+</ol>
+
+#### What goes through the proxy
+
+<p>
+  Only traffic of the <b>selected</b> integrations is routed, decided per request from the integration that issues it:
+</p>
+<ul>
+  <li>actions, questions and choices of those integrations, executed in the workflow's runner;</li>
+  <li>
+    backend-side work for them: Telegram long polling and webhook setup, incoming-webhook handlers, loading the options
+    of dropdown fields, "Sync structure", and the OAuth2 token exchange;
+  </li>
+  <li>ActivePieces pieces you selected (actions, triggers' polling, option loading).</li>
+</ul>
+<p>
+  What does <b>not</b> go through it:
+</p>
+<ul>
+  <li>
+    database integrations (PostgreSQL, MySQL) — their connections are plain TCP, not HTTP, so selecting them has no
+    effect;
+  </li>
+  <li>Falang's own internal calls (backend, file storage, media and ActivePieces services);</li>
+  <li>the AI-agent chat itself, which uses its own endpoint settings;</li>
+  <li>
+    ActivePieces pieces that build their own HTTP agent or open raw TCP connections (SMTP, IMAP, MongoDB and similar).
+  </li>
+</ul>
+
+#### How fast changes apply
+
+<ul>
+  <li>Backend: within about 15 seconds.</li>
+  <li>Runner pods of running workflows: within about 30 seconds — no rebuild or restart needed.</li>
+  <li>ActivePieces service: within about 30 seconds.</li>
+</ul>
+
+#### Troubleshooting
+
+<ul>
+  <li>
+    <b>407 Proxy Authentication Required</b> — the token in the Admin app doesn't match any entry in the proxy's{' '}
+    <code>PROXY_TOKENS</code>.
+  </li>
+  <li>
+    <b>403 Forbidden</b> — the proxy refused the destination port. A vendor API on a non-standard port needs that port
+    in <code>PROXY_ALLOWED_PORTS</code> (or <code>*</code>).
+  </li>
+  <li>
+    Connection refused or timeout — the proxy isn't reachable from the deployment; check <code>/health</code> from the
+    backend's host and any firewall in between.
+  </li>
+  <li>
+    A call still fails from the wrong region — make sure the vendor is ticked on the Proxy page; the proxy's own log
+    (one line per request, never the token) shows whether it arrived.
+  </li>
+</ul>

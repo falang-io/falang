@@ -5,6 +5,7 @@ A small standalone HTTP forward proxy used as an egress point for outbound integ
 **not** an npm workspace member: own `package.json`/lockfile, talked to over HTTP only.
 
 - `CONNECT host:port` tunnels (HTTPS, and what undici's `ProxyAgent` uses for every target);
+- a target port outside `PROXY_ALLOWED_PORTS` is refused with `403`;
 - absolute-URI plain HTTP requests (`GET http://host/path`), forwarded with hop-by-hop headers removed
   (`https://` absolute URIs are rejected with 400 — use CONNECT);
 - auth on every request/tunnel: `Proxy-Authorization: Bearer <token>` or `Basic base64(<any user>:<token>)`,
