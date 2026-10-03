@@ -24,6 +24,7 @@ import { IntegrationsRegistryStore } from './integrations-registry.store.js';
 import { getIntegrationMenuVendors } from './integration-insert-menu.js';
 import { seedIntegrationTypes } from './seed-integration-types.js';
 import { registerWorkflowSchemeLocales } from '../locales/workflow-scheme-locales.js';
+import { registerOptionsSyncOnMove } from '../blocks/sync-options-on-move.js';
 
 const NO_CREDENTIAL_INSTANCES = (): readonly IIntegrationInstance[] => [];
 const NO_FIELD_OPTIONS_PROVIDER: IFieldOptionsProvider = {
@@ -50,6 +51,7 @@ export class IntegrationsModule implements IModule {
   private readonly getFieldOptionsProvider: () => IFieldOptionsProvider;
   private readonly getActivepiecesCatalogProvider: () => IActivepiecesCatalogProvider;
   private readonly getActivepiecesFieldOptionsProvider: () => IActivepiecesFieldOptionsProvider;
+  private disposers: (() => void)[] = [];
 
   constructor(
     integrations: readonly IWorkflowIntegration[],
@@ -114,6 +116,11 @@ export class IntegrationsModule implements IModule {
   }
 
   initialize(scheme: Scheme) {
+    // Dragging a question/choice option keeps the header's `options` list in the new order.
+    this.disposers.push(
+      registerOptionsSyncOnMove(scheme, resolveService(TOKEN_INTEGRATIONS_REGISTRY, scheme.container)),
+    );
+
     // "Integrations" → vendor → actions/questions/choices, only for vendors that have an instance in the
     // project's `Integrations` document (or need no credentials at all). Re-evaluated every time the
     // menu opens, so adding/removing an instance shows up immediately.
@@ -133,6 +140,11 @@ export class IntegrationsModule implements IModule {
         });
       }
     });
+  }
+
+  dispose() {
+    this.disposers.forEach((dispose) => dispose());
+    this.disposers = [];
   }
 
   private tryResolveContextMenu(scheme: Scheme) {
