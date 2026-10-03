@@ -62,6 +62,8 @@ import { actionBlockConfig } from './blocks/action/action.block.config.js';
 import { logBlockConfig } from './blocks/log/log.block.config.js';
 import { ifBlockConfig } from './blocks/if/if.block.config.js';
 import { expressionBlockConfig } from './blocks/expression/expression.block.config.js';
+import { returnBlockConfig, returnIconConfig, returnShape } from './blocks/return/return.block.config.js';
+import { isInValueReturningFunction, RETURN_VALUE_NAME } from './blocks/return/return-value.js';
 
 const getFunctionIconsGroup = () => {
   const block = textBlockConfig;
@@ -104,9 +106,9 @@ const getFunctionIconsGroup = () => {
       shape: rectangleShape,
     },
     return: {
-      block: expressionBlockConfig,
-      icon: outIconConfig,
-      shape: rectangleShape,
+      block: returnBlockConfig,
+      icon: returnIconConfig,
+      shape: returnShape,
     },
     continue: {
       block: getPseudoBlockConfig('icon:continue', CELL_SIZE_4),
@@ -201,7 +203,11 @@ const buildOutsMenu = (scheme: Scheme, parent: IconStore, builder: ContextMenuBu
         items: [
           {
             onClick: () => {
-              const node = createINodeByName('return', scheme, { outLevel: currentReturnIndex });
+              const created = createINodeByName('return', scheme, { outLevel: currentReturnIndex });
+              // A function with a return value returns its auto-declared `returnValue` by default.
+              const node = isInValueReturningFunction(scheme.nodes.getNode(parent.id))
+                ? { ...created, data: RETURN_VALUE_NAME }
+                : created;
               scheme.commands.dispatchCommand(CMD_SET_OUT, {
                 id: parent.id,
                 outNode: node,

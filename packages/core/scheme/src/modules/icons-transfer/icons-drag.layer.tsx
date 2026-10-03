@@ -14,7 +14,7 @@ const GhostShape: React.FC<{ shape: IGhostShape }> = observer(({ shape }) => {
   return (
     <div style={{ position: 'absolute', left: x, top: y }}>
       <BlockShapeContainer theme={scheme.theme.value}>
-        <ShapeView {...blockPosition} height={icon.blockHeight} className="block-body drag-ghost" />
+        <ShapeView {...blockPosition} height={icon.blockHeight} className="block-body drag-ghost" icon={icon} />
       </BlockShapeContainer>
     </div>
   );
