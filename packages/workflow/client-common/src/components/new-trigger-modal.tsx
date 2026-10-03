@@ -97,11 +97,11 @@ export const NewTriggerModal: React.FC<NewTriggerModalProps> = observer(({ open,
     },
   ].filter((group) => group.options.length > 0);
 
-  // Preselect the vendor's first instance (never overwrites a choice already made).
+  // Preselect the project's first integration instance (never overwrites a choice already made).
   useEffect(() => {
-    if (!open || implicitCredentialId !== null || instances.length === 0) return;
-    if (!form.getFieldValue('credentialId')) form.setFieldsValue({ credentialId: instances[0].id });
-  }, [open, implicitCredentialId, instances, form]);
+    if (!open || options.instances.length === 0) return;
+    if (!form.getFieldValue('credential')) form.setFieldsValue({ credential: options.instances[0].key });
+  }, [open, options, form]);
 
   const triggerName = Form.useWatch('triggerName', form);
   const trigger = useMemo(
