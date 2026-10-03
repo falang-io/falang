@@ -5,7 +5,7 @@ import type { IJwks } from './temporal-jwt.js';
 
 /**
  * Public keys Temporal's `jwtKeyProvider` (`keySourceURIs`) polls to verify the tokens
- * `TemporalTokenService` signs — ADR 0050 (private). Unauthenticated by design (public keys), reachable
+ * `TemporalTokenService` signs — ADR 0057 (private). Unauthenticated by design (public keys), reachable
  * only on the cluster-internal port: `/internal/*` is not served by the public listener (`port-split.ts`).
  * `404` when tenant isolation is off (`shared` mode has no signing key and Temporal has no authorizer).
  */

@@ -1,7 +1,7 @@
 import { NamespaceNotFoundError, type Client } from '@temporalio/client';
 
 /**
- * DI token for `ITemporalTenancy` — see ADR 0050 (private). A plain `Symbol`, same convention as
+ * DI token for `ITemporalTenancy` — see ADR 0057 (private). A plain `Symbol`, same convention as
  * `SCHEDULE_CLIENT_PORT`; `@falang/workflow-backend`'s `TemporalModule` (global) provides the real one.
  */
 export const TEMPORAL_TENANCY = Symbol('TEMPORAL_TENANCY');
@@ -9,7 +9,7 @@ export const TEMPORAL_TENANCY = Symbol('TEMPORAL_TENANCY');
 /**
  * The one place that decides which Temporal namespace a project lives in and hands out a (pooled,
  * authenticated) client for it — an interface here so `@falang/workflow-gateway` never depends on
- * `@falang/workflow-backend`. `mode: 'shared'` is the pre-ADR-0050 behaviour (one namespace from
+ * `@falang/workflow-backend`. `mode: 'shared'` is the pre-ADR-0057 behaviour (one namespace from
  * `TEMPORAL_NAMESPACE`, no tokens); `'per-project'` gives every project its own `falang-<projectId>`
  * namespace and signs short-lived JWTs for it (the backend's own client carries an admin token).
  */

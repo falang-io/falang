@@ -1,7 +1,7 @@
 import { createHash, createPrivateKey, createPublicKey, sign, type KeyObject } from 'node:crypto';
 
 /**
- * Minimal RS256 JWT signing + JWKS helpers for Temporal's default `ClaimMapper` (ADR 0050 (private)) —
+ * Minimal RS256 JWT signing + JWKS helpers for Temporal's default `ClaimMapper` (ADR 0057 (private)) —
  * `node:crypto` only, no `jose`. Shared by `TemporalTokenService` and the workflow-tier isolation spec,
  * so the spec signs with exactly the production code path.
  */

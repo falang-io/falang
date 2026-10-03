@@ -1,6 +1,6 @@
 // oxlint-disable no-undefined -- optional env-derived settings are `undefined` when unset, matching the `?:` fields they fill.
 /**
- * Temporal connection / tenancy settings, resolved once from env — see ADR 0050 (private).
+ * Temporal connection / tenancy settings, resolved once from env — see ADR 0057 (private).
  * `shared` (default) is the pre-isolation behaviour: one namespace (`TEMPORAL_NAMESPACE`, else
  * `default`), no tokens. `per-project` gives every project its own `falang-<projectId>` namespace and
  * requires a JWT signing key.

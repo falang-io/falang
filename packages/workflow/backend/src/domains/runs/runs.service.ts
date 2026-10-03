@@ -68,7 +68,7 @@ export interface IRunsServiceParams {
   readonly versions: Pick<Repository<ProjectVersion>, 'find'>;
   readonly listWorkflowRuns: TListWorkflowRuns;
   readonly describeWorkflowRun: TDescribeWorkflowRun;
-  /** Which Temporal namespace a project's runs live in — `ITemporalTenancy.namespaceFor` (ADR 0050 (private)). */
+  /** Which Temporal namespace a project's runs live in — `ITemporalTenancy.namespaceFor` (ADR 0057 (private)). */
   readonly tenancy: { namespaceFor(projectId: string): string };
 }
 
@@ -157,7 +157,7 @@ export class RunsService {
     const versionNumberByProjectAndBuild = await this.buildVersionLookup(projects.map((project) => project.id));
 
     // One query per Temporal namespace: a single one in `shared` mode, one per project in `per-project`
-    // mode (ADR 0050 (private)) — run in parallel (bounded), merged newest first.
+    // mode (ADR 0057 (private)) — run in parallel (bounded), merged newest first.
     const groups = new Map<string, { projectId: string; taskQueues: string[] }>();
     for (const project of projects) {
       const namespace = this.tenancy.namespaceFor(project.id);

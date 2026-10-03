@@ -1,5 +1,5 @@
 # Static config of temporalio/server 1.32.x WITH JWT authorization (`TEMPORAL_TENANT_ISOLATION=per-project`,
-# ADR 0050 (private)). The 1.32 image has no config_template.yaml/dockerize/`DB=…` variables (the old
+# ADR 0057 (private)). The 1.32 image has no config_template.yaml/dockerize/`DB=…` variables (the old
 # `auto-setup` image ended at 1.29.7), so this is a plain static file — no templating, hence the
 # literals below (one Temporal container, DB host `postgresql`, JWKS served by `backend`).
 # Selected in the compose files via TEMPORAL_SERVER_CONFIG_FILE_PATH. The no-authorization twin is

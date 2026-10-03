@@ -10,7 +10,7 @@ export interface IDebugSignalWithStartParams {
   /** Trace indexes (resolved from `{documentId, nodeId}` breakpoints via the dev build's `IDebugMap`), see `debug-map-resolver.ts`. */
   readonly breakpoints: readonly number[];
   readonly pauseOnEntry: boolean;
-  /** Picks the project's own Temporal namespace/client — see `ITemporalTenancy` (ADR 0050 (private)). */
+  /** Picks the project's own Temporal namespace/client — see `ITemporalTenancy` (ADR 0057 (private)). */
   readonly projectId: string;
 }
 
@@ -21,7 +21,7 @@ export interface ISendDebugSignalParams {
   readonly workflowId: string;
   readonly signalName: string;
   readonly signalArgs: readonly unknown[];
-  /** Picks the project's own Temporal namespace/client — see `ITemporalTenancy` (ADR 0050 (private)). */
+  /** Picks the project's own Temporal namespace/client — see `ITemporalTenancy` (ADR 0057 (private)). */
   readonly projectId: string;
 }
 
@@ -38,7 +38,7 @@ export interface IDebugWorkflowDescriptor {
 
 export interface IDescribeDebugWorkflowParams {
   readonly workflowId: string;
-  /** Picks the project's own Temporal namespace/client — see `ITemporalTenancy` (ADR 0050 (private)). */
+  /** Picks the project's own Temporal namespace/client — see `ITemporalTenancy` (ADR 0057 (private)). */
   readonly projectId: string;
 }
 
@@ -47,7 +47,7 @@ export type TDescribeDebugWorkflow = (params: IDescribeDebugWorkflowParams) => P
 
 export interface IQueryDebugStateParams {
   readonly workflowId: string;
-  /** Picks the project's own Temporal namespace/client — see `ITemporalTenancy` (ADR 0050 (private)). */
+  /** Picks the project's own Temporal namespace/client — see `ITemporalTenancy` (ADR 0057 (private)). */
   readonly projectId: string;
 }
 
@@ -56,7 +56,7 @@ export type TQueryDebugState = (params: IQueryDebugStateParams) => Promise<IDebu
 
 export interface ITerminateDebugWorkflowParams {
   readonly workflowId: string;
-  /** Picks the project's own Temporal namespace/client — see `ITemporalTenancy` (ADR 0050 (private)). */
+  /** Picks the project's own Temporal namespace/client — see `ITemporalTenancy` (ADR 0057 (private)). */
   readonly projectId: string;
 }
 

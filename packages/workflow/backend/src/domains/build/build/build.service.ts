@@ -483,7 +483,7 @@ export class BuildService implements OnModuleInit {
     await this.runnerProcessManager.stopAll(prodTaskQueue(projectId));
     this.gatewayRuntime.stopProjectIntegrations(projectId, 'prod');
 
-    // Timers must stop firing now, not when the (24 h-delayed, ADR 0050 (private)) namespace sweep
+    // Timers must stop firing now, not when the (24 h-delayed, ADR 0057 (private)) namespace sweep
     // finally deletes the project's Temporal namespace. Best-effort: Temporal being down must not block deletion.
     await this.scheduleClient.deleteAllForProject(projectId).catch((error: unknown) => {
       this.logger.error(`Failed to delete schedules of deleted project ${projectId}`, error instanceof Error ? error.stack : error);

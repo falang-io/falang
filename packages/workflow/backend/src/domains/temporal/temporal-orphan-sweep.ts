@@ -1,6 +1,6 @@
 import { projectIdFromNamespace } from './temporal-namespace.js';
 
-/** A deleted project's namespace is kept this long before `DeleteNamespace` (irreversible) — time to roll back a mistaken delete (ADR 0050 (private)). */
+/** A deleted project's namespace is kept this long before `DeleteNamespace` (irreversible) — time to roll back a mistaken delete (ADR 0057 (private)). */
 export const ORPHAN_NAMESPACE_GRACE_MS = 24 * 60 * 60 * 1000;
 
 /** Namespace name → ISO time it was first seen without a matching project. */

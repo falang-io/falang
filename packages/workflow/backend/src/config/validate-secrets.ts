@@ -70,7 +70,7 @@ export const resolveJwtSecret = (value: string | undefined, nodeEnv: string | un
 
 /**
  * The one place `PROJECT_TOKEN_SECRET` (the HMAC key every per-project internal token is derived from,
- * ADR 0050 (private)) is read. No silent default in production; elsewhere a well-known dev value
+ * ADR 0057 (private)) is read. No silent default in production; elsewhere a well-known dev value
  * (`validateSecrets` warns about the missing variable at boot).
  */
 export const resolveProjectTokenSecret = (value: string | undefined, nodeEnv: string | undefined): string => {

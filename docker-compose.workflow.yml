@@ -148,7 +148,7 @@ services:
         mc mb --ignore-existing local/falang-files
     networks: [falang-workflow-network]
 
-  # Temporal 1.32 (ADR 0050 (private)). The `auto-setup` image ended at 1.29.7, so the server is the plain
+  # Temporal 1.32 (ADR 0057 (private)). The `auto-setup` image ended at 1.29.7, so the server is the plain
   # `temporalio/server` image with a static config (docker/temporal/*.yaml) and two one-shot jobs
   # on `admin-tools` below: DB schema and the `default` namespace.
   #
@@ -264,7 +264,7 @@ services:
       - INTERNAL_PORT=3001
       - TEMPORAL_ADDRESS=temporal:7233
       - TEMPORAL_NAMESPACE=default
-      # ADR 0050 (private): `shared` (default, every project in `default`) or `per-project` (a
+      # ADR 0057 (private): `shared` (default, every project in `default`) or `per-project` (a
       # `falang-<projectId>` namespace per project + JWT; also needs TEMPORAL_SERVER_CONFIG=server.yaml
       # on `temporal` above — set both on the command line, see the comment there).
       - TEMPORAL_TENANT_ISOLATION=${TEMPORAL_TENANT_ISOLATION:-shared}

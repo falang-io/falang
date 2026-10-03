@@ -10,7 +10,7 @@ export interface IStartAndAwaitWorkflowParams {
   readonly workflowId: string;
   readonly functionName: string;
   readonly args: readonly unknown[];
-  /** Picks the project's own Temporal namespace/client — see `ITemporalTenancy` (ADR 0050 (private)). */
+  /** Picks the project's own Temporal namespace/client — see `ITemporalTenancy` (ADR 0057 (private)). */
   readonly projectId: string;
 }
 
@@ -19,7 +19,7 @@ export type TStartAndAwaitWorkflow = (params: IStartAndAwaitWorkflowParams) => P
 
 export interface ITerminateRunningExecutionsParams {
   readonly taskQueue: string;
-  /** Picks the project's own Temporal namespace/client — see `ITemporalTenancy` (ADR 0050 (private)). */
+  /** Picks the project's own Temporal namespace/client — see `ITemporalTenancy` (ADR 0057 (private)). */
   readonly projectId: string;
 }
 
@@ -31,7 +31,7 @@ export interface IStartWorkflowParams {
   readonly workflowId: string;
   readonly functionName: string;
   readonly args: readonly unknown[];
-  /** Picks the project's own Temporal namespace/client — see `ITemporalTenancy` (ADR 0050 (private)). */
+  /** Picks the project's own Temporal namespace/client — see `ITemporalTenancy` (ADR 0057 (private)). */
   readonly projectId: string;
 }
 

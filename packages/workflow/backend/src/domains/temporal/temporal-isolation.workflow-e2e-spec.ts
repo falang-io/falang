@@ -10,7 +10,7 @@ import { temporalNamespaceFor } from './temporal-namespace.js';
 import { TemporalTokenService } from './temporal-token.service.js';
 
 /**
- * Temporal tenant isolation — phase 0 "red" test of ADR 0050 (private): one namespace per project
+ * Temporal tenant isolation — phase 0 "red" test of ADR 0057 (private): one namespace per project
  * (`falang-<projectId>`), RS256 JWT authorization on the frontend, `system.enableCrossNamespaceCommands: false`.
  * A token that grants `write` on project A's namespace must give no access whatsoever to project B's namespace,
  * to cluster-level APIs, or (with no token at all) to anything but `GetSystemInfo`.

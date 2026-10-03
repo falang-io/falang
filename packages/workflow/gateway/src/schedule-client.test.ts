@@ -360,7 +360,7 @@ describe('createTemporalScheduleClient', () => {
     });
   });
 
-  describe('per-project namespaces (ADR 0050 (private))', () => {
+  describe('per-project namespaces (ADR 0057 (private))', () => {
     const namespaceClients = (byNamespace: Record<string, IFakeClient>) => {
       const getClientForNamespace = vi.fn((namespace: string) => {
         const client = byNamespace[namespace];

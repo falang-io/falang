@@ -37,7 +37,7 @@ const runProbe = async (probe: TAuthProbe): Promise<{ result: TProbeResult; mess
 };
 
 /**
- * Startup self-check of `per-project` mode (ADR 0050 (private)): the frontend must refuse a request
+ * Startup self-check of `per-project` mode (ADR 0057 (private)): the frontend must refuse a request
  * with no token and one with a token it can't verify. Temporal may come up after the backend, so an
  * unreachable server is retried until `timeoutMs`; only a *positive* finding that a probe was allowed
  * is `not-enforced`. The caller decides what to do (the backend refuses to start on `not-enforced`).

@@ -30,7 +30,7 @@ const sleep = (ms: number): Promise<void> =>
   });
 
 /**
- * `per-project` mode housekeeping (ADR 0050 (private)): the startup self-check that Temporal really
+ * `per-project` mode housekeeping (ADR 0057 (private)): the startup self-check that Temporal really
  * enforces authorization (the backend refuses to start otherwise), a one-off pause of schedules left in
  * the legacy shared namespace, and the periodic sweep of namespaces whose project was deleted (after a
  * 24 h grace). Does nothing in `shared` mode.
@@ -167,7 +167,7 @@ export class TemporalLifecycleService implements OnApplicationBootstrap, OnModul
     const client = await this.tenancy.getClientForNamespace(legacyNamespace);
     const paused = await pauseLegacyNamespaceSchedules(
       client,
-      'Paused: project moved to its own Temporal namespace (ADR 0050)',
+      'Paused: project moved to its own Temporal namespace (ADR 0057)',
     );
     if (paused.length > 0) {
       this.logger.warn(

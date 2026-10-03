@@ -27,7 +27,7 @@ export const buildRunnerEnv = (
   };
   if (resolvedTemporalAddress) env.TEMPORAL_ADDRESS = resolvedTemporalAddress;
   if (resolvedNamespace) env.TEMPORAL_NAMESPACE = resolvedNamespace;
-  // ADR 0050 (private): a project's pod only ever talks to its own namespace, with a token it fetches
+  // ADR 0057 (private): a project's pod only ever talks to its own namespace, with a token it fetches
   // (and refreshes) from `backend`; `shared` mode leaves everything above untouched.
   if (managerParams.tenancy?.mode === 'per-project') {
     env.TEMPORAL_NAMESPACE = managerParams.tenancy.namespaceFor(callParams.projectId);

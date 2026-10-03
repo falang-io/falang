@@ -4,7 +4,7 @@ import { ProjectTokenGuard } from '../internal-auth/project-token.guard.js';
 import { TemporalTokenService, type ITemporalToken } from './temporal-token.service.js';
 
 /**
- * A runner pod's way to get (and, every half-TTL, refresh) the Temporal JWT for its own namespace — ADR 0050 (private).
+ * A runner pod's way to get (and, every half-TTL, refresh) the Temporal JWT for its own namespace — ADR 0057 (private).
  * Guarded by `ProjectTokenGuard` (the pod's `INTERNAL_PROJECT_TOKEN` against the `:projectId` route
  * param): the namespace and `sub` in the minted token come from that param, i.e. from the project the
  * caller proved it is — never from the body. Internal port only (`port-split.ts`).

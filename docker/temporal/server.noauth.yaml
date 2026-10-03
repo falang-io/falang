@@ -1,5 +1,5 @@
 # Static config of temporalio/server 1.32.x WITHOUT authorization (`TEMPORAL_TENANT_ISOLATION=shared`, the
-# dev/self-host default; ADR 0050 (private)). Anyone who can reach port 7233 has full access — do not
+# dev/self-host default; ADR 0057 (private)). Anyone who can reach port 7233 has full access — do not
 # expose it beyond the docker network / localhost. (1.32 logs a warning about the missing authorizer;
 # the `--allow-no-auth` flag it mentions is not defined yet in 1.32.0.)
 # The 1.32 image has no config_template.yaml/dockerize/`DB=…` variables (the old `auto-setup` image ended

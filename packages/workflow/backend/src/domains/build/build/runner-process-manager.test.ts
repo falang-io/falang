@@ -331,7 +331,7 @@ describe('RunnerProcessManager', () => {
   });
 });
 
-describe('RunnerProcessManager tenant isolation (ADR 0050 (private))', () => {
+describe('RunnerProcessManager tenant isolation (ADR 0057 (private))', () => {
   it("registers the project's Temporal namespace before the pod is created, and gives the pod its own namespace and token URL", async () => {
     const calls: string[] = [];
     const { manager, client } = createManager({

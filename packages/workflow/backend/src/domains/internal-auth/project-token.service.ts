@@ -12,10 +12,10 @@ export const PROJECT_TOKEN_SECRET = Symbol('PROJECT_TOKEN_SECRET');
  * token as an env var at create time; the artifact-fetch endpoints (`internal-artifacts.controller.ts`),
  * the credential-resolve endpoints (`internal-credentials.controller.ts`, also reached indirectly via
  * the standalone `activepieces` service), the Temporal-token endpoint (`temporal-token.controller.ts`,
- * ADR 0050 (private)) and the other internal controllers all check it via `ProjectTokenGuard`. A leaked
+ * ADR 0057 (private)) and the other internal controllers all check it via `ProjectTokenGuard`. A leaked
  * token only exposes the one project's data, not every tenant's.
  *
- * Deterministic and stateless since ADR 0050 (private): the token is `HMAC-SHA256(PROJECT_TOKEN_SECRET,
+ * Deterministic and stateless since ADR 0057 (private): the token is `HMAC-SHA256(PROJECT_TOKEN_SECRET,
  * projectId)` (hex) — it survives a `backend` restart and is the same on every replica, which a pod
  * needs to keep refreshing its Temporal token after the backend restarts. No rotation (changing the
  * secret invalidates every token; pods get fresh ones on their next `start()`).

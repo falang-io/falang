@@ -22,7 +22,7 @@ import type {
 const DEBUG_QUERY_DEADLINE_MS = 3000;
 
 // Every call resolves the project's own namespace client through `ITemporalTenancy` (a shared, pooled
-// connection that is never closed here) — ADR 0050 (private).
+// connection that is never closed here) — ADR 0057 (private).
 const createDebugClient = (tenancy: ITemporalTenancy) => {
   const signalWithStartDebug: TDebugSignalWithStart = async ({
     projectId,

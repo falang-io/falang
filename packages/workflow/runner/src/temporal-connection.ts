@@ -68,7 +68,7 @@ const fetchInitialToken = async <TConnection extends IRunnerTemporalConnection>(
 };
 
 /**
- * Opens the runner's Temporal connection (ADR 0050 (private)). With `TEMPORAL_TOKEN_URL` set
+ * Opens the runner's Temporal connection (ADR 0057 (private)). With `TEMPORAL_TOKEN_URL` set
  * (`per-project` isolation) it fetches a JWT that only grants access to this project's namespace,
  * connects with it — `tls` pinned explicitly, since the SDK turns TLS on by default as soon as an
  * `apiKey` is present, which would break against a plaintext in-cluster frontend — and keeps it fresh

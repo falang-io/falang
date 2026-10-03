@@ -87,7 +87,7 @@ const buildBuiltInImports = (): TAppImport[] => [
   HealthModule,
   RunsModule,
   TasksModule,
-  // Namespace-per-project tenant isolation (global — `TEMPORAL_TENANCY` for every Temporal-touching domain), ADR 0050 (private).
+  // Namespace-per-project tenant isolation (global — `TEMPORAL_TENANCY` for every Temporal-touching domain), ADR 0057 (private).
   TemporalModule,
   McpModule,
   AdminModule,

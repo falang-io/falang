@@ -6,7 +6,7 @@ export interface ISignalWorkflowWithStartParams {
   readonly workflowType: string;
   readonly signalName: string;
   readonly signalArgs: readonly unknown[];
-  /** Resolves the namespace (and the client) through `ITemporalTenancy` — see ADR 0050 (private). */
+  /** Resolves the namespace (and the client) through `ITemporalTenancy` — see ADR 0057 (private). */
   readonly projectId: string;
 }
 
@@ -27,7 +27,7 @@ export type TSignalWorkflowWithStart = (params: ISignalWorkflowWithStartParams) 
 
 /**
  * The real `TSignalWorkflowWithStart`: resolves the project's namespace and a pooled, authenticated
- * client through `ITemporalTenancy` (ADR 0050 (private)) — the shared connection is never closed per call.
+ * client through `ITemporalTenancy` (ADR 0057 (private)) — the shared connection is never closed per call.
  */
 export const createSignalWorkflowWithStart =
   (tenancy: ITemporalTenancy): TSignalWorkflowWithStart =>

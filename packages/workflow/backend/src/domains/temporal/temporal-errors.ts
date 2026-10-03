@@ -25,7 +25,7 @@ export const isPermissionDenied = (error: unknown): boolean => {
 };
 
 /**
- * Logs a `PERMISSION_DENIED`/`UNAUTHENTICATED` answer from Temporal loudly (ADR 0050 (private)): the
+ * Logs a `PERMISSION_DENIED`/`UNAUTHENTICATED` answer from Temporal loudly (ADR 0057 (private)): the
  * backend's own connection carries an admin token, so a denial means a key/audience mismatch with the
  * stack's authorizer — and, from a runner pod's side, the same code in Temporal's logs means a pod is
  * reaching outside its namespace. Returns whether it was one, so callers can keep their own handling.

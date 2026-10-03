@@ -27,7 +27,7 @@ const ENV_KEYS = [
 ] as const;
 
 /**
- * Temporal tenant isolation (ADR 0050 (private)): the resolved config, the RS256 token signer + JWKS
+ * Temporal tenant isolation (ADR 0057 (private)): the resolved config, the RS256 token signer + JWKS
  * (only in `per-project` mode), the `ITemporalTenancy` every Temporal-touching domain resolves its
  * namespace and client through, and the namespace housekeeping. `@Global` so `BuildModule`, `RunsModule`,
  * `TasksModule` and `@falang/workflow-gateway`'s `GatewayModule` can inject `TEMPORAL_TENANCY` without an

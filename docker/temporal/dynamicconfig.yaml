@@ -1,7 +1,7 @@
 # Dynamic config for the self-hosted Temporal server (temporalio/server 1.32.x) — mounted next to
 # server.yaml / server.noauth.yaml (`dynamicConfigClient.filepath: /cfg/dynamicconfig.yaml`, re-read
 # every 10s). Used by docker-compose.workflow.yml (dev/self-host) and docker-compose.workflow-e2e.yml.
-# See ADR 0050 (private): tenant isolation in Temporal.
+# See ADR 0057 (private): tenant isolation in Temporal.
 
 # Dev setup only. Please don't turn this on in production.
 system.forceSearchAttributesCacheRefreshOnRead:

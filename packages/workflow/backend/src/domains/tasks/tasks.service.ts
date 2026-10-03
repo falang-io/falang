@@ -12,7 +12,7 @@ import {
   type ITasksFilters,
 } from './task.types.js';
 
-/** Sends one signal to a known, already-running execution — never `signalWithStart` (see `TasksService.resolve`'s doc comment for why). `projectId` picks the namespace the run lives in (ADR 0050 (private)). */
+/** Sends one signal to a known, already-running execution — never `signalWithStart` (see `TasksService.resolve`'s doc comment for why). `projectId` picks the namespace the run lives in (ADR 0057 (private)). */
 export type TSignalWorkflow = (
   projectId: string,
   workflowId: string,

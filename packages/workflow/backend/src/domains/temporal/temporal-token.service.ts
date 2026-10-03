@@ -23,7 +23,7 @@ export interface ITemporalToken {
 export const ADMIN_TOKEN_TTL_SECONDS = 300;
 
 /**
- * Signs the JWTs Temporal's default `ClaimMapper` authorizes (ADR 0050 (private)): a runner pod gets
+ * Signs the JWTs Temporal's default `ClaimMapper` authorizes (ADR 0057 (private)): a runner pod gets
  * `permissions: ["falang-<projectId>:write"]` (writer on its own namespace and nothing else), the
  * backend itself gets `["temporal-system:admin"]` for a few minutes at a time. The public half of the
  * signing key (and, while rotating, the previous one) is published as a JWKS by `JwksController`.

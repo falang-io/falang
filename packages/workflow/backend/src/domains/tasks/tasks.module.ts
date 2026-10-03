@@ -14,7 +14,7 @@ import { Task } from './task.entity.js';
 import { TasksController } from './tasks.controller.js';
 import { TasksService, type TSignalWorkflow } from './tasks.service.js';
 
-/** DI token for `TSignalWorkflow` — real implementation below (signals through the project's own namespace client, ADR 0050 (private)); tests construct `TasksService` directly with a fake closure instead of going through this token (see `tasks.service.test.ts`). */
+/** DI token for `TSignalWorkflow` — real implementation below (signals through the project's own namespace client, ADR 0057 (private)); tests construct `TasksService` directly with a fake closure instead of going through this token (see `tasks.service.test.ts`). */
 export const SIGNAL_WORKFLOW = Symbol('SIGNAL_WORKFLOW');
 
 /**

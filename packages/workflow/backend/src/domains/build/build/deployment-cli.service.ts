@@ -5,7 +5,7 @@ import type { Client } from '@temporalio/client';
  * Calls the raw `SetWorkerDeploymentCurrentVersion` RPC (`@temporalio/client` has no high-level API for
  * it — confirmed in the installed SDK's types — but the generated `workflowService` exposes it). Takes
  * the namespace-bound client so the call lands in the right project's namespace and carries the
- * backend's own token (ADR 0050 (private); the `temporal` CLI this used to shell out to needed the key in
+ * backend's own token (ADR 0057 (private); the `temporal` CLI this used to shell out to needed the key in
  * its env and a TLS flag).
  */
 export type TSetCurrentVersion = (

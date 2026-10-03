@@ -57,7 +57,7 @@ const POSITION_QUERY_DEADLINE_MS = 3000;
 const BUILD_OUTPUT_DIR_PATH = join(__dirname, '..', '..', '..', '..', '.builds');
 
 // Every closure resolves the project's own namespace client through `ITemporalTenancy` — a shared,
-// pooled connection that is never closed per call (ADR 0050 (private); it used to connect fresh per call).
+// pooled connection that is never closed per call (ADR 0057 (private); it used to connect fresh per call).
 const createStartAndAwaitWorkflow =
   (tenancy: ITemporalTenancy): TStartAndAwaitWorkflow =>
   async ({ projectId, taskQueue, workflowId, functionName, args }) => {
@@ -251,7 +251,7 @@ const createTerminateRunningExecutions = (graceMs: number, tenancy: ITemporalTen
           // needs setting where they don't.
           temporalAddress: config.get<string>('RUNNER_TEMPORAL_ADDRESS') ?? config.get<string>('TEMPORAL_ADDRESS'),
           namespace: config.get<string>('TEMPORAL_NAMESPACE'),
-          // Namespace-per-project isolation (ADR 0050 (private)): in `per-project` mode the pod's own
+          // Namespace-per-project isolation (ADR 0057 (private)): in `per-project` mode the pod's own
           // namespace, its token URL and TLS flag are derived from this instead of `namespace` above.
           tenancy,
           temporalTls: config.get<string>('TEMPORAL_TLS') === 'true',

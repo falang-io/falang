@@ -20,7 +20,7 @@ describe('buildRunnerEnv', () => {
     }
   });
 
-  describe('Temporal tenant isolation (ADR 0050 (private))', () => {
+  describe('Temporal tenant isolation (ADR 0057 (private))', () => {
     const perProject = {
       mode: 'per-project' as const,
       namespaceFor: (projectId: string) => `falang-${projectId}`,

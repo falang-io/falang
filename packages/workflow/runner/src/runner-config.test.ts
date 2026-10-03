@@ -45,7 +45,7 @@ describe('readRunnerConfigFromEnv', () => {
     expect(config.buildId).toBeUndefined();
   });
 
-  it('reads the per-project Temporal token URL and TLS flag (ADR 0050 (private))', () => {
+  it('reads the per-project Temporal token URL and TLS flag (ADR 0057 (private))', () => {
     const env = {
       ARTIFACT_BASE_URL: 'http://backend:3001',
       PROJECT_ID: 'p1',

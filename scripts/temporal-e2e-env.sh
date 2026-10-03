@@ -4,7 +4,7 @@
 # Generates (once) the RS256 key the e2e stack's `backend` signs Temporal JWTs with and exports it as
 # TEMPORAL_JWT_PRIVATE_KEY (PEM, PKCS#8) — read by docker-compose.workflow-e2e.yml (backend) and, in
 # the same shell, by the host-side workflow-tier Vitest run (temporal-isolation.workflow-e2e-spec.ts mints
-# tokens with it). Gitignored file, e2e-only key: never reuse it anywhere else. ADR 0050 (private).
+# tokens with it). Gitignored file, e2e-only key: never reuse it anywhere else. ADR 0057 (private).
 TEMPORAL_E2E_KEY_FILE="${TEMPORAL_E2E_KEY_FILE:-docker/temporal/e2e-jwt-private.pem}"
 if [ ! -s "$TEMPORAL_E2E_KEY_FILE" ]; then
   mkdir -p "$(dirname "$TEMPORAL_E2E_KEY_FILE")"

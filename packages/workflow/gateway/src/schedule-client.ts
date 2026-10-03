@@ -46,7 +46,7 @@ export interface IScheduleClientPort {
    * `@temporalio/client`'s own doc comment on that error).
    */
   upsert(params: IUpsertScheduleTargetParams): Promise<void>;
-  /** Pauses (never deletes) a schedule. `projectId` picks the namespace the schedule lives in (ADR 0050 (private)). */
+  /** Pauses (never deletes) a schedule. `projectId` picks the namespace the schedule lives in (ADR 0057 (private)). */
   pause(projectId: string, scheduleId: string, note?: string): Promise<void>;
   /** Deletes a schedule outright. */
   delete(projectId: string, scheduleId: string): Promise<void>;
@@ -54,7 +54,7 @@ export interface IScheduleClientPort {
   list(projectId: string, taskQueue: string): Promise<readonly IScheduleState[]>;
   /** Every tagged schedule of one project (dev and prod alike), read from its namespace without registering it — empty when the namespace doesn't exist. */
   listForProject(projectId: string): Promise<readonly IScheduleStateWithTarget[]>;
-  /** Deletes every schedule tagged with `projectId` — project deletion, so a deleted project's timers stop firing during the namespace's grace period (ADR 0050 (private)). Returns the deleted ids. */
+  /** Deletes every schedule tagged with `projectId` — project deletion, so a deleted project's timers stop firing during the namespace's grace period (ADR 0057 (private)). Returns the deleted ids. */
   deleteAllForProject(projectId: string): Promise<readonly string[]>;
   /** Every schedule carrying this port's own memo tags (i.e. every schedule any `upsert` call here has ever created), across every project/env — visits every tenant namespace (`ITemporalTenancy.listTenantNamespaces`). */
   listAll(): Promise<readonly IScheduleStateWithTarget[]>;
@@ -111,7 +111,7 @@ const toScheduleState = (scheduleId: string, description: ScheduleDescription): 
  * Real `IScheduleClientPort` over `@temporalio/client`'s `client.schedule`, with the client resolved
  * per project through `ITemporalTenancy` (a shared, pooled connection — never closed here; schedules are
  * namespace-local, so each project's schedules live in its own namespace in `per-project` mode, see
- * ADR 0050 (private)). `list`/`listAll` fall back to `describe()` per matching schedule because
+ * ADR 0057 (private)). `list`/`listAll` fall back to `describe()` per matching schedule because
  * `ScheduleSummary` (what `client.schedule.list()` yields) doesn't carry `numActionsSkippedOverlap`/
  * `numActionsMissedCatchupWindow`/`recentActions` — only `ScheduleDescription` (`ScheduleHandle.describe()`)
  * does; acceptable at the per-project/per-instance scale this drives (a handful of schedules per

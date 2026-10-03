@@ -155,7 +155,7 @@ export const workflowE2eGetIntegrationsDocumentId = async (token: string, projec
 };
 
 /**
- * A Temporal client for `projectId` as the e2e stack runs it (ADR 0050 (private)): with
+ * A Temporal client for `projectId` as the e2e stack runs it (ADR 0057 (private)): with
  * `TEMPORAL_TENANT_ISOLATION=per-project` (+ `TEMPORAL_JWT_PRIVATE_KEY`, the same env `backend` has) it
  * connects with a short-lived admin JWT (plaintext, `tls: false`) to the project's own `falang-<projectId>`
  * namespace; otherwise it is the old tokenless client on the shared namespace. Close `connection` when done.

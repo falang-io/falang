@@ -30,7 +30,7 @@ export interface IRunnerProcessManagerParams {
   readonly temporalAddress?: string;
   readonly namespace?: string;
   /**
-   * Namespace-per-project tenant isolation (ADR 0050 (private)). Absent or `mode: 'shared'`: pods get
+   * Namespace-per-project tenant isolation (ADR 0057 (private)). Absent or `mode: 'shared'`: pods get
    * `namespace` above (or nothing) exactly as before. `'per-project'`: every pod gets its own
    * `TEMPORAL_NAMESPACE`, a `TEMPORAL_TOKEN_URL` to fetch/refresh its Temporal JWT from (needs `internalApiUrl`)
    * and `TEMPORAL_TLS`, and the namespace is registered before the pod is created.

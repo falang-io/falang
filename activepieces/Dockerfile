@@ -25,5 +25,5 @@ USER 1000:1000
 EXPOSE 4100
 
 # Exec form on the local tsx binary (no `npm run`/`npx`/shell in between): SIGTERM must reach the Node
-# process directly — see docs/decisions/0012 (private)'s note on `npm run start` swallowing signals.
+# process directly — see ADR 0012 (private)'s note on `npm run start` swallowing signals.
 CMD ["./node_modules/.bin/tsx", "src/main.ts"]

@@ -34,7 +34,7 @@ const defaultSleep = (ms: number): Promise<void> =>
   });
 
 /**
- * Real `ITemporalTenancy` (ADR 0050 (private)). One shared, lazily-connected `Connection` for the whole
+ * Real `ITemporalTenancy` (ADR 0057 (private)). One shared, lazily-connected `Connection` for the whole
  * backend — in `per-project` mode its `apiKey` is a function returning a short-lived
  * `temporal-system:admin` JWT (`tls: false` unless `TEMPORAL_TLS=true`: the SDK turns TLS on whenever an
  * `apiKey` is present) — and one cached `Client` per namespace on top of it. Callers never close the

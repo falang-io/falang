@@ -1,6 +1,6 @@
 import { TEMPORAL_NAMESPACE_PREFIX } from './temporal-config.js';
 
-/** `falang-<projectId>` — a project's own Temporal namespace in `per-project` mode (ADR 0050 (private)). A UUID plus the prefix is 43 characters, far under `limit.maxIDLength`. */
+/** `falang-<projectId>` — a project's own Temporal namespace in `per-project` mode (ADR 0057 (private)). A UUID plus the prefix is 43 characters, far under `limit.maxIDLength`. */
 export const temporalNamespaceFor = (projectId: string): string => `${TEMPORAL_NAMESPACE_PREFIX}${projectId}`;
 
 /** Inverse of `temporalNamespaceFor`; `null` for any namespace that isn't one of ours (`default`, `temporal-system`, …). */

@@ -1,5 +1,5 @@
 /**
- * Keeps a runner pod's Temporal JWT fresh (ADR 0050 (private)): the Worker authenticates every RPC with
+ * Keeps a runner pod's Temporal JWT fresh (ADR 0057 (private)): the Worker authenticates every RPC with
  * the token it holds, and a lapsed token makes it degrade silently (long-polls end, nothing new executes,
  * the process keeps running — live-verified in the phase-0 spike). So the pod fetches its token from
  * `backend` up front, re-fetches it at half its remaining lifetime and pushes it into the live
