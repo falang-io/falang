@@ -104,6 +104,7 @@ test.describe('tasks page', () => {
     await expect(page.getByRole('button', { name: 'Confirm' })).not.toBeVisible();
     await page.keyboard.press('Escape');
 
+    // The workspace Tasks view is already scoped to this project (and has no project column).
     const row = page.getByRole('row', { name: /Approve order/ });
     await expect(row.getByText('done')).toBeVisible();
 

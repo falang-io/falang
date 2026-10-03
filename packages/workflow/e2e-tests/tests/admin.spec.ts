@@ -14,46 +14,18 @@ const MOCK_OAUTH2_VENDOR = 'activepieces-mockOAuth2';
 const MOCK_OAUTH2_LABEL = 'Mock OAuth2 (test only)';
 
 /**
- * The "Vendor" `Select` in `integrations-editor.tsx` has no `showSearch` and antd renders its
- * dropdown through `@rc-component/virtual-list` (default `listHeight` 256px) — with ~75 registered
- * vendors, only the handful near the current scroll position exist in the DOM at all, so a plain
- * `getByTitle` can miss an option that's really there, just unscrolled-to. In virtualized mode the
- * list's `.rc-virtual-list-holder` has `overflow: hidden` (confirmed against
- * `node_modules/@rc-component/virtual-list/lib/List.js` — real scrolling is driven by `wheel`
- * events the list's own listener translates into a `translateY` on its inner filler, not by the
- * browser's native scroll), so setting `scrollTop` directly is a no-op; this dispatches real
- * `mouse.wheel` ticks over the list instead, checking after each one, until the wanted option shows
- * up in the DOM or the list has scrolled enough to have plainly reached its end.
- *
- * Per the memory convention for this suite, options are matched by `title` inside the open
- * `.ant-select-dropdown`, never `getByRole('option')`.
+ * The "Vendor" `Select` in `integrations-editor.tsx` is searchable (`showSearch`, filtered on the
+ * visible label) and its dropdown is virtualized, so the options are found by typing the label
+ * into the combobox rather than by scrolling.
  */
-const findVendorOption = async (page: Page, label: string): Promise<Locator | null> => {
-  const dropdown = page.locator('.ant-select-dropdown:not(.ant-select-dropdown-hidden)');
-  const holder = dropdown.locator('.rc-virtual-list-holder');
-  const option = dropdown.getByTitle(label, { exact: true });
+const vendorOption = (page: Page, label: string): Locator =>
+  page.locator('.ant-select-dropdown:not(.ant-select-dropdown-hidden) .ant-select-item-option').filter({
+    hasText: label,
+  });
 
-  const box = await holder.boundingBox();
-  if (!box) return null;
-  await page.mouse.move(box.x + box.width / 2, box.y + box.height / 2);
-
-  // ~75 vendors at a small item height comfortably fit in well under this much scroll; once the
-  // list bottoms out, further wheel ticks are harmless no-ops, so a generous fixed step count (with
-  // a short pause per step for the list to re-render) is simpler than tracking the filler's
-  // transform to detect saturation. Inherently sequential polling, hence the loop-await.
-  let step = 0;
-  while (step < 40) {
-    // oxlint-disable-next-line no-await-in-loop -- inherently sequential polling.
-    if (await option.count()) {
-      return option;
-    }
-    // oxlint-disable-next-line no-await-in-loop -- inherently sequential polling.
-    await page.mouse.wheel(0, 300);
-    // oxlint-disable-next-line no-await-in-loop -- inherently sequential polling.
-    await page.waitForTimeout(30);
-    step += 1;
-  }
-  return (await option.count()) ? option : null;
+const searchVendor = async (page: Page, label: string): Promise<Locator> => {
+  await page.getByRole('combobox', { name: 'Vendor' }).fill(label);
+  return vendorOption(page, label);
 };
 
 /**
@@ -107,22 +79,14 @@ test.describe('admin app', () => {
       await openIntegrationsViaUI(page);
       await page.getByRole('button', { name: '+ Add integration' }).click();
       // The ActivePieces catalog loads asynchronously (slow on a cold stack, under a busy parallel run):
-      // re-open the dropdown a few times before giving up.
-      let enabledOption: Locator | null = null;
-      for (let attempt = 0; attempt < 6 && !enabledOption; attempt += 1) {
-        // oxlint-disable-next-line no-await-in-loop -- inherently sequential retries.
+      // retry the search until the piece shows up.
+      const enabledOption = vendorOption(page, MOCK_OAUTH2_LABEL);
+      await expect(async () => {
         await page.getByRole('combobox', { name: 'Vendor' }).click();
-        // oxlint-disable-next-line no-await-in-loop -- inherently sequential retries.
-        enabledOption = await findVendorOption(page, MOCK_OAUTH2_LABEL);
-        if (!enabledOption) {
-          // oxlint-disable-next-line no-await-in-loop -- inherently sequential retries.
-          await page.keyboard.press('Escape');
-          // oxlint-disable-next-line no-await-in-loop -- inherently sequential retries.
-          await page.waitForTimeout(2000);
-        }
-      }
-      expect(enabledOption, `"${MOCK_OAUTH2_LABEL}" never scrolled into the virtualized dropdown`).not.toBeNull();
-      await enabledOption?.click();
+        await searchVendor(page, MOCK_OAUTH2_LABEL);
+        await expect(enabledOption).toHaveCount(1, { timeout: 2000 });
+      }).toPass({ timeout: 20_000 });
+      await enabledOption.click();
       await expect(page.getByLabel('Name', { exact: true })).toBeVisible();
       await expect(page.getByLabel('Client ID', { exact: true })).toHaveCount(0);
       await expect(page.getByLabel('Client secret', { exact: true })).toHaveCount(0);
@@ -142,13 +106,10 @@ test.describe('admin app', () => {
       await openIntegrationsViaUI(page);
       await page.getByRole('button', { name: '+ Add integration' }).click();
       await page.getByRole('combobox', { name: 'Vendor' }).click();
-      const disabledOption = await findVendorOption(page, MOCK_OAUTH2_LABEL);
-      expect(disabledOption, `"${MOCK_OAUTH2_LABEL}" should no longer be offered, at any scroll position`).toBeNull();
-      // Make the negative assertion above meaningful: the dropdown itself still renders options
-      // (i.e. this isn't vacuously passing because nothing rendered at all).
-      await expect(
-        page.locator('.ant-select-dropdown:not(.ant-select-dropdown-hidden)').locator('[title]').first(),
-      ).toBeVisible();
+      const disabledOption = await searchVendor(page, MOCK_OAUTH2_LABEL);
+      // Searching filters the whole list, so a vendor that is not offered leaves no option at all.
+      await expect(disabledOption).toHaveCount(0);
+      await expect(page.locator('.ant-select-dropdown:not(.ant-select-dropdown-hidden)')).toContainText('No data');
     } finally {
       await api.delete(`/admin/oauth-credentials/${MOCK_OAUTH2_VENDOR}`).catch(() => {
         // best-effort cleanup — a failure here shouldn't mask the test's own assertion failures

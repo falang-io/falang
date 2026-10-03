@@ -223,6 +223,8 @@ export const IntegrationsEditor: React.FC = observer(() => {
           <Form.Item name="vendor" label={t('client:integrations-editor.vendor')} rules={[{ required: true }]}>
             <Select
               disabled={editingId !== null}
+              showSearch
+              optionFilterProp="label"
               options={allIntegrations.map((integration) => ({
                 value: integration.vendor,
                 label: t(integration.label),
