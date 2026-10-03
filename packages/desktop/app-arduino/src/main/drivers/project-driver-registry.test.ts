@@ -132,6 +132,43 @@ describe('ProjectDriverRegistry', () => {
     expect((await registry.reload()).drivers.find((d) => d.config.id === 'gone')).toBeUndefined();
   });
 
+  it('keeps a referenced driver whose folder was deleted as missing-on-disk; an unreferenced one disappears', async () => {
+    await writeDriverBundle(projectDriversDir(projectDir), bundleOf('used-one'));
+    await writeDriverBundle(projectDriversDir(projectDir), bundleOf('unused-one'));
+    const registry = new ProjectDriverRegistry({
+      bundledDir,
+      libraryDir,
+      validate,
+      readProjectContext: () =>
+        Promise.resolve({
+          documents: [
+            {
+              id: 'd1',
+              name: 'setup',
+              type: 'function',
+              root: {
+                id: 'r',
+                name: 'function',
+                children: [{ id: 'n1', name: 'driver-action::used-one::do-it', data: {} }],
+              },
+            },
+          ],
+        } as never),
+    });
+    await registry.setProject(projectDir);
+    await fs.rm(path.join(projectDriversDir(projectDir), 'used-one'), { recursive: true });
+    await fs.rm(path.join(projectDriversDir(projectDir), 'unused-one'), { recursive: true });
+    const payload = await registry.reload();
+    expect(payload.drivers.map((d) => [d.config.id, d.status])).toEqual([['used-one', 'missing-on-disk']]);
+    expect(payload.drivers[0].config.label).toBe('used-one v1');
+    expect(payload.drivers[0].errors?.[0]).toContain('used-one');
+    // Still served on the next reload while the project references it.
+    expect((await registry.reload()).drivers[0].status).toBe('missing-on-disk');
+    // Restored on disk -> ok again.
+    await writeDriverBundle(projectDriversDir(projectDir), bundleOf('used-one'));
+    expect((await registry.reload()).drivers[0].status).toBe('ok');
+  });
+
   it('reports an unreadable driver with no earlier valid version under loadErrors', async () => {
     await fs.mkdir(path.join(libraryDir, 'never-valid'), { recursive: true });
     await fs.writeFile(path.join(libraryDir, 'never-valid', 'driver.config.json'), '{ not json');

@@ -20,6 +20,7 @@ import type {
   TDriverScope,
 } from '../../shared/driver-ipc-types.js';
 import type { ILoadedDriver } from './driver-registry.js';
+import { keepReferencedMissing } from './referenced-missing.js';
 
 /**
  * The per-project driver registry of the Arduino app's `main` (ADR 0054 (private) §3): bundled ∪ library ∪
@@ -162,6 +163,7 @@ export class ProjectDriverRegistry {
       byId.set(slot.resolved.config.id, this.serve(slot, verdicts[index]));
     }
     const loadErrors = this.applyLoadErrors(byId, resolved.errors, seen);
+    await keepReferencedMissing({ byId, seen, ...this.params, lastValid: this.lastValid, projectDir });
     for (const key of this.lastValid.keys()) if (!seen.has(key)) this.lastValid.delete(key);
 
     this.entries = await this.withLibraryComparison([...byId.values()], slots);

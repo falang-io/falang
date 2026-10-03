@@ -19,6 +19,11 @@ const go = (promise: Promise<unknown>): void => {
   promise.catch((error: unknown) => reportError('Drivers action failed', error));
 };
 
+const STATUS_KEYS: Partial<Record<IDriverListEntry['status'], string>> = {
+  'load-error': 'drivers:status.load-error',
+  'missing-on-disk': 'drivers:status.missing',
+};
+
 const StatusTags: React.FC<{ entry: IDriverListEntry }> = ({ entry }) => {
   const t = getGlobalI18n().t;
   const errors = entry.errors ?? [];
@@ -28,9 +33,7 @@ const StatusTags: React.FC<{ entry: IDriverListEntry }> = ({ entry }) => {
         <Tag color="green">{t('drivers:status.ok')}</Tag>
       ) : (
         <Tooltip title={errors.length > 0 ? <div style={{ whiteSpace: 'pre-wrap' }}>{errors.join('\n')}</div> : null}>
-          <Tag color="red">
-            {t(entry.status === 'load-error' ? 'drivers:status.load-error' : 'drivers:status.invalid')}
-          </Tag>
+          <Tag color="red">{t(STATUS_KEYS[entry.status] ?? 'drivers:status.invalid')}</Tag>
         </Tooltip>
       )}
       {entry.overrides ? <Tag color="orange">{t(`drivers:status.overrides-${entry.overrides}`)}</Tag> : null}

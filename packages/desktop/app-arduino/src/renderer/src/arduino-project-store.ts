@@ -22,6 +22,7 @@ import type { IPrintExportHost } from '@falang/antd';
 import { AgentChatSessionStore, PrintExportStore, VersionHistoryStore } from '@falang/antd';
 import { parseDriverActionNodeName } from '@falang/desktop-arduino-dto/src/driver-node-name.js';
 import { generateUuid } from './generate-uuid.js';
+import { createElectronDriverToolHost } from './agent/electron-driver-tool-host.js';
 import { driversRegistry } from './drivers-registry-store.js';
 import { ElectronAgentSessionStore } from './agent/electron-agent-session-store.js';
 import { ElectronLlmClient } from './agent/electron-llm-client.js';
@@ -36,9 +37,11 @@ import {
   createArduinoProjectContainer,
   createDesktopAgentDocumentResolver,
   createDesktopAgentSession,
+  DriverToolProvider,
   isAgentCapableDocumentType,
   subscribeDesktopDocumentSync,
   syncFunctionsRegistry,
+  syncDesktopDocumentFromScheme,
 } from '@falang/desktop-agent-host';
 import { createPrintExportHost } from './print/create-print-export-host.js';
 import { isArduinoPinnedDocument, REQUIRED_ROOT_DOCUMENT_NAMES } from './pinned-documents.js';
@@ -178,6 +181,14 @@ export class ArduinoProjectStore {
       llmClient: new ElectronLlmClient(),
       store: this,
       documentResolver: this.agentDocumentResolver,
+      toolProviders: [
+        new DriverToolProvider(
+          createElectronDriverToolHost({
+            ipc: globalThis.falang.drivers,
+            refreshDrivers: () => this.refreshDrivers(),
+          }),
+        ),
+      ],
       onOpenDocument: (id) => this.ensureAgentDocumentOpen(id),
     });
     this.disposeFunctionsRegistrySync = autorun(() => {
@@ -757,8 +768,17 @@ export class ArduinoProjectStore {
    */
   async rebuildOpenSchemes(): Promise<void> {
     this.pendingDriverRebuild = false;
+    // A running agent (its own `set_driver` call) may hold undo groups on schemes about to be disposed: end them now;
+    // its next mutating call reopens one lazily on the rebuilt scheme (`AgentSession` caches no `Scheme`).
+    this.agentSession.closeOpenGroups();
     await this.flushPendingSaves();
     runInAction(() => {
+      // A never-edited document has no stored root, so its scheme's default node ids are random: pin them into
+      // `doc.root` first, so the rebuilt scheme (and an agent holding ids from an earlier `get_tree`) sees the same ids.
+      for (const [id, scheme] of this.schemes) {
+        const doc = this.getDocument(id);
+        if (doc) syncDesktopDocumentFromScheme(doc, scheme);
+      }
       for (const scheme of this.schemes.values()) scheme.dispose();
       this.schemes.clear();
       for (const id of this.openTabIds) this.reloadVersions.set(id, (this.reloadVersions.get(id) ?? 0) + 1);

@@ -70,6 +70,8 @@ export class AgentSession {
   private readonly focusPauseMs: number;
   private askOffered = true;
   private abortController: AbortController | null = null;
+  /** One undo group per document touched this run (ADR 0034), opened lazily, closed by `closeOpenGroups`. */
+  private readonly openGroups = new Map<Scheme, HistoryStore>();
 
   constructor(
     defaultScheme: Scheme | null,
@@ -115,8 +117,6 @@ export class AgentSession {
     });
 
     const messages: TLlmMessage[] = [...(options.priorMessages ?? []), { content: request, role: 'user' }];
-    // One undo group per document touched (ADR 0034), opened lazily, all closed in `finally`.
-    const openGroups = new Map<Scheme, HistoryStore>();
     const tools = [
       ...AGENT_TOOLS.filter((tool) => isCoreToolOffered(this.coreToolAllowlist, tool.name)),
       ...(offerAskUser ? [ASK_USER_TOOL] : []),
@@ -152,7 +152,6 @@ export class AgentSession {
         const { finishMessage, newSteps, question, results } = await this.executeCalls(
           response.toolCalls,
           activeDocumentId,
-          openGroups,
         );
 
         runInAction(() => {
@@ -183,10 +182,20 @@ export class AgentSession {
         this.rawError = error;
       });
     } finally {
-      for (const history of openGroups.values()) history.endGroup();
+      this.closeOpenGroups();
       this.abortController = null;
       this.onRunFinished?.();
     }
+  }
+
+  /**
+   * Ends every undo group the current run has open and forgets them, so the next mutating call reopens one lazily on
+   * whatever `Scheme` the resolver then returns. A host calls this (from a tool provider) right before it disposes and
+   * rebuilds schemes mid-run (e.g. a new Arduino driver adds node kinds) — the session caches no `Scheme` across calls.
+   */
+  closeOpenGroups(): void {
+    for (const history of this.openGroups.values()) history.endGroup();
+    this.openGroups.clear();
   }
 
   /** Dispatches every call of one response (all of them, so each tool_call gets a result even when one is
@@ -194,7 +203,6 @@ export class AgentSession {
   private async executeCalls(
     calls: readonly ILlmToolCall[],
     activeDocumentId: string | null,
-    openGroups: Map<Scheme, HistoryStore>,
   ): Promise<{
     newSteps: IAgentStep[];
     results: ILlmToolResult[];
@@ -207,7 +215,7 @@ export class AgentSession {
     let question: IAgentQuestion | null = null;
     for (const call of calls) {
       // oxlint-disable-next-line no-await-in-loop
-      const result = await this.dispatchToolCall(call, activeDocumentId, openGroups);
+      const result = await this.dispatchToolCall(call, activeDocumentId);
       newSteps.push({ call, result });
       results.push({
         content: result.ok ? result.content : result.error,
@@ -236,11 +244,7 @@ export class AgentSession {
 
   /** Routes one tool call. A call with `inputError` runs nothing. `finish`/`ask_user` never touch a document,
    *  so they bypass resolution/`onOpenDocument`/undo groups (ADR 0036: a run with no document must still end). */
-  private dispatchToolCall(
-    call: ILlmToolCall,
-    activeDocumentId: string | null,
-    openGroups: Map<Scheme, HistoryStore>,
-  ): Promise<TToolExecutionResult> {
+  private dispatchToolCall(call: ILlmToolCall, activeDocumentId: string | null): Promise<TToolExecutionResult> {
     if (call.inputError) {
       return Promise.resolve(fail(`${call.inputError}. Nothing was applied — resend the call with complete JSON.`));
     }
@@ -249,7 +253,7 @@ export class AgentSession {
     if (CORE_TOOL_NAMES.has(call.name)) {
       if (!isCoreToolOffered(this.coreToolAllowlist, call.name))
         return Promise.resolve(fail(`Tool ${call.name} is not available in this run`));
-      return this.executeCoreCall(call, activeDocumentId, openGroups);
+      return this.executeCoreCall(call, activeDocumentId);
     }
     return this.executeProviderCall(call);
   }
@@ -273,16 +277,12 @@ export class AgentSession {
 
   /** A built-in node tool: resolves its target `Scheme`, fires `onOpenDocument`, opens that document's undo
    *  group on first touch, focuses-then-pauses on the icon about to change, then applies the call. */
-  private async executeCoreCall(
-    call: ILlmToolCall,
-    activeDocumentId: string | null,
-    openGroups: Map<Scheme, HistoryStore>,
-  ): Promise<TToolExecutionResult> {
+  private async executeCoreCall(call: ILlmToolCall, activeDocumentId: string | null): Promise<TToolExecutionResult> {
     const resolved = resolveTargetScheme(this.documentResolver, call, activeDocumentId);
     if ('error' in resolved) return fail(resolved.error);
     const targetScheme = resolved.scheme;
     this.onOpenDocument?.(targetScheme);
-    if (!READ_ONLY_CORE_TOOLS.has(call.name)) ensureGroupOpen(targetScheme, openGroups);
+    if (!READ_ONLY_CORE_TOOLS.has(call.name)) ensureGroupOpen(targetScheme, this.openGroups);
     const focusId = getFocusTargetId(call, targetScheme);
     if (focusId) {
       focusNode(targetScheme, focusId);

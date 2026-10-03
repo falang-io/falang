@@ -4,6 +4,7 @@ import { afterEach, describe, expect, it, vi } from 'vitest';
 import type { INode } from '@falang/dto';
 import type { IProjectTree } from '@falang/desktop-project-fs';
 import { CMD_INSERT_NODE } from '@falang/scheme';
+import { ScriptedLlmClient } from '@falang/agent';
 import type { IDriverConfig } from '../../shared/driver-config.js';
 import type { IDriverListEntry, IDriverListPayload, TDriverScope } from '../../shared/driver-ipc-types.js';
 import { ArduinoProjectStore } from './arduino-project-store.js';
@@ -78,6 +79,8 @@ const openProject = async (initial: IDriverListPayload) => {
   store.openTab('fn');
   return { store, ...mocks };
 };
+
+const call = (id: string, name: string, input: unknown) => ({ text: '', toolCalls: [{ id, input, name }] });
 
 /** Lets fire-and-forget work (and a not-happening rebuild) play out. */
 const settle = (): Promise<void> =>
@@ -245,6 +248,51 @@ describe('ArduinoProjectStore — drivers', () => {
         devices: [{ id: 'd1', driverId: 'demo-led', name: 'Demo', params: {} }],
       });
       await vi.waitFor(() => expect(adoptReferenced).toHaveBeenCalledTimes(1));
+    } finally {
+      store.dispose();
+    }
+  });
+
+  it("the agent's set_driver awaits save + refresh, rebuilds once mid-run, and its later insert lands on the rebuilt scheme", async () => {
+    const { store, listResult } = await openProject(payload(entry(demoConfig())));
+    try {
+      const version = store.getReloadVersion('fn');
+      const next = payload(entry(demoConfig()), entry(demoConfig({ id: 'second', label: 'Second' })));
+      const drivers = (globalThis as unknown as { falang: { drivers: Record<string, unknown> } }).falang.drivers;
+      drivers.validate = vi.fn().mockResolvedValue({ errors: [], ok: true, warnings: [] });
+      drivers.save = vi.fn(() => {
+        listResult.current = next;
+        driversRegistry.handleChangedEvent(next);
+        return Promise.resolve({ errors: [], ok: true, warnings: [] });
+      });
+      const firstScheme = store.getScheme('fn');
+      (store.agentSession as unknown as { client: unknown }).client = new ScriptedLlmClient([
+        call('t1', 'insert_nodes', {
+          documentId: 'fn',
+          index: 0,
+          node: { data: 'a = 1', name: 'action' },
+          parentId: 'fn-body',
+        }),
+        call('t2', 'set_driver', { bundle: { anything: true } }),
+        call('t3', 'insert_nodes', {
+          documentId: 'fn',
+          index: 1,
+          node: { name: 'driver-action::second::on' },
+          parentId: 'fn-body',
+        }),
+        call('t4', 'finish', { message: 'done' }),
+      ]);
+      await store.agentSession.run('add a driver', { activeDocumentId: 'fn' });
+      expect(store.agentSession.status).toBe('done');
+      expect(drivers.save).toHaveBeenCalledTimes(1);
+      const steps = store.agentSession.steps.map((step) => step.result);
+      expect(steps).toHaveLength(4);
+      expect(steps.every((result) => result?.ok)).toBe(true);
+      await settle();
+      expect(store.getReloadVersion('fn')).toBe(version + 1);
+      const rebuilt = store.getScheme('fn');
+      expect(rebuilt).not.toBe(firstScheme);
+      expect(JSON.stringify(store.getDocument('fn')?.root)).toContain('driver-action::second::on');
     } finally {
       store.dispose();
     }

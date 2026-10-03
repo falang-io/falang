@@ -18,9 +18,10 @@ export type TDriverEditScope = 'library' | 'project';
  * `ok`: the driver on disk validates. `invalid-on-disk`: it was valid earlier in this session but the files
  * on disk (hand-edited, a git checkout, …) no longer validate — the last valid `config` keeps being served
  * and `errors` says what is wrong now. `load-error`: its folder could not be read at all (last valid one
- * served, if any).
+ * served, if any). `missing-on-disk`: its folder was deleted externally but the project still uses it — the last valid
+ * config keeps being served (so open schemes keep their node kinds) and a build is blocked.
  */
-export type TDriverStatus = 'ok' | 'invalid-on-disk' | 'load-error';
+export type TDriverStatus = 'ok' | 'invalid-on-disk' | 'load-error' | 'missing-on-disk';
 
 export interface IDriverListEntry {
   readonly config: IDriverConfig;

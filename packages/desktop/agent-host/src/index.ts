@@ -39,3 +39,10 @@ export {
   type IBuildArduinoDocumentSchemeParams,
 } from './arduino/build-arduino-document-scheme.js';
 export { createArduinoProjectContainer } from './arduino/create-arduino-project-container.js';
+export {
+  DriverToolProvider,
+  type IDriverToolEntry,
+  type IDriverToolHost,
+  type IDriverToolValidation,
+  type TDriverToolScope,
+} from './arduino/driver-tool-provider.js';

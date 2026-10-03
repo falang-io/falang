@@ -153,6 +153,7 @@
       "ok": "OK",
       "invalid": "Invalid on disk",
       "load-error": "Load error",
+      "missing": "Missing on disk",
       "overrides-bundled": "Overrides built-in",
       "overrides-library": "Overrides library",
       "differs": "Differs from library"
