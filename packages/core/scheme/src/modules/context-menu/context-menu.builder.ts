@@ -6,6 +6,12 @@ import { createINodeByName } from '../../utils/create-i-node-by-name.js';
 
 export interface IAddButtonsForGroupParams {
   group: string;
+  /**
+   * Explicit nested group path (outermost first), used instead of `group` when set. Unlike `group`, whose
+   * `:`-separated string is split into a path, each segment is taken verbatim — needed for segments that
+   * are themselves `namespace:key` i18n keys (e.g. a vendor label).
+   */
+  groupPath?: readonly string[];
   items: IContextMenuButton[];
 }
 
@@ -16,6 +22,7 @@ export interface IAddButtonForIconsItemParams {
 
 export interface IAddButtonsForIconsParams {
   group: string;
+  groupPath?: readonly string[];
   items: (string | IAddButtonForIconsItemParams)[];
   parentId: string;
   index: number;
@@ -30,13 +37,14 @@ export class ContextMenuBuilder {
   private menu: IContextMenuItem[] = [];
 
   addButtons(params: IAddButtonsForGroupParams) {
-    const groupItems = this.getGroupItems(params.group);
+    const groupItems = params.groupPath ? this.getGroupItemsByPath(params.groupPath) : this.getGroupItems(params.group);
     groupItems.push(...params.items);
   }
 
   addForIcons(params: IAddButtonsForIconsParams) {
     this.addButtons({
       group: params.group,
+      groupPath: params.groupPath,
       items: params.items.map((item) => ({
         type: 'button',
         text: `icon:${item}`,
@@ -58,6 +66,19 @@ export class ContextMenuBuilder {
         },
       })),
     });
+  }
+
+  private getGroupItemsByPath(path: readonly string[]): IContextMenuItem[] {
+    let currentMenu = this.menu;
+    for (const name of path) {
+      let foundItem = currentMenu.filter((item) => item.type === 'group').find((item) => item.text === name);
+      if (!foundItem) {
+        foundItem = { text: name, type: 'group', children: [] };
+        currentMenu.push(foundItem);
+      }
+      currentMenu = foundItem.children;
+    }
+    return currentMenu;
   }
 
   private getGroupItems(groupName: string, prevMenu?: IContextMenuItem[]): IContextMenuItem[] {

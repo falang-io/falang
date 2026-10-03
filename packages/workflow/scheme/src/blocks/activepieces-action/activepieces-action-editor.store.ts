@@ -16,6 +16,7 @@ import {
   type IActivepiecesCatalogProvider,
   type IActivepiecesFieldOptionsProvider,
 } from '../../registry/di-tokens.js';
+import { firstInstanceId } from '../../registry/initial-field-value.js';
 import {
   decodeDropdownValue,
   decodeMultiDropdownValue,
@@ -67,7 +68,9 @@ export class ActivepiecesActionEditorStore extends ExpressionBlockEditorStore<TA
     this.credentialInstances = resolveService(TOKEN_CREDENTIALS_PROVIDER, params.container).getInstances();
     this.pieceName = params.data.pieceName;
     this.actionName = params.data.actionName;
-    this.credentialId = params.data.credentialId;
+    this.credentialId =
+      params.data.credentialId ||
+      (this.pieceName ? firstInstanceId(this.credentialInstances, activepiecesVendorFor(this.pieceName)) : '');
     this.loadCatalog(params.data.propsValue).catch(() => {
       // loadCatalog never rejects (all failure paths are caught internally) — this is unreachable,
       // just here to satisfy the "no floating promise" posture.
@@ -118,7 +121,7 @@ export class ActivepiecesActionEditorStore extends ExpressionBlockEditorStore<TA
   @action pick(pieceName: string, actionName: string): void {
     this.pieceName = pieceName;
     this.actionName = actionName;
-    this.credentialId = '';
+    this.credentialId = firstInstanceId(this.credentialInstances, activepiecesVendorFor(pieceName));
     this.buildPropStores({});
   }
 

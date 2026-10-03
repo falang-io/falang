@@ -1,6 +1,6 @@
 import { zod, type INodeConfig } from '@falang/dto';
 import { nanoid } from 'nanoid';
-import { buildActionDataSchema } from './build-node-config.js';
+import { buildActionDataSchema, defaultFieldValue } from './build-node-config.js';
 import type { IQuestionOptionDataWithType, TTaskOptionDataType } from './question-extensions.js';
 import type { IQuestionDescriptor } from './types.js';
 
@@ -65,9 +65,10 @@ const questionOptionWithTypeDataSchema = zod.object({
  * rather than by calling `switchCfg`. Two extensions layer on top of that shape
  * (ADR 0040 (private) §4, `IQuestionDescriptorExtensions`): with
  * `optionDataTypes`, every option (default and user-added alike) carries `{ label, dataType, prompt? }`
- * instead of a bare `{ label }`; with `timeoutField`, the factory appends one extra, fixed
- * (`data.fixed: true`) option beyond the two/N regular ones, never counted in `options` and never
- * editable/deletable from the sidebar (see `@falang/workflow-scheme`'s `QuestionEditorStore`).
+ * instead of a bare `{ label }`; with `timeoutField`, the sidebar editor appends one extra, fixed
+ * (`data.fixed: true`) option beyond the regular ones — only while the timeout field is non-empty
+ * (a fresh node has none: no timeout, no `timeout` branch) — never counted in `options` and never
+ * editable/deletable by hand (see `@falang/workflow-scheme`'s `QuestionEditorStore`).
  */
 export const buildQuestionNodeConfig = (descriptor: IQuestionDescriptor): readonly INodeConfig[] => {
   const optionNodeName = `${descriptor.name}-option`;
@@ -76,27 +77,16 @@ export const buildQuestionNodeConfig = (descriptor: IQuestionDescriptor): readon
   const buildOptionData = (label: string): IQuestionOptionData | IQuestionOptionDataWithType =>
     descriptor.optionDataTypes ? { label, dataType: 'void' } : { label };
   const defaultData = (): TQuestionHeaderData => ({
-    ...Object.fromEntries(getQuestionHeaderFields(descriptor).map((field) => [field.name, ''])),
+    ...Object.fromEntries(getQuestionHeaderFields(descriptor).map((field) => [field.name, defaultFieldValue(field)])),
     options: DEFAULT_OPTION_LABELS,
   });
-  const buildDefaultChildren = () => [
-    ...DEFAULT_OPTION_LABELS.map((label) => ({
+  const buildDefaultChildren = () =>
+    DEFAULT_OPTION_LABELS.map((label) => ({
       id: nanoid(),
       name: optionNodeName,
       data: buildOptionData(label),
       children: [],
-    })),
-    ...(descriptor.timeoutField
-      ? [
-          {
-            id: nanoid(),
-            name: optionNodeName,
-            data: { ...buildOptionData(TIMEOUT_OPTION_LABEL), fixed: true },
-            children: [],
-          },
-        ]
-      : []),
-  ];
+    }));
 
   return [
     {

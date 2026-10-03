@@ -58,12 +58,9 @@ export const workflowFunctionalSchemeFactory = ({
       buildMagicIconsGroup(),
       ...(extraIconsGroups ?? []),
     ],
-    extraInsertableItems: [
-      ...integrations.flatMap((integration) => integration.actions.map((action) => action.name)),
-      ...integrations.flatMap((integration) => (integration.questions ?? []).map((question) => question.name)),
-      ...integrations.flatMap((integration) => (integration.choices ?? []).map((choice) => choice.name)),
-      ACTIVEPIECES_ACTION_NAME,
-    ],
+    // Per-vendor actions/questions/choices are added by `IntegrationsModule`'s own nested
+    // "Integrations → vendor" menu (filtered by the project's configured instances).
+    extraInsertableItems: [ACTIVEPIECES_ACTION_NAME],
     extraModules: [
       new IntegrationsModule(
         integrations,

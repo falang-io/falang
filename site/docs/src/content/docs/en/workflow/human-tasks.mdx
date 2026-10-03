@@ -73,7 +73,9 @@ head:
   renamable. If nobody resolves the task within the configured duration, the scenario takes that branch instead (the
   task itself is marked <b>Expired</b> on the Tasks page) and continues from there — useful for "escalate if nobody
   responds in a day" flows. A scenario that's stopped or rebuilt while a task is still open closes it too (as{' '}
-  <b>Cancelled</b>), so a task never sits open forever pointing at a run that no longer exists.
+  <b>Cancelled</b>), so a task never sits open forever pointing at a run that no longer exists. Clearing the
+  <b>Timeout</b> removes the branch again — unless it already contains icons, in which case it stays on the canvas
+  (never deleted silently) but is no longer compiled.
 </p>
 
 #### The Tasks page
