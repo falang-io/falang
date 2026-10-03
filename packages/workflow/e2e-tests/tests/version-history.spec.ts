@@ -1,5 +1,6 @@
 import { test, expect } from './fixtures.js';
 import {
+  clickProjectMenuItem,
   createApiContext,
   createProjectViaUI,
   createTreeItemViaUI,
@@ -52,7 +53,7 @@ test.describe('version history', () => {
     // fresh click to render the canvas (and the toolbar's "History" button) at all.
     await page.getByRole('treeitem', { name: 'greet' }).click();
 
-    await page.getByRole('button', { name: 'History' }).first().click();
+    await clickProjectMenuItem(page, 'History');
     await page.getByPlaceholder('What changed?').fill('Initial version');
     // The primary action's label depends on `VersionHistoryStore.dirty`: "Commit" when the working
     // copy differs from `HEAD`, "Name current version" otherwise. There's no client-side beacon any
@@ -94,8 +95,8 @@ test.describe('version history', () => {
     // reads the working copy straight from the server (`getWorkingCopy()`), so the panel doesn't need
     // a reload to see the API patch above — only a fresh `refresh()`, which `toggleRightPanel('history')`
     // already fires on open (`workflow-store.ts`). Close then reopen the panel to trigger it.
-    await page.getByRole('button', { name: 'History' }).first().click();
-    await page.getByRole('button', { name: 'History' }).first().click();
+    await clickProjectMenuItem(page, 'History');
+    await clickProjectMenuItem(page, 'History');
 
     await expect(page.getByText('Changes since last commit')).toBeVisible();
     await page.getByRole('button', { name: 'Compare', exact: true }).click();

@@ -361,6 +361,10 @@ export class WorkflowStore implements IWorkflowAgentStore {
     return this.sync.stopProject();
   }
 
+  restartProject(): Promise<void> {
+    return this.sync.restartProject();
+  }
+
   publishProject(): Promise<void> {
     return this.sync.publishProject();
   }

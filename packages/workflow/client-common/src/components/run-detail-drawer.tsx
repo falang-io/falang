@@ -1,7 +1,8 @@
 import type React from 'react';
-import { useEffect, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import { getGlobalI18n } from '@falang/scheme';
 import { Descriptions, Drawer, Spin, Table, Tag, Typography } from 'antd';
+import { TerminateRunButton } from './terminate-run-button.js';
 import {
   workflowApi,
   type IApiWorkflowRunDetail,
@@ -38,7 +39,7 @@ export const RunDetailDrawer: React.FC<Props> = ({ run, onClose }) => {
   const [loading, setLoading] = useState(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
 
-  useEffect(() => {
+  const load = useCallback(() => {
     if (!run) return;
     setDetail(null);
     setErrorMessage(null);
@@ -52,8 +53,28 @@ export const RunDetailDrawer: React.FC<Props> = ({ run, onClose }) => {
       .finally(() => setLoading(false));
   }, [run, t]);
 
+  useEffect(() => {
+    load();
+  }, [load]);
+
   return (
-    <Drawer title={run?.workflowId} open={run !== null} onClose={onClose} size={720} destroyOnHidden>
+    <Drawer
+      title={run?.workflowId}
+      open={run !== null}
+      onClose={onClose}
+      size={720}
+      destroyOnHidden
+      extra={
+        detail?.status === 'RUNNING' && (
+          <TerminateRunButton
+            onTerminate={async () => {
+              await workflowApi.terminateWorkflowRun(detail.projectId, detail.workflowId, detail.runId);
+              load();
+            }}
+          />
+        )
+      }
+    >
       {loading && <Spin />}
       {errorMessage && <Typography.Text type="danger">{errorMessage}</Typography.Text>}
       {detail && (

@@ -114,6 +114,14 @@ export class LiveRunStore implements IExecutionPositionSource {
     });
   }
 
+  /** Force-terminates the watched execution, then re-reads it so the panel shows the closed status. Throws on API failure (the caller shows it). */
+  async terminateWatched(): Promise<void> {
+    const run = this.watchedRun;
+    if (!run) return;
+    await workflowApi.terminateWorkflowRun(this.projectId, run.workflowId, run.runId);
+    if (this.watchedRun === run) this.watch(run);
+  }
+
   @action watch(run: IWatchedRun): void {
     this.clearTimers();
     this.generation += 1;

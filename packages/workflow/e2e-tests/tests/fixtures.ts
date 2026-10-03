@@ -157,6 +157,18 @@ export const startDevRunnerViaUI = async (page: Page, projectId: string): Promis
   await waitForDevRunnerStatus(projectId, true, 60_000);
 };
 
+/** Opens the toolbar's "Project" menu and clicks one of its items (Code/Files/Tasks/History/Runs/Save as JSON/Download PDF). */
+export const clickProjectMenuItem = async (page: Page, name: string): Promise<void> => {
+  await page.getByTestId('toolbar-project-menu').click();
+  await page.getByRole('menuitem', { name }).click();
+};
+
+/** Clicks an item of the toolbar's "Dev" dropdown (Start/Stop/Restart/Run function/Debug/…). */
+export const clickDevMenuItem = async (page: Page, name: string): Promise<void> => {
+  await page.getByRole('button', { name: 'Dev' }).click();
+  await page.getByRole('menuitem', { name, exact: true }).click();
+};
+
 /** Stops the project's dev runner through the toolbar's "Dev" dropdown — see `startDevRunnerViaUI`. */
 export const stopDevRunnerViaUI = async (page: Page, projectId: string): Promise<void> => {
   await page.getByRole('button', { name: 'Dev' }).click();
