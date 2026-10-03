@@ -1,5 +1,6 @@
 import { test, expect } from './fixtures.js';
 import {
+  clickProjectMenuItem,
   createApiContext,
   createProjectViaUI,
   createTreeItemViaUI,
@@ -90,7 +91,7 @@ test.describe('tasks page', () => {
     await page.reload();
     await openProjectViaUI(page, projectName);
 
-    await page.getByRole('button', { name: 'Tasks' }).click();
+    await clickProjectMenuItem(page, 'Tasks');
     await expect(page.getByText('Approve order', { exact: true })).toBeVisible();
     await page.getByText('Approve order', { exact: true }).click();
 
@@ -110,7 +111,7 @@ test.describe('tasks page', () => {
     // same task, cross-project.
     await page.getByRole('button', { name: '← Projects' }).click();
     await expect(page.getByRole('button', { name: '+ New project' })).toBeVisible();
-    await page.getByRole('button', { name: 'Tasks' }).click();
+    await clickProjectMenuItem(page, 'Tasks');
     const standaloneRow = page.getByRole('row', { name: /Approve order/ });
     await expect(standaloneRow).toBeVisible();
     await expect(standaloneRow.getByText('done')).toBeVisible();

@@ -8,6 +8,7 @@ import type { Repository } from 'typeorm';
 import { ProjectVersion } from '../build/build/project-version.entity.js';
 import { ProjectsModule } from '../projects/projects/projects.module.js';
 import { ProjectsService } from '../projects/projects/projects.service.js';
+import { ProjectRunsController } from './project-runs.controller.js';
 import { RunsController } from './runs.controller.js';
 import {
   RunsService,
@@ -16,6 +17,7 @@ import {
   type IWorkflowRunEvent,
   type TDescribeWorkflowRun,
   type TListWorkflowRuns,
+  type TTerminateWorkflowRun,
 } from './runs.service.js';
 
 type TEventType = temporal.api.enums.v1.EventType;
@@ -127,9 +129,25 @@ const describeWorkflowRun: TDescribeWorkflowRun = async ({ workflowId, runId, te
   }
 };
 
+const terminateWorkflowRun: TTerminateWorkflowRun = async ({
+  workflowId,
+  runId,
+  reason,
+  temporalAddress,
+  namespace,
+}) => {
+  const connection = await connect(temporalAddress);
+  try {
+    const client = new Client({ connection, namespace });
+    await client.workflow.getHandle(workflowId, runId).terminate(reason);
+  } finally {
+    await connection.close();
+  }
+};
+
 @Module({
   imports: [ProjectsModule, TypeOrmModule.forFeature([ProjectVersion])],
-  controllers: [RunsController],
+  controllers: [RunsController, ProjectRunsController],
   providers: [
     {
       provide: RunsService,
@@ -140,6 +158,7 @@ const describeWorkflowRun: TDescribeWorkflowRun = async ({ workflowId, runId, te
           versions,
           listWorkflowRuns,
           describeWorkflowRun,
+          terminateWorkflowRun,
           temporalAddress: config.get<string>('TEMPORAL_ADDRESS'),
           namespace: config.get<string>('TEMPORAL_NAMESPACE'),
         }),

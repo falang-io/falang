@@ -376,6 +376,9 @@ export const workflowApi = {
     return request<IApiWorkflowRunSummary[]>(`/workflow-runs${query ? `?${query}` : ''}`);
   },
 
+  terminateWorkflowRun: (projectId: string, workflowId: string, runId: string) =>
+    request<null>(`/projects/${projectId}/runs/${workflowId}/${runId}/terminate`, { method: 'POST' }),
+
   getWorkflowRunDetail: (workflowId: string, runId: string) =>
     request<IApiWorkflowRunDetail>(`/workflow-runs/${workflowId}/${runId}`),
 

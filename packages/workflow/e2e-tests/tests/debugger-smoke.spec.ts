@@ -1,6 +1,7 @@
 import { test, expect } from './fixtures.js';
 import {
   createApiContext,
+  clickDevMenuItem,
   createProjectViaUI,
   createTreeItemViaUI,
   loginAndReachProjectList,
@@ -80,7 +81,7 @@ test.describe('visual debugger', () => {
 
     await startDevRunnerViaUI(page, projectId);
 
-    await page.getByRole('button', { name: 'Debug' }).click();
+    await clickDevMenuItem(page, 'Debug');
 
     // Pauses on the only breakpoint (the log statement is the function's first and only statement,
     // so `pauseOnEntry`'s own "no breakpoints yet" fallback never applies here).

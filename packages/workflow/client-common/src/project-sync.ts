@@ -312,6 +312,17 @@ export class ProjectSync {
     }
   }
 
+  /**
+   * Dev stand restart: stop, then build+start again — sequentially, with the usual `stopping` →
+   * `building` → `running` states. A failed stop leaves `buildStatus: 'error'` and skips the build.
+   */
+  @action async restartProject(): Promise<void> {
+    this.connectionError = null;
+    await this.stopProject();
+    if (this.buildStatus === 'error') return;
+    await this.buildProject();
+  }
+
   @action async publishProject(): Promise<void> {
     this.isPublishing = true;
     this.connectionError = null;

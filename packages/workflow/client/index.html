@@ -3,10 +3,63 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="color-scheme" content="dark" />
     <title>Workflow Client</title>
+    <style>
+      html,
+      body {
+        margin: 0;
+        height: 100%;
+        background: #1e1e2e;
+      }
+      .falang-boot {
+        height: 100vh;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+        gap: 18px;
+        background: #1e1e2e;
+        color: #cdd6f4;
+        font-family: system-ui, sans-serif;
+      }
+      .falang-boot__logo {
+        font-size: 28px;
+        font-weight: 600;
+        letter-spacing: 0.04em;
+        animation: falang-boot-pulse 1.4s ease-in-out infinite;
+      }
+      .falang-boot__spinner {
+        width: 28px;
+        height: 28px;
+        border: 3px solid #313244;
+        border-top-color: #89b4fa;
+        border-radius: 50%;
+        animation: falang-boot-spin 0.8s linear infinite;
+      }
+      @keyframes falang-boot-spin {
+        to {
+          transform: rotate(360deg);
+        }
+      }
+      @keyframes falang-boot-pulse {
+        0%,
+        100% {
+          opacity: 0.45;
+        }
+        50% {
+          opacity: 1;
+        }
+      }
+    </style>
   </head>
   <body>
-    <div id="root"></div>
+    <div id="root">
+      <div class="falang-boot" role="status" aria-label="Loading">
+        <div class="falang-boot__logo">Falang</div>
+        <div class="falang-boot__spinner"></div>
+      </div>
+    </div>
     <script type="module" src="/src/main.tsx"></script>
   </body>
 </html>

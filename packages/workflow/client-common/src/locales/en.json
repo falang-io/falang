@@ -69,10 +69,10 @@
     "toolbar": {
       "back": "← Projects",
       "view-code": "View Code",
-      "export": "Export",
+      "export": "Save as JSON",
       "exporting": "Exporting…",
       "export-failed": "Failed to export project",
-      "export-pdf": "PDF",
+      "export-pdf": "Download PDF",
       "versions": "Versions",
       "files": "Files",
       "tasks": "Tasks",
@@ -90,7 +90,8 @@
         "label": "Dev",
         "start": "Start",
         "stop": "Stop",
-        "run": "Run function"
+        "run": "Run function…",
+        "restart": "Restart"
       },
       "prod-menu": {
         "label": "Prod",
@@ -101,13 +102,14 @@
         "publish": "Publish version",
         "publish-success": "Version published"
       },
-      "run": "Run",
+      "run": "Run function",
       "run-starting": "Starting…",
       "debug": "Debug",
       "runs": "Runs",
       "magic-insert": "Magic insert",
       "magic-insert-tooltip": "A click on a valence point inserts a magic node: describe the step in words and the agent builds it",
-      "magic-insert-disabled": "Magic insert needs the AI agent to be configured by an administrator"
+      "magic-insert-disabled": "Magic insert needs the AI agent to be configured by an administrator",
+      "project-menu": "Project"
     },
     "run-function-modal": {
       "title": "Run function",
@@ -432,6 +434,13 @@
       "placeholder": "Write to the administrator… (Enter to send, Shift+Enter for a new line)",
       "send": "Send",
       "empty": "No messages yet. Ask us anything."
+    },
+    "terminate-run": {
+      "failed": "Failed to terminate the run",
+      "confirm": "Terminate this run? It will be stopped immediately.",
+      "ok": "Terminate",
+      "cancel": "Cancel",
+      "button": "Terminate"
     }
   },
   "version-history": {

@@ -1,5 +1,5 @@
 import { test, expect } from './fixtures.js';
-import { createProjectViaUI, createTreeItemViaUI, loginAndReachProjectList } from './fixtures.js';
+import { clickProjectMenuItem, createProjectViaUI, createTreeItemViaUI, loginAndReachProjectList } from './fixtures.js';
 
 /**
  * Browser-tier smoke spec for ADR 0036 (private) — proves
@@ -67,11 +67,11 @@ test.describe('project right sidebar', () => {
     // 'History'` locator would otherwise match both it and the toolbar toggle button. Same gotcha
     // `version-history.spec.ts` already documents for its own `getByRole('button', { name: 'History'
     // })` locator.
-    await page.getByRole('button', { name: 'History' }).first().click();
+    await clickProjectMenuItem(page, 'History');
     await expect(page.getByText('Version history')).toBeVisible();
     await expect(agentPanel).not.toBeVisible();
 
-    await page.getByRole('button', { name: 'History' }).first().click();
+    await clickProjectMenuItem(page, 'History');
     await expect(page.getByText('Version history')).not.toBeVisible();
     await expect(agentPanel).not.toBeVisible();
   });
