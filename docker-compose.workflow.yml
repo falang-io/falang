@@ -192,6 +192,33 @@ services:
       - '8080:8080'
     networks: [falang-workflow-network]
 
+  # Egress proxy (ADR 0056 (private)) — standalone forward proxy, built from `./proxy` alone. Not used
+  # unless an admin sets `PUT /admin/settings/proxy`; `PROXY_EXPOSE_STATS` is for test stacks only.
+  proxy:
+    build:
+      context: ./proxy
+      dockerfile: Dockerfile
+    container_name: falang-workflow-proxy
+    environment:
+      - HTTP_PORT=8080
+      - PROXY_TOKENS=${PROXY_TOKENS:-dev-proxy-token-change-me}
+      - PROXY_ALLOWED_PORTS=*
+      - PROXY_EXPOSE_STATS=true
+    ports:
+      - '4300:8080'
+    healthcheck:
+      test:
+        [
+          'CMD',
+          'node',
+          '-e',
+          "fetch('http://localhost:8080/health').then((r) => process.exit(r.ok ? 0 : 1), () => process.exit(1))",
+        ]
+      interval: 5s
+      timeout: 5s
+      retries: 20
+    networks: [falang-workflow-network]
+
   backend:
     build:
       context: .

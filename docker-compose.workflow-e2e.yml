@@ -9,7 +9,7 @@
 # host), `client` is configured with `VITE_BACKEND_URL=http://backend:4000` (the internal service
 # name/port), not a host-published one. The published host ports below (4001/5176/7234/8081/5433)
 # exist purely so a developer can inspect this stack from outside Docker while it runs (now also
-# 4103 for `activepieces`).
+# 4103 for `activepieces`, 4301 for `proxy`).
 #
 # Like docker-compose.workflow.yml, `backend` here compiles a project's `function` documents
 # in-process but runs the compiled workflow as its own pod on a *local `kind` Kubernetes cluster* —
@@ -215,6 +215,33 @@ services:
       - PORT=4100
     ports:
       - '4102:4100'
+    networks: [falang-workflow-e2e-network]
+
+  # Egress proxy (ADR 0056 (private)) — standalone forward proxy, built from `./proxy` alone. Not used
+  # unless an admin sets `PUT /admin/settings/proxy`; `PROXY_EXPOSE_STATS` is for test stacks only.
+  proxy:
+    build:
+      context: ./proxy
+      dockerfile: Dockerfile
+    container_name: falang-workflow-e2e-proxy
+    environment:
+      - HTTP_PORT=8080
+      - PROXY_TOKENS=e2e-proxy-token
+      - PROXY_ALLOWED_PORTS=*
+      - PROXY_EXPOSE_STATS=true
+    ports:
+      - '4301:8080'
+    healthcheck:
+      test:
+        [
+          'CMD',
+          'node',
+          '-e',
+          "fetch('http://localhost:8080/health').then((r) => process.exit(r.ok ? 0 : 1), () => process.exit(1))",
+        ]
+      interval: 5s
+      timeout: 5s
+      retries: 20
     networks: [falang-workflow-e2e-network]
 
   backend:
@@ -435,6 +462,10 @@ services:
       # via apt), the same "started is good enough" call this stack already makes for its siblings.
       media:
         condition: service_started
+      # Used only by the workflow-tier egress-proxy spec (host-side, after this container exits) —
+      # declared here so `run --rm e2e-tests` brings it up, like the two DB services below.
+      proxy:
+        condition: service_healthy
       # Not touched directly by this container (the workflow-tier spec that uses them is a
       # host-side Vitest process run *after* `e2e-tests` exits, reusing this same still-running
       # stack — see this file's own header note) — declared as a dependency here purely so
@@ -453,6 +484,11 @@ services:
       # `media`'s own job API — for a future workflow-tier media spec to drive/inspect jobs
       # directly, mirroring `MOCKS_URL` above. See ADR 0041 (private).
       - MEDIA_URL=http://media:4200
+      # Egress proxy (ADR 0056 (private)): ONE URL for both `backend` (docker network) and runner pods
+      # (kind cluster) — the host-published port via the docker-bridge gateway, same pattern as
+      # `RUNNER_MOCKS_URL` below. `E2E_PROXY_ADMIN_URL` is for this test process's own `/__stats` calls.
+      - E2E_PROXY_URL=http://${KIND_GATEWAY_IP:-172.18.0.1}:4301
+      - E2E_PROXY_TOKEN=e2e-proxy-token
       # Some specs (integrations-http.spec.ts, integrations-openai.spec.ts) embed a mocks URL
       # directly into workflow-node/credential *data* that a runner pod's compiled activity later
       # fetches at execution time (an HTTP Request node's URL, an OpenAI credential's `baseUrl`) —
