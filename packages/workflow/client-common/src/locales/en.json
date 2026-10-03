@@ -451,6 +451,17 @@
       "ok": "Terminate",
       "cancel": "Cancel",
       "button": "Terminate"
+    },
+    "trigger-payload-modal": {
+      "title-run": "Run trigger \"{{name}}\"",
+      "title-debug": "Debug trigger \"{{name}}\"",
+      "hint": "The event the trigger would deliver, as JSON (e.g. an incoming Telegram message). It is checked against the trigger's payload type; the last payload is remembered.",
+      "unknown-type": "The payload type of this trigger is unknown — any JSON object is accepted.",
+      "type-mismatch": "The payload does not match the trigger's type — fix the underlined places.",
+      "reset": "Reset to sample",
+      "cancel": "Cancel",
+      "run": "Run",
+      "debug": "Debug"
     }
   },
   "version-history": {

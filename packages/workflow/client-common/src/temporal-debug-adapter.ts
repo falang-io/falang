@@ -12,6 +12,8 @@ import { workflowApi, type IApiDebugSessionSnapshot } from './api-client.js';
 export interface ITemporalDebugEntry {
   readonly functionName: string;
   readonly args: readonly unknown[];
+  /** A signal-delivery trigger-function's test payload — see `StartRunDto.triggerPayload` on the backend. */
+  readonly triggerPayload?: Record<string, unknown>;
 }
 
 export interface ITemporalDebugAdapterHooks {
@@ -69,6 +71,7 @@ export class TemporalDebugAdapter implements IDebugAdapter {
       args: [...entry.args],
       breakpoints: params.breakpoints.map((breakpoint) => toLocation(breakpoint)),
       pauseOnEntry: params.pauseOnEntry,
+      ...(entry.triggerPayload ? { triggerPayload: entry.triggerPayload } : {}),
     });
 
     this.generation += 1;

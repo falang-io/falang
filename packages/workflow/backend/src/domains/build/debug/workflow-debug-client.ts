@@ -10,6 +10,8 @@ export interface IDebugSignalWithStartParams {
   /** Trace indexes (resolved from `{documentId, nodeId}` breakpoints via the dev build's `IDebugMap`), see `debug-map-resolver.ts`. */
   readonly breakpoints: readonly number[];
   readonly pauseOnEntry: boolean;
+  /** Sent right after the start (a signal-delivery trigger's test payload) — the debug configuration must arrive first. */
+  readonly followUpSignal?: { readonly name: string; readonly args: readonly unknown[] };
   readonly temporalAddress?: string;
   readonly namespace?: string;
 }

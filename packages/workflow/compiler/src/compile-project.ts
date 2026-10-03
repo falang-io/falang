@@ -186,9 +186,8 @@ export const compileProject = ({
   // third parameter everywhere `questionEmitters` is threaded through.
   const branchEmitters = { ...buildQuestionEmitters(integrations), ...buildChoiceEmitters(integrations) };
 
-  // Dense, globally-unique across every `function` document in the project (never `trigger-function`
-  // — not debuggable in Phase 1, see ADR 0021 (private)), so a breakpoint's `{documentId, nodeId}`
-  // resolves to exactly one index regardless of which document it's in.
+  // Dense, globally-unique across every `function` and `trigger-function` document in the project, so
+  // a breakpoint's `{documentId, nodeId}` resolves to exactly one index regardless of which document it's in.
   let nextTraceIndex = 0;
   const tracePoints: IDebugTracePoint[] = [];
   const allocateTraceIndex = (): number => {
@@ -240,6 +239,7 @@ export const compileProject = ({
       const code = compileTriggerFunction(document.root, document.name, integrations, {
         resolveFunctionName,
         ...(trackPosition ? { trackPosition: { documentId: document.id } } : {}),
+        ...(debug ? { debug: buildDebugOptions(document.id) } : {}),
       });
       blocks.push({ documentId: document.id, documentName: document.name, code });
     } catch (error) {

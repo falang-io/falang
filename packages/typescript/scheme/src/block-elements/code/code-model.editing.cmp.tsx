@@ -55,6 +55,14 @@ const monacoOptions: monaco.editor.IStandaloneEditorConstructionOptions = {
   overviewRulerLanes: 0,
 };
 
+const useOptionalScheme = () => {
+  try {
+    return useService(TOKEN_SCHEME);
+  } catch {
+    return null;
+  }
+};
+
 const monacoThemeName = (theme: ReturnType<typeof useCodeTheme>): string => (theme === 'dark' ? 'vs-dark' : 'vs');
 
 export const CodeModelEditingComponent: React.FC<ICodeModelEditingComponentProps> = observer(
@@ -64,8 +72,11 @@ export const CodeModelEditingComponent: React.FC<ICodeModelEditingComponentProps
     const editorRef = useRef<monaco.editor.IStandaloneCodeEditor>(null);
     const [height, setHeight] = useState(minHeight);
     const theme = useCodeTheme();
-    const { viewPosition } = useService(TOKEN_SCHEME);
-    const { scale, x, y } = viewPosition;
+    // Outside any scheme (e.g. a modal dialog) there is no pan/zoom to re-layout for.
+    const viewPosition = useOptionalScheme()?.viewPosition;
+    const scale = viewPosition?.scale;
+    const x = viewPosition?.x;
+    const y = viewPosition?.y;
     const { token } = antdTheme.useToken();
     const isDefault = variant === 'default';
     const tabNavigationOn = tabNavigation ?? !isDefault;

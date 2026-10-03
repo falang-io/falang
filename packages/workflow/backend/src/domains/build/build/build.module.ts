@@ -93,10 +93,28 @@ const startAndAwaitWorkflow: TStartAndAwaitWorkflow = async ({
 };
 
 // Same connect-per-call posture as `startAndAwaitWorkflow` above.
-const startWorkflow: TStartWorkflow = async ({ taskQueue, workflowId, functionName, args, temporalAddress, namespace }) => {
+const startWorkflow: TStartWorkflow = async ({
+  taskQueue,
+  workflowId,
+  functionName,
+  args,
+  signal,
+  temporalAddress,
+  namespace,
+}) => {
   const connection = await connect(temporalAddress);
   try {
     const client = new Client({ connection, namespace });
+    if (signal) {
+      const signalled = await client.workflow.signalWithStart(functionName, {
+        taskQueue,
+        workflowId,
+        args: [...args],
+        signal: signal.name,
+        signalArgs: [...signal.args],
+      });
+      return { runId: signalled.signaledRunId };
+    }
     const handle = await client.workflow.start(functionName, { taskQueue, workflowId, args: [...args] });
     return { runId: handle.firstExecutionRunId };
   } finally {

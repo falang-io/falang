@@ -74,14 +74,22 @@ export class LiveRunStore implements IExecutionPositionSource {
   }
 
   /** The "Run" button: build if needed, terminate whatever else the dev stand is running, start, follow. */
-  async startFunction(functionName: string, args: readonly unknown[]): Promise<boolean> {
+  async startFunction(
+    functionName: string,
+    args: readonly unknown[],
+    triggerPayload?: Record<string, unknown>,
+  ): Promise<boolean> {
     runInAction(() => {
       this.isStarting = true;
       this.startError = null;
     });
     try {
       if (!(await this.hooks.ensureDevBuilt())) return false;
-      const started = await workflowApi.startDevRun(this.projectId, { functionName, args: [...args] });
+      const started = await workflowApi.startDevRun(this.projectId, {
+        functionName,
+        args: [...args],
+        ...(triggerPayload ? { triggerPayload } : {}),
+      });
       eventTracker.track('run_started');
       this.watch({
         workflowId: started.workflowId,

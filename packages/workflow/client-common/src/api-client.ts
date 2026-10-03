@@ -304,8 +304,10 @@ export const workflowApi = {
     request<IApiRunFunctionResult>(`/projects/${projectId}/run`, { method: 'POST', body: JSON.stringify(input) }),
 
   /** The toolbar's "Run" button — starts a dev execution and returns its ids right away, see `getRunPosition`. */
-  startDevRun: (projectId: string, input: { functionName: string; args: unknown[] }) =>
-    request<IApiStartedRun>(`/projects/${projectId}/runs`, { method: 'POST', body: JSON.stringify(input) }),
+  startDevRun: (
+    projectId: string,
+    input: { functionName: string; args: unknown[]; triggerPayload?: Record<string, unknown> },
+  ) => request<IApiStartedRun>(`/projects/${projectId}/runs`, { method: 'POST', body: JSON.stringify(input) }),
 
   /** Polled while a run is watched — where the execution currently is in its diagram. */
   getRunPosition: (projectId: string, workflowId: string, runId: string) =>
@@ -314,7 +316,13 @@ export const workflowApi = {
   /** Starts a dev debug session with the given breakpoints armed — see `TemporalDebugAdapter`. */
   startDebugSession: (
     projectId: string,
-    input: { functionName: string; args: unknown[]; breakpoints: IDebugLocation[]; pauseOnEntry: boolean },
+    input: {
+      functionName: string;
+      args: unknown[];
+      breakpoints: IDebugLocation[];
+      pauseOnEntry: boolean;
+      triggerPayload?: Record<string, unknown>;
+    },
   ) =>
     request<IApiStartedDebugSession>(`/projects/${projectId}/debug/start`, {
       method: 'POST',

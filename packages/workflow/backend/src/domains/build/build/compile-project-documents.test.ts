@@ -38,6 +38,57 @@ describe('compileProjectDocuments', () => {
     expect(result.workflows).toContain('__falangAt("l1");');
   });
 
+  it('type-checks a debug build with a trigger-function and a function returning returnValue', () => {
+    const trigger: IProjectDocument = {
+      id: 'doc-trigger',
+      type: 'trigger-function',
+      name: 'onMessage',
+      root: {
+        id: 'tf',
+        name: 'trigger-function',
+        children: [
+          { id: 'tf-h', name: 'function-header', data: '' },
+          {
+            id: 'tf-b',
+            name: 'trigger-function-body',
+            data: { vendor: 'telegram', triggerName: 'telegram-trigger', credentialId: 'cred-1' },
+            children: [
+              { id: 'c1', name: 'comment', data: 'Greets back' },
+              { id: 'l1', name: 'log', data: 'got ${message.text}' },
+            ],
+          },
+          { id: 'tf-f', name: 'function-footer', data: '' },
+        ],
+      },
+    };
+    const withReturn: IProjectDocument = {
+      id: 'doc-fn',
+      type: 'function',
+      name: 'isPositive',
+      root: {
+        id: 'fn',
+        name: 'function',
+        children: [
+          { id: 'fn-h', name: 'function-header', data: '' },
+          {
+            id: 'fn-b',
+            name: 'function-body',
+            data: { parameters: [{ name: 'count', type: { type: 'number' } }], returnValue: { type: 'boolean' } },
+            children: [
+              { id: 'a1', name: 'action', data: 'returnValue = count > 0' },
+              { id: 'a2', name: 'action', data: 'count = count + 1', out: { id: 'r1', name: 'return', data: 'returnValue' } },
+            ],
+          },
+          { id: 'fn-f', name: 'function-footer', data: '' },
+        ],
+      },
+    };
+
+    const result = compileProjectDocuments([trigger, withReturn], REGISTERED_INTEGRATIONS, { debug: true });
+    expect(result.workflows).toContain('__falangDebug.trace');
+    expect(result.workflows).toContain('let returnValue!: boolean;');
+  });
+
   it('leaves the preview (trackPosition: false) free of the position-tracking runtime', () => {
     const document: IProjectDocument = {
       id: 'doc-1',

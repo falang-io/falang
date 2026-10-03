@@ -31,6 +31,8 @@ export interface IStartWorkflowParams {
   readonly workflowId: string;
   readonly functionName: string;
   readonly args: readonly unknown[];
+  /** Delivered with the start (`signalWithStart`) — a signal-delivery trigger's test payload. */
+  readonly signal?: { readonly name: string; readonly args: readonly unknown[] };
   readonly temporalAddress?: string;
   readonly namespace?: string;
 }
@@ -100,13 +102,19 @@ export class WorkflowRunService {
    * (ADR 0022 (private)), which then follows the execution through `getPosition` instead of
    * blocking on a result like `run()` does. Same `manual-<function>-<uuid>` workflowId convention.
    */
-  async start(taskQueue: string, functionName: string, args: readonly unknown[]): Promise<IStartedRun> {
+  async start(
+    taskQueue: string,
+    functionName: string,
+    args: readonly unknown[],
+    signal?: IStartWorkflowParams['signal'],
+  ): Promise<IStartedRun> {
     const workflowId = `manual-${functionName}-${randomUUID()}`;
     const { runId } = await this.startWorkflow({
       taskQueue,
       workflowId,
       functionName,
       args,
+      ...(signal ? { signal } : {}),
       temporalAddress: this.temporalAddress,
       namespace: this.namespace,
     });

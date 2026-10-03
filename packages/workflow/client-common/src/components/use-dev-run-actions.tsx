@@ -4,6 +4,7 @@ import { notification } from 'antd';
 import { getFunctionSignature } from '@falang/workflow-compiler';
 import { useWorkflowStore } from '../workflow-store-context.js';
 import { RunFunctionModal } from './run-function-modal.js';
+import { TriggerPayloadModal } from './trigger-payload-modal.js';
 
 /** A function document's declared parameter count, straight from its loaded root — decides whether "Run" needs the arguments form at all. */
 const countParameters = (root: Parameters<typeof getFunctionSignature>[0] | undefined): number => {
@@ -33,17 +34,25 @@ export interface IDevRunActions {
  * `LiveRunStore.startFunction` builds first if needed and terminates whatever else dev was running.
  * "Debug" is the same start flow but through `WorkflowStore.debugFunction`/`DebugSessionStore`,
  * pausing on entry only if no breakpoints are set yet, and disabled while a session is already
- * active (dev is single-pod, one execution at a time).
+ * active (dev is single-pod, one execution at a time). With a trigger-function active both open
+ * `TriggerPayloadModal` instead: the test event its trigger would deliver, sent as the trigger's signal.
  */
 export const useDevRunActions = (): IDevRunActions => {
   const store = useWorkflowStore();
   const [liveRunOpen, setLiveRunOpen] = useState(false);
   const [debugRunOpen, setDebugRunOpen] = useState(false);
+  const [triggerMode, setTriggerMode] = useState<'run' | 'debug' | null>(null);
   const activeDocument = store.activeTabId ? store.getDocument(store.activeTabId) : null;
   const initialFunctionName = activeDocument?.type === 'function' ? activeDocument.name : null;
 
-  const start = async (functionName: string, args: readonly unknown[]): Promise<boolean> => {
-    const started = await store.liveRun.startFunction(functionName, args);
+  const isTriggerActive = activeDocument?.type === 'trigger-function';
+
+  const start = async (
+    functionName: string,
+    args: readonly unknown[],
+    triggerPayload?: Record<string, unknown>,
+  ): Promise<boolean> => {
+    const started = await store.liveRun.startFunction(functionName, args, triggerPayload);
     if (!started && store.liveRun.startError) notification.error({ message: store.liveRun.startError });
     return started;
   };
@@ -52,8 +61,12 @@ export const useDevRunActions = (): IDevRunActions => {
   // build to debug", …) is caught internally and surfaces as `lastError`/`status: 'terminated'`
   // instead, the same "check an error field after the awaited call" shape `LiveRunStore.startFunction`
   // already uses for its own `startError`.
-  const startDebug = async (functionName: string, args: readonly unknown[]): Promise<boolean> => {
-    await store.debugFunction(functionName, args);
+  const startDebug = async (
+    functionName: string,
+    args: readonly unknown[],
+    triggerPayload?: Record<string, unknown>,
+  ): Promise<boolean> => {
+    await store.debugFunction(functionName, args, triggerPayload);
     if (store.debugSession.lastError) {
       notification.error({ message: store.debugSession.lastError });
       return false;
@@ -62,6 +75,10 @@ export const useDevRunActions = (): IDevRunActions => {
   };
 
   const onRun = () => {
+    if (isTriggerActive) {
+      setTriggerMode('run');
+      return;
+    }
     if (activeDocument?.type !== 'function' || countParameters(activeDocument.data) > 0) {
       setLiveRunOpen(true);
       return;
@@ -70,6 +87,10 @@ export const useDevRunActions = (): IDevRunActions => {
   };
 
   const onDebug = () => {
+    if (isTriggerActive) {
+      setTriggerMode('debug');
+      return;
+    }
     if (activeDocument?.type !== 'function' || countParameters(activeDocument.data) > 0) {
       setDebugRunOpen(true);
       return;
@@ -96,6 +117,17 @@ export const useDevRunActions = (): IDevRunActions => {
         isDevRunning={store.buildStatus === 'running'}
         fixedTarget="dev"
         onStart={startDebug}
+      />
+      <TriggerPayloadModal
+        open={triggerMode !== null && isTriggerActive}
+        mode={triggerMode ?? 'run'}
+        document={isTriggerActive ? (activeDocument ?? null) : null}
+        onClose={() => setTriggerMode(null)}
+        onStart={(payload) =>
+          activeDocument
+            ? (triggerMode === 'debug' ? startDebug : start)(activeDocument.name, [], payload)
+            : Promise.resolve(false)
+        }
       />
     </>
   );

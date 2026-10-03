@@ -698,10 +698,14 @@ export class WorkflowStore implements IWorkflowAgentStore {
    * entry only when the user hasn't set any breakpoints yet — otherwise a first click would run to
    * completion with nothing to show, which defeats the point of clicking "Debug" at all.
    */
-  debugFunction(functionName: string, args: readonly unknown[]): Promise<void> {
+  debugFunction(
+    functionName: string,
+    args: readonly unknown[],
+    triggerPayload?: Record<string, unknown>,
+  ): Promise<void> {
     const params: IDebugSessionStartParams = {
       pauseOnEntry: this.debugSession.breakpointList.length === 0,
-      entry: { functionName, args },
+      entry: { functionName, args, ...(triggerPayload ? { triggerPayload } : {}) },
     };
     return this.debugSession.start(params);
   }

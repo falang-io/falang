@@ -33,6 +33,7 @@ export const signalWithStartDebug: TDebugSignalWithStart = async ({
   args,
   breakpoints,
   pauseOnEntry,
+  followUpSignal,
   temporalAddress,
   namespace,
 }) => {
@@ -46,6 +47,7 @@ export const signalWithStartDebug: TDebugSignalWithStart = async ({
       signal: DEBUG_CONFIGURE_SIGNAL_NAME,
       signalArgs: [{ breakpoints: [...breakpoints], pauseOnEntry }],
     });
+    if (followUpSignal) await handle.signal(followUpSignal.name, ...followUpSignal.args);
     return { runId: handle.signaledRunId };
   } finally {
     await connection.close();
@@ -126,6 +128,7 @@ export const createDebugService = (
     devArtifacts,
     workflowRunService,
     ensureRunnerDeps: buildService.ensureRunnerDeps(),
+    resolveRunEntry: (projectId, ownerId, input) => buildService.resolveRunEntry(projectId, ownerId, input),
     signalWithStartDebug,
     sendDebugSignal,
     describeDebugWorkflow,

@@ -95,9 +95,21 @@ describe('resolveStartDeliveryArgs', () => {
     expect(fire.timezone).toBe('Europe/Moscow');
   });
 
-  it('is not runnable for a trigger-function bound to a delivery: "signal" trigger (the default)', () => {
+  it('is not runnable for a delivery: "signal" trigger (the default) without a test payload, saying why', () => {
     const document = buildTriggerFunctionDocument({ vendor: 'telegram', triggerName: 'telegram-trigger', credentialId: 'cred-1' });
-    expect(resolveStartDeliveryArgs(document, integrations, [])).toEqual({ runnable: false });
+    const resolution = resolveStartDeliveryArgs(document, integrations, []);
+    expect(resolution.runnable).toBe(false);
+    expect(resolution.reason).toMatch(/test payload/);
+  });
+
+  it('runs a delivery: "signal" trigger with its test payload sent as the trigger signal', () => {
+    const document = buildTriggerFunctionDocument({ vendor: 'telegram', triggerName: 'telegram-trigger', credentialId: 'cred-1' });
+    const payload = { text: 'hi', chat: { id: 1 } };
+    expect(resolveStartDeliveryArgs(document, integrations, [], payload)).toEqual({
+      runnable: true,
+      args: [],
+      signal: { name: 'telegramMessage', args: [payload] },
+    });
   });
 
   it('is not runnable for a trigger-function bound to an unknown vendor/trigger', () => {

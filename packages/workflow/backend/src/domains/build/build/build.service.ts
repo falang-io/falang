@@ -1,5 +1,5 @@
 // oxlint-disable max-lines -- over the default cap because of `onModuleInit`'s new `ensureRunnerRunning` wiring (ADR 0016 (private)'s Phase 2 "Scale-to-zero" follow-up); the constructor's already-long DI list (unchanged) accounts for most of the file, not accumulated complexity.
-import { ConflictException, Inject, Injectable, NotFoundException, type OnModuleInit } from '@nestjs/common';
+import { BadRequestException, ConflictException, Inject, Injectable, NotFoundException, type OnModuleInit } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { getFunctionSignature, type IFunctionSignature } from '@falang/workflow-compiler';
 import { IntegrationsRuntimeService, SCHEDULE_CLIENT_PORT, type IScheduleClientPort } from '@falang/workflow-gateway';
@@ -27,7 +27,7 @@ import { assertUnderProdVersionLimit, resolveProdVersionLimit } from './prod-ver
 import { ProjectVersion } from './project-version.entity.js';
 import { toVersionSummary, type IProjectVersionSummary } from './project-version-summary.js';
 import { RunnerProcessManager } from './runner-process-manager.js';
-import { resolveStartDeliveryArgs } from './start-delivery-args.js';
+import { resolveStartDeliveryArgs, type IStartDeliveryResolution } from './start-delivery-args.js';
 import { devTaskQueue, prodTaskQueue } from './task-queue-names.js';
 import type { IWorkflowPosition } from './workflow-position.js';
 import type { IRunFunctionResult, IStartedRun } from './workflow-run.service.js';
@@ -258,15 +258,9 @@ export class BuildService implements OnModuleInit {
   async startDevRun(
     projectId: string,
     ownerId: string,
-    input: { readonly functionName: string; readonly args: readonly unknown[] },
+    input: { readonly functionName: string; readonly args: readonly unknown[]; readonly triggerPayload?: unknown },
   ): Promise<IStartedDevRun> {
-    const documents = await this.documentsService.listFull(projectId, ownerId);
-    const document = documents.find((candidate) => candidate.name === input.functionName);
-    const integrations = document ? await getIntegrationsForCompile(this.activepiecesCatalog) : [];
-    const resolution = document ? resolveStartDeliveryArgs(document, integrations, input.args) : { runnable: false };
-    if (!document || !resolution.runnable) {
-      throw new NotFoundException(`Function "${input.functionName}" not found in project "${projectId}"`);
-    }
+    const { resolution } = await this.resolveRunEntry(projectId, ownerId, input);
     if (!this.devArtifacts.has(projectId)) {
       throw new ConflictException('Build the project first — there is no dev build to run');
     }
@@ -274,8 +268,37 @@ export class BuildService implements OnModuleInit {
     const taskQueue = devTaskQueue(projectId);
     await ensureRunnerRunning(this.ensureRunnerDeps(), projectId, 'dev', taskQueue);
     const terminatedExecutionsCount = await this.workflowRunService.terminateRunningOn(taskQueue);
-    const started = await this.workflowRunService.start(taskQueue, input.functionName, resolution.args ?? input.args);
+    const started = await this.workflowRunService.start(
+      taskQueue,
+      input.functionName,
+      resolution.args ?? input.args,
+      resolution.signal,
+    );
     return { ...started, terminatedExecutionsCount };
+  }
+
+  /**
+   * Finds the document a dev run/debug session starts and how (`resolveStartDeliveryArgs`): a plain
+   * function with the client's args, a schedule trigger with a synthesized `fire`, a signal-delivery
+   * trigger with the user's test payload sent as its signal. 404 for an unknown/unrunnable document,
+   * 400 for a signal trigger started without a payload.
+   */
+  async resolveRunEntry(
+    projectId: string,
+    ownerId: string,
+    input: { readonly functionName: string; readonly args: readonly unknown[]; readonly triggerPayload?: unknown },
+  ): Promise<{ readonly resolution: IStartDeliveryResolution }> {
+    const documents = await this.documentsService.listFull(projectId, ownerId);
+    const document = documents.find((candidate) => candidate.name === input.functionName);
+    const integrations = document ? await getIntegrationsForCompile(this.activepiecesCatalog) : [];
+    const resolution: IStartDeliveryResolution = document
+      ? resolveStartDeliveryArgs(document, integrations, input.args, input.triggerPayload)
+      : { runnable: false };
+    if (!document || !resolution.runnable) {
+      if (document && resolution.reason) throw new BadRequestException(resolution.reason);
+      throw new NotFoundException(`Function "${input.functionName}" not found in project "${projectId}"`);
+    }
+    return { resolution };
   }
 
   /** Backs `GET /projects/:id/schedules` — every Temporal Schedule reconciled for this project's `trigger-function` documents, dev and prod alike. See ADR 0037 (private) §7. */
