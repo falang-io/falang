@@ -14,6 +14,7 @@ import {
 } from '@falang/workflow-integrations-common';
 import { action, makeObservable, observable } from 'mobx';
 import { TOKEN_CREDENTIALS_PROVIDER, TOKEN_INTEGRATIONS_REGISTRY } from '../../registry/di-tokens.js';
+import { initialFieldValue } from '../../registry/initial-field-value.js';
 import { syncIndexedChildren } from '../sync-indexed-children.js';
 
 export interface ISelectOption {
@@ -93,7 +94,7 @@ export class QuestionEditorStore extends ExpressionBlockEditorStore<TQuestionHea
     }
 
     for (const field of getQuestionHeaderFields(descriptor)) {
-      const value = (params.data[field.name] as string | undefined) ?? '';
+      const value = initialFieldValue(field, params.data[field.name] as string | undefined, this.credentialInstances);
       if (field.kind === 'expression') {
         this.codeStores.set(
           field.name,
@@ -186,6 +187,17 @@ export class QuestionEditorStore extends ExpressionBlockEditorStore<TQuestionHea
     return { label, dataType, ...(meta?.prompt ? { prompt: meta.prompt } : {}) } satisfies IQuestionOptionDataWithType;
   }
 
+  private hasTimeoutValue(data: Readonly<Record<string, string>>): boolean {
+    const name = this.descriptor.timeoutField;
+    return Boolean(name) && (data[name as string] ?? '').trim() !== '';
+  }
+
+  /** True when the node's current `fixed` (timeout) child already holds a branch that deleting would lose. */
+  private hasTimeoutBranchContent(): boolean {
+    const timeoutChild = this.dataNode.children.find((child) => (child.data as IQuestionOptionData | null)?.fixed);
+    return Boolean(timeoutChild && (timeoutChild.children.length > 0 || timeoutChild.out));
+  }
+
   getData(): TQuestionHeaderData {
     const data: Record<string, string> = Object.fromEntries(this.values);
     this.codeStores.forEach((store, name) => {
@@ -198,11 +210,12 @@ export class QuestionEditorStore extends ExpressionBlockEditorStore<TQuestionHea
     const items: (IQuestionOptionData | IQuestionOptionDataWithType)[] = options.map((label, index) =>
       this.buildOptionData(label, this.optionMeta[index]),
     );
-    // The automatic timeout branch is never part of `options` (never shown/editable), but always
-    // re-appended here at the tail — see this class's own doc comment — so `syncIndexedChildren`
-    // never mistakes it for a removed real option and deletes it, regardless of how `options` itself
-    // grows or shrinks.
-    if (this.descriptor.timeoutField) {
+    // The automatic timeout branch is never part of `options` (never shown/editable). It exists only
+    // while the descriptor's `timeoutField` is non-empty: set a timeout and the branch is appended at
+    // the tail, clear it and the branch is removed — unless it already has content (children/out), in
+    // which case it is kept (the compiler skips it without a timeout) so a branch is never deleted
+    // silently. Always at the tail so `syncIndexedChildren` never mistakes it for a removed real option.
+    if (this.descriptor.timeoutField && (this.hasTimeoutValue(data) || this.hasTimeoutBranchContent())) {
       items.push({ ...this.buildOptionData(TIMEOUT_OPTION_LABEL), fixed: true });
     }
     // Runs once, only on save — see `syncIndexedChildren`'s doc for why this is a safe place for the

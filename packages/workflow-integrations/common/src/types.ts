@@ -67,6 +67,8 @@ export interface IFieldConfig {
   ) => Promise<readonly IFieldSelectOption[]>;
   /** Only meaningful for `kind: 'credential-ref'` — restricts to this vendor's instances. */
   readonly vendor?: string;
+  /** Initial value of this field on a freshly inserted node (and what the editor shows for a stored-empty one), e.g. `'[]'` for an optional array expression. Defaults to `''`. */
+  readonly defaultValue?: string;
   /**
    * Only meaningful for `kind: 'expression'`. When set, the editor forces the field to type-check
    * against this type (hidden `let _value: T =` prefix) instead of only the bare enclosing scope —

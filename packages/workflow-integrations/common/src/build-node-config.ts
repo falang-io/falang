@@ -4,6 +4,8 @@ import type { IActionDescriptor, IFieldConfig, ITriggerDescriptor, IWorkflowInte
 
 export type TIntegrationActionData = Readonly<Record<string, string>>;
 
+export const defaultFieldValue = (field: IFieldConfig): string => field.defaultValue ?? '';
+
 export const buildActionDataSchema = (
   fields: readonly IFieldConfig[],
 ): zod.ZodObject<Record<string, zod.ZodString>> => {
@@ -19,7 +21,7 @@ export const buildActionDataSchema = (
 export const buildActionNodeConfig = (action: IActionDescriptor): INodeConfig => {
   const data: IDataInfo<zod.ZodType<TIntegrationActionData>> = {
     type: buildActionDataSchema(action.fields),
-    default: () => Object.fromEntries(action.fields.map((field) => [field.name, ''])),
+    default: () => Object.fromEntries(action.fields.map((field) => [field.name, defaultFieldValue(field)])),
   };
   return { name: action.name, data } satisfies INodeConfig;
 };

@@ -23,6 +23,7 @@ import {
   TOKEN_INTEGRATIONS_REGISTRY,
   type IFieldOptionsProvider,
 } from '../../registry/di-tokens.js';
+import { initialFieldValue } from '../../registry/initial-field-value.js';
 import { syncIndexedChildren } from '../sync-indexed-children.js';
 
 export interface ISelectOption {
@@ -102,7 +103,7 @@ export class ChoiceEditorStore extends ExpressionBlockEditorStore<TChoiceHeaderD
     this.dynamicOptionsField = headerFields.find((field) => field.kind === 'select' && field.loadOptions);
 
     for (const field of headerFields) {
-      const value = (params.data[field.name] as string | undefined) ?? '';
+      const value = initialFieldValue(field, params.data[field.name] as string | undefined, this.credentialInstances);
       if (field.kind === 'expression') {
         this.codeStores.set(
           field.name,

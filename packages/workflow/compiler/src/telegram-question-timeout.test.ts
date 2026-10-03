@@ -164,6 +164,15 @@ describe('telegram-question with timeoutField (ADR 0040 (private) §4)', () => {
     );
   });
 
+  it('without a timeout value no timeout case is emitted, even if a leftover fixed timeout branch is still in the tree', () => {
+    const emitters = buildQuestionEmitters([buildIntegration(buildQuestionWithTimeout())]);
+    const result = compileStatements([questionNode('q1', '  ', true)], noResolveFunctionName, {}, emitters);
+
+    expect(result).not.toContain('__timeout__');
+    expect(result).toContain('switch (q_q1Answer) {');
+    expect(result.match(/case /g)).toHaveLength(2);
+  });
+
   it('a non-empty timeout value waits with a millisecond timeout and takes the fixed timeout branch on expiry', () => {
     const emitters = buildQuestionEmitters([buildIntegration(buildQuestionWithTimeout())]);
     const result = compileStatements([questionNode('q1', '10m', true)], noResolveFunctionName, {}, emitters);
