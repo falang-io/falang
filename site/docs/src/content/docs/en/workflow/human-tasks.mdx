@@ -27,7 +27,7 @@ head:
     under review), shown as a read-only block on the task — never editable by the person resolving it.
   </li>
   <li>
-    <b>Attachments</b> — an optional list of <a href="./files/">files</a>, shown as download links.
+    <b>Attachments</b> — an optional list of <a href="../files/">files</a>, shown as download links.
   </li>
   <li>
     <b>Timeout</b> — an optional duration (<code>48h</code>, <code>3d</code>). Leave it blank and the scenario waits
@@ -73,7 +73,9 @@ head:
   renamable. If nobody resolves the task within the configured duration, the scenario takes that branch instead (the
   task itself is marked <b>Expired</b> on the Tasks page) and continues from there — useful for "escalate if nobody
   responds in a day" flows. A scenario that's stopped or rebuilt while a task is still open closes it too (as{' '}
-  <b>Cancelled</b>), so a task never sits open forever pointing at a run that no longer exists.
+  <b>Cancelled</b>), so a task never sits open forever pointing at a run that no longer exists. Clearing the
+  <b>Timeout</b> removes the branch again — unless it already contains icons, in which case it stays on the canvas
+  (never deleted silently) but is no longer compiled.
 </p>
 
 #### The Tasks page
@@ -99,7 +101,7 @@ head:
 #### Telegram questions can time out too
 
 <p>
-  A <a href="./integrations/">Telegram</a> question node gained the same <b>Timeout</b> field in the same pass — set it
+  A <a href="../integrations/">Telegram</a> question node gained the same <b>Timeout</b> field in the same pass — set it
   and an unanswered inline-keyboard question takes its own automatic timeout branch, removing the buttons and sending a
   short "this question has expired" message instead of waiting forever.
 </p>

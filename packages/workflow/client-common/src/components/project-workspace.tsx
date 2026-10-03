@@ -4,7 +4,7 @@ import { reaction } from 'mobx';
 import { observer } from 'mobx-react-lite';
 import { ContainerContext, getGlobalI18n } from '@falang/scheme';
 import { message } from 'antd';
-import { ResizeHandle, useResizablePanelWidth, VersionDiffModal } from '@falang/antd';
+import { PrintExportModal, PrintLayer, ResizeHandle, useResizablePanelWidth, VersionDiffModal } from '@falang/antd';
 import { INTEGRATIONS_DOCUMENT_TYPE } from '@falang/workflow-integrations-common';
 import { WorkflowStore } from '../workflow-store.js';
 import { WorkflowStoreContext } from '../workflow-store-context.js';
@@ -13,6 +13,8 @@ import { TabsBar } from './tabs-bar.js';
 import { SchemeView } from './scheme-view.js';
 import { FilesTab } from './files-tab.js';
 import { IntegrationsEditor } from './integrations-editor.js';
+import { MagicConfirmModal } from './magic-confirm-modal.js';
+import { MagicEditorModal } from './magic-editor-modal.js';
 import { ProjectRightSidebar } from './project-right-sidebar.js';
 import { Sidebar } from './sidebar.js';
 import { TasksPage } from './tasks-page.js';
@@ -45,11 +47,39 @@ const styles = {
     overflow: 'hidden',
     minWidth: 0,
   },
-  content: {
+  /** Holds every mounted scheme layer plus the non-scheme views, stacked. */
+  stage: {
     flex: 1,
+    position: 'relative' as const,
+    minHeight: 0,
+    overflow: 'hidden',
+  },
+  schemeLayer: {
+    position: 'absolute' as const,
+    inset: 0,
     display: 'flex',
     overflow: 'hidden',
-    minHeight: 0,
+  },
+  schemeLayerActive: {
+    visibility: 'visible' as const,
+    zIndex: 1,
+  },
+  // `visibility: hidden` (not `display: none`) on purpose: a kept-alive canvas keeps its real size, so
+  // blocks that are re-measured while it is hidden (an agent editing a background document) get real
+  // heights, and `scrollToNode`/`focusNode` still find a laid-out root div to pan. Hidden elements take
+  // no pointer events and cannot be focused.
+  schemeLayerHidden: {
+    visibility: 'hidden' as const,
+    pointerEvents: 'none' as const,
+    zIndex: 0,
+  },
+  otherLayer: {
+    position: 'absolute' as const,
+    inset: 0,
+    display: 'flex',
+    overflow: 'hidden',
+    zIndex: 2,
+    background: '#1e1e2e',
   },
   welcome: {
     flex: 1,
@@ -116,56 +146,53 @@ export const ProjectWorkspace: React.FC<Props> = observer(({ projectId }) => {
   const activeId = store.activeTabId;
   const activeDocument = activeId ? store.getDocument(activeId) : null;
   const isIntegrationsDoc = activeDocument?.type === INTEGRATIONS_DOCUMENT_TYPE;
-  const scheme = activeId && !isIntegrationsDoc ? store.getScheme(activeId) : null;
+  // The scheme tabs kept mounted (the active one plus the most recently active others, hidden — see
+  // `keep-alive.ts`). The active scheme is always among them even on the very first render, before the
+  // store's keep-alive reaction has run.
+  const activeSchemeId = store.activeSchemeDocumentId;
+  const mountedSchemeIds = store.keepAliveSchemeIds.filter(
+    (id) => store.getDocument(id) && store.openTabIds.includes(id),
+  );
+  if (activeSchemeId && !mountedSchemeIds.includes(activeSchemeId)) mountedSchemeIds.push(activeSchemeId);
+  const showScheme = store.activeView === null && activeSchemeId !== null;
 
-  // The in-tab column (only the icon editor, `Sidebar`) lives inside each variant below, within the
-  // scheme's own `ContainerContext` when there is one. The project-level right sidebar (agent chat,
-  // version history, run/debug panels) is a sibling of this whole `main` column, rendered once below
-  // — a tab switch between these variants (or to no document at all) never unmounts it
-  // (ADR 0036 (private) §3).
-  const mainContent = (() => {
-    if (store.activeView === 'files') {
-      return (
-        <div style={styles.content}>
-          <FilesTab />
-        </div>
-      );
-    }
-    if (store.activeView === 'tasks') {
-      return (
-        <div style={styles.content}>
-          <TasksPage projectId={store.projectId} />
-        </div>
-      );
-    }
-    if (isIntegrationsDoc) {
-      return (
-        <div style={styles.content}>
-          <IntegrationsEditor />
-        </div>
-      );
-    }
-    if (scheme) {
-      return (
-        <ContainerContext value={scheme.container}>
-          <div style={styles.content}>
-            {/* `scheme` is only non-null when `activeId` was truthy at the point it was computed above, but TS doesn't carry that narrowing across the two separate `const`s — non-null assertion is safe here. */}
-            <SchemeView key={activeId} scheme={scheme} documentId={activeId as string} />
-            <Sidebar />
-          </div>
-        </ContainerContext>
-      );
-    }
+  // The in-tab column (only the icon editor, `Sidebar`) lives inside each scheme's own layer, within
+  // that scheme's `ContainerContext`. The project-level right sidebar (agent chat, version history,
+  // run/debug panels) is a sibling of this whole `main` column, rendered once below — a tab switch
+  // between these variants (or to no document at all) never unmounts it (ADR 0036 (private) §3).
+  const otherContent = (() => {
+    if (store.activeView === 'files') return <FilesTab />;
+    if (store.activeView === 'tasks') return <TasksPage projectId={store.projectId} />;
+    if (isIntegrationsDoc) return <IntegrationsEditor />;
+    if (showScheme) return null;
     return (
-      <div style={styles.content}>
-        <div style={styles.welcome}>
-          <div style={styles.welcomeText}>
-            {store.isLoadingTree ? 'Loading project…' : 'Create or open a document from the project tree'}
-          </div>
+      <div style={styles.welcome}>
+        <div style={styles.welcomeText}>
+          {store.isLoadingTree ? 'Loading project…' : 'Create or open a document from the project tree'}
         </div>
       </div>
     );
   })();
+
+  const mainContent = (
+    <div style={styles.stage}>
+      {mountedSchemeIds.map((id) => {
+        const active = showScheme && id === activeSchemeId;
+        return (
+          <ContainerContext key={id} value={store.getScheme(id).container}>
+            <div
+              style={{ ...styles.schemeLayer, ...(active ? styles.schemeLayerActive : styles.schemeLayerHidden) }}
+              aria-hidden={!active}
+            >
+              <SchemeView scheme={store.getScheme(id)} documentId={id} active={active} />
+              <Sidebar />
+            </div>
+          </ContainerContext>
+        );
+      })}
+      {otherContent && <div style={styles.otherLayer}>{otherContent}</div>}
+    </div>
+  );
 
   return (
     <WorkflowStoreContext value={store}>
@@ -185,12 +212,26 @@ export const ProjectWorkspace: React.FC<Props> = observer(({ projectId }) => {
           <ProjectRightSidebar />
         </div>
       </div>
+      <MagicEditorModal />
+      <MagicConfirmModal />
       <VersionDiffModal
         open={store.diffModalOpen}
         store={store.versionHistory}
         buildReadOnlyScheme={store.buildReadOnlySchemeForDiff}
         onClose={() => store.closeDiffModal()}
       />
+      {store.printExport && (
+        <>
+          <PrintExportModal
+            store={store.printExport}
+            open={store.printExport.stage === 'select'}
+            onClose={() => {
+              if (store.printExport?.stage === 'select') store.closePrintExport();
+            }}
+          />
+          <PrintLayer store={store.printExport} onClose={() => store.closePrintExport()} />
+        </>
+      )}
     </WorkflowStoreContext>
   );
 });

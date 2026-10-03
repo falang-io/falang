@@ -6,6 +6,7 @@ import { CELL_SIZE, TOKEN_SCHEME, useService } from '@falang/scheme';
 import { getMonaco, getOverflowWidgetsDomNode } from '../../monaco/get-monaco.js';
 import { useCodeTheme } from '../../monaco/use-code-theme.js';
 import type { CodeModelStore } from './code-model.store.js';
+import { focusNeighbourField } from './tab-navigation.js';
 //import type { CodeModelStore } from "./CodeModel.store";
 
 export interface ICodeModelEditingComponentProps {
@@ -20,6 +21,11 @@ export interface ICodeModelEditingComponentProps {
    * for spacious layouts like a sidebar `Form.Item`. Default `'compact'`.
    */
   variant?: 'compact' | 'default';
+  /**
+   * Tab / Shift+Tab move focus to the next / previous field of the block instead of inserting a tab character
+   * (at the first/last field the key does nothing). Default: on for the inline `'compact'` variant only.
+   */
+  tabNavigation?: boolean;
 }
 
 const monacoOptions: monaco.editor.IStandaloneEditorConstructionOptions = {
@@ -49,19 +55,31 @@ const monacoOptions: monaco.editor.IStandaloneEditorConstructionOptions = {
   overviewRulerLanes: 0,
 };
 
+const useOptionalScheme = () => {
+  try {
+    return useService(TOKEN_SCHEME);
+  } catch {
+    return null;
+  }
+};
+
 const monacoThemeName = (theme: ReturnType<typeof useCodeTheme>): string => (theme === 'dark' ? 'vs-dark' : 'vs');
 
 export const CodeModelEditingComponent: React.FC<ICodeModelEditingComponentProps> = observer(
-  ({ store, autoFocus = true, minHeight = CELL_SIZE, variant = 'compact' }) => {
+  ({ store, autoFocus = true, minHeight = CELL_SIZE, variant = 'compact', tabNavigation }) => {
     const model = store.model;
     const containerRef = useRef<HTMLDivElement>(null);
     const editorRef = useRef<monaco.editor.IStandaloneCodeEditor>(null);
     const [height, setHeight] = useState(minHeight);
     const theme = useCodeTheme();
-    const { viewPosition } = useService(TOKEN_SCHEME);
-    const { scale, x, y } = viewPosition;
+    // Outside any scheme (e.g. a modal dialog) there is no pan/zoom to re-layout for.
+    const viewPosition = useOptionalScheme()?.viewPosition;
+    const scale = viewPosition?.scale;
+    const x = viewPosition?.x;
+    const y = viewPosition?.y;
     const { token } = antdTheme.useToken();
     const isDefault = variant === 'default';
+    const tabNavigationOn = tabNavigation ?? !isDefault;
 
     const updateHeight = useCallback(() => {
       if (!editorRef.current) return;
@@ -100,6 +118,29 @@ export const CodeModelEditingComponent: React.FC<ICodeModelEditingComponentProps
         overflowWidgetsDomNode: getOverflowWidgetsDomNode(monacoThemeName(theme)),
       });
       store.setEditor(editorRef.current);
+      if (tabNavigationOn) {
+        const monacoApi = getMonaco();
+        const editor = editorRef.current;
+        // Leave Tab to Monaco while a suggestion / snippet / parameter hint is active (accepts it / next placeholder).
+        const free = '!suggestWidgetVisible && !inSnippetMode && !parameterHintsVisible && !inlineSuggestionVisible';
+        editor.addCommand(
+          monacoApi.KeyCode.Tab,
+          () => {
+            const dom = editor.getDomNode();
+            if (dom) focusNeighbourField(dom, 'next');
+          },
+          free,
+        );
+        editor.addCommand(
+          // oxlint-disable-next-line no-bitwise
+          monacoApi.KeyMod.Shift | monacoApi.KeyCode.Tab,
+          () => {
+            const dom = editor.getDomNode();
+            if (dom) focusNeighbourField(dom, 'previous');
+          },
+          free,
+        );
+      }
       setTimeout(updateHeight, 0);
       const disposable1 = editorRef.current.onDidChangeModelContent(() => {
         store.updateValue();
@@ -119,7 +160,7 @@ export const CodeModelEditingComponent: React.FC<ICodeModelEditingComponentProps
         editorRef.current?.dispose();
         editorRef.current = null;
       };
-    }, [store, updateHeight, autoFocus]);
+    }, [store, updateHeight, autoFocus, tabNavigationOn]);
 
     useEffect(() => {
       getMonaco().editor.setTheme(monacoThemeName(theme));

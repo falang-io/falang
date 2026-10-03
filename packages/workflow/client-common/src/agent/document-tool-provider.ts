@@ -1,6 +1,8 @@
+// oxlint-disable max-lines -- grew past 300 with the `allowedTools` narrowing (ADR 0046 (private)); one provider, one file.
 import type { ILlmToolCall, ILlmToolDefinition, TToolExecutionResult } from '@falang/agent';
 import type { IAgentToolProvider } from '@falang/agent';
 import { isValidFunctionName } from '@falang/dto';
+import { findDocumentNameConflict } from '../document-names.js';
 import { OBJECTS_STRUCTURE_NAME } from '@falang/typescript-dto';
 import type {
   IIntegrationInstance,
@@ -8,13 +10,18 @@ import type {
   ITriggerDescriptor,
   IWorkflowIntegration,
 } from '@falang/workflow-integrations-common';
-import type { TTriggerFunctionBodyData } from '@falang/workflow-dto';
+import {
+  checkDocumentPlacement,
+  findSectionFolder,
+  sectionForDocumentType,
+  type TTriggerFunctionBodyData,
+} from '@falang/workflow-dto';
 import { getIntegrationInstances } from '../integration-instances.js';
 import { getEnabledIntegrations } from '../disabled-vendors.js';
 import { resolveTriggerCredentialId } from '../components/trigger-credential.js';
 import { getVendorsInUse } from './integration-catalog.js';
 import { type IProjectStructType, listTypes } from './list-types.js';
-import type { WorkflowStore } from '../workflow-store.js';
+import type { IWorkflowAgentStore } from './workflow-agent-store.js';
 
 const ok = (content: string): TToolExecutionResult => ({ content, ok: true });
 const fail = (error: string): TToolExecutionResult => ({ error, ok: false });
@@ -96,13 +103,18 @@ const TOOLS: readonly ILlmToolDefinition[] = [
       "Creates a new 'function' or 'objects-structure' document in this project and opens its tab. For a " +
       'trigger-bound function, use create_trigger_document instead. A function name must be an English, ' +
       'camelCase identifier (e.g. myFunctionName) — no spaces, punctuation, Cyrillic, or other non-Latin ' +
-      `script — since it is compiled verbatim into the generated code as a real function name.\n\n${OBJECTS_STRUCTURE_DESCRIPTION}`,
+      `script — since it is compiled verbatim into the generated code as a real function name. Document names are unique in a project, case-insensitively and across all types.\n\n${OBJECTS_STRUCTURE_DESCRIPTION}`,
     inputSchema: {
       type: 'object',
       properties: {
         name: { type: 'string' },
         type: { type: 'string', enum: ['function', 'objects-structure'] },
-        folderId: { type: 'string' },
+        folderId: {
+          type: 'string',
+          description:
+            "Optional. Omit to use the document type's section (functions → Functions, objects-structure → " +
+            'Types); pass a subfolder id from the project context only to place it inside that section.',
+        },
       },
       required: ['name', 'type'],
     },
@@ -128,7 +140,10 @@ const TOOLS: readonly ILlmToolDefinition[] = [
           type: 'object',
           description: 'Extra trigger-specific fields the trigger declares, keyed by field name.',
         },
-        folderId: { type: 'string' },
+        folderId: {
+          type: 'string',
+          description: 'Optional. Omit to use the Triggers section; pass a subfolder of it to place it there.',
+        },
       },
       required: ['name', 'vendor', 'triggerName'],
     },
@@ -166,15 +181,19 @@ const TOOLS: readonly ILlmToolDefinition[] = [
  * (and its `ProjectSync`-backed autosave) the human "+" flow already uses.
  */
 export class DocumentToolProvider implements IAgentToolProvider {
-  readonly tools = TOOLS;
+  readonly tools: readonly ILlmToolDefinition[];
 
-  private readonly store: WorkflowStore;
+  private readonly store: IWorkflowAgentStore;
 
-  constructor(store: WorkflowStore) {
+  /** `allowedTools` narrows the offered tools (ADR 0046 (private): a magic run gets `list_types` only —
+   *  no document creation); omitted means all of them. */
+  constructor(store: IWorkflowAgentStore, allowedTools?: readonly string[]) {
     this.store = store;
+    this.tools = allowedTools ? TOOLS.filter((tool) => allowedTools.includes(tool.name)) : TOOLS;
   }
 
   execute(call: ILlmToolCall): TToolExecutionResult {
+    if (!this.tools.some((tool) => tool.name === call.name)) return fail(`Unknown tool: ${call.name}`);
     switch (call.name) {
       case 'create_document': {
         return this.createDocument(call.input);
@@ -215,8 +234,11 @@ export class DocumentToolProvider implements IAgentToolProvider {
           'identifier (e.g. myFunctionName), no spaces, punctuation, or non-Latin script',
       );
     }
-    const folderId = params && typeof params.folderId === 'string' ? params.folderId : null;
-    const documentId = this.store.createDocument(type, name, folderId);
+    const conflict = this.nameConflictError('create_document', name);
+    if (conflict) return fail(conflict);
+    const placement = this.resolvePlacement('create_document', type, params?.folderId);
+    if ('error' in placement) return fail(placement.error);
+    const documentId = this.store.createDocument(type, name, placement.folderId);
     if (type === OBJECTS_STRUCTURE_NAME) {
       return ok(
         JSON.stringify({
@@ -246,6 +268,9 @@ export class DocumentToolProvider implements IAgentToolProvider {
       );
     }
 
+    const conflict = this.nameConflictError('create_trigger_document', name);
+    if (conflict) return fail(conflict);
+
     const integration = getEnabledIntegrations().find((item) => item.vendor === vendor);
     if (!integration) return fail(`create_trigger_document: unknown vendor "${vendor}"`);
     const trigger = integration.triggers.find((item) => item.name === triggerName);
@@ -267,9 +292,36 @@ export class DocumentToolProvider implements IAgentToolProvider {
       scopeType: trigger.scopeType,
       ...(configResult.config ? { triggerConfig: configResult.config } : {}),
     };
-    const folderId = typeof params.folderId === 'string' ? params.folderId : null;
-    const documentId = this.store.createTriggerFunctionDocument(name, bodyData, folderId);
+    const placement = this.resolvePlacement('create_trigger_document', 'trigger-function', params.folderId);
+    if ('error' in placement) return fail(placement.error);
+    const documentId = this.store.createTriggerFunctionDocument(name, bodyData, placement.folderId);
     return ok(JSON.stringify({ documentId }));
+  }
+
+  /** Document names are unique per project, case-insensitively, across every type (the backend enforces it too). */
+  private nameConflictError(tool: string, name: string): string | null {
+    const existing = findDocumentNameConflict(this.store.documents, name);
+    return existing
+      ? `${tool}: a document named "${existing.name}" already exists in this project (names are unique ` +
+          'case-insensitively across all document types) — pick a different name, or edit the existing document'
+      : null;
+  }
+
+  /** Omitted `folderId` → the type's section root (when the project has one); an explicit one is checked
+   *  against the fixed-sections rules (ADR 0055 (private)) so a violation is a tool error, not a failed request. */
+  private resolvePlacement(
+    tool: string,
+    type: string,
+    requested: unknown,
+  ): { folderId: string | null } | { error: string } {
+    const folders = this.store.folders ?? [];
+    if (typeof requested === 'string' && requested !== '') {
+      const reason = checkDocumentPlacement(type, requested, folders);
+      return reason ? { error: `${tool}: ${reason}` } : { folderId: requested };
+    }
+    const kind = sectionForDocumentType(type);
+    const section = kind ? findSectionFolder(kind, folders) : null;
+    return { folderId: section?.id ?? null };
   }
 
   /** The project's own interfaces, from the live registry (fed from every loaded objects-structure

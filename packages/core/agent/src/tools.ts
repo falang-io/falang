@@ -223,3 +223,8 @@ export const AGENT_TOOLS: readonly ILlmToolDefinition[] = [
     },
   },
 ];
+
+/** Core tools that never change a document — `AgentSession` opens an undo group only before a tool NOT in
+ *  this set, so a read-only run never holds the user's history hostage (ADR 0046 (private): a magic run
+ *  reads in the background while the person keeps editing and pressing Ctrl+Z). */
+export const READ_ONLY_CORE_TOOLS: ReadonlySet<string> = new Set(['get_tree', 'get_node_kinds']);

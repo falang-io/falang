@@ -8,6 +8,7 @@ import type { Repository } from 'typeorm';
 import { ProjectVersion } from '../build/build/project-version.entity.js';
 import { ProjectsModule } from '../projects/projects/projects.module.js';
 import { ProjectsService } from '../projects/projects/projects.service.js';
+import { ProjectRunsController } from './project-runs.controller.js';
 import { RunsController } from './runs.controller.js';
 import {
   RunsService,
@@ -16,6 +17,7 @@ import {
   type IWorkflowRunEvent,
   type TDescribeWorkflowRun,
   type TListWorkflowRuns,
+  type TTerminateWorkflowRun,
 } from './runs.service.js';
 
 type TEventType = temporal.api.enums.v1.EventType;
@@ -129,9 +131,16 @@ const createDescribeWorkflowRun =
     }
   };
 
+const createTerminateWorkflowRun =
+  (tenancy: ITemporalTenancy): TTerminateWorkflowRun =>
+  async ({ projectId, workflowId, runId, reason }) => {
+    const client = await tenancy.getClientForNamespace(tenancy.namespaceFor(projectId));
+    await client.workflow.getHandle(workflowId, runId).terminate(reason);
+  };
+
 @Module({
   imports: [ProjectsModule, TypeOrmModule.forFeature([ProjectVersion])],
-  controllers: [RunsController],
+  controllers: [RunsController, ProjectRunsController],
   providers: [
     {
       provide: RunsService,
@@ -142,6 +151,7 @@ const createDescribeWorkflowRun =
           versions,
           listWorkflowRuns: createListWorkflowRuns(tenancy),
           describeWorkflowRun: createDescribeWorkflowRun(tenancy),
+          terminateWorkflowRun: createTerminateWorkflowRun(tenancy),
           tenancy,
         }),
     },

@@ -1,0 +1,111 @@
+---
+title: Magic node
+description: Describe a step in plain words and let the AI agent build the real nodes under it — the magic node, its steps popup, and how to edit or unwrap it
+head:
+  - tag: meta
+    attrs:
+      name: keywords
+      content: 'magic node, ai agent, natural language, workflow, steps'
+---
+
+<p>
+  A <b>magic node</b> is a step you write in plain language instead of building it from nodes by hand. You type what the
+  step should do ("log hello", "send the customer a Telegram message") and the <a href="../ai-agent/">AI agent</a>
+  builds the real nodes under it. On the canvas the magic node shows only your text and a small status icon; the nodes
+  it generated are kept inside it and are opened in a popup.
+</p>
+
+#### Inserting a magic node
+
+<p>
+  A magic node is inserted with a left click on a valence point (the small dots between icons). It needs the AI agent to
+  be configured once by an administrator — see <a href="../administration/#ai-agent">AI agent in Administration</a>.
+</p>
+<ul>
+  <li>
+    The <b>Magic insert</b> toggle in the editor toolbar switches this behaviour. With it on, a left click inserts a
+    magic node; with it off (or while the agent is not configured), a left click inserts an ordinary action, as before.
+    The toggle is remembered in your browser.
+  </li>
+  <li>
+    The new node opens for typing at once. Type the step and press <b>Enter</b> (Shift+Enter adds a new line) — the
+    agent starts building the steps.
+  </li>
+  <li>
+    Press <b>Escape</b>, or press Enter on an empty text, and the fresh node turns into a plain <b>action</b> instead.
+  </li>
+</ul>
+
+#### The block and its status
+
+<p>
+  The block shows your text and, when relevant, a status icon: the steps are being generated, the assistant is asking a
+  question, generation failed, or the steps were <b>modified by hand</b>. Hover the icon to read the status; a short
+  note left by the agent (for example, which values are placeholders for you to fill in) appears in the tooltip too.
+</p>
+
+#### The steps popup
+
+<p>
+  Double-click a magic node (or choose <b>Edit steps…</b> in its context menu) to open a popup. Its top block holds the
+  node's text; below it, the generated steps sit between <b>Start</b> and <b>End</b>. It is an ordinary scheme: you can
+  add, move, edit and delete nodes in it.
+</p>
+<ul>
+  <li>
+    <b>OK</b> saves your changes into the node; <b>Cancel</b> (or the × button) closes the popup and discards them.
+    <b>Escape</b> does not close the popup — inside it, Escape only finishes editing a block, so unsaved edits are never
+    lost by accident.
+  </li>
+  <li>
+    While the agent is generating, the popup is read-only. A <b>Cancel generation</b> button stops the run.
+  </li>
+  <li>
+    If the agent needs to ask something — for example, which integration to use — the question appears at the top of
+    the popup with answer options, the same way as in the chat.
+  </li>
+  <li>If generation fails, the error is shown in the popup with a <b>Retry</b> button.</li>
+</ul>
+
+#### Changing the text
+
+<p>
+  To change the text of an existing magic node, open its steps popup and edit the top block (on the canvas a
+  double-click opens the popup rather than the text). When the text changes and the node already has steps, the editor
+  asks whether to <b>Update with AI</b> or <b>Keep as is</b>. Updating replaces the steps with a new version that
+  follows the new text; keeping only stores the new text. If the node has no steps yet, generation simply starts.
+</p>
+
+#### Modified by hand
+
+<p>
+  If you change anything inside a magic node by hand, the node is marked <b>modified by hand</b>, so you know the steps
+  no longer match what the agent generated. A regenerated or updated node loses this mark. The mark and the edit are a
+  single undo step.
+</p>
+
+#### Context menu
+
+<ul>
+  <li><b>Edit steps…</b> — open the steps popup.</li>
+  <li><b>Regenerate</b> — build the steps again from the current text (asks for confirmation).</li>
+  <li>
+    <b>Unwrap</b> — replace the magic node with its steps, placed directly in the scheme at the same spot, and remove
+    the text. Afterwards they are ordinary nodes. (Not available for a magic node that carries an exit such as
+    <code>return</code>.)
+  </li>
+</ul>
+
+#### How it runs
+
+<p>
+  A magic node adds nothing of its own at runtime: a workflow compiles exactly as if its steps had been placed by hand,
+  and the text is only a description. Debugging and live run highlighting work on the steps inside it.
+</p>
+
+#### Usage
+
+<p>
+  Every generation, update and answer to a question is a run of the AI agent and is counted in the agent's usage like a
+  chat request. The magic node does not use the chat session — each node has its own short run.
+</p>

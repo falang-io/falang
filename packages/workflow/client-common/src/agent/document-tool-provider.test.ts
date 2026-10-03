@@ -23,13 +23,25 @@ const parseOk = (result: { ok: boolean; content?: string; error?: string }): Rec
 const fakeRegistry = (items: readonly ITypeRegistryObjectItem[] = []): TypesRegistryStore =>
   ({ types: new Map(items.map((item) => [item.id, item])) }) as unknown as TypesRegistryStore;
 
-const buildStore = (documents: readonly WorkflowDocument[] = [], typesRegistry = fakeRegistry()) => {
+const SECTIONS = [
+  { fixedKind: 'triggers', id: 'sec-triggers', name: 'Triggers', parentId: null },
+  { fixedKind: 'functions', id: 'sec-functions', name: 'Functions', parentId: null },
+  { fixedKind: 'types', id: 'sec-types', name: 'Types', parentId: null },
+  { id: 'sub-tg', name: 'Telegram', parentId: 'sec-functions' },
+];
+
+const buildStore = (
+  documents: readonly WorkflowDocument[] = [],
+  typesRegistry = fakeRegistry(),
+  folders: readonly object[] = [],
+) => {
   const createDocument = vi.fn().mockReturnValue('new-doc-id');
   const createTriggerFunctionDocument = vi.fn().mockReturnValue('new-trigger-doc-id');
   const store = {
     createDocument,
     createTriggerFunctionDocument,
     documents,
+    folders,
     typesRegistry,
   } as unknown as WorkflowStore;
   return { createDocument, createTriggerFunctionDocument, store };
@@ -60,6 +72,21 @@ describe('DocumentToolProvider', () => {
     expect(parseOk(result)).toEqual({ documentId: 'new-doc-id' });
   });
 
+  it('create_document and create_trigger_document reject a name already used by any document, case-insensitively', () => {
+    const existing: WorkflowDocument = { folderId: null, id: 'd1', name: 'Order', type: 'objects-structure' };
+    const { createDocument, createTriggerFunctionDocument, store } = buildStore([existing]);
+    const provider = new DocumentToolProvider(store);
+
+    const first = provider.execute(call('create_document', { name: 'order', type: 'function' }));
+    expect(first).toMatchObject({ ok: false, error: expect.stringContaining('already exists') });
+    const second = provider.execute(
+      call('create_trigger_document', { name: 'order', triggerName: WEBHOOK_TRIGGER_NAME, vendor: WEBHOOK_VENDOR }),
+    );
+    expect(second).toMatchObject({ ok: false, error: expect.stringContaining('already exists') });
+    expect(createDocument).not.toHaveBeenCalled();
+    expect(createTriggerFunctionDocument).not.toHaveBeenCalled();
+  });
+
   it('create_document rejects a function name that is not a camelCase English identifier', () => {
     const { createDocument, store } = buildStore();
     const provider = new DocumentToolProvider(store);
@@ -71,12 +98,58 @@ describe('DocumentToolProvider', () => {
   });
 
   it('create_document creates an objects-structure document, passing folderId through', () => {
-    const { createDocument, store } = buildStore();
+    const { createDocument, store } = buildStore([], fakeRegistry(), [
+      ...SECTIONS,
+      { id: 'f1', name: 'Models', parentId: 'sec-types' },
+    ]);
     const provider = new DocumentToolProvider(store);
 
     provider.execute(call('create_document', { folderId: 'f1', name: 'My type', type: 'objects-structure' }));
 
     expect(createDocument).toHaveBeenCalledWith('objects-structure', 'My type', 'f1');
+  });
+
+  it('create_document defaults folderId to the type section root', () => {
+    const { createDocument, store } = buildStore([], fakeRegistry(), SECTIONS);
+    const provider = new DocumentToolProvider(store);
+
+    provider.execute(call('create_document', { name: 'myFunc', type: 'function' }));
+    provider.execute(call('create_document', { name: 'Shapes', type: 'objects-structure' }));
+
+    expect(createDocument).toHaveBeenNthCalledWith(1, 'function', 'myFunc', 'sec-functions');
+    expect(createDocument).toHaveBeenNthCalledWith(2, 'objects-structure', 'Shapes', 'sec-types');
+  });
+
+  it('create_document returns an error naming the right section for a folder outside the type section', () => {
+    const { createDocument, store } = buildStore([], fakeRegistry(), SECTIONS);
+    const provider = new DocumentToolProvider(store);
+
+    const result = provider.execute(
+      call('create_document', { folderId: 'sec-types', name: 'myFunc', type: 'function' }),
+    );
+    const unknown = provider.execute(call('create_document', { folderId: 'nope', name: 'myFunc', type: 'function' }));
+
+    expect(result.ok).toBe(false);
+    expect(result.ok ? '' : result.error).toContain('Functions (id sec-functions)');
+    expect(unknown.ok).toBe(false);
+    expect(createDocument).not.toHaveBeenCalled();
+  });
+
+  it('create_trigger_document defaults to the Triggers section', () => {
+    const { createTriggerFunctionDocument, store } = buildStore(withTelegramCredential(), fakeRegistry(), SECTIONS);
+    const provider = new DocumentToolProvider(store);
+
+    const result = provider.execute(
+      call('create_trigger_document', {
+        credentialId: 'cred-1',
+        name: 'onMessage',
+        triggerName: TELEGRAM_TRIGGER_NAME,
+        vendor: TELEGRAM_VENDOR,
+      }),
+    );
+
+    expect(result.ok).toBe(true);
+    expect(createTriggerFunctionDocument.mock.calls[0][2]).toBe('sec-triggers');
   });
 
   it('create_document tells the agent an objects-structure document only declares types and starts with placeholders', () => {

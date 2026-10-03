@@ -57,7 +57,12 @@ import {
   setVersioningSettings,
 } from './settings.js';
 import { getVersionStore, withAutoVersion } from './versioning.js';
-import { markOwnDocumentWrite, startProjectWatcher } from './project-watcher-state.js';
+import {
+  documentIdsInFolder,
+  markOwnDocumentWrite,
+  startProjectWatcher,
+  withOwnDocumentMoves,
+} from './project-watcher-state.js';
 import { resolveMcpServerCommand } from './mcp-server-path.js';
 import { reportError } from '../shared/report-error.js';
 import {
@@ -78,12 +83,13 @@ import type { IDriverRegistry } from './drivers/driver-registry.js';
 /** `.falang-debug.json` next to `falang.json` — session-store level, host-saved (ADR 0021 (private) §3): breakpoints aren't part of the program when writing it, so they don't belong in a node's `meta` or in the exported project format. */
 const DEBUG_BREAKPOINTS_SIDECAR_NAME = '.falang-debug';
 
-/** Only-if-absent, so it's safe to call on every project create/open (see `writeAgentFiles`'s own doc comment) — failures are reported, not thrown, since a project must still open/create successfully even if `.mcp.json`/`CLAUDE.md` couldn't be written (e.g. a read-only folder). */
+/** Idempotent, so it's safe to call on every project create/open (see `writeAgentFiles`'s own doc comment) — failures are reported, not thrown, since a project must still open/create successfully even if `.mcp.json`/`CLAUDE.md` couldn't be written (e.g. a read-only folder). */
 const writeAgentFilesBestEffort = (dir: string, projectType: string): void => {
-  const { command, args } = resolveMcpServerCommand();
-  writeAgentFiles(dir, { mcpServerCommand: command, mcpServerArgs: args, projectType }).catch((error: unknown) =>
-    reportError('Failed to write .mcp.json/CLAUDE.md', error),
-  );
+  resolveMcpServerCommand()
+    .then(({ command, args, env }) =>
+      writeAgentFiles(dir, { mcpServerCommand: command, mcpServerArgs: args, mcpServerEnv: env, projectType }),
+    )
+    .catch((error: unknown) => reportError('Failed to write .mcp.json/CLAUDE.md', error));
 };
 
 export const registerIpcHandlers = (
@@ -94,6 +100,25 @@ export const registerIpcHandlers = (
   rebuildMenu: () => void,
   driverRegistry: IDriverRegistry,
 ): void => {
+  ipcMain.handle(IPC.printToPdf, async (event, params: { suggestedFileName: string }) => {
+    const window = getMainWindow();
+    if (!window) return { canceled: true };
+    const save = await dialog.showSaveDialog(window, {
+      defaultPath: path.join(app.getPath('documents'), params.suggestedFileName),
+      filters: [{ name: 'PDF', extensions: ['pdf'] }],
+    });
+    if (save.canceled || !save.filePath) return { canceled: true };
+    // `preferCSSPageSize`: each print sheet declares its own named `@page` size (A4…A1), without it
+    // Chromium flattens every page to Letter. Margins are already 0 in the page CSS.
+    const pdf = await event.sender.printToPDF({
+      preferCSSPageSize: true,
+      printBackground: true,
+      margins: { top: 0, bottom: 0, left: 0, right: 0 },
+    });
+    await fs.writeFile(save.filePath, pdf);
+    return { path: save.filePath };
+  });
+
   ipcMain.handle(IPC.dialogOpenProjectFolder, async () => {
     const window = getMainWindow();
     if (!window) return null;
@@ -188,8 +213,11 @@ export const registerIpcHandlers = (
   });
   ipcMain.handle(
     IPC.documentCreate,
-    (_event, dir: string, params: { document: IProjectDocument; folderId: string | null }): Promise<void> =>
-      withAutoVersion(dir, () => createDocument(dir, params)),
+    (_event, dir: string, params: { document: IProjectDocument; folderId: string | null }): Promise<void> => {
+      // The renderer already holds the new document (and usually opened its tab) — don't bounce the file event back.
+      markOwnDocumentWrite(params.document.id);
+      return withAutoVersion(dir, () => createDocument(dir, params));
+    },
   );
   ipcMain.handle(
     IPC.documentDelete,
@@ -199,12 +227,24 @@ export const registerIpcHandlers = (
   ipcMain.handle(
     IPC.documentRename,
     (_event, dir: string, documentId: string, name: string): Promise<void> =>
-      withAutoVersion(dir, () => renameDocument(dir, documentId, name)),
+      withAutoVersion(dir, () =>
+        withOwnDocumentMoves(
+          dir,
+          () => [documentId],
+          () => renameDocument(dir, documentId, name),
+        ),
+      ),
   );
   ipcMain.handle(
     IPC.documentMove,
     (_event, dir: string, documentId: string, folderId: string | null): Promise<void> =>
-      withAutoVersion(dir, () => moveDocument(dir, documentId, folderId)),
+      withAutoVersion(dir, () =>
+        withOwnDocumentMoves(
+          dir,
+          () => [documentId],
+          () => moveDocument(dir, documentId, folderId),
+        ),
+      ),
   );
 
   ipcMain.handle(IPC.folderCreate, (_event, dir: string, params: { name: string; parentId: string | null }) =>
@@ -213,16 +253,35 @@ export const registerIpcHandlers = (
   ipcMain.handle(
     IPC.folderRename,
     (_event, dir: string, folderId: string, name: string): Promise<void> =>
-      withAutoVersion(dir, () => renameFolder(dir, folderId, name)),
+      withAutoVersion(dir, () =>
+        withOwnDocumentMoves(
+          dir,
+          (tree) => documentIdsInFolder(tree, folderId),
+          () => renameFolder(dir, folderId, name),
+        ),
+      ),
   );
   ipcMain.handle(
     IPC.folderMove,
     (_event, dir: string, folderId: string, parentId: string | null): Promise<void> =>
-      withAutoVersion(dir, () => moveFolder(dir, folderId, parentId)),
+      withAutoVersion(dir, () =>
+        withOwnDocumentMoves(
+          dir,
+          (tree) => documentIdsInFolder(tree, folderId),
+          () => moveFolder(dir, folderId, parentId),
+        ),
+      ),
   );
   ipcMain.handle(
     IPC.folderDelete,
-    (_event, dir: string, folderId: string): Promise<void> => withAutoVersion(dir, () => deleteFolder(dir, folderId)),
+    (_event, dir: string, folderId: string): Promise<void> =>
+      withAutoVersion(dir, () =>
+        withOwnDocumentMoves(
+          dir,
+          (tree) => documentIdsInFolder(tree, folderId),
+          () => deleteFolder(dir, folderId),
+        ),
+      ),
   );
 
   ipcMain.handle(IPC.recentProjectsList, () => listRecentProjects());

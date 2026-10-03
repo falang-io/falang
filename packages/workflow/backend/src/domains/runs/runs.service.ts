@@ -1,4 +1,4 @@
-import { NotFoundException } from '@nestjs/common';
+import { ConflictException, NotFoundException } from '@nestjs/common';
 import { In, type Repository } from 'typeorm';
 import type { ProjectVersion } from '../build/build/project-version.entity.js';
 import type { ProjectsService } from '../projects/projects/projects.service.js';
@@ -41,6 +41,13 @@ export type TDescribeWorkflowRun = (params: {
   readonly runId: string;
 }) => Promise<IRawWorkflowRunDetail | null>;
 
+export type TTerminateWorkflowRun = (params: {
+  readonly projectId: string;
+  readonly workflowId: string;
+  readonly runId: string;
+  readonly reason: string;
+}) => Promise<void>;
+
 export interface IWorkflowRunSummary extends IRawWorkflowRun {
   readonly projectId: string;
   readonly projectName: string;
@@ -70,6 +77,8 @@ export interface IRunsServiceParams {
   readonly describeWorkflowRun: TDescribeWorkflowRun;
   /** Which Temporal namespace a project's runs live in — `ITemporalTenancy.namespaceFor` (ADR 0057 (private)). */
   readonly tenancy: { namespaceFor(projectId: string): string };
+  /** Optional so existing constructions (tests, tools) that never terminate need not supply it. */
+  readonly terminateWorkflowRun?: TTerminateWorkflowRun;
 }
 
 /** How many namespaces a cross-project listing queries at once. */
@@ -130,6 +139,7 @@ export class RunsService {
   private readonly listWorkflowRuns: TListWorkflowRuns;
   private readonly describeWorkflowRun: TDescribeWorkflowRun;
   private readonly tenancy: IRunsServiceParams['tenancy'];
+  private readonly terminateWorkflowRun: TTerminateWorkflowRun | undefined;
 
   constructor(params: IRunsServiceParams) {
     this.projectsService = params.projectsService;
@@ -137,6 +147,7 @@ export class RunsService {
     this.listWorkflowRuns = params.listWorkflowRuns;
     this.describeWorkflowRun = params.describeWorkflowRun;
     this.tenancy = params.tenancy;
+    this.terminateWorkflowRun = params.terminateWorkflowRun;
   }
 
   /**
@@ -222,6 +233,25 @@ export class RunsService {
       env: parsed.env,
       version: this.resolveVersion(parsed, detail.buildId, versionNumberByProjectAndBuild),
     };
+  }
+
+  /**
+   * Force-terminates one open execution of `projectId` (owner-scoped; a run of another project, or one
+   * the caller doesn't own, is a 404). Already-closed runs are a 409 — Temporal would reject them anyway.
+   */
+  async terminateRun(ownerId: string, projectId: string, workflowId: string, runId: string): Promise<void> {
+    if (!this.terminateWorkflowRun) throw new Error('Terminating runs is not configured');
+    await this.projectsService.getOwnedProject(projectId, ownerId);
+    const detail = await this.describeWorkflowRun({ projectId, workflowId, runId });
+    if (!detail) throw new NotFoundException(`Workflow run "${workflowId}" not found`);
+    const parsed = parseTaskQueue(detail.taskQueue);
+    if (parsed?.projectId !== projectId) {
+      throw new NotFoundException(`Workflow run "${workflowId}" does not belong to this project`);
+    }
+    if (detail.status !== 'RUNNING') {
+      throw new ConflictException(`Workflow run "${workflowId}" is not running (status ${detail.status})`);
+    }
+    await this.terminateWorkflowRun({ projectId, workflowId, runId, reason: 'terminated by the project owner' });
   }
 
   private async buildVersionLookup(projectIds: readonly string[]): Promise<Map<string, number>> {

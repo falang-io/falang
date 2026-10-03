@@ -148,9 +148,9 @@ describe('project', () => {
       expect(manifest).toEqual({
         name: 'Old Layout',
         type: 'text',
-        formatVersion: 4,
+        formatVersion: 5,
         folders: [],
-        documents: [{ id: 'x', type: 'contour', name: 'x', folderId: null }],
+        documents: [{ id: 'x', type: 'contour', name: 'x', folderId: null, fileName: 'x' }],
       });
       expect(await fs.readdir(projectDir)).not.toContain('documents');
       expect(await fs.readdir(projectDir)).not.toContain('project.json');

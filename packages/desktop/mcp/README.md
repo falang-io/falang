@@ -54,8 +54,8 @@ node dist/index.js [projectDir] [--drivers-dir <path>]...
 - `--drivers-dir <path>` (optional, repeatable): a directory to scan for `{driverId}/driver.config.
 json` folders, only used when the project's own type is `'arduino'`. Later directories win on an
   `id` collision (bundled, then user, matches `@falang/desktop-arduino-dto`'s own
-  `loadDriverRegistryFromDirs`). Also readable from `FALANG_ARDUINO_DRIVERS_DIRS` (colon-separated),
-  applied before any `--drivers-dir` flags.
+  `loadDriverRegistryFromDirs`). Also readable from `FALANG_ARDUINO_DRIVERS_DIRS` (a `PATH`-style
+  list — `;`-separated on Windows, `:` elsewhere), applied before any `--drivers-dir` flags.
 - Never writes anything to stdout except MCP protocol frames — every diagnostic (fatal startup
   errors, a skipped malformed driver folder) goes to stderr.
 
@@ -69,12 +69,18 @@ time:
 
 - **dev**: `npx tsx <repoRoot>/packages/desktop/mcp/src/main.ts .` — the app's own args are just
   `['.']`; the Arduino app additionally appends
-  `--drivers-dir <resources/drivers> --drivers-dir <userData/drivers>`. `packages/desktop/app-sketch` passes
+  `--drivers-dir <bundled drivers> --drivers-dir <userData/drivers>` (the bundled drivers are `@falang/desktop-arduino-drivers`' `drivers/` folder: `<repo>/packages/desktop/arduino-drivers/drivers` in dev, `<resourcesPath>/drivers` packaged). `packages/desktop/app-sketch` passes
   nothing extra (it has no drivers concept).
-- **packaged build**: `node <resourcesPath>/mcp-server/index.js .` (+ the same `--drivers-dir` pair
-  for the Arduino app) — `node` must be on the user's `PATH` (the same assumption
-  `@falang/desktop-arduino-cli` already makes about `arduino-cli`; `process.execPath` is Electron's
-  own binary, not a plain `node`, so the app can't spawn this with itself).
+- **packaged build**: `<resourcesPath>/mcp-server/index.js .` (+ the same `--drivers-dir` pair for
+  the Arduino app) run by **the app's own binary in Node mode** — `.mcp.json` gets `command` = the
+  app executable and `env: { "ELECTRON_RUN_AS_NODE": "1" }` (`@falang/desktop-worker-process`'s
+  `electronNodeCommand`). A user's machine has no `node` on `PATH` to rely on. Inside a Linux AppImage
+  the command is the AppImage file itself (`$APPIMAGE`), and the server bundle and the bundled drivers
+  are first copied into `userData/staged/` (`stageCopy`), because everything under `resourcesPath`
+  lives in the image's temporary mount and is gone once the app quits. `writeAgentFiles` rewrites the
+  `falang` entry on every project open whenever it differs, so an update or a reinstall never leaves a
+  stale path behind (other servers in the file are kept; a file without a `falang` entry is never
+  touched). See ADR 0050 (private), "B1".
 
 **Known gap** (flagged in the ADR, not fixed here): the Arduino app's own `userData/drivers` — the
 Phase C "install your own driver" folder — is an Electron `app.getPath('userData')` path, which this

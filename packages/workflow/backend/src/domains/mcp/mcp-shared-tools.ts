@@ -125,8 +125,15 @@ export const registerSharedMcpTools = (
           type: string;
           name: string;
           folderId: string | null;
+          pinned: boolean;
           lock?: { expiresAt: string; ownedByMe: boolean };
-        } = { id: document.id, type: document.type, name: document.name, folderId: document.folderId };
+        } = {
+          id: document.id,
+          type: document.type,
+          name: document.name,
+          folderId: document.folderId,
+          pinned: document.pinned === true,
+        };
         if (lock) summary.lock = { expiresAt: lock.expiresAt, ownedByMe: lock.owner === toLockOwnerId(auth) };
         return summary;
       });

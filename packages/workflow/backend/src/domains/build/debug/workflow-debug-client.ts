@@ -12,6 +12,8 @@ export interface IDebugSignalWithStartParams {
   readonly pauseOnEntry: boolean;
   /** Picks the project's own Temporal namespace/client — see `ITemporalTenancy` (ADR 0057 (private)). */
   readonly projectId: string;
+  /** Sent right after the start (a signal-delivery trigger's test payload) — the debug configuration must arrive first. */
+  readonly followUpSignal?: { readonly name: string; readonly args: readonly unknown[] };
 }
 
 /** `client.workflow.signalWithStart` with the `falang-debug-configure` signal — so the first statement can't slip past before breakpoints arrive, see ADR 0021 (private) §5. */

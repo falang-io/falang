@@ -1,5 +1,6 @@
 import { BadRequestException, Controller, Inject, NotFoundException, Param, Post } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
+import { runWithEgressVendor } from '@falang/workflow-egress';
 import { InjectRepository } from '@nestjs/typeorm';
 import { INTEGRATIONS_DOCUMENT_TYPE, type IIntegrationsDocumentData } from '@falang/workflow-integrations-common';
 import type { Repository } from 'typeorm';
@@ -63,7 +64,10 @@ export class SyncVendorDataController {
       resolvedFields[credentialField.name] = resolveFieldValue(instance, credentialField, 'dev', encryptionKey) ?? '';
     }
 
-    const synced = await integration.syncVendorData(resolvedFields, 'dev', { egress: getBackendEgress() });
+    const syncVendorData = integration.syncVendorData.bind(integration);
+    const synced = await runWithEgressVendor(instance.vendor, () =>
+      syncVendorData(resolvedFields, 'dev', { egress: getBackendEgress() }),
+    );
     for (const [key, value] of Object.entries(synced)) {
       // oxlint-disable-next-line no-await-in-loop -- a handful of keys at most (today just "schema"); each is its own row write.
       await this.vendorData.set(projectId, credentialId, instance.vendor, key, value);

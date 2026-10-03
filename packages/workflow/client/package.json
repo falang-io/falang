@@ -13,6 +13,7 @@
     "check": "tsc --noEmit -p tsconfig.node.json"
   },
   "devDependencies": {
+    "@falang/typescript-scheme": "*",
     "@falang/workflow-client-admin": "*",
     "@falang/workflow-client-common": "*",
     "@types/node": "^24.12.2",

@@ -9,3 +9,4 @@ export * from './trigger-function/trigger-function-body.block.config.js';
 export * from './trigger-function/trigger-function-icons-group.js';
 export * from './integrations-nodes/integration-nodes-icons-group.js';
 export * from './workflow-functional-scheme-factory.js';
+export * from './magic/index.js';

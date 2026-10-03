@@ -21,11 +21,22 @@ export const ArrOpInputBlockEditorComponent: TBlockEditorView<ArrOpInputBlockEdi
             <div className="ts-label">value</div>
           </td>
           <td>
-            <ExpressionEditorCellComponent
-              store={editor.valueCodeStore}
-              hiddenPrefix={editor.valueHiddenPrefix}
-              autoFocus={false}
-            />
+            {editor.valueTextStore ? (
+              <ExpressionEditorCellComponent
+                key="text"
+                store={editor.valueTextStore.codeStore}
+                hiddenPrefix={editor.valueTextStore.hiddenPrefix}
+                hiddenSuffix={editor.valueTextStore.hiddenSuffix}
+                autoFocus={false}
+              />
+            ) : (
+              <ExpressionEditorCellComponent
+                key="expression"
+                store={editor.valueCodeStore}
+                hiddenPrefix={editor.valueHiddenPrefix}
+                autoFocus={false}
+              />
+            )}
           </td>
         </tr>
       </tbody>

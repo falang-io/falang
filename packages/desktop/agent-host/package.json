@@ -1,0 +1,41 @@
+{
+  "name": "@falang/desktop-agent-host",
+  "version": "1.0.0",
+  "description": "The desktop IDEs' (app-sketch, app-arduino) in-app agent host composition as plain functions: project container, per-document scheme builders, document sync, the AgentSession factory (ADR 0051 (private))",
+  "license": "AGPL-3.0-only",
+  "author": "",
+  "type": "commonjs",
+  "main": "src/index.ts",
+  "scripts": {
+    "test": "vitest run -c ../../../vitest.config.ts",
+    "coverage": "vitest run --coverage -c ../../../vitest.config.ts",
+    "check": "tsc --noEmit -p tsconfig.build.json"
+  },
+  "dependencies": {
+    "@falang/agent": "*",
+    "@falang/desktop-arduino-dto": "*",
+    "@falang/desktop-arduino-scheme": "*",
+    "@falang/di": "*",
+    "@falang/dto": "*",
+    "@falang/scheme": "*",
+    "@falang/simple-code-dto": "*",
+    "@falang/simple-code-scheme": "*",
+    "@falang/text-scheme": "*",
+    "@falang/typescript-agent": "*",
+    "@falang/typescript-dto": "*",
+    "@falang/typescript-scheme": "*",
+    "tslib": "^2.8.1"
+  },
+  "files": [
+    "src",
+    "!src/**/*.test.ts",
+    "!src/**/*.test.tsx",
+    "!src/**/*.e2e.test.ts",
+    "!src/**/*.workflow-e2e-spec.ts",
+    "!src/**/*.spec.ts",
+    "!src/**/*.docker-e2e-spec.ts",
+    "!src/**/*-test-harness.ts",
+    "!src/test-utils",
+    "!src/**/__snapshots__"
+  ]
+}

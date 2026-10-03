@@ -4,6 +4,7 @@
   "version": "1.0.0",
   "description": "Falang desktop IDE",
   "author": "",
+  "homepage": "https://falang.io",
   "type": "module",
   "main": "./out/main/index.js",
   "scripts": {

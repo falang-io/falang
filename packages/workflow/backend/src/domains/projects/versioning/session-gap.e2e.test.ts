@@ -138,10 +138,12 @@ describe('session-gap auto-versions (e2e)', () => {
     const token = await login(app);
     const projectId = await createProject(token, 'Folder project');
 
+    const tree = await request(server()).get(`/projects/${projectId}/tree`).set(auth(token));
+    const functionsSection = tree.body.folders.find((f: { fixedKind: string }) => f.fixedKind === 'functions').id;
     const created = await request(server())
       .post(`/projects/${projectId}/folders`)
       .set(auth(token))
-      .send({ id: FOLDER_1, name: 'My folder' });
+      .send({ id: FOLDER_1, name: 'My folder', parentId: functionsSection });
     expect(created.status).toBe(201);
 
     const commits = await listCommits(token, projectId);

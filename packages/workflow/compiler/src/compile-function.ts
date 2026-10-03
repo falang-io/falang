@@ -92,10 +92,26 @@ export interface ICompileFunctionOptions {
 }
 
 /** The local `@falang/typescript-common` reports for a non-void `function-body` (auto-declared and returned
- *  by `@falang/logic-constructor`'s TS/Rust targets, so the editor knows about it). This compiler never
- *  declares it, so a debug trace must not capture it — `() => ({ returnValue })` failed type-checking for
+ *  by `@falang/logic-constructor`'s TS/Rust targets, so the editor knows about it). This compiler declares it
+ *  only when the body uses it (`withAutoReturnValue`), so a debug trace must not capture it — `() => ({ returnValue })` failed type-checking for
  *  every function with a return type once `collectScopeVariables` started reporting it (2026-09-21). */
 const AUTO_RETURN_VALUE_NAME = 'returnValue';
+
+const RETURN_VALUE_REFERENCE = /\breturnValue\b/;
+
+/**
+ * The editor offers a non-void function's `returnValue` local everywhere in its body, and a new
+ * `return` node defaults to returning it. When the compiled body uses it, the local is declared up
+ * front and returned when the body runs to its end — the same convention as `@falang/logic-constructor`'s
+ * TS/Rust targets. A body that never mentions it compiles exactly as before.
+ */
+export const withAutoReturnValue = (body: string, returnType: string | null): string => {
+  if (returnType === null || !RETURN_VALUE_REFERENCE.test(body)) return body;
+  const trailing = body.trimEnd().endsWith(`return ${AUTO_RETURN_VALUE_NAME};`)
+    ? []
+    : [`return ${AUTO_RETURN_VALUE_NAME};`];
+  return [`let ${AUTO_RETURN_VALUE_NAME}!: ${returnType};`, body, ...trailing].join('\n');
+};
 
 const debugCapturedBodyScope = (body: INode) =>
   getContainerScopeContribution(body).filter(
@@ -134,7 +150,10 @@ export const compileFunction = (functionNode: INode, name: string, options: ICom
   );
   const footerCode = asStatement(footer?.data as string | undefined);
 
-  const plainBody = [statements, footerCode].filter((line) => line !== '').join('\n');
+  const plainBody = withAutoReturnValue(
+    [statements, footerCode].filter((line) => line !== '').join('\n'),
+    returnValue ? returnType : null,
+  );
   const positionWrappedBody = options.trackPosition
     ? wrapBodyWithPositionTracking(plainBody, options.trackPosition)
     : plainBody;

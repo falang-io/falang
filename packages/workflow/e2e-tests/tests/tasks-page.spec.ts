@@ -1,5 +1,6 @@
 import { test, expect } from './fixtures.js';
 import {
+  clickProjectMenuItem,
   createApiContext,
   createProjectViaUI,
   createTreeItemViaUI,
@@ -90,9 +91,9 @@ test.describe('tasks page', () => {
     await page.reload();
     await openProjectViaUI(page, projectName);
 
-    await page.getByRole('button', { name: 'Tasks' }).click();
-    await expect(page.getByText('Approve order', { exact: true })).toBeVisible();
-    await page.getByText('Approve order', { exact: true }).click();
+    await clickProjectMenuItem(page, 'Tasks');
+    await expect(page.getByRole('cell', { name: 'Approve order', exact: true })).toBeVisible();
+    await page.getByRole('cell', { name: 'Approve order', exact: true }).click();
 
     await expect(page.getByRole('button', { name: 'Reject' })).toBeVisible();
     await page.getByRole('button', { name: 'Reject' }).click();
@@ -103,6 +104,7 @@ test.describe('tasks page', () => {
     await expect(page.getByRole('button', { name: 'Confirm' })).not.toBeVisible();
     await page.keyboard.press('Escape');
 
+    // The workspace Tasks view is already scoped to this project (and has no project column).
     const row = page.getByRole('row', { name: /Approve order/ });
     await expect(row.getByText('done')).toBeVisible();
 
@@ -110,8 +112,8 @@ test.describe('tasks page', () => {
     // same task, cross-project.
     await page.getByRole('button', { name: '← Projects' }).click();
     await expect(page.getByRole('button', { name: '+ New project' })).toBeVisible();
-    await page.getByRole('button', { name: 'Tasks' }).click();
-    const standaloneRow = page.getByRole('row', { name: /Approve order/ });
+    await page.getByRole('button', { name: 'Tasks', exact: true }).click();
+    const standaloneRow = page.getByRole('row', { name: new RegExp(`Approve order.*${projectName}`) });
     await expect(standaloneRow).toBeVisible();
     await expect(standaloneRow.getByText('done')).toBeVisible();
   });

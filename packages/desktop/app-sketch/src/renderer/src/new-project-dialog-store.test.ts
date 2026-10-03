@@ -1,9 +1,4 @@
 // @vitest-environment jsdom
-// `new-project-dialog-store.ts` imports `./project-actions.js`, which imports
-// `./desktop-project-store.js` for `buildDefaultDocumentRoot` — that module transitively reaches
-// `@falang/typescript-scheme`'s Monaco-backed blocks, which reach for a real `window` at import time
-// (same reason `desktop-project-store.test.ts` needs this).
-import './monaco-jsdom-shim.js';
 import 'reflect-metadata';
 import { describe, expect, it, vi } from 'vitest';
 import { runInAction } from 'mobx';

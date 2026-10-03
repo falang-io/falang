@@ -1,0 +1,64 @@
+---
+title: Export to PDF
+description: Print schemes to PDF — one page per scheme, light theme, paper format picked automatically
+head:
+  - tag: meta
+    attrs:
+      name: keywords
+      content: 'pdf, print, export, scheme, A4, A3, A2, A1'
+---
+
+<p>
+  Every product can export its schemes to a PDF for printing or sharing. The PDF is vector (text stays selectable and
+  sharp at any zoom), not a screenshot.
+</p>
+
+#### What is printed
+
+<ul>
+  <li>
+    Every document that has a scheme — functions, triggers, structures and so on. The workflow <b>integrations</b>
+    document and the Arduino <b>Devices</b> document are never printed.
+  </li>
+  <li>One page per scheme, always in the light theme and without the background grid.</li>
+  <li>
+    A header line on every page: the document name on the left, and the project name, the date and the page number (
+    <b>n/N</b>) on the right.
+  </li>
+  <li>Unsaved edits are printed as you see them on the screen.</li>
+</ul>
+
+#### Paper format
+
+<p>
+  The format is picked for each scheme separately: the smallest of <b>A4 → A3 → A2 → A1</b> that fits the scheme at 100
+  % scale. Orientation follows the scheme's aspect ratio — wide schemes go landscape, tall ones portrait. Only a scheme
+  larger than A1 is scaled down, to fit A1; smaller schemes are never scaled up.
+</p>
+
+#### Workflow (web app)
+
+<ol>
+  <li>
+    Choose <b>Project → Download PDF</b> in the editor toolbar.
+  </li>
+  <li>
+    Choose which documents to print: <b>All</b> or <b>Active document only</b>, then click <b>Print</b>.
+  </li>
+  <li>Review the preview — every sheet shows its format and orientation.</li>
+  <li>
+    Click <b>Save as PDF</b>. The browser's print dialog opens; choose <b>Save as PDF</b> as the destination.
+  </li>
+</ol>
+<p>
+  Use a Chromium-based browser (Chrome, Edge, Yandex Browser and similar). Firefox and Safari do not support a different
+  page size for each page, so every sheet would come out in one format there.
+</p>
+
+#### Desktop apps
+
+<p>
+  In the Falang app for text, logic and code projects choose <b>Project → Export PDF…</b>, in the Arduino app
+  <b>Sketch → Export PDF…</b>. Pick the documents, click <b>Print</b>, then <b>Save as PDF</b> in the preview — the app
+  asks where to save the file. No system print dialog is involved.
+</p>

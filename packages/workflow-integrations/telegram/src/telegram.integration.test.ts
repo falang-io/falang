@@ -114,17 +114,13 @@ describe('telegramIntegration', () => {
       expect(question?.closeActivityCode).toContain('export const telegramCloseQuestion');
     });
 
-    it('produces a header + option node config seeded with 2 default options plus the automatic timeout option', () => {
+    it('produces a header + option node config seeded with 2 default options and no timeout option (no timeout set yet)', () => {
       const [header, option] = question ? buildQuestionNodeConfig(question) : [];
       expect(header?.name).toBe(TELEGRAM_QUESTION_NAME);
       expect(option?.name).toBe(`${TELEGRAM_QUESTION_NAME}-option`);
       const seeded = header?.factory?.();
-      expect(seeded?.children).toHaveLength(3);
-      expect(seeded?.children?.map((child) => child.data)).toEqual([
-        { label: 'Вариант 1' },
-        { label: 'Вариант 2' },
-        { label: 'timeout', fixed: true },
-      ]);
+      expect(seeded?.children).toHaveLength(2);
+      expect(seeded?.children?.map((child) => child.data)).toEqual([{ label: 'Вариант 1' }, { label: 'Вариант 2' }]);
     });
 
     it('askActivityCode/resolveActivityCode reference the shared bot-token resolver rather than redeclaring it', () => {

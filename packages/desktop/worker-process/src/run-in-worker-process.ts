@@ -4,6 +4,8 @@ import type { TWorkerOutboundMessage } from './protocol.js';
 export interface IWorkerProcessCommand {
   readonly command: string;
   readonly args: readonly string[];
+  /** Extra environment variables, layered over this process's own `process.env` (never replacing it). */
+  readonly env?: Readonly<Record<string, string>>;
 }
 
 export interface IRunInWorkerProcessParams<TJob, TProgress> {
@@ -30,8 +32,8 @@ export class WorkerCancelledError extends Error {
 /**
  * Runs one job in a fresh, disposable child process speaking the tiny protocol in `protocol.ts` over
  * Node's built-in `fork`-style IPC channel (`stdio: [..., 'ipc']` gives the same `send`/`'message'`
- * pair `child_process.fork()` would, but via `spawn` so `command`/`args` can point at `npx tsx <file>`
- * in dev or `node <bundle>` in a packaged build — same dev/packaged split `resolveMcpServerCommand`
+ * pair `child_process.fork()` would, but via `spawn` so `command`/`args` can point at `tsx <file>`
+ * in dev or the packaged app's own binary in Node mode (`electronNodeCommand`) in a packaged build — same dev/packaged split `resolveMcpServerCommand`
  * already established for `@falang/desktop-mcp`, see ADR 0029 (private)).
  *
  * One process per call, not a pool: the work this exists for (project codegen, sketch compiles) is
@@ -47,6 +49,7 @@ export const runInWorkerProcess = <TJob, TProgress, TResult>({
 }: IRunInWorkerProcessParams<TJob, TProgress>): IWorkerProcessHandle<TResult> => {
   const child: ChildProcess = spawn(command.command, [...command.args], {
     stdio: ['ignore', 'pipe', 'pipe', 'ipc'],
+    ...(command.env ? { env: { ...process.env, ...command.env } } : {}),
   });
 
   // Captured only for the "exited without ever reporting a result" error path below — never printed

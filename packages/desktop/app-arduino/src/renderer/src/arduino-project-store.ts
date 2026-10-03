@@ -3,45 +3,42 @@ import 'reflect-metadata';
 import { action, autorun, makeObservable, observable, runInAction, toJS } from 'mobx';
 import { isValidFunctionName, type INode, type IProjectDocument } from '@falang/dto';
 import {
-  createNodeStoreFromNode,
-  setRootNodeForScheme,
   setSchemeStartPosition,
-  EVENT_ONCHANGE,
-  getNodeStoreDto,
   DebuggerModule,
-  HistoryModule,
   TOKEN_HISTORY,
   type HistoryStore,
   type Scheme,
-  type IModule,
   type DebugSessionStore,
   type IDebugSessionStartParams,
   type TVersionDiffSide,
 } from '@falang/scheme';
-import { AgentSession, ProjectDocumentsContextProvider, type IAgentDocumentResolver } from '@falang/agent';
-import { ScopeVariablesContextProvider } from '@falang/typescript-agent';
-import {
-  registerTypescriptProjectService,
-  updateTypesRegistryFromINode,
-  updateFunctionsRegistryFromINode,
-  TOKEN_TYPESCRIPT_PROJECT_SERVICE,
-  setMonacoLibVariant,
-} from '@falang/typescript-scheme';
+import type { AgentSession, IAgentDocumentResolver } from '@falang/agent';
+import { TOKEN_TYPESCRIPT_PROJECT_SERVICE } from '@falang/typescript-scheme';
 import type { IDocumentLock, IProjectChangeEvent } from '@falang/desktop-project-fs';
-import { container, resolveService, type DependencyContainer } from '@falang/di';
+import { resolveService, type DependencyContainer } from '@falang/di';
 import type { INodeTreeDiff, ISnapshotDocument } from '@falang/versioning';
-import { AgentChatSessionStore, VersionHistoryStore } from '@falang/antd';
+import type { IPrintExportHost } from '@falang/antd';
+import { AgentChatSessionStore, PrintExportStore, VersionHistoryStore } from '@falang/antd';
 import { generateUuid } from './generate-uuid.js';
 import { ElectronAgentSessionStore } from './agent/electron-agent-session-store.js';
 import { ElectronLlmClient } from './agent/electron-llm-client.js';
-import { ARDUINO_BUILTIN_DECLARATIONS } from '../../shared/arduino-builtins.js';
 import { DEFAULT_BOARD_FQBN } from '../../shared/board.js';
 import { DEVICES_DOCUMENT_TYPE, type IDevicesDocumentData } from '../../shared/devices-document.js';
 import { reportError } from '../../shared/report-error.js';
-import { isArduinoPinnedDocument } from './pinned-documents.js';
 import { createArduinoDebugSession } from './create-arduino-debug-session.js';
 import * as folderActions from './folder-actions.js';
-import { arduinoSchemeFactory } from './arduino-scheme-factory.js';
+import { arduinoSchemeFactory } from '@falang/desktop-arduino-scheme';
+import {
+  buildArduinoDocumentScheme,
+  createArduinoProjectContainer,
+  createDesktopAgentDocumentResolver,
+  createDesktopAgentSession,
+  isAgentCapableDocumentType,
+  subscribeDesktopDocumentSync,
+  syncFunctionsRegistry,
+} from '@falang/desktop-agent-host';
+import { createPrintExportHost } from './print/create-print-export-host.js';
+import { isArduinoPinnedDocument, REQUIRED_ROOT_DOCUMENT_NAMES } from './pinned-documents.js';
 import { buildReadOnlySchemeForDiff as buildReadOnlySchemeForDiffImpl } from './versioning/build-read-only-scheme-for-diff.js';
 import { ElectronVersionStore } from './versioning/electron-version-store.js';
 
@@ -115,19 +112,12 @@ export class ArduinoProjectStore {
    * `agentSession` is constructed) so tests can exercise it directly without driving a full agent run
    * through a fake LLM client.
    */
-  readonly agentDocumentResolver: IAgentDocumentResolver = {
-    resolve: (documentId) => {
-      const doc = this.getDocument(documentId);
-      if (!doc) throw new Error(`Document "${documentId}" was not found in this project`);
-      if (!this.isAgentCapableDocument(doc)) {
-        throw new Error(`Document "${doc.name}" is the Devices document and has no scheme editor`);
-      }
-      return this.getScheme(documentId);
-    },
-  };
+  readonly agentDocumentResolver: IAgentDocumentResolver = createDesktopAgentDocumentResolver('arduino', this);
   /** Which project-level panel the right sidebar shows, or neither — see `toggleRightPanel`. */
   @observable rightPanel: 'agent' | 'history' | null = null;
   @observable diffModalOpen = false;
+  /** The PDF export flow (ADR 0048 (private)), `null` while closed. */
+  @observable.ref printExport: PrintExportStore | null = null;
 
   /** Active locks keyed by `documentId` — see ADR 0029 (private)'s "Document locks" decision. Every lock here is treated as foreign: this store never acquires one itself in v1. */
   readonly locks = observable.map<string, IDocumentLock>();
@@ -154,22 +144,11 @@ export class ArduinoProjectStore {
 
   constructor(projectDir: string) {
     this.projectDir = projectDir;
-    // Every Arduino sketch compiles to C++ only, through the same `@falang/logic-constructor`
-    // statement compiler the 'logic' project type uses — real JS/TS never runs here either, so the
-    // editor should never suggest/allow it. See `lib-portable.ts`'s top comment. Layered on top:
-    // the same Arduino builtin declarations (`digitalWrite`/`millis`/`Serial`/pin constants/…)
-    // `compileArduinoProject` feeds `@falang/logic-constructor`'s own type-check via
-    // `extraDeclarations` — reusing that one array keeps the editor's autocomplete/type-checking
-    // and the real compile from drifting apart.
-    setMonacoLibVariant('portable', ARDUINO_BUILTIN_DECLARATIONS.join('\n'));
-    this.container = container.createChildContainer();
-    registerTypescriptProjectService(this.container);
-    // app-arduino's whole UI is light now (ADR 0020 (private)'s "Implementation notes (light theme
-    // for app-arduino …)") — `TypescriptProjectService.theme` defaults to `'dark'`, so it has to be
-    // switched here explicitly, same as `packages/desktop/app-sketch`'s `DesktopProjectStore`. Drives
-    // both the Monaco editor (`code-model.editing.cmp.tsx`) and the read-only Prism view
-    // (`code.view.cmp.tsx`/`applyPrismTheme`) via `useCodeTheme()`.
-    resolveService(TOKEN_TYPESCRIPT_PROJECT_SERVICE, this.container).setTheme('light');
+    // The project container (portable Monaco lib + the Arduino builtin declarations, the TypeScript project service, the
+    // light theme — app-arduino's whole UI is light, see ADR 0020 (private)'s "Implementation notes (light theme for
+    // app-arduino …)") is `@falang/desktop-agent-host`'s `createArduinoProjectContainer` — the same function a headless
+    // host calls.
+    this.container = createArduinoProjectContainer();
     makeObservable(this);
     this.electronVersionStore = new ElectronVersionStore(projectDir);
     this.versionHistory = new VersionHistoryStore({
@@ -182,26 +161,21 @@ export class ArduinoProjectStore {
       allowQuestionsStorageKey: `falang:agent-allow-questions:${projectDir}`,
     });
     this.agentChat.loadSessions();
-    this.agentSession = new AgentSession(
-      null,
-      new ElectronLlmClient(),
-      [
-        new ScopeVariablesContextProvider(),
-        new ProjectDocumentsContextProvider(() => this.agentCapableDocumentSummaries()),
-      ],
-      {
-        documentResolver: this.agentDocumentResolver,
-        // Fires before every core (node) tool call, for whichever document it targets — "ensure
-        // open", not "steal the active tab": a document with no tab yet is opened and activated, one
-        // that already has a tab is left alone (ADR 0036 (private), "Opening a document the agent
-        // touches" amendment).
-        onOpenDocument: (scheme) => this.ensureAgentDocumentOpen(scheme.id),
-      },
-    );
+    // Fires `onOpenDocument` before every core (node) tool call, for whichever document it targets — "ensure open", not
+    // "steal the active tab": a document with no tab yet is opened and activated, one that already has a tab is left
+    // alone (ADR 0036 (private), "Opening a document the agent touches" amendment).
+    this.agentSession = createDesktopAgentSession({
+      product: 'arduino',
+      llmClient: new ElectronLlmClient(),
+      store: this,
+      documentResolver: this.agentDocumentResolver,
+      onOpenDocument: (id) => this.ensureAgentDocumentOpen(id),
+    });
     this.disposeFunctionsRegistrySync = autorun(() => {
       // `call-function`'s registry only ever makes sense for `function` documents — the `devices`
       // document has no `root`/function body at all, and must never be offered as a call target.
-      this.syncFunctionsRegistry(
+      syncFunctionsRegistry(
+        this.container,
         this.documents
           .filter((doc) => doc.type === 'function')
           .map((doc) => ({ id: doc.id, name: doc.name, type: doc.type, root: doc.root })),
@@ -343,20 +317,27 @@ export class ArduinoProjectStore {
    */
   private async refreshTreeMetadata(): Promise<void> {
     const tree = await globalThis.falang.project.listTree(this.projectDir);
+    // An already-known document keeps its object identity (only its index fields are updated in place): a live `Scheme`
+    // syncs its edits into the very `doc` object it was built from (`subscribeDesktopDocumentSync`), so replacing that
+    // object with a fresh one — which every watcher `manifest` event used to do, e.g. right after "New Project…" created
+    // the default document — left the scheme writing into an orphan while autosave read the new, stale copy (found live:
+    // edits made after the first tree refresh never reached disk).
     const existingById = new Map(this.documents.map((doc) => [doc.id, doc] as const));
-    const nextDocuments: DesktopDocument[] = tree.documents.map((entry) => ({
-      id: entry.id,
-      name: entry.name,
-      type: entry.type as DocumentType,
-      folderId: entry.folderId,
-      root: existingById.get(entry.id)?.root,
-      data: existingById.get(entry.id)?.data,
-    }));
-    const validIds = new Set(nextDocuments.map((doc) => doc.id));
-    const idsToClose = this.openTabIds.filter((id) => !validIds.has(id));
-    runInAction(() => {
+    const idsToClose = runInAction(() => {
+      const nextDocuments = tree.documents.map((entry): DesktopDocument => {
+        const existing = existingById.get(entry.id);
+        if (!existing) {
+          return { id: entry.id, name: entry.name, type: entry.type as DocumentType, folderId: entry.folderId };
+        }
+        existing.name = entry.name;
+        existing.type = entry.type as DocumentType;
+        existing.folderId = entry.folderId;
+        return existing;
+      });
+      const validIds = new Set(nextDocuments.map((doc) => doc.id));
       this.folders.replace(tree.folders);
       this.documents.replace(nextDocuments);
+      return this.openTabIds.filter((id) => !validIds.has(id));
     });
     for (const id of idsToClose) this.closeTab(id);
   }
@@ -368,16 +349,6 @@ export class ArduinoProjectStore {
       entry: { fqbn, port },
     };
     return this.debugSession.start(params);
-  }
-
-  /** Keeps the project-wide function registry (`call-function`'s parameter fields) in sync with every `function` document, including unopened ones — mirrors `packages/desktop/app-sketch`'s `DesktopProjectStore.syncFunctionsRegistry`. */
-  private syncFunctionsRegistry(snapshot: readonly Pick<DesktopDocument, 'id' | 'name' | 'type' | 'root'>[]): void {
-    const functionsRegistry = resolveService(TOKEN_TYPESCRIPT_PROJECT_SERVICE, this.container).functionsRegistry;
-    const validIds = new Set(snapshot.map((doc) => doc.id));
-    Array.from(functionsRegistry.functions.keys())
-      .filter((id) => !validIds.has(id))
-      .forEach((id) => functionsRegistry.removeFunction(id));
-    snapshot.forEach((doc) => updateFunctionsRegistryFromINode(doc.id, doc.name, doc.root, functionsRegistry));
   }
 
   private async loadTree(): Promise<void> {
@@ -658,19 +629,7 @@ export class ArduinoProjectStore {
    *  `agentCapableDocumentSummaries` — every document type except `devices` is a real `function`
    *  scheme document the agent can edit. */
   private isAgentCapableDocument(doc: DesktopDocument): boolean {
-    return doc.type !== DEVICES_DOCUMENT_TYPE;
-  }
-
-  /** Every agent-capable document's `{id, type, name}`, for `ProjectDocumentsContextProvider` — lets
-   *  the LLM target a document other than the active one by id, without a dedicated read-only tool. */
-  private agentCapableDocumentSummaries(): readonly {
-    readonly id: string;
-    readonly type: string;
-    readonly name: string;
-  }[] {
-    return this.documents
-      .filter((doc) => this.isAgentCapableDocument(doc))
-      .map((doc) => ({ id: doc.id, name: doc.name, type: doc.type }));
+    return isAgentCapableDocumentType('arduino', doc.type);
   }
 
   /**
@@ -688,6 +647,42 @@ export class ArduinoProjectStore {
     } catch {
       return null;
     }
+  }
+
+  /** Opens the PDF export modal (native menu "Export PDF…") — ADR 0048 (private). */
+  @action openPrintExport(): void {
+    this.printExport?.dispose();
+    this.printExport = new PrintExportStore(this.buildPrintExportHost());
+  }
+
+  @action closePrintExport(): void {
+    this.printExport?.dispose();
+    this.printExport = null;
+  }
+
+  private buildPrintExportHost(): IPrintExportHost {
+    return createPrintExportHost({
+      projectDir: this.projectDir,
+      container: this.container,
+      folders: () => this.folders,
+      documents: () => this.documents,
+      activeTabId: () => this.activeTabId,
+      getLiveScheme: (id) => this.schemes.get(id),
+      // Every scheme document; never the `Devices` custom document.
+      isPrintable: (doc) => doc.type !== DEVICES_DOCUMENT_TYPE,
+      // Same root-level order as `ProjectTree`: pinned `setup`, `loop` first, then the rest in insertion order.
+      orderLevel: (docs, parentId) => {
+        if (parentId !== null) return docs;
+        const pinned = docs
+          .filter((doc) => isArduinoPinnedDocument(doc))
+          .toSorted(
+            (a, b) =>
+              (REQUIRED_ROOT_DOCUMENT_NAMES as readonly string[]).indexOf(a.name) -
+              (REQUIRED_ROOT_DOCUMENT_NAMES as readonly string[]).indexOf(b.name),
+          );
+        return [...pinned, ...docs.filter((doc) => !isArduinoPinnedDocument(doc))];
+      },
+    });
   }
 
   @action openDiffModal(): void {
@@ -754,6 +749,7 @@ export class ArduinoProjectStore {
 
   dispose(): void {
     this.agentSession.cancel();
+    this.printExport?.dispose();
     this.disposeFunctionsRegistrySync();
     this.disposeDebugSession();
     this.disposeProjectChangedSubscription();
@@ -768,37 +764,22 @@ export class ArduinoProjectStore {
   }
 
   private buildScheme(doc: DesktopDocument): Scheme {
-    // One request from the project's single `AgentSession` (see the `agentSession` field above) is
-    // one undo group on whichever scheme it touches — that still requires `HistoryModule` on every
-    // scheme document (ADR 0009 (private)), even though `AgentModule` itself no
-    // longer lives here (ADR 0036 (private) §1). Wired for
-    // every Arduino scheme document, same as before this ADR — every Arduino document is a `function`
-    // node tree (`setup`/`loop`/any further function a user adds, see ADR 0020 (private)), unlike
-    // `packages/desktop/app-sketch`'s per-document-type scoping. The `devices` document never reaches
+    // One request from the project's single `AgentSession` (see the `agentSession` field above) is one undo group on
+    // whichever scheme it touches — that still requires `HistoryModule` on every scheme document (ADR 0009 (private)),
+    // which `buildArduinoDocumentScheme` adds, even though `AgentModule` itself no longer lives here (ADR 0036 (private)
+    // §1). Every Arduino document is a `function` node tree (`setup`/`loop`/any further function a user adds, see ADR 0020
+    // (private)), unlike `packages/desktop/app-sketch`'s per-document-type scoping. The `devices` document never reaches
     // `buildScheme` at all (`getScheme` throws for it first).
-    const extraModules: IModule[] = [
-      new DebuggerModule({ session: this.debugSession, documentId: doc.id }),
-      new HistoryModule(),
-    ];
-    const scheme = arduinoSchemeFactory({ id: doc.id, name: doc.name, parentContainer: this.container, extraModules });
-    const rootNode = doc.root ?? scheme.infra.structure.factory('function');
-    const rootStore = createNodeStoreFromNode(rootNode, scheme);
-    setRootNodeForScheme(scheme, rootStore);
-
-    scheme.events.subscribeEvent(EVENT_ONCHANGE, () => {
-      this.onSchemeChanged(doc, scheme);
-      return false;
+    const scheme = buildArduinoDocumentScheme({
+      doc,
+      parentContainer: this.container,
+      extraModules: [new DebuggerModule({ session: this.debugSession, documentId: doc.id })],
+    });
+    subscribeDesktopDocumentSync(doc, scheme, {
+      typesRegistry: resolveService(TOKEN_TYPESCRIPT_PROJECT_SERVICE, this.container).typesRegistry,
+      onSynced: () => this.scheduleSave(doc.id),
     });
     return scheme;
-  }
-
-  private onSchemeChanged(doc: DesktopDocument, scheme: Scheme): void {
-    const rootNode = scheme.rootNode;
-    if (!rootNode) return;
-    const node = getNodeStoreDto(rootNode, scheme);
-    doc.root = node;
-    updateTypesRegistryFromINode(node, resolveService(TOKEN_TYPESCRIPT_PROJECT_SERVICE, this.container).typesRegistry);
-    this.scheduleSave(doc.id);
   }
 
   /** Debounced-autosave scheduling, shared by every document edit path — a `function` document's

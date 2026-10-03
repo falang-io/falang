@@ -44,6 +44,20 @@ describe('runInWorkerProcess', () => {
     await expect(handle.result).rejects.toBeInstanceOf(WorkerCancelledError);
   }, 15_000);
 
+  it('layers the command env over the parent environment', async () => {
+    const handle = runInWorkerProcess<{ steps: number; echoEnv: string }, unknown, { env: string | null }>({
+      command: { ...command, env: { FALANG_WORKER_TEST_VAR: 'from-command' } },
+      job: { steps: 0, echoEnv: 'FALANG_WORKER_TEST_VAR' },
+    });
+    await expect(handle.result).resolves.toMatchObject({ env: 'from-command' });
+    // PATH still comes through from the parent: the command env is added, not substituted.
+    const pathHandle = runInWorkerProcess<{ steps: number; echoEnv: string }, unknown, { env: string | null }>({
+      command: { ...command, env: { FALANG_WORKER_TEST_VAR: 'x' } },
+      job: { steps: 0, echoEnv: 'PATH' },
+    });
+    await expect(pathHandle.result).resolves.toMatchObject({ env: process.env.PATH ?? null });
+  }, 15_000);
+
   it('rejects when the command cannot be spawned at all', async () => {
     const handle = runInWorkerProcess<unknown, unknown, unknown>({
       command: { command: path.join(repoRoot, 'does-not-exist-binary'), args: [] },

@@ -32,6 +32,7 @@ const createDebugClient = (tenancy: ITemporalTenancy) => {
     args,
     breakpoints,
     pauseOnEntry,
+    followUpSignal,
   }) => {
     const client = await tenancy.getClient(projectId);
     const handle = await client.workflow.signalWithStart(functionName, {
@@ -41,6 +42,7 @@ const createDebugClient = (tenancy: ITemporalTenancy) => {
       signal: DEBUG_CONFIGURE_SIGNAL_NAME,
       signalArgs: [{ breakpoints: [...breakpoints], pauseOnEntry }],
     });
+    if (followUpSignal) await handle.signal(followUpSignal.name, ...followUpSignal.args);
     return { runId: handle.signaledRunId };
   };
 
@@ -101,5 +103,6 @@ export const createDebugService = (
     devArtifacts,
     workflowRunService,
     ensureRunnerDeps: buildService.ensureRunnerDeps(),
+    resolveRunEntry: (projectId, ownerId, input) => buildService.resolveRunEntry(projectId, ownerId, input),
     ...createDebugClient(tenancy),
   });

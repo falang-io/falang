@@ -1,3 +1,4 @@
+import { eventTracker } from './analytics/event-tracker.js';
 import { action, computed, makeObservable, observable, runInAction } from 'mobx';
 import type { IExecutionLocation, IExecutionPositionSource } from '@falang/scheme';
 import {
@@ -73,14 +74,23 @@ export class LiveRunStore implements IExecutionPositionSource {
   }
 
   /** The "Run" button: build if needed, terminate whatever else the dev stand is running, start, follow. */
-  async startFunction(functionName: string, args: readonly unknown[]): Promise<boolean> {
+  async startFunction(
+    functionName: string,
+    args: readonly unknown[],
+    triggerPayload?: Record<string, unknown>,
+  ): Promise<boolean> {
     runInAction(() => {
       this.isStarting = true;
       this.startError = null;
     });
     try {
       if (!(await this.hooks.ensureDevBuilt())) return false;
-      const started = await workflowApi.startDevRun(this.projectId, { functionName, args: [...args] });
+      const started = await workflowApi.startDevRun(this.projectId, {
+        functionName,
+        args: [...args],
+        ...(triggerPayload ? { triggerPayload } : {}),
+      });
+      eventTracker.track('run_started');
       this.watch({
         workflowId: started.workflowId,
         runId: started.runId,
@@ -110,6 +120,14 @@ export class LiveRunStore implements IExecutionPositionSource {
       env: run.env,
       version: run.version,
     });
+  }
+
+  /** Force-terminates the watched execution, then re-reads it so the panel shows the closed status. Throws on API failure (the caller shows it). */
+  async terminateWatched(): Promise<void> {
+    const run = this.watchedRun;
+    if (!run) return;
+    await workflowApi.terminateWorkflowRun(this.projectId, run.workflowId, run.runId);
+    if (this.watchedRun === run) this.watch(run);
   }
 
   @action watch(run: IWatchedRun): void {

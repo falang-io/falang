@@ -35,7 +35,8 @@ head:
 #### Starting a session
 
 <p>
-  Open <b>Build &amp; Upload</b>, pick your board and port, and click <b>Upload (debug)</b> instead of the plain
+  Open <b>Build &amp; Upload</b>, pick the port (the board is fixed per project, see
+  <a href="../project-setup/">Project setup</a>), and click <b>Upload (debug)</b> instead of the plain
   <b>Upload</b> button. This compiles a debug build (tracing instrumentation on), uploads it, and attaches — if you
   haven't set any breakpoints yet, the session pauses immediately at the very first traced statement, otherwise it runs
   until the first breakpoint it hits.
@@ -69,6 +70,11 @@ head:
 
 <ul>
   <li>
+    Debugging over the serial port has been verified on a real board on Linux only. On macOS it should work but has not
+    been tried on hardware yet. On Windows it is not supported yet, and the <b>Upload (debug)</b> button is disabled.
+    Normal compile and upload work everywhere arduino-cli does.
+  </li>
+  <li>
     Only plain numbers and booleans can be shown as variables today — the firmware-side monitor has no way to send an
     array, struct, or string value over serial yet. The rest of the debugger (breakpoints, pausing, stepping) works the
     same regardless.
@@ -92,8 +98,9 @@ head:
 #### Version history
 
 <p>
-  Every project also keeps a version history, independent of the debugger — a "History" button above the tabs (and{' '}
-  <b>Sketch &gt; Version History</b>) opens a panel listing every saved version, newest first. The app auto-saves a new
+  Every project also keeps a version history, independent of the debugger — <b>Sketch &gt; Version History</b> opens a
+  panel in the right-hand sidebar listing every saved version, newest first (the same sidebar also hosts the AI agent,
+  <b>Sketch &gt; Agent</b>; only one of the two is shown at a time). The app auto-saves a new
   version when you come back to the sketch after being away for a while (configurable in{' '}
   <b>Settings &gt; Versioning…</b>, three hours by default) — it captures the sketch exactly as you left it before your
   next edit takes effect, not on a timer while you're actively editing. You can also name the current version at any

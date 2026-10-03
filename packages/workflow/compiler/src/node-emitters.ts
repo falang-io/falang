@@ -1,5 +1,5 @@
 import type { INode } from '@falang/dto';
-import { getContainerScopeContribution, getScopeContribution, type IScopeVariable } from '@falang/typescript-common';
+import { getContainerScopeContribution, getScopeContributions, type IScopeVariable } from '@falang/typescript-common';
 import { emitDebugTrace, type IDebugEmitOptions } from './debug-trace-emit.js';
 import { indentLines } from './indent.js';
 import { LEAF_EMITTERS, emitCallFunction } from './leaf-emitters.js';
@@ -133,6 +133,9 @@ const emitParallel = (node: INode, compile: TCompileChildren): string => {
   return `await Promise.all([\n${indentLines(threads)}\n]);`;
 };
 
+/** `magic` (ADR 0046 (private)) is a transparent group: children inlined, no block/braces, own `out` appended. */
+const emitMagic = (node: INode, compile: TCompileChildren): string => compile(appendOut(node));
+
 /** Loop node kinds `break`/`continue` can target; each gets its own entry on the `loopLabels` stack. */
 const LOOP_EMITTERS: Record<string, (node: INode, compile: TCompileChildren) => string> = {
   foreach: emitForeach,
@@ -146,6 +149,7 @@ const RECURSIVE_EMITTERS: Record<string, (node: INode, compile: TCompileChildren
   if: emitIf,
   switch: emitSwitch,
   parallel: emitParallel,
+  magic: emitMagic,
 };
 /** Leaf emitters for integration action nodes, built dynamically per project — see `integration-emitters.ts`. */
 export type TIntegrationEmitters = Record<string, (node: INode) => string>;
@@ -244,8 +248,7 @@ const compileStatementsInternal = (
       throw new NodeCompileError(node.id, error instanceof Error ? error.message : String(error));
     }
     if (debug) {
-      const contribution = getScopeContribution(node);
-      if (contribution) runningScope.push(contribution);
+      runningScope.push(...getScopeContributions(node));
     }
   }
   return lines.join('\n');

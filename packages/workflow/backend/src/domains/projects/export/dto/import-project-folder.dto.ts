@@ -11,4 +11,9 @@ export class ImportProjectFolderDto {
   @IsOptional()
   @IsUUID()
   parentId?: string | null;
+
+  /** Set on a fixed section folder of the exporting project (`'triggers' | 'functions' | 'types'`); absent in files exported before ADR 0055 (private). */
+  @IsOptional()
+  @IsString()
+  fixedKind?: string | null;
 }

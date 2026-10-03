@@ -3,76 +3,55 @@ import 'reflect-metadata';
 import { action, autorun, computed, makeObservable, observable, runInAction, toJS } from 'mobx';
 import { isValidFunctionName, type INode, type IProjectDocument } from '@falang/dto';
 import {
-  createNodeStoreFromNode,
-  setRootNodeForScheme,
   setSchemeStartPosition,
-  EVENT_ONCHANGE,
-  getNodeStoreDto,
-  HistoryModule,
   TOKEN_HISTORY,
   type HistoryStore,
-  type IModule,
   type Scheme,
   type TVersionDiffSide,
 } from '@falang/scheme';
-import { AgentSession, ProjectDocumentsContextProvider, type IAgentDocumentResolver } from '@falang/agent';
-import { ScopeVariablesContextProvider } from '@falang/typescript-agent';
+import type { IAgentDocumentResolver, AgentSession } from '@falang/agent';
 import {
-  functionalSchemeFactory,
-  mindTreeSchemeFactory,
-  registerProjectDocumentsRegistry,
-  TOKEN_PROJECT_DOCUMENTS_REGISTRY,
   EVENT_LINK_CLICKED,
+  TOKEN_PROJECT_DOCUMENTS_REGISTRY,
   type ProjectDocumentsRegistryStore,
 } from '@falang/text-scheme';
-import {
-  functionalSchemeFactory as typescriptFunctionalSchemeFactory,
-  objectsStructureSchemeFactory,
-  enumStructureSchemeFactory,
-  externalApiStructureSchemeFactory,
-  registerTypescriptProjectService,
-  updateTypesRegistryFromINode,
-  updateFunctionsRegistryFromINode,
-  updateExternalApiRegistryFromINode,
-  TOKEN_TYPESCRIPT_PROJECT_SERVICE,
-  setMonacoLibVariant,
-} from '@falang/typescript-scheme';
-import { ENUM_STRUCTURE_NAME, EXTERNAL_API_STRUCTURE_NAME } from '@falang/typescript-dto';
 import { LogicExportConfigurationStore } from '@falang/logic-scheme';
 import type { ILogicExportResult } from '@falang/logic-export';
-import { codeFunctionalSchemeFactory } from '@falang/simple-code-scheme';
-import {
-  CODE_LANGUAGE_LABELS,
-  CODE_ROOT_NODE_NAME,
-  isCodeDocumentType,
-  type TCodeDocumentType,
-  type TCodeLanguage,
-} from '@falang/simple-code-dto';
+import { isCodeDocumentType } from '@falang/simple-code-dto';
 import type { ICodeExportResult } from '@falang/simple-code-export';
 import type { IDocumentLock, IProjectChangeEvent } from '@falang/desktop-project-fs';
-import { container, resolveService, type DependencyContainer } from '@falang/di';
+import { resolveService, type DependencyContainer } from '@falang/di';
 import type { INodeTreeDiff, ISnapshotDocument } from '@falang/versioning';
-import { AgentChatSessionStore, VersionHistoryStore } from '@falang/antd';
+import type { IPrintExportHost } from '@falang/antd';
+import { AgentChatSessionStore, PrintExportStore, VersionHistoryStore } from '@falang/antd';
+import {
+  ALL_SKETCH_DOCUMENT_TYPES,
+  buildDefaultSketchDocumentRoot,
+  buildSketchDocumentScheme,
+  createDesktopAgentDocumentResolver,
+  createDesktopAgentSession,
+  createSketchProjectContainer,
+  isAgentCapableDocumentType,
+  SKETCH_DOCUMENT_TYPES,
+  subscribeDesktopDocumentSync,
+  syncExternalApiRegistry,
+  syncFunctionsRegistry,
+  syncTypesRegistry,
+  type SketchDocumentType,
+} from '@falang/desktop-agent-host';
 import { generateUuid } from './generate-uuid.js';
 import { ExportProgressStore } from './export-progress-store.js';
 import { reportError } from '../../shared/report-error.js';
 import { ElectronAgentSessionStore } from './agent/electron-agent-session-store.js';
 import { ElectronLlmClient } from './agent/electron-llm-client.js';
 import { buildReadOnlySchemeForDiff as buildReadOnlySchemeForDiffImpl } from './versioning/build-read-only-scheme-for-diff.js';
+import { createPrintExportHost } from './print/create-print-export-host.js';
 import { ElectronVersionStore } from './versioning/electron-version-store.js';
 import { allowedDocumentTypesFor } from '../../shared/project-types.js';
 
 const SAVE_DEBOUNCE_MS = 500;
 
-export type DocumentType =
-  | 'contour'
-  | 'text-function'
-  | 'mind-tree'
-  | 'function'
-  | 'objects-structure'
-  | 'enum-structure'
-  | 'external-api-structure'
-  | TCodeDocumentType;
+export type DocumentType = SketchDocumentType;
 
 export interface DesktopFolder {
   id: string;
@@ -88,106 +67,16 @@ export interface DesktopDocument {
   root?: INode;
 }
 
-interface IDocumentTypeConfig {
-  label: string;
-  rootNodeName: string;
-  buildScheme: (params: {
-    id: string;
-    name: string;
-    parentContainer: DependencyContainer;
-    extraModules?: IModule[];
-    /** Version diff view (ADR 0025 (private)) — see `versioning/build-read-only-scheme-for-diff.ts`. */
-    readOnly?: boolean;
-  }) => Scheme;
-}
+/** `app-sketch`'s document types (label, root node kind, scheme factory) — owned by `@falang/desktop-agent-host` (ADR 0051 (private)) so a headless host builds the same schemes. */
+export const DOCUMENT_TYPES = SKETCH_DOCUMENT_TYPES;
 
-/** Language is baked in per `DocumentType` — `buildScheme` has no slot for extra params, so the
- * `code` domain gets one desktop `DocumentType` per language, same as the old app's 5 separate
- * `console_*` project types. */
-const codeDocumentTypeConfig = (language: TCodeLanguage): IDocumentTypeConfig => ({
-  label: `Code (${CODE_LANGUAGE_LABELS[language]})`,
-  rootNodeName: CODE_ROOT_NODE_NAME,
-  buildScheme: (params) => codeFunctionalSchemeFactory({ ...params, language }),
-});
-
-export const DOCUMENT_TYPES: Record<DocumentType, IDocumentTypeConfig> = {
-  contour: {
-    label: 'Contour',
-    rootNodeName: 'contour',
-    buildScheme: (params) => functionalSchemeFactory(params),
-  },
-  /** The text domain's own single-function document (the old app's `text`-project `function` root — see
-   * ADR 0005 (private)'s "Implementation notes (text-domain `function` document …)"),
-   * rendered by the same text `functionalSchemeFactory`/`NodesStack` as `contour`, just rooted at `function`.
-   * Keyed `text-function` because `function` is already the Logic (TypeScript) document type below. */
-  'text-function': {
-    label: 'Function',
-    rootNodeName: 'function',
-    buildScheme: (params) => functionalSchemeFactory(params),
-  },
-  'mind-tree': {
-    label: 'Tree',
-    rootNodeName: 'mind-tree',
-    buildScheme: (params) => mindTreeSchemeFactory(params),
-  },
-  function: {
-    label: 'Logic',
-    rootNodeName: 'function',
-    buildScheme: (params) => typescriptFunctionalSchemeFactory(params),
-  },
-  'objects-structure': {
-    label: 'Structure',
-    rootNodeName: 'objects-structure',
-    buildScheme: (params) => objectsStructureSchemeFactory(params),
-  },
-  'enum-structure': {
-    label: 'Enum',
-    rootNodeName: ENUM_STRUCTURE_NAME,
-    buildScheme: (params) => enumStructureSchemeFactory(params),
-  },
-  'external-api-structure': {
-    label: 'External API',
-    rootNodeName: EXTERNAL_API_STRUCTURE_NAME,
-    buildScheme: (params) => externalApiStructureSchemeFactory(params),
-  },
-  'simple-code-cpp': codeDocumentTypeConfig('cpp'),
-  'simple-code-js': codeDocumentTypeConfig('js'),
-  'simple-code-ts': codeDocumentTypeConfig('ts'),
-  'simple-code-php': codeDocumentTypeConfig('php'),
-  'simple-code-rust': codeDocumentTypeConfig('rust'),
-};
-
-const ALL_DOCUMENT_TYPES = Object.keys(DOCUMENT_TYPES) as DocumentType[];
-
-const buildStandaloneDocumentContainer = (): DependencyContainer => {
-  const child = container.createChildContainer();
-  registerProjectDocumentsRegistry(child);
-  registerTypescriptProjectService(child);
-  return child;
-};
+const ALL_DOCUMENT_TYPES = ALL_SKETCH_DOCUMENT_TYPES;
 
 /**
- * Builds the default (empty) tree for a brand-new document of `type`, with no document id/name of
- * its own yet — a disposable one-off `Scheme` just to reach `scheme.infra.structure.factory()`.
- * Pulled out of `createDocument` below (which still calls this, passing its own project-wide
- * `container`) so `project-actions.ts`'s `createNewProject` can build a project's default document
- * root *before* any `DesktopProjectStore`/container exists — a brand-new project has neither yet.
- * `parentContainer` is optional: when omitted, a fresh one-off child container is built and thrown
- * away, which is behaviorally identical to reusing a project's real container here, since
- * `factory()` only builds a document type's bare default tree and never consults the project-wide
- * functions/types/external-API registries `registerTypescriptProjectService` wires up.
+ * Builds the default (empty) tree for a brand-new document of `type` — `project-actions.ts`'s `createNewProject`
+ * calls it *before* any `DesktopProjectStore`/container exists. See `@falang/desktop-agent-host`.
  */
-export const buildDefaultDocumentRoot = (type: DocumentType, parentContainer?: DependencyContainer): INode => {
-  const config = DOCUMENT_TYPES[type];
-  const scheme = config.buildScheme({
-    id: generateUuid(),
-    name: 'root',
-    parentContainer: parentContainer ?? buildStandaloneDocumentContainer(),
-  });
-  const root = scheme.infra.structure.factory(config.rootNodeName);
-  scheme.dispose();
-  return root;
-};
+export const buildDefaultDocumentRoot = buildDefaultSketchDocumentRoot;
 
 /** Local editor state for one open project — folders, tabs, scheme instances. All I/O goes through `globalThis.falang`. */
 export class DesktopProjectStore {
@@ -225,19 +114,12 @@ export class DesktopProjectStore {
    * field (not built inline where `agentSession` is constructed) so tests can exercise it directly
    * without driving a full agent run through a fake LLM client.
    */
-  readonly agentDocumentResolver: IAgentDocumentResolver = {
-    resolve: (documentId) => {
-      const doc = this.getDocument(documentId);
-      if (!doc) throw new Error(`Document "${documentId}" was not found in this project`);
-      if (!this.isAgentCapableDocument(doc)) {
-        throw new Error(`Document "${doc.name}" (${doc.type}) is not a document the agent can edit`);
-      }
-      return this.getScheme(documentId);
-    },
-  };
+  readonly agentDocumentResolver: IAgentDocumentResolver = createDesktopAgentDocumentResolver('sketch', this);
   /** Which project-level panel the right sidebar shows, or neither — see `toggleRightPanel`. */
   @observable rightPanel: 'agent' | 'history' | null = null;
   @observable diffModalOpen = false;
+  /** The PDF export flow (ADR 0048 (private)), `null` while closed. */
+  @observable.ref printExport: PrintExportStore | null = null;
 
   /** Document types this project may create — see `../../shared/project-types.ts`. An unknown/legacy `falang.json` `type` (e.g. every project this app created before this feature existed, which always wrote `'text'` regardless of content) falls back to every document type rather than erroring. */
   @computed get allowedDocumentTypes(): DocumentType[] {
@@ -274,21 +156,11 @@ export class DesktopProjectStore {
   constructor(projectDir: string, projectType: string) {
     this.projectDir = projectDir;
     this.projectType = projectType;
-    // `monaco.typescript.typescriptDefaults` is one global instance for the whole window — a
-    // 'logic'-type project's `function`/`objects-structure`/etc. documents (the only ones that reuse
-    // `@falang/typescript-scheme`'s function editor in this app) compile through
-    // `@falang/logic-constructor`, which only ever supports a narrow, non-JS-specific expression
-    // subset (see `lib-portable.ts`) — every other project type keeps the full JS/TS lib.
-    setMonacoLibVariant(projectType === 'logic' ? 'portable' : 'full');
-    this.container = container.createChildContainer();
-    registerProjectDocumentsRegistry(this.container);
-    registerTypescriptProjectService(this.container);
+    // The project container (Monaco lib variant for this project type, the documents registry, the TypeScript project
+    // service, the light theme) is `@falang/desktop-agent-host`'s `createSketchProjectContainer` — the same function a
+    // headless host calls.
+    this.container = createSketchProjectContainer(projectType);
     this.documentsRegistry = resolveService(TOKEN_PROJECT_DOCUMENTS_REGISTRY, this.container);
-    // app-sketch's whole UI is light (unlike the workflow product / app-arduino, which stay dark) —
-    // `TypescriptProjectService.theme` defaults to `'dark'` for those other hosts, so it has to be
-    // switched here explicitly. Drives both the Monaco editor (`code-model.editing.cmp.tsx`) and the
-    // read-only Prism view (`code.view.cmp.tsx`/`applyPrismTheme`) via `useCodeTheme()`.
-    resolveService(TOKEN_TYPESCRIPT_PROJECT_SERVICE, this.container).setTheme('light');
     makeObservable(this);
     this.electronVersionStore = new ElectronVersionStore(projectDir);
     this.versionHistory = new VersionHistoryStore({
@@ -301,22 +173,16 @@ export class DesktopProjectStore {
       allowQuestionsStorageKey: `falang:agent-allow-questions:${projectDir}`,
     });
     this.agentChat.loadSessions();
-    this.agentSession = new AgentSession(
-      null,
-      new ElectronLlmClient(),
-      [
-        new ScopeVariablesContextProvider(),
-        new ProjectDocumentsContextProvider(() => this.agentCapableDocumentSummaries()),
-      ],
-      {
-        documentResolver: this.agentDocumentResolver,
-        // Fires before every core (node) tool call, for whichever document it targets — "ensure
-        // open", not "steal the active tab": a document with no tab yet is opened and activated, one
-        // that already has a tab is left alone (ADR 0036 (private), "Opening a document the agent
-        // touches" amendment).
-        onOpenDocument: (scheme) => this.ensureAgentDocumentOpen(scheme.id),
-      },
-    );
+    // Fires `onOpenDocument` before every core (node) tool call, for whichever document it targets — "ensure open", not
+    // "steal the active tab": a document with no tab yet is opened and activated, one that already has a tab is left
+    // alone (ADR 0036 (private), "Opening a document the agent touches" amendment).
+    this.agentSession = createDesktopAgentSession({
+      product: 'sketch',
+      llmClient: new ElectronLlmClient(),
+      store: this,
+      documentResolver: this.agentDocumentResolver,
+      onOpenDocument: (id) => this.ensureAgentDocumentOpen(id),
+    });
     this.disposeRegistrySync = autorun(() => {
       this.documentsRegistry.setDocuments(
         this.documents.map((doc) => ({ id: doc.id, type: doc.type, name: doc.name, folderId: doc.folderId })),
@@ -332,7 +198,8 @@ export class DesktopProjectStore {
       // is open, can retrigger this autorun from inside its own reaction — MobX then logs
       // "cycle in reaction", live-reproduced by opening a real multi-document project (`example-snake`,
       // 12 documents) straight from disk, before any node was even edited.
-      this.syncFunctionsRegistry(
+      syncFunctionsRegistry(
+        this.container,
         this.documents
           .filter((doc) => doc.type === 'function')
           .map((doc) => ({ id: doc.id, name: doc.name, type: doc.type, root: doc.root })),
@@ -343,7 +210,8 @@ export class DesktopProjectStore {
       // autorun only ever cares about `external-api-structure` documents, so there's no reason for
       // it to also track every `function` document's `root` (which changes on every keystroke/node
       // edit elsewhere in the project and would otherwise re-run this autorun for no benefit).
-      this.syncExternalApiRegistry(
+      syncExternalApiRegistry(
+        this.container,
         this.documents
           .filter((doc) => doc.type === 'external-api-structure')
           .map((doc) => ({ id: doc.id, name: doc.name, type: doc.type, root: doc.root })),
@@ -353,7 +221,8 @@ export class DesktopProjectStore {
       // Same "filter before reading `.root`" posture as `syncExternalApiRegistry` above, not
       // `syncFunctionsRegistry`'s: `objects-structure` documents are edited far less often than
       // `function` bodies, so there's no reason to re-run this on every keystroke elsewhere.
-      this.syncTypesRegistry(
+      syncTypesRegistry(
+        this.container,
         this.documents
           .filter((doc) => doc.type === 'objects-structure')
           .map((doc) => ({ id: doc.id, name: doc.name, type: doc.type, root: doc.root })),
@@ -500,19 +369,27 @@ export class DesktopProjectStore {
    */
   private async refreshTreeMetadata(): Promise<void> {
     const tree = await globalThis.falang.project.listTree(this.projectDir);
+    // An already-known document keeps its object identity (only its index fields are updated in place): a live `Scheme`
+    // syncs its edits into the very `doc` object it was built from (`subscribeDesktopDocumentSync`), so replacing that
+    // object with a fresh one — which every watcher `manifest` event used to do, e.g. right after "New Project…" created
+    // the default document — left the scheme writing into an orphan while autosave read the new, stale copy (found live:
+    // edits made after the first tree refresh never reached disk).
     const existingById = new Map(this.documents.map((doc) => [doc.id, doc] as const));
-    const nextDocuments: DesktopDocument[] = tree.documents.map((entry) => ({
-      id: entry.id,
-      name: entry.name,
-      type: entry.type as DocumentType,
-      folderId: entry.folderId,
-      root: existingById.get(entry.id)?.root,
-    }));
-    const validIds = new Set(nextDocuments.map((doc) => doc.id));
-    const idsToClose = this.openTabIds.filter((id) => !validIds.has(id));
-    runInAction(() => {
+    const idsToClose = runInAction(() => {
+      const nextDocuments = tree.documents.map((entry): DesktopDocument => {
+        const existing = existingById.get(entry.id);
+        if (!existing) {
+          return { id: entry.id, name: entry.name, type: entry.type as DocumentType, folderId: entry.folderId };
+        }
+        existing.name = entry.name;
+        existing.type = entry.type as DocumentType;
+        existing.folderId = entry.folderId;
+        return existing;
+      });
+      const validIds = new Set(nextDocuments.map((doc) => doc.id));
       this.folders.replace(tree.folders);
       this.documents.replace(nextDocuments);
+      return this.openTabIds.filter((id) => !validIds.has(id));
     });
     for (const id of idsToClose) this.closeTab(id);
   }
@@ -578,68 +455,6 @@ export class DesktopProjectStore {
     } finally {
       this.exportProgress.finish();
     }
-  }
-
-  /**
-   * Keeps the project-wide function registry (used by `call-function`'s parameter fields) in sync
-   * with every `function` document, including ones never opened in a tab — mirrors
-   * `playground-workflow`'s `WorkflowStore.syncFunctionsRegistry`.
-   */
-  private syncFunctionsRegistry(snapshot: readonly Pick<DesktopDocument, 'id' | 'name' | 'type' | 'root'>[]): void {
-    const functionsRegistry = resolveService(TOKEN_TYPESCRIPT_PROJECT_SERVICE, this.container).functionsRegistry;
-    const functionDocs = snapshot.filter((doc) => doc.type === 'function');
-    const validIds = new Set(functionDocs.map((doc) => doc.id));
-    Array.from(functionsRegistry.functions.keys())
-      .filter((id) => !validIds.has(id))
-      .forEach((id) => functionsRegistry.removeFunction(id));
-    functionDocs.forEach((doc) => updateFunctionsRegistryFromINode(doc.id, doc.name, doc.root, functionsRegistry));
-  }
-
-  /**
-   * Keeps the project-wide external-API registry (used by `call-api`'s scheme/endpoint pickers and
-   * its per-parameter Monaco cells) in sync with every `external-api-structure` document, including
-   * ones never opened in a tab — same project-wide posture as `syncFunctionsRegistry` above.
-   */
-  private syncExternalApiRegistry(snapshot: readonly Pick<DesktopDocument, 'id' | 'name' | 'type' | 'root'>[]): void {
-    const externalApiRegistry = resolveService(TOKEN_TYPESCRIPT_PROJECT_SERVICE, this.container).externalApiRegistry;
-    const apiDocs = snapshot.filter((doc) => doc.type === 'external-api-structure');
-    const validSchemeIds = new Set(apiDocs.map((doc) => doc.id));
-    const staleSchemeIds = new Set<string>();
-    externalApiRegistry.apis.forEach((api) => {
-      if (!validSchemeIds.has(api.schemeId)) staleSchemeIds.add(api.schemeId);
-    });
-    staleSchemeIds.forEach((schemeId) => externalApiRegistry.removeBySchemeId(schemeId));
-    apiDocs.forEach((doc) => updateExternalApiRegistryFromINode(doc.id, doc.name, doc.root, externalApiRegistry));
-  }
-
-  /**
-   * Keeps the project-wide struct-type registry (used anywhere a struct type's human name is
-   * shown, e.g. `create-var`/`object-property` type pickers) in sync with every
-   * `objects-structure` document, including ones never opened in a tab — same project-wide
-   * posture as `syncFunctionsRegistry`/`syncExternalApiRegistry` above. Without this, a struct
-   * referenced from a document whose defining `objects-structure` document was never opened (and
-   * so never ran `onSchemeChanged`) rendered as a raw id instead of its name.
-   */
-  private syncTypesRegistry(snapshot: readonly Pick<DesktopDocument, 'id' | 'name' | 'type' | 'root'>[]): void {
-    const typesRegistry = resolveService(TOKEN_TYPESCRIPT_PROJECT_SERVICE, this.container).typesRegistry;
-    const structureDocs = snapshot.filter(
-      (doc): doc is (typeof snapshot)[number] & { root: INode } =>
-        doc.type === 'objects-structure' && Boolean(doc.root),
-    );
-    // `updateTypesRegistryFromINode` keys registry entries by the *root node's own* `id`
-    // (`node.id`), not the owning document's id — see its own source. Staleness has to be computed
-    // against that same key space; comparing against `doc.id` instead (an earlier version of this
-    // method did) never matches anything real (the two ids are unrelated, generated separately —
-    // see `createDocument`/`mindTreeCfg`'s own `factory()`) and drove `updateTypesByParent` into a
-    // read-then-write-the-same-observable loop each time a document was deleted, which MobX caught
-    // as a non-converging autorun after 100 iterations.
-    const validParentIds = new Set(structureDocs.map((doc) => doc.root.id));
-    const parentIds = new Set<string>();
-    typesRegistry.types.forEach((item) => parentIds.add(item.parentId));
-    Array.from(parentIds)
-      .filter((parentId) => !validParentIds.has(parentId))
-      .forEach((parentId) => typesRegistry.updateTypesByParent(parentId, []));
-    structureDocs.forEach((doc) => updateTypesRegistryFromINode(doc.root, typesRegistry));
   }
 
   private async loadTree(): Promise<void> {
@@ -889,19 +704,7 @@ export class DesktopProjectStore {
   /** Shared by `agentDocumentResolver`, `getAgentActiveDocumentId`, `agentCapableDocumentSummaries`,
    *  and `buildScheme`'s `HistoryModule` scoping — `function` or any `simple-code-*` language. */
   private isAgentCapableDocument(doc: DesktopDocument): boolean {
-    return doc.type === 'function' || isCodeDocumentType(doc.type);
-  }
-
-  /** Every agent-capable document's `{id, type, name}`, for `ProjectDocumentsContextProvider` — lets
-   *  the LLM target a document other than the active one by id, without a dedicated read-only tool. */
-  private agentCapableDocumentSummaries(): readonly {
-    readonly id: string;
-    readonly type: string;
-    readonly name: string;
-  }[] {
-    return this.documents
-      .filter((doc) => this.isAgentCapableDocument(doc))
-      .map((doc) => ({ id: doc.id, name: doc.name, type: doc.type }));
+    return isAgentCapableDocumentType('sketch', doc.type);
   }
 
   /**
@@ -918,6 +721,29 @@ export class DesktopProjectStore {
     } catch {
       return null;
     }
+  }
+
+  /** Opens the PDF export modal (native menu "Export PDF…") — ADR 0048 (private). */
+  @action openPrintExport(): void {
+    this.printExport?.dispose();
+    this.printExport = new PrintExportStore(this.buildPrintExportHost());
+  }
+
+  @action closePrintExport(): void {
+    this.printExport?.dispose();
+    this.printExport = null;
+  }
+
+  private buildPrintExportHost(): IPrintExportHost {
+    return createPrintExportHost({
+      projectDir: this.projectDir,
+      container: this.container,
+      folders: () => this.folders,
+      documents: () => this.documents,
+      activeTabId: () => this.activeTabId,
+      getLiveScheme: (id) => this.schemes.get(id),
+      isPrintable: (doc) => doc.type in DOCUMENT_TYPES,
+    });
   }
 
   @action openDiffModal(): void {
@@ -959,6 +785,7 @@ export class DesktopProjectStore {
 
   dispose(): void {
     this.agentSession.cancel();
+    this.printExport?.dispose();
     this.disposeRegistrySync();
     this.disposeFunctionsRegistrySync();
     this.disposeExternalApiRegistrySync();
@@ -976,25 +803,15 @@ export class DesktopProjectStore {
   }
 
   private buildScheme(doc: DesktopDocument): Scheme {
-    const config = DOCUMENT_TYPES[doc.type];
-    // One request from the project's single `AgentSession` (see the `agentSession` field above) is
-    // one undo group on whichever scheme it touches — that still requires `HistoryModule` on the
-    // same scheme (ADR 0009 (private)), even though `AgentModule` itself no longer
-    // lives here (ADR 0036 (private) §1). Scoped to node
-    // trees meant to hold executable logic (`function`, every `code-*` language) — not
-    // `contour`/`text-function`/`mind-tree` (prose/mind-map trees) or the `*-structure`
-    // data-definition editors, mirroring the workflow product's own function-document scoping
-    // (ADR 0026 (private)) and `isAgentCapableDocument`'s own check above.
-    const extraModules: IModule[] = this.isAgentCapableDocument(doc) ? [new HistoryModule()] : [];
-    const scheme = config.buildScheme({ id: doc.id, name: doc.name, parentContainer: this.container, extraModules });
-    const rootNode = doc.root ?? scheme.infra.structure.factory(config.rootNodeName);
-    const rootStore = createNodeStoreFromNode(rootNode, scheme);
-    setRootNodeForScheme(scheme, rootStore);
-
-    scheme.events.subscribeEvent(EVENT_ONCHANGE, () => {
-      this.onSchemeChanged(doc, scheme);
-      return false;
-    });
+    // One request from the project's single `AgentSession` (see the `agentSession` field above) is one undo group on
+    // whichever scheme it touches — `buildSketchDocumentScheme` adds `HistoryModule` for every agent-capable type
+    // (`function`, every `simple-code-*` language; not `contour`/`text-function`/`mind-tree` or the `*-structure`
+    // editors, mirroring the workflow product's own function-document scoping — ADR 0026 (private)).
+    const scheme = buildSketchDocumentScheme({ doc, parentContainer: this.container });
+    // No types-registry update here, unlike an earlier version: `doc.root`'s reassignment by the sync is itself the MobX
+    // trigger the project-wide `disposeTypesRegistrySync` autorun (see the constructor) reacts to — the same "no per-tab
+    // path, only the project-wide sync" posture `syncFunctionsRegistry`/`syncExternalApiRegistry` already use.
+    subscribeDesktopDocumentSync(doc, scheme, { onSynced: () => this.scheduleSave(doc.id) });
     scheme.events.subscribeEvent(EVENT_LINK_CLICKED, ({ documentId }) => {
       if (this.getDocument(documentId)) this.openTab(documentId);
       return true;
@@ -1002,20 +819,10 @@ export class DesktopProjectStore {
     return scheme;
   }
 
-  private onSchemeChanged(doc: DesktopDocument, scheme: Scheme): void {
-    const rootNode = scheme.rootNode;
-    if (!rootNode) return;
-    const node = getNodeStoreDto(rootNode, scheme);
-    doc.root = node;
-    // No direct `updateTypesRegistryFromINode` call here, unlike an earlier version of this method
-    // — `doc.root`'s reassignment above is itself the MobX trigger the project-wide
-    // `disposeTypesRegistrySync` autorun (see the constructor) reacts to, the same "no per-tab path,
-    // only the project-wide sync" posture `syncFunctionsRegistry`/`syncExternalApiRegistry` already
-    // use. Keeping both would just double the work for the currently-open document.
-
-    const existingTimer = this.saveTimers.get(doc.id);
+  private scheduleSave(docId: string): void {
+    const existingTimer = this.saveTimers.get(docId);
     if (existingTimer) clearTimeout(existingTimer);
-    const timer = setTimeout(() => this.saveDocumentNow(doc.id), SAVE_DEBOUNCE_MS);
-    this.saveTimers.set(doc.id, timer);
+    const timer = setTimeout(() => this.saveDocumentNow(docId), SAVE_DEBOUNCE_MS);
+    this.saveTimers.set(docId, timer);
   }
 }

@@ -31,7 +31,7 @@ describe('folders', () => {
   it('creates a folder and adds it to the manifest', async () => {
     const folder = await createFolder(projectDir, { name: 'Folder A', parentId: null });
     const manifest = await readManifest(projectDir);
-    expect(manifest.folders).toEqual([{ id: folder.id, name: 'Folder A', parentId: null }]);
+    expect(manifest.folders).toEqual([{ id: folder.id, name: 'Folder A', parentId: null, dirName: 'Folder A' }]);
   });
 
   it('renames a folder', async () => {

@@ -17,6 +17,8 @@ import { AuthModule } from './domains/auth/auth/auth.module.js';
 import { JwtAuthGuard } from './domains/auth/auth/jwt-auth.guard.js';
 import { PersonalAccessTokensModule } from './domains/auth/personal-access-tokens/personal-access-tokens.module.js';
 import { BuildModule } from './domains/build/build/build.module.js';
+import { EgressRoutingModule } from './domains/egress-proxy/egress-routing.module.js';
+import { EgressProxyModule } from './domains/egress-proxy/egress-proxy.module.js';
 import { FilesModule } from './domains/files/files.module.js';
 import { ActivepiecesCatalogService } from './domains/integrations/activepieces-catalog.service.js';
 import { requireEncryptionKey } from './domains/integrations/credentials-crypto.js';
@@ -25,6 +27,7 @@ import { IntegrationsModule } from './domains/integrations/integrations.module.j
 import { REGISTERED_INTEGRATIONS } from './domains/integrations/registered-integrations.js';
 import { ProjectTokenModule } from './domains/internal-auth/project-token.module.js';
 import { ProjectTokenService } from './domains/internal-auth/project-token.service.js';
+import { SupportModule } from './domains/support/support.module.js';
 import { McpModule } from './domains/mcp/mcp.module.js';
 import { Document } from './domains/projects/documents/document.entity.js';
 import { DocumentsModule } from './domains/projects/documents/documents.module.js';
@@ -33,6 +36,7 @@ import { FoldersModule } from './domains/projects/folders/folders.module.js';
 import { HealthModule } from './domains/health/health.module.js';
 import { Project } from './domains/projects/projects/project.entity.js';
 import { ProjectsModule } from './domains/projects/projects/projects.module.js';
+import { ProjectTemplatesModule } from './domains/projects/templates/project-templates.module.js';
 import { TreeModule } from './domains/projects/tree/tree.module.js';
 import { VersioningModule } from './domains/projects/versioning/versioning.module.js';
 import { RunsModule } from './domains/runs/runs.module.js';
@@ -74,15 +78,19 @@ const buildBuiltInImports = (): TAppImport[] => [
   UsersModule,
   AuthModule,
   PersonalAccessTokensModule,
+  ProjectTemplatesModule,
   ProjectsModule,
   FoldersModule,
   DocumentsModule,
   AgentChatModule,
+  SupportModule,
   ProjectExportModule,
   TreeModule,
   VersioningModule,
   BuildModule,
   FilesModule,
+  EgressProxyModule,
+  EgressRoutingModule,
   IntegrationsModule,
   HealthModule,
   RunsModule,

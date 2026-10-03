@@ -73,8 +73,18 @@ const createStartAndAwaitWorkflow =
 
 const createStartWorkflow =
   (tenancy: ITemporalTenancy): TStartWorkflow =>
-  async ({ projectId, taskQueue, workflowId, functionName, args }) => {
+  async ({ projectId, taskQueue, workflowId, functionName, args, signal }) => {
     const client = await tenancy.getClient(projectId);
+    if (signal) {
+      const signalled = await client.workflow.signalWithStart(functionName, {
+        taskQueue,
+        workflowId,
+        args: [...args],
+        signal: signal.name,
+        signalArgs: [...signal.args],
+      });
+      return { runId: signalled.signaledRunId };
+    }
     const handle = await client.workflow.start(functionName, { taskQueue, workflowId, args: [...args] });
     return { runId: handle.firstExecutionRunId };
   };

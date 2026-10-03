@@ -23,6 +23,17 @@ export class AdminUsersController {
     return this.adminUsersService.listUsers();
   }
 
+  @Get(':id')
+  get(@Param('id') id: string): Promise<IAdminUser> {
+    return this.adminUsersService.getUser(id);
+  }
+
+  @Post(':id/activate')
+  @HttpCode(HttpStatus.OK)
+  activate(@Param('id') id: string): Promise<{ sent: true } | { sent: false; password: string }> {
+    return this.adminUsersService.activate(id);
+  }
+
   @Patch(':id/role')
   updateRole(
     @CurrentUser() currentUser: IJwtPayloadUser,
@@ -34,7 +45,7 @@ export class AdminUsersController {
 
   @Post()
   create(@Body() body: CreateUserDto): Promise<{ id: string; username: string; password: string }> {
-    return this.adminUsersService.createUser(body.username);
+    return this.adminUsersService.createUser(body.username, body.email);
   }
 
   @Post(':id/reset-password')

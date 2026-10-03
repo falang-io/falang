@@ -1,7 +1,6 @@
 import { promises as fs } from 'node:fs';
 import * as path from 'node:path';
 import { documentsDir, falangDir, legacyDocumentsDir, legacyManifestPath, manifestPath } from './paths.js';
-import { FORMAT_VERSION } from './types.js';
 
 const pathExists = async (candidate: string): Promise<boolean> => {
   try {
@@ -50,7 +49,8 @@ export const migrateV3Project = async (projectDir: string): Promise<void> => {
   await fs.rm(legacyDocsDir, { recursive: true, force: true });
 
   const rawManifest = JSON.parse(await fs.readFile(legacyManifestPath(projectDir), 'utf8')) as Record<string, unknown>;
-  rawManifest.formatVersion = FORMAT_VERSION;
+  // Literal 4, not `FORMAT_VERSION`: `openProject`'s `reconcileProjectLayout` does the v4 → v5 step next.
+  rawManifest.formatVersion = 4;
   await fs.writeFile(manifestPath(projectDir), JSON.stringify(rawManifest, null, 2));
   await fs.rm(legacyManifestPath(projectDir), { force: true });
 };

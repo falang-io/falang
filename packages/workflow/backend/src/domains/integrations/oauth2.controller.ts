@@ -11,6 +11,7 @@ import {
   Res,
 } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
+import { runWithEgressVendor } from '@falang/workflow-egress';
 import { InjectRepository } from '@nestjs/typeorm';
 import {
   buildOAuth2TokenRequest,
@@ -247,7 +248,7 @@ export class OAuth2Controller {
       },
       accountDomain,
     );
-    const response = await getBackendEgress().fetch(url, init);
+    const response = await runWithEgressVendor(vendor, () => getBackendEgress().fetch(url, init));
     if (!response.ok) throw new Error(`Token exchange failed: ${response.status}`);
     const tokens = (await response.json()) as ITokenResponse;
 

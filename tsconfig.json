@@ -1,0 +1,4 @@
+{
+  "//": "Used by tools run from the repo root with no package tsconfig of their own (`npx tsx scripts/*.ts`, e.g. headless-scheme-smoke.ts): tsx reads the tsconfig in the cwd and applies it only to files it matches, and the packages' decorators (MobX/tsyringe) need `experimentalDecorators`. Not a type-check project — every package checks itself.",
+  "extends": "./tsconfig.base.json"
+}

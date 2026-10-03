@@ -79,4 +79,44 @@ describe('ScopeVariablesContextProvider', () => {
     const provider = new ScopeVariablesContextProvider();
     expect(provider.describe(contextWithRoot(null))).toBeNull();
   });
+
+  it('describes the scope at focusNodeId as the insertion point', () => {
+    const fn: INode = {
+      id: 'fn',
+      name: 'function',
+      children: [
+        {
+          id: 'body',
+          name: 'function-body',
+          data: { name: 'fn', parameters: [{ name: 'a', type: { type: 'string' } }] },
+          children: [
+            {
+              id: 'x',
+              name: 'create-var',
+              data: { name: 'x', variableType: { type: 'number', numberType: { type: 'any' } } },
+            },
+            { id: 'focus', name: 'action', data: '' },
+          ],
+        },
+      ],
+    };
+    const store = makeNode(fn);
+    const focus = store.children[0].children.find((c) => c.id === 'focus');
+    if (!focus) throw new Error('test setup failed');
+    const scheme = {
+      rootNode: store,
+      nodes: { getNodeSafe: (id: string) => (id === 'focus' ? focus : null) },
+    } as unknown as Scheme;
+    const provider = new ScopeVariablesContextProvider();
+    const context = (focusNodeId: string): IAgentRunContext => ({
+      activeDocumentId: 'doc-1',
+      focusNodeId,
+      getActiveScheme: () => scheme,
+    });
+    const text = provider.describe(context('focus'));
+    expect(text).toContain('the insertion point');
+    expect(text).toContain('x: number');
+    // unknown focus id falls back to the root behaviour
+    expect(provider.describe(context('missing')) ?? '').not.toContain('insertion point');
+  });
 });

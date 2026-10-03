@@ -40,12 +40,15 @@ describe('project export/import (e2e)', () => {
       })
       .expect(200);
 
+    const functionsSection: string = tree.body.folders.find(
+      (f: { fixedKind: string }) => f.fixedKind === 'functions',
+    ).id;
     const folderId = '3ad0f6d5-d449-4945-b5f4-9f8d7041a3e9';
     const docId = '8b2e45d1-fa81-4ddb-a012-dde04d7ee4e4';
     await request(app.getHttpServer())
       .post(`/projects/${projectId}/folders`)
       .set(auth(token))
-      .send({ id: folderId, name: 'Functions', parentId: null })
+      .send({ id: folderId, name: 'Helpers', parentId: functionsSection })
       .expect(201);
     await request(app.getHttpServer())
       .post(`/projects/${projectId}/documents`)
@@ -64,7 +67,13 @@ describe('project export/import (e2e)', () => {
     expect(response.status).toBe(200);
 
     expect(response.body).toMatchObject({ formatVersion: 1, project: { id: '', name: 'Source project' } });
-    expect(response.body.folders).toEqual([{ id: folderId, name: 'Functions', parentId: null }]);
+    expect(response.body.folders).toContainEqual({
+      id: folderId,
+      name: 'Helpers',
+      parentId: expect.any(String),
+      fixedKind: null,
+    });
+    expect(response.body.folders.filter((f: { fixedKind: string | null }) => f.fixedKind)).toHaveLength(3);
 
     const integrationsDoc = response.body.documents.find((doc: { type: string }) => doc.type === 'integrations');
     expect(integrationsDoc.data.instances[0].fields.botToken).toEqual({ dev: '', prod: '' });
@@ -104,13 +113,17 @@ describe('project export/import (e2e)', () => {
 
     const newProjectId: string = imported.body.id;
     const tree = await request(app.getHttpServer()).get(`/projects/${newProjectId}/tree`).set(auth(token));
-    expect(tree.body.folders).toHaveLength(1);
-    expect(tree.body.folders[0]).toMatchObject({ name: 'Functions' });
-    expect(tree.body.folders[0].id).not.toBe(sourceFolderId);
+    expect(tree.body.folders).toHaveLength(4);
+    const helpers = tree.body.folders.find((f: { name: string }) => f.name === 'Helpers');
+    expect(helpers).toBeDefined();
+    expect(helpers.id).not.toBe(sourceFolderId);
+    expect(tree.body.folders.find((f: { id: string }) => f.id === helpers.parentId)).toMatchObject({
+      fixedKind: 'functions',
+    });
     expect(tree.body.documents).toEqual(
       expect.arrayContaining([
         expect.objectContaining({ type: 'integrations', pinned: true }),
-        expect.objectContaining({ type: 'function', name: 'run', folderId: tree.body.folders[0].id }),
+        expect.objectContaining({ type: 'function', name: 'run', folderId: helpers.id }),
       ]),
     );
     expect(tree.body.documents).toHaveLength(2);

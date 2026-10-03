@@ -1,6 +1,6 @@
 import { resolveService } from '@falang/di';
 import type { IModule, Scheme } from '@falang/scheme';
-import { TOKEN_I18N } from '@falang/scheme';
+import { checker, TOKEN_CONTEXT_MENU, TOKEN_I18N } from '@falang/scheme';
 import { registerContainerScopeContributor, registerScopeContributor } from '@falang/typescript-common';
 import { TOKEN_TYPESCRIPT_PROJECT_SERVICE } from '@falang/typescript-scheme';
 import type { IIntegrationInstance, IWorkflowIntegration } from '@falang/workflow-integrations-common';
@@ -21,8 +21,10 @@ import type {
   IFieldOptionsProvider,
 } from './di-tokens.js';
 import { IntegrationsRegistryStore } from './integrations-registry.store.js';
+import { getIntegrationMenuVendors } from './integration-insert-menu.js';
 import { seedIntegrationTypes } from './seed-integration-types.js';
 import { registerWorkflowSchemeLocales } from '../locales/workflow-scheme-locales.js';
+import { registerOptionsSyncOnMove } from '../blocks/sync-options-on-move.js';
 
 const NO_CREDENTIAL_INSTANCES = (): readonly IIntegrationInstance[] => [];
 const NO_FIELD_OPTIONS_PROVIDER: IFieldOptionsProvider = {
@@ -49,6 +51,7 @@ export class IntegrationsModule implements IModule {
   private readonly getFieldOptionsProvider: () => IFieldOptionsProvider;
   private readonly getActivepiecesCatalogProvider: () => IActivepiecesCatalogProvider;
   private readonly getActivepiecesFieldOptionsProvider: () => IActivepiecesFieldOptionsProvider;
+  private disposers: (() => void)[] = [];
 
   constructor(
     integrations: readonly IWorkflowIntegration[],
@@ -109,6 +112,46 @@ export class IntegrationsModule implements IModule {
     for (const integration of this.integrations) {
       if (!integration.locales) continue;
       i18n.register(`integration:${integration.vendor}`, integration.locales);
+    }
+  }
+
+  initialize(scheme: Scheme) {
+    // Dragging a question/choice option keeps the header's `options` list in the new order.
+    this.disposers.push(
+      registerOptionsSyncOnMove(scheme, resolveService(TOKEN_INTEGRATIONS_REGISTRY, scheme.container)),
+    );
+
+    // "Integrations" → vendor → actions/questions/choices, only for vendors that have an instance in the
+    // project's `Integrations` document (or need no credentials at all). Re-evaluated every time the
+    // menu opens, so adding/removing an instance shows up immediately.
+    // No context menu in this scheme (bare test harness / read-only print): nothing to extend.
+    const contextMenuService = this.tryResolveContextMenu(scheme);
+    if (!contextMenuService) return;
+    contextMenuService.registerBuilderForValencePoint(({ builder, vp, parent }) => {
+      if (!checker.isWithSkewer(parent)) return;
+      const t = resolveService(TOKEN_I18N, scheme.container).t;
+      for (const entry of getIntegrationMenuVendors(this.integrations, this.getCredentialInstances())) {
+        builder.addForIcons({
+          group: '',
+          groupPath: [t('menu:group-integrations'), entry.label],
+          index: vp.index,
+          parentId: vp.parentId,
+          items: [...entry.nodeNames],
+        });
+      }
+    });
+  }
+
+  dispose() {
+    this.disposers.forEach((dispose) => dispose());
+    this.disposers = [];
+  }
+
+  private tryResolveContextMenu(scheme: Scheme) {
+    try {
+      return resolveService(TOKEN_CONTEXT_MENU, scheme.container);
+    } catch {
+      return null;
     }
   }
 }

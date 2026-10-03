@@ -33,6 +33,8 @@ export interface IStartWorkflowParams {
   readonly args: readonly unknown[];
   /** Picks the project's own Temporal namespace/client — see `ITemporalTenancy` (ADR 0057 (private)). */
   readonly projectId: string;
+  /** Delivered with the start (`signalWithStart`) — a signal-delivery trigger's test payload. */
+  readonly signal?: { readonly name: string; readonly args: readonly unknown[] };
 }
 
 /** Starts a workflow execution and returns as soon as Temporal has accepted it — the live-tracked counterpart of `TStartAndAwaitWorkflow`, see the real implementation in `build.module.ts`. */
@@ -94,9 +96,22 @@ export class WorkflowRunService {
    * (ADR 0022 (private)), which then follows the execution through `getPosition` instead of
    * blocking on a result like `run()` does. Same `manual-<function>-<uuid>` workflowId convention.
    */
-  async start(projectId: string, taskQueue: string, functionName: string, args: readonly unknown[]): Promise<IStartedRun> {
+  async start(
+    projectId: string,
+    taskQueue: string,
+    functionName: string,
+    args: readonly unknown[],
+    signal?: IStartWorkflowParams['signal'],
+  ): Promise<IStartedRun> {
     const workflowId = `manual-${functionName}-${randomUUID()}`;
-    const { runId } = await this.startWorkflow({ projectId, taskQueue, workflowId, functionName, args });
+    const { runId } = await this.startWorkflow({
+      projectId,
+      taskQueue,
+      workflowId,
+      functionName,
+      args,
+      ...(signal ? { signal } : {}),
+    });
     return { workflowId, runId, taskQueue };
   }
 

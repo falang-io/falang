@@ -65,6 +65,7 @@ export const openaiIntegration: IWorkflowIntegration = {
           label: 'openai:field.attachments',
           kind: 'expression',
           expectedType: fileArrayTypeInfo(),
+          defaultValue: '[]',
         },
         { name: 'result', label: 'openai:field.result', kind: 'result-type' },
         { name: 'resultVariable', label: 'openai:field.resultVariable', kind: 'new-variable' },
@@ -153,6 +154,7 @@ export const openaiIntegration: IWorkflowIntegration = {
           label: 'openai:field.attachments',
           kind: 'expression',
           expectedType: fileArrayTypeInfo(),
+          defaultValue: '[]',
         },
       ],
       // `attachments: … | undefined` (not a plain `readonly ${FILE_REF_TYPE}[]`, unlike `callAiText`'s

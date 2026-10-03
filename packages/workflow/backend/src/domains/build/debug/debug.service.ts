@@ -7,6 +7,14 @@ import type { DevArtifactStore } from '../build/dev-artifact-store.service.js';
 import { devTaskQueue } from '../build/task-queue-names.js';
 import { ensureRunnerRunning, type IEnsureRunnerRunningDeps } from '../build/ensure-runner-running.js';
 import type { WorkflowRunService } from '../build/workflow-run.service.js';
+import type { IStartDeliveryResolution } from '../build/start-delivery-args.js';
+
+/** `BuildService.resolveRunEntry` — see `IDebugServiceParams.resolveRunEntry`. */
+export type TResolveRunEntry = (
+  projectId: string,
+  ownerId: string,
+  input: { readonly functionName: string; readonly args: readonly unknown[]; readonly triggerPayload?: unknown },
+) => Promise<{ readonly resolution: IStartDeliveryResolution }>;
 import { resolveIndexToLocation, resolveLocationsToIndices, resolveVariables } from './debug-map-resolver.js';
 import type {
   TDebugSignalWithStart,
@@ -46,6 +54,8 @@ export interface IDebugServiceParams {
   readonly devArtifacts: DevArtifactStore;
   readonly workflowRunService: WorkflowRunService;
   readonly ensureRunnerDeps: IEnsureRunnerRunningDeps;
+  /** Resolves what a session starts (`BuildService.resolveRunEntry`): a function, or a trigger-function with its test payload. Without it only plain `function` documents are debuggable. */
+  readonly resolveRunEntry?: TResolveRunEntry;
   readonly signalWithStartDebug: TDebugSignalWithStart;
   readonly sendDebugSignal: TSendDebugSignal;
   readonly describeDebugWorkflow: TDescribeDebugWorkflow;
@@ -70,6 +80,7 @@ export class DebugService {
   private readonly devArtifacts: DevArtifactStore;
   private readonly workflowRunService: WorkflowRunService;
   private readonly ensureRunnerDeps: IEnsureRunnerRunningDeps;
+  private readonly resolveRunEntry: TResolveRunEntry | undefined;
   private readonly signalWithStartDebug: TDebugSignalWithStart;
   private readonly sendDebugSignal: TSendDebugSignal;
   private readonly describeDebugWorkflow: TDescribeDebugWorkflow;
@@ -81,6 +92,7 @@ export class DebugService {
     this.devArtifacts = params.devArtifacts;
     this.workflowRunService = params.workflowRunService;
     this.ensureRunnerDeps = params.ensureRunnerDeps;
+    this.resolveRunEntry = params.resolveRunEntry;
     this.signalWithStartDebug = params.signalWithStartDebug;
     this.sendDebugSignal = params.sendDebugSignal;
     this.describeDebugWorkflow = params.describeDebugWorkflow;
@@ -102,13 +114,10 @@ export class DebugService {
       readonly args: readonly unknown[];
       readonly breakpoints: readonly IDebugLocation[];
       readonly pauseOnEntry: boolean;
+      readonly triggerPayload?: unknown;
     },
   ): Promise<IStartedDebugSession> {
-    const documents = await this.documentsService.listFull(projectId, ownerId);
-    const exists = documents.some((document) => document.type === 'function' && document.name === input.functionName);
-    if (!exists) {
-      throw new NotFoundException(`Function "${input.functionName}" not found in project "${projectId}"`);
-    }
+    const resolution = await this.resolveEntry(projectId, ownerId, input);
     const artifact = this.devArtifacts.get(projectId);
     if (!artifact) {
       throw new ConflictException('Build the project first — there is no dev build to debug');
@@ -125,11 +134,29 @@ export class DebugService {
       taskQueue,
       workflowId,
       functionName: input.functionName,
-      args: input.args,
+      args: resolution.args ?? input.args,
       breakpoints,
       pauseOnEntry: input.pauseOnEntry,
+      ...(resolution.signal ? { followUpSignal: resolution.signal } : {}),
     });
     return { workflowId, runId, taskQueue, terminatedExecutionsCount };
+  }
+
+  private async resolveEntry(
+    projectId: string,
+    ownerId: string,
+    input: { readonly functionName: string; readonly args: readonly unknown[]; readonly triggerPayload?: unknown },
+  ): Promise<IStartDeliveryResolution> {
+    if (this.resolveRunEntry) {
+      const { resolution } = await this.resolveRunEntry(projectId, ownerId, input);
+      return resolution;
+    }
+    const documents = await this.documentsService.listFull(projectId, ownerId);
+    const exists = documents.some((document) => document.type === 'function' && document.name === input.functionName);
+    if (!exists) {
+      throw new NotFoundException(`Function "${input.functionName}" not found in project "${projectId}"`);
+    }
+    return { runnable: true, args: input.args };
   }
 
   /** Polled by the client every 500ms while a session is `running`/`paused` — see ADR 0021 (private) §5. */

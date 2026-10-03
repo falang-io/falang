@@ -103,15 +103,10 @@ describe('getQuestionNodeConfigs', () => {
 describe('buildQuestionNodeConfig with timeoutField', () => {
   const withTimeout: IQuestionDescriptor = { ...askQuestion, timeoutField: 'timeout' };
 
-  it('appends one extra, fixed option beyond the 2 default ones', () => {
+  it('seeds no timeout option: a fresh node has no timeout, so no timeout branch (the editor adds it once a timeout is set)', () => {
     const [header] = buildQuestionNodeConfig(withTimeout);
     const node = header.factory?.();
-    expect(node?.children).toHaveLength(3);
-    expect(node?.children?.map((child) => child.data)).toEqual([
-      { label: 'Вариант 1' },
-      { label: 'Вариант 2' },
-      { label: 'timeout', fixed: true },
-    ]);
+    expect(node?.children?.map((child) => child.data)).toEqual([{ label: 'Вариант 1' }, { label: 'Вариант 2' }]);
   });
 
   it('the fixed timeout option validates against the plain (non-typed) option schema', () => {
@@ -138,9 +133,8 @@ describe('buildQuestionNodeConfig with optionDataTypes', () => {
     expect(() => option.data?.type.parse({ label: 'Bad', dataType: 'not-a-type' })).toThrow();
   });
 
-  it('combines with timeoutField: the fixed option also carries a void dataType', () => {
-    const [header] = buildQuestionNodeConfig({ ...withTypes, timeoutField: 'timeout' });
-    const node = header.factory?.();
-    expect(node?.children?.at(-1)?.data).toEqual({ label: 'timeout', dataType: 'void', fixed: true });
+  it('combines with timeoutField: the option schema still accepts a fixed timeout option with a void dataType', () => {
+    const [, option] = buildQuestionNodeConfig({ ...withTypes, timeoutField: 'timeout' });
+    expect(() => option.data?.type.parse({ label: 'timeout', dataType: 'void', fixed: true })).not.toThrow();
   });
 });

@@ -1,4 +1,5 @@
 import { createContext, createElement, useContext, type FC, type ReactNode } from 'react';
+import type { IEventTrackerHandler } from '../analytics/event-tracker.js';
 import type { IApiUser } from '../api-client.js';
 
 /** An extra top-level navigation entry, shown in the project-list header after the built-in ones. */
@@ -25,6 +26,8 @@ export interface IClientExtensions {
   views?: IClientExtensionView[];
   /** Shown in the project-list header next to the built-in controls. */
   renderPlanBadge?: (user: IApiUser) => ReactNode;
+  /** Analytics handler; `App` installs it into the `eventTracker` singleton. Absent = nothing is tracked anywhere. */
+  eventTracker?: IEventTrackerHandler;
   /**
    * Called with the original thrown value of a failed agent turn (cloud: `AgentQuotaError` for HTTP 402 -> "buy
    * credits"); return `null` to fall back to the default error text. Passed as `renderError` to `AgentChatPanel` by

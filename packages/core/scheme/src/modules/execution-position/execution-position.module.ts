@@ -3,6 +3,7 @@ import { reaction, type IReactionDisposer } from 'mobx';
 import { TOKEN_CSS_CLASSES } from '../../di-tokens.js';
 import type { Scheme } from '../../scheme/scheme.js';
 import type { IModule } from '../../utils/i-module.js';
+import { resolveVisibleIconId } from '../../utils/resolve-visible-icon-id.js';
 import { scrollToNode } from '../../utils/scroll-to-node.js';
 
 /** Where a program currently is, as a diagram location — the node ids are the scheme's own, `documentId` is the `Scheme.id` it belongs to. */
@@ -64,7 +65,7 @@ export class ExecutionPositionModule implements IModule {
       (location) => {
         cssClasses.removeClassFromAllBlocks(EXECUTION_CURRENT_CLASS);
         if (!location || location.documentId !== scheme.id) return;
-        cssClasses.addBlockClass(location.nodeId, EXECUTION_CURRENT_CLASS);
+        cssClasses.addBlockClass(resolveVisibleIconId(scheme, location.nodeId), EXECUTION_CURRENT_CLASS);
         if (this.follow) scrollToNode(scheme, location.nodeId);
       },
       { fireImmediately: true },

@@ -5,7 +5,7 @@ import { generateUuid } from '../generate-uuid.js';
 import { getIntegrationInstances } from '../integration-instances.js';
 import { getEnabledIntegrations } from '../disabled-vendors.js';
 import { searchIntegrations } from './integration-catalog.js';
-import type { WorkflowStore } from '../workflow-store.js';
+import type { IWorkflowAgentStore } from './workflow-agent-store.js';
 
 const ok = (content: string): TToolExecutionResult => ({ content, ok: true });
 const fail = (error: string): TToolExecutionResult => ({ error, ok: false });
@@ -83,9 +83,9 @@ const TOOLS: readonly ILlmToolDefinition[] = [
 export class IntegrationToolProvider implements IAgentToolProvider {
   readonly tools = TOOLS;
 
-  private readonly store: WorkflowStore;
+  private readonly store: IWorkflowAgentStore;
 
-  constructor(store: WorkflowStore) {
+  constructor(store: IWorkflowAgentStore) {
     this.store = store;
   }
 

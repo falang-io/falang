@@ -103,8 +103,10 @@ test.describe('agent cross-document editing', () => {
       const reply = 'Added a log to helper and main, and created agentCreated.';
       await queueOpenAiToolCalls(MOCKS_URL, apiKey, [{ arguments: { message: reply }, name: 'finish' }]);
 
-      // Tabs aren't persisted across a reload: only `main` gets opened, `helper` has no tab.
-      await page.reload();
+      // Open tabs and the document hash are restored across a reload, so forget them first: only
+      // `main` gets opened below, `helper` has no tab.
+      await page.evaluate((id) => localStorage.removeItem(`falang:project-tabs:${id}`), projectId);
+      await page.goto('/');
       await openProjectViaUI(page, projectName);
       await page.getByRole('treeitem', { name: 'main' }).click();
       await expect(page.getByRole('tab', { name: 'main' })).toHaveAttribute('aria-selected', 'true');

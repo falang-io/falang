@@ -44,7 +44,9 @@ head:
     (displayed in the toolbar next to the status dot, and via <code>kubectl -n workflow get pods</code>).
   </li>
   <li>
-    Start an execution using the Temporal admin CLI:
+    Open the function and choose <b>Dev → Run function</b> in the toolbar (it asks for the function's parameters, if any): the icon it is
+    executing lights up on the canvas and a side panel shows its status and history. You can also start an execution
+    with the Temporal admin CLI:
     <pre><code>{`docker compose -f docker-compose.workflow.yml exec temporal-admin-tools \\
   temporal workflow start --task-queue workflow-dev-<projectId> --type <functionName> \\
   --workflow-id demo-1 --input '{}'`}</code></pre>
@@ -63,10 +65,15 @@ head:
   <li>a self-hosted <b>Temporal</b> server (version 1.32, with its own Postgres, a one-shot schema job and a job creating the <code>default</code> namespace), its admin CLI and web UI;</li>
   <li>a separate Postgres database for the <b>backend</b> (projects, folders, documents, users);</li>
   <li>the <b>backend</b> — stores projects, compiles functions, and manages starting/stopping runner pods via the Kubernetes API;</li>
-  <li>the <b>client</b> — the web scheme editor;</li>
+  <li>the <b>client</b> — the web scheme editor (the Admin app is served at <code>/admin</code>);</li>
+  <li>
+    <b>MinIO</b> — S3-compatible object storage for <a href="../files/">files</a> (console at
+    <code>http://localhost:9001</code>);
+  </li>
+  <li><b>media</b> — the ffmpeg service behind the <a href="../media/">Media</a> integration;</li>
   <li>
     <b>activepieces</b> — a helper service backing part of the integrations catalog (see
-    <a href="./integrations/"> Integrations</a>).
+    <a href="../integrations/"> Integrations</a>).
   </li>
 </ul>
 <p>

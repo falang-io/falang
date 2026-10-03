@@ -33,7 +33,10 @@ head:
 
 #### Core concepts
 <ul>
-  <li><b>Project</b> — a container for documents: functions, trigger functions, and the project's integrations document.</li>
+  <li>
+    <b>Project</b> — a container for documents: functions, trigger functions, object structures (data types), and the
+    project's integrations document. The project list shows the most recently edited projects first.
+  </li>
   <li><b>Function</b> — an ordinary algorithm scheme, same as in the logic constructor.</li>
   <li>
     <b>Trigger function</b> — a document started by an external event (a Telegram message, an incoming webhook,
@@ -50,11 +53,43 @@ head:
     <b>Debug</b> — like Run, but you can set breakpoints on any statement first: execution pauses there, the paused
     icon is highlighted, and a side panel lists every variable in scope. See <a href="./debugging/">Debugging</a>.
   </li>
+  <li>
+    <b>Files</b> and <b>Tasks</b> — project tabs next to Runs: the files your scenarios stored, and the decisions
+    they are waiting on from you. See <a href="./files/">Files</a> and <a href="./human-tasks/">Tasks for people</a>.
+  </li>
+  <li>
+    <b>Agent</b> and <b>History</b> — the right-hand sidebar: an AI agent that builds and edits the project from a
+    plain-language description, and the project's version history.
+  </li>
 </ul>
+
+#### Project layout
+<p>
+  The project tree always starts with the <b>Integrations</b> document followed by three fixed sections:
+  <b>Triggers</b> (trigger functions), <b>Functions</b> and <b>Types</b> (object structures). Each document type lives
+  only in its own section — you can create your own nested folders inside a section, but a document can't be moved to
+  a section that doesn't accept its type, and the sections themselves can't be renamed, moved or deleted. The AI agent
+  and the MCP server follow the same rules.
+</p>
+<p>
+  Document names are unique within a project (case-insensitively, across all document types). Right-click a document
+  or a folder in the tree and choose <b>Rename</b> to change its name (function names must stay English camelCase).
+  The page address (<code>#/projects/…/documents/…</code>) follows the open project and document, so a reload or the
+  browser's Back button brings you to the same place, and each project remembers its open tabs. When you create a
+  trigger you pick one of the project's <b>credentials</b> (integration instances); integrations that need none,
+  such as a schedule, are offered in a separate group.
+</p>
 
 #### Next
 <ul>
   <li><a href="./local-setup/">Local setup</a> — how to run the engine yourself and try it live.</li>
   <li><a href="./integrations/">Integrations</a> — which external services are already supported.</li>
+  <li><a href="./schedule-triggers/">Schedule triggers</a> — starting a scenario on an interval or a cron schedule.</li>
+  <li><a href="./files/">Files</a>, <a href="./databases/">Databases</a>, <a href="./media/">Media</a> — working with files, SQL databases, images, video and audio.</li>
+  <li><a href="./human-tasks/">Tasks for people</a> — pausing a scenario until a person decides.</li>
+  <li><a href="./ai-agent/">AI agent</a> and <a href="./magic-node/">Magic node</a> — building a project from a plain-language description.</li>
+  <li><a href="./administration/">Administration</a> — users, roles, limits, OAuth2 clients and the agent's settings.</li>
   <li><a href="./debugging/">Debugging</a> — breakpoints, pausing, and inspecting variables on the dev stand.</li>
+  <li><a href="./versioning/">Version history</a> — naming, comparing and restoring versions of a project.</li>
+  <li><a href="../pdf-export/">Export to PDF</a> — printing schemes.</li>
 </ul>

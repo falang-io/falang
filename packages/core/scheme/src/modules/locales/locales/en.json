@@ -10,8 +10,10 @@
     "continue": "Continue",
     "throw": "Throw",
     "return": "Return",
+    "comment": "Comment",
     "parallel": "Parallel",
     "parallel-thread": "Thread",
+    "timer": "Timer",
     "pseudo-cycle": "Cycle"
   },
   "base": {

@@ -1,0 +1,117 @@
+---
+title: Code projects
+description: Algorithm schemes with raw source code in C++, JavaScript, TypeScript, PHP or Rust, assembled into source files
+head:
+  - tag: meta
+    attrs:
+      name: keywords
+      content: 'code, c++, javascript, typescript, php, rust, flowchart, code generation, falang'
+---
+
+<p>
+  A code project draws an algorithm as a scheme whose icons hold ordinary source code in one language. Falang does not
+  check or translate that code: it lays out the control flow (conditions, loops, exits) and assembles the text of the
+  icons into a source file. Use it to design or document an algorithm visually and still get a file you can compile.
+</p>
+
+#### Languages
+
+<p>
+  Choose the language when you create the project — <b>Code (C++)</b>, <b>Code (JavaScript)</b>,{' '}
+  <b>Code (TypeScript)</b>, <b>Code (PHP)</b> or <b>Code (Rust)</b>. One project has one language. It can hold any
+  number of schemes, in folders; a new project starts with one scheme called <b>Main</b>.
+</p>
+
+#### What you type into the icons
+
+<p>Every field is plain source code in the project's language, edited with syntax highlighting.</p>
+<ul>
+  <li>
+    <b>Function</b> — the scheme itself. Its top block is the function header, typed in full (for example{' '}
+    <code>int main()</code> or <code>fn main()</code>); the bottom block is the final code, printed last (for example{' '}
+    <code>return 0;</code>). Nothing is generated from the scheme name.
+  </li>
+  <li>
+    <b>Action</b> — one or more statements; several lines are fine.
+  </li>
+  <li>
+    <b>If</b> and <b>While</b> — only the condition, without the keyword and brackets: <code>x &gt; 0</code>. "Switch
+    true/false" in the context menu swaps which branch is the "true" one.
+  </li>
+  <li>
+    <b>Switch</b> — the value being switched on; each option holds its case value. An option with the value{' '}
+    <code>default</code> becomes the default case.
+  </li>
+  <li>
+    <b>For each</b> — the whole loop header in the language's own syntax, for example <code>for (const x of items)</code>
+    , <code>for x in items</code> or <code>foreach ($items as $x)</code>.
+  </li>
+  <li>
+    <b>Cycle</b> — no field: the body runs once, and a <b>Continue</b> inside it starts it again.
+  </li>
+  <li>
+    <b>Break</b>, <b>Continue</b>, <b>Return</b> (with an optional value) and <b>Throw</b> (with a value) — offered at
+    the end of a branch or loop body, see <a href="../basics/">Basics</a>.
+  </li>
+</ul>
+<p>
+  The code is <b>not checked</b>: there are no error marks while you type, and a mistake shows up only when you compile
+  the generated file.
+</p>
+
+#### Generating the files
+
+<p>
+  Choose <b>Project → Export Code Documents</b>. Every scheme of the project becomes one file in the project's{' '}
+  <code>generated</code> folder, named after the scheme (<code>generated/Main.cpp</code>, <code>Main.rs</code>, …). All
+  files go into that one folder, whatever folders the schemes are in; characters that are not safe in a file name are
+  replaced with <code>_</code>, and a duplicate name gets a short suffix. A progress window with a <b>Cancel</b> button
+  is shown; an error in one scheme does not stop the others. Files are generated only by this command, not on save.
+</p>
+<p>A scheme becomes the header, then a block with its icons and the final code:</p>
+
+```cpp
+int main()
+{
+  if (x > 0) {
+    printf("yes\n");
+  } else {
+    continue;
+  }
+  while (i < 10) {
+    i++;
+    break;
+  }
+  return 0;
+}
+```
+
+#### Language differences
+
+<ul>
+  <li>
+    <b>C++, JavaScript, TypeScript and PHP</b> share the C-like form above. A <b>Switch</b> becomes{' '}
+    <code>switch</code> with every case in its own <code>{'{ }'}</code> block and no automatic <code>break;</code> — add
+    an exit yourself where you need one. A <b>Cycle</b> becomes <code>while (true) {'{ … break; }'}</code>. An{' '}
+    <code>else</code> block is always written, even when its branch is empty.
+  </li>
+  <li>
+    <b>PHP</b> files are wrapped in <code>&lt;?php … ?&gt;</code>.
+  </li>
+  <li>
+    <b>Rust</b>: conditions have no brackets (<code>if x &gt; 0 {'{'}</code>), a <b>Switch</b> becomes{' '}
+    <code>match</code> with <code>default</code> written as <code>_</code>, a <b>Cycle</b> becomes{' '}
+    <code>loop {'{ … break; }'}</code>, and <b>Throw</b> becomes <code>panic!(…)</code>.
+  </li>
+  <li>
+    <b>Break</b> and <b>Continue</b> always apply to the nearest loop; numbered exits from outer loops are not
+    available in code projects.
+  </li>
+</ul>
+
+#### Also available
+
+<p>
+  Code projects get the same <a href="../ai-agent/">AI agent</a>, <a href="../coding-agents/">coding-agent access</a>,
+  version history and <a href="../pdf-export/">PDF export</a> as the other desktop projects.
+</p>

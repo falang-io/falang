@@ -4,7 +4,11 @@ import * as path from 'node:path';
 import git from 'isomorphic-git';
 import { diffSnapshots, isSnapshotDirty } from '@falang/versioning';
 import type { ICommitInfo, IProjectSnapshot, IVersionStore, TCommitKind } from '@falang/versioning';
+import { documentFilePath } from '../layout.js';
+import { readManifest } from '../manifest.js';
+import { withProjectLock } from '../project-lock.js';
 import { documentsDir } from '../paths.js';
+import { reconcileProjectLayout } from '../reconcile-layout.js';
 import {
   assertCommitExists,
   buildCommitInfo,
@@ -30,15 +34,22 @@ import type { IGitVersioningOptions } from './git-version-store-types.js';
 export { DEFAULT_AUTO_VERSION_GAP_HOURS, DEFAULT_GIT_VERSIONING_OPTIONS } from './git-version-store-types.js';
 export type { IGitVersioningOptions } from './git-version-store-types.js';
 
-const deleteExtraDocumentFiles = async (projectDir: string, targetSnapshot: IProjectSnapshot): Promise<void> => {
-  const targetIds = new Set(targetSnapshot.documents.map((doc) => doc.id));
-  const docsDir = documentsDir(projectDir);
-  const entries = await fs.readdir(docsDir).catch(() => [] as string[]);
-  await Promise.all(
-    entries
-      .filter((fileName) => fileName.endsWith('.json') && !targetIds.has(fileName.slice(0, -'.json'.length)))
-      .map((fileName) => fs.rm(path.join(docsDir, fileName), { force: true })),
-  );
+/** Deletes every `.json` under `falang/schemes/` (any depth) that the restored manifest doesn't reference by its resolved path. */
+const deleteExtraDocumentFiles = async (projectDir: string): Promise<void> => {
+  const manifest = await readManifest(projectDir);
+  const referenced = new Set(manifest.documents.map((doc) => documentFilePath(projectDir, manifest, doc)));
+  const walk = async (dir: string): Promise<void> => {
+    const entries = await fs.readdir(dir, { withFileTypes: true }).catch(() => []);
+    await Promise.all(
+      entries.map(async (entry) => {
+        const full = path.join(dir, entry.name);
+        if (entry.isDirectory()) await walk(full);
+        else if (entry.isFile() && entry.name.endsWith('.json') && !referenced.has(full))
+          await fs.rm(full, { force: true });
+      }),
+    );
+  };
+  await walk(documentsDir(projectDir));
 };
 
 class GitVersionStore implements IVersionStore {
@@ -105,7 +116,8 @@ class GitVersionStore implements IVersionStore {
       const options = await this.getOptions();
       const ctx = await this.resolveContext(options);
       const targetCommit = await assertCommitExists(ctx.repoRoot, commitId);
-      const targetSnapshot = await readSnapshotAtOid(ctx, commitId);
+      // Fail early (before touching the working tree) if the commit's snapshot can't be read at all.
+      await readSnapshotAtOid(ctx, commitId);
 
       await git.checkout({
         fs: nodeFs,
@@ -120,7 +132,9 @@ class GitVersionStore implements IVersionStore {
       // (see the ADR's "Implementation notes" for the real, live-verified behavior) — this is a
       // defensive extra pass so restore's correctness never depends on that observation holding
       // across an isomorphic-git version bump.
-      await deleteExtraDocumentFiles(this.projectDir, targetSnapshot);
+      await withProjectLock(this.projectDir, () => deleteExtraDocumentFiles(this.projectDir));
+      // A v4-era commit restores its flat `<id>.json` layout — bring it to v5 (name-based paths) again.
+      await reconcileProjectLayout(this.projectDir);
 
       const message = `Restore ${shortOid(commitId)}: ${targetCommit.message}`;
       const result = await this.commitCore(ctx, options, 'named', message);

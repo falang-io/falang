@@ -1,8 +1,7 @@
 import type React from 'react';
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo } from 'react';
 import { observer } from 'mobx-react-lite';
 import { getGlobalI18n } from '@falang/scheme';
-import { isValidFunctionName } from '@falang/dto';
 import { Alert, Form, Input, Modal, Select } from 'antd';
 import type { IFieldConfig, IIntegrationsDocumentData } from '@falang/workflow-integrations-common';
 import {
@@ -15,7 +14,8 @@ import {
 } from '@falang/workflow-integrations-schedule';
 import { useWorkflowStore } from '../workflow-store-context.js';
 import { REGISTERED_INTEGRATIONS } from '../integrations-registry.js';
-import { resolveTriggerCredentialId } from './trigger-credential.js';
+import { buildTriggerCredentialOptions } from './trigger-credential.js';
+import { validateDocumentName } from '../document-names.js';
 import { CronBuilderField } from './cron-builder-field.js';
 
 /** A sensible starting point once "cron" is picked — "once an hour" (also what `react-js-cron`'s own `@hourly` shortcut produces), not presumptuous about weekdays/time-of-day. */
@@ -24,9 +24,9 @@ const DEFAULT_INTERVAL_UNIT = 'minutes';
 
 interface FormValues {
   name: string;
-  vendor: string;
+  /** `ITriggerCredentialOption.key` — the vendor and credential id are derived from it. */
+  credential: string;
   triggerName: string;
-  credentialId: string;
   contextFields?: Record<string, string>;
 }
 
@@ -53,31 +53,55 @@ export const NewTriggerModal: React.FC<NewTriggerModalProps> = observer(({ open,
   const t = i18n.t;
   const store = useWorkflowStore();
   const [form] = Form.useForm<FormValues>();
-  const [vendor, setVendor] = useState<string | null>(null);
+  const credentialKey = Form.useWatch('credential', form);
 
   useEffect(() => {
     if (!open) return;
-    const firstVendor = REGISTERED_INTEGRATIONS[0]?.vendor ?? null;
-    setVendor(firstVendor);
     form.resetFields();
-    form.setFieldsValue({ name: '', vendor: firstVendor ?? '', triggerName: '', credentialId: '' });
+    form.setFieldsValue({ name: '', credential: '', triggerName: '' });
   }, [open, form]);
 
-  const integration = useMemo(() => REGISTERED_INTEGRATIONS.find((item) => item.vendor === vendor), [vendor]);
-
-  const instances = useMemo(() => {
-    const data = store.integrationsDocument?.customData as IIntegrationsDocumentData | undefined;
-    return (data?.instances ?? []).filter((item) => item.vendor === vendor);
-  }, [store.integrationsDocument?.customData, vendor]);
-
-  // Credential-less vendor (e.g. `schedule`) with no explicit instance in this project yet — the
-  // credential step is skipped entirely, `credentialId` becomes the vendor id itself (implicit target,
-  // see ADR 0037 (private) §4). `null` means a real instance still has to be
-  // picked from `instances` via the Select below, same as before.
-  const implicitCredentialId = useMemo(
-    () => resolveTriggerCredentialId(integration, instances),
-    [integration, instances],
+  const options = useMemo(
+    () =>
+      buildTriggerCredentialOptions(
+        REGISTERED_INTEGRATIONS,
+        ((store.integrationsDocument?.customData as IIntegrationsDocumentData | undefined)?.instances ?? []).map(
+          (instance) => instance,
+        ),
+      ),
+    [store.integrationsDocument?.customData],
   );
+  const selected = useMemo(
+    () => [...options.instances, ...options.withoutCredentials].find((option) => option.key === credentialKey),
+    [options, credentialKey],
+  );
+  const integration = useMemo(
+    () => REGISTERED_INTEGRATIONS.find((item) => item.vendor === selected?.vendor),
+    [selected],
+  );
+  const vendorLabel = (vendor: string): string => {
+    const found = REGISTERED_INTEGRATIONS.find((item) => item.vendor === vendor);
+    return found ? t(found.label) : vendor;
+  };
+  const selectOptions = [
+    {
+      label: t('client:new-trigger-modal.group-credentials'),
+      options: options.instances.map((option) => ({
+        value: option.key,
+        label: `${option.instanceName} (${vendorLabel(option.vendor)})`,
+      })),
+    },
+    {
+      label: t('client:new-trigger-modal.group-no-credentials'),
+      options: options.withoutCredentials.map((option) => ({ value: option.key, label: vendorLabel(option.vendor) })),
+    },
+  ].filter((group) => group.options.length > 0);
+
+  // Preselect the project's first integration instance (never overwrites a choice already made).
+  useEffect(() => {
+    if (!open || options.instances.length === 0) return;
+    if (!form.getFieldValue('credential')) form.setFieldsValue({ credential: options.instances[0].key });
+  }, [open, options, form]);
 
   const triggerName = Form.useWatch('triggerName', form);
   const trigger = useMemo(
@@ -85,9 +109,8 @@ export const NewTriggerModal: React.FC<NewTriggerModalProps> = observer(({ open,
     [integration, triggerName],
   );
 
-  const handleVendorChange = (nextVendor: string) => {
-    setVendor(nextVendor);
-    form.setFieldsValue({ triggerName: '', credentialId: '', contextFields: {} });
+  const handleCredentialChange = () => {
+    form.setFieldsValue({ triggerName: '', contextFields: {} });
   };
 
   const handleTriggerChange = (nextTriggerName: string) => {
@@ -144,13 +167,11 @@ export const NewTriggerModal: React.FC<NewTriggerModalProps> = observer(({ open,
     const triggerConfig = trigger?.contextFields?.length
       ? Object.fromEntries(trigger.contextFields.map((field) => [field.name, values.contextFields?.[field.name] ?? '']))
       : null;
-    // When `implicitCredentialId` is set, the credential Form.Item below isn't rendered at all (so
-    // `values.credentialId` would be empty) — the vendor id itself is the credential id in that case.
-    const credentialId = implicitCredentialId ?? values.credentialId;
+    if (!selected) return;
     onCreate(values.name, {
-      vendor: values.vendor,
+      vendor: selected.vendor,
       triggerName: values.triggerName,
-      credentialId,
+      credentialId: selected.credentialId,
       ...(triggerConfig ? { triggerConfig } : {}),
     });
     onClose();
@@ -165,8 +186,8 @@ export const NewTriggerModal: React.FC<NewTriggerModalProps> = observer(({ open,
       destroyOnHidden
       okText={t('client:new-trigger-modal.create')}
     >
-      {REGISTERED_INTEGRATIONS.length === 0 ? (
-        <Alert type="warning" message={t('client:new-trigger-modal.no-integrations')} />
+      {selectOptions.length === 0 ? (
+        <Alert type="warning" message={t('client:new-trigger-modal.no-credentials-hint')} />
       ) : (
         <Form<FormValues> form={form} layout="vertical">
           <Form.Item
@@ -175,19 +196,28 @@ export const NewTriggerModal: React.FC<NewTriggerModalProps> = observer(({ open,
             rules={[
               { required: true, message: t('client:new-trigger-modal.name-required') },
               {
-                validator: (_rule, value: string) =>
-                  !value || isValidFunctionName(value)
-                    ? Promise.resolve()
-                    : Promise.reject(new Error(t('client:new-trigger-modal.name-invalid'))),
+                validator: (_rule, value: string) => {
+                  const error = value ? validateDocumentName(store.documents, 'trigger-function', value) : null;
+                  if (error === 'invalid-function-name')
+                    return Promise.reject(new Error(t('client:new-trigger-modal.name-invalid')));
+                  if (error === 'taken') return Promise.reject(new Error(t('client:new-trigger-modal.name-taken')));
+                  return Promise.resolve();
+                },
               },
             ]}
           >
             <Input autoFocus placeholder={t('client:new-trigger-modal.name-placeholder')} />
           </Form.Item>
-          <Form.Item name="vendor" label={t('client:new-trigger-modal.integration-label')} rules={[{ required: true }]}>
+          <Form.Item
+            name="credential"
+            label={t('client:new-trigger-modal.credential-label')}
+            rules={[{ required: true, message: t('client:new-trigger-modal.credential-required') }]}
+            extra={options.instances.length === 0 ? t('client:new-trigger-modal.no-credentials') : null}
+          >
             <Select
-              options={REGISTERED_INTEGRATIONS.map((item) => ({ value: item.vendor, label: t(item.label) }))}
-              onChange={handleVendorChange}
+              options={selectOptions}
+              placeholder={t('client:new-trigger-modal.credential-placeholder')}
+              onChange={handleCredentialChange}
             />
           </Form.Item>
           <Form.Item
@@ -198,6 +228,7 @@ export const NewTriggerModal: React.FC<NewTriggerModalProps> = observer(({ open,
             <Select
               options={(integration?.triggers ?? []).map((item) => ({ value: item.name, label: t(item.label) }))}
               placeholder={t('client:new-trigger-modal.trigger-type-placeholder')}
+              disabled={!integration}
               onChange={handleTriggerChange}
             />
           </Form.Item>
@@ -241,20 +272,6 @@ export const NewTriggerModal: React.FC<NewTriggerModalProps> = observer(({ open,
                 })}
               </ul>
             </div>
-          )}
-          {implicitCredentialId === null && (
-            <Form.Item
-              name="credentialId"
-              label={t('client:new-trigger-modal.credential-label')}
-              rules={[{ required: true, message: t('client:new-trigger-modal.credential-required') }]}
-              extra={instances.length === 0 ? t('client:new-trigger-modal.no-credentials') : null}
-            >
-              <Select
-                options={instances.map((instance) => ({ value: instance.id, label: instance.name }))}
-                placeholder={t('client:new-trigger-modal.credential-placeholder')}
-                disabled={instances.length === 0}
-              />
-            </Form.Item>
           )}
         </Form>
       )}

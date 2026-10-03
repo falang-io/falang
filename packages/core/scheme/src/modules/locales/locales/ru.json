@@ -10,8 +10,10 @@
     "continue": "Продолжить",
     "throw": "Исключение",
     "return": "Возврат",
+    "comment": "Комментарий",
     "parallel": "Параллельно",
     "parallel-thread": "Поток",
+    "timer": "Таймер",
     "pseudo-cycle": "Цикл"
   },
   "base": {

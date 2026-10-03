@@ -1,5 +1,6 @@
 import { BadRequestException, Controller, Get, Inject, NotFoundException, Param } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
+import { runWithEgressVendor } from '@falang/workflow-egress';
 import { InjectRepository } from '@nestjs/typeorm';
 import {
   getChoiceHeaderFields,
@@ -80,6 +81,11 @@ export class IntegrationFieldOptionsController {
     // `ctx.vendorData` backs `sql-common`'s `table` field (ADR 0039 (private) §6's `loadOptions`
     // extension) — options come from a previously-synced schema rather than a fresh live round trip.
     const vendorData = await this.vendorData.getAll(projectId, credentialId);
-    return [...(await field.loadOptions(resolvedFields, { instance, vendorData, egress: getBackendEgress() }))];
+    const loadOptions = field.loadOptions.bind(field);
+    return [
+      ...(await runWithEgressVendor(instance.vendor, () =>
+        loadOptions(resolvedFields, { instance, vendorData, egress: getBackendEgress() }),
+      )),
+    ];
   }
 }

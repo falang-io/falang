@@ -1,4 +1,5 @@
 import React from 'react';
+import type { IconStore } from '../store/icon.store.js';
 
 export interface IBlockShapePosition {
   x: number;
@@ -23,6 +24,8 @@ export interface IBlockShapeViewProps {
   width: number;
   height: number;
   className: string;
+  /** The icon the shape is drawn for — lets a shape depend on the node (e.g. `return` in a void function). */
+  icon?: IconStore;
 }
 
 export interface IBlockShapeGetterParams {

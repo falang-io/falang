@@ -13,11 +13,14 @@ const renderType = (type: TScopeVariableType): string =>
  */
 export class ScopeVariablesContextProvider implements IAgentContextProvider {
   describe(context: IAgentRunContext): string | null {
-    const root = context.getActiveScheme()?.rootNode;
-    if (!root) return null;
-    const variables = collectScopeVariables(root);
+    const scheme = context.getActiveScheme();
+    const focus = (context.focusNodeId && scheme?.nodes.getNodeSafe(context.focusNodeId)) || null;
+    const target = focus ?? scheme?.rootNode;
+    if (!target) return null;
+    const variables = collectScopeVariables(target);
     if (variables.length === 0) return null;
     const lines = variables.map((v) => `- ${v.name}: ${renderType(v.type)}`);
-    return `Identifiers in scope at node ${root.id}:\n${lines.join('\n')}`;
+    const where = focus ? `at node ${focus.id} (the insertion point)` : `at node ${target.id}`;
+    return `Identifiers in scope ${where}:\n${lines.join('\n')}`;
   }
 }

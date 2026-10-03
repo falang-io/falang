@@ -244,6 +244,33 @@ services:
       - '8080:8080'
     networks: [falang-workflow-network]
 
+  # Egress proxy (ADR 0056 (private)) — standalone forward proxy, built from `./proxy` alone. Not used
+  # unless an admin sets `PUT /admin/settings/proxy`; `PROXY_EXPOSE_STATS` is for test stacks only.
+  proxy:
+    build:
+      context: ./proxy
+      dockerfile: Dockerfile
+    container_name: falang-workflow-proxy
+    environment:
+      - HTTP_PORT=8080
+      - PROXY_TOKENS=${PROXY_TOKENS:-dev-proxy-token-change-me}
+      - PROXY_ALLOWED_PORTS=*
+      - PROXY_EXPOSE_STATS=true
+    ports:
+      - '4300:8080'
+    healthcheck:
+      test:
+        [
+          'CMD',
+          'node',
+          '-e',
+          "fetch('http://localhost:8080/health').then((r) => process.exit(r.ok ? 0 : 1), () => process.exit(1))",
+        ]
+      interval: 5s
+      timeout: 5s
+      retries: 20
+    networks: [falang-workflow-network]
+
   backend:
     build:
       context: .
@@ -253,6 +280,8 @@ services:
       temporal-setup:
         condition: service_completed_successfully
       app-postgres:
+        condition: service_started
+      mailpit:
         condition: service_started
       # Ensures the `falang-files` bucket exists before `backend` (or anything that pokes it) ever
       # tries to upload — see ADR 0038 (private) §2.
@@ -323,6 +352,15 @@ services:
       # live on docker-internal addresses, so both are opted in for this stack.
       - EGRESS_ALLOW_PRIVATE=true
       - ENABLE_SQLITE_INTEGRATION=true
+      # Mail (closed-beta signup, verification, password reset): outgoing mail lands in Mailpit,
+      # UI at http://localhost:8025. Links in mails point at CLIENT_PUBLIC_URL.
+      - SMTP_URL=smtp://mailpit:1025
+      - MAIL_FROM=noreply@falang.local
+      - CLIENT_PUBLIC_URL=${CLIENT_PUBLIC_URL:-http://localhost:5175}
+      # off | open | application (closed beta: e-mail application, admin activates). Wins over SELF_SERVICE_SIGNUP.
+      - SIGNUP_MODE=${SIGNUP_MODE:-open}
+      # none | recaptcha (+ CAPTCHA_SITE_KEY / CAPTCHA_SECRET)
+      - CAPTCHA_PROVIDER=${CAPTCHA_PROVIDER:-none}
       - TERMS_URL=${TERMS_URL:-}
       # Unset by default: with no public ingress, `@falang/workflow-gateway`'s `GatewayRuntimeService`
       # falls back to long-polling every configured vendor credential (Telegram's `getUpdates`) on a
@@ -427,6 +465,13 @@ services:
       interval: 5s
       timeout: 5s
       retries: 20
+    networks: [falang-workflow-network]
+
+  mailpit:
+    image: axllent/mailpit
+    container_name: falang-workflow-mailpit
+    ports:
+      - '8025:8025'
     networks: [falang-workflow-network]
 
   client:

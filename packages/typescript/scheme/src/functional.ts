@@ -61,6 +61,9 @@ import { fromToCycleHeaderBlockConfig } from './blocks/from-to-cycle-header/from
 import { actionBlockConfig } from './blocks/action/action.block.config.js';
 import { logBlockConfig } from './blocks/log/log.block.config.js';
 import { ifBlockConfig } from './blocks/if/if.block.config.js';
+import { expressionBlockConfig } from './blocks/expression/expression.block.config.js';
+import { returnBlockConfig, returnIconConfig, returnShape } from './blocks/return/return.block.config.js';
+import { isInValueReturningFunction, RETURN_VALUE_NAME } from './blocks/return/return-value.js';
 
 const getFunctionIconsGroup = () => {
   const block = textBlockConfig;
@@ -80,13 +83,13 @@ const getFunctionIconsGroup = () => {
     }),
     foreach: getForeachIconNodeConfig({ block: foreachHeaderBlockConfig }),
     'from-to-cycle': getForeachIconNodeConfig({ block: fromToCycleHeaderBlockConfig }),
-    while: getWhileIconNodeConfig({ block }),
+    while: getWhileIconNodeConfig({ block: expressionBlockConfig }),
     'pseudo-cycle': getPseudoCycleIconNodeConfig('pseudo-cycle'),
     ...getParallelIconConfig('parallel'),
     ...getSwitchIconConfig({
       name: 'switch',
-      block,
-      child: block,
+      block: expressionBlockConfig,
+      child: expressionBlockConfig,
     }),
     'call-function': getSimpleIconNodeConfig(callFunctionBlockConfig, true),
     'call-api': getSimpleIconNodeConfig(callApiBlockConfig, true),
@@ -98,14 +101,14 @@ const getFunctionIconsGroup = () => {
     'arr-slice': getSimpleIconNodeConfig(arrSliceBlockConfig, true),
     'arr-unshift': getSimpleIconNodeConfig(arrOpInputBlockConfig, true),
     throw: {
-      block,
+      block: expressionBlockConfig,
       icon: outIconConfig,
       shape: rectangleShape,
     },
     return: {
-      block,
-      icon: outIconConfig,
-      shape: rectangleShape,
+      block: returnBlockConfig,
+      icon: returnIconConfig,
+      shape: returnShape,
     },
     continue: {
       block: getPseudoBlockConfig('icon:continue', CELL_SIZE_4),
@@ -200,7 +203,11 @@ const buildOutsMenu = (scheme: Scheme, parent: IconStore, builder: ContextMenuBu
         items: [
           {
             onClick: () => {
-              const node = createINodeByName('return', scheme, { outLevel: currentReturnIndex });
+              const created = createINodeByName('return', scheme, { outLevel: currentReturnIndex });
+              // A function with a return value returns its auto-declared `returnValue` by default.
+              const node = isInValueReturningFunction(scheme.nodes.getNode(parent.id))
+                ? { ...created, data: RETURN_VALUE_NAME }
+                : created;
               scheme.commands.dispatchCommand(CMD_SET_OUT, {
                 id: parent.id,
                 outNode: node,
@@ -217,9 +224,11 @@ const buildOutsMenu = (scheme: Scheme, parent: IconStore, builder: ContextMenuBu
 
 class TypescriptFunctionalModule implements IModule {
   private readonly extraInsertableItems: readonly string[];
+  private readonly defaultInsertNodeName: () => string;
 
-  constructor(extraInsertableItems: readonly string[] = []) {
+  constructor(extraInsertableItems: readonly string[] = [], defaultInsertNodeName: () => string = () => 'action') {
     this.extraInsertableItems = extraInsertableItems;
+    this.defaultInsertNodeName = defaultInsertNodeName;
   }
 
   register(scheme: Scheme) {
@@ -227,7 +236,7 @@ class TypescriptFunctionalModule implements IModule {
       const parentIcon = scheme.icons.getIcon(vp.parentId);
       const nodeConfig = scheme.infra.structure.configsMap.get(parentIcon.name);
       if (!nodeConfig) return false;
-      const childName = Array.isArray(nodeConfig.children) ? nodeConfig.children[0] : 'action';
+      const childName = Array.isArray(nodeConfig.children) ? nodeConfig.children[0] : this.defaultInsertNodeName();
       const newNode = scheme.infra.structure.factory(childName);
       scheme.commands.dispatchCommand(CMD_INSERT_NODE, {
         index: vp.index,
@@ -309,6 +318,11 @@ export interface IFunctionStructureSchemeFactoryParams extends Omit<ISchemeFacto
   extraIconsGroups?: IconsGroup[];
   /** Extra node-kind names appended to the valence-point "add node" menu, alongside the built-in ones. */
   extraInsertableItems?: string[];
+  /**
+   * Name of the node kind a plain valence-point click inserts under a `children: true` parent (read on every
+   * click). Defaults to `'action'`. See ADR 0046 (private) — the magic node.
+   */
+  defaultInsertNodeName?: () => string;
 }
 
 export const functionalSchemeFactory = ({
@@ -316,6 +330,7 @@ export const functionalSchemeFactory = ({
   extraModules,
   extraIconsGroups,
   extraInsertableItems,
+  defaultInsertNodeName,
   ...props
 }: IFunctionStructureSchemeFactoryParams) => {
   const usedInfra =
@@ -336,7 +351,7 @@ export const functionalSchemeFactory = ({
       new BlockResizeModule(),
       new CoreLocalesModule(),
       new TypescriptSchemeLocalesModule(),
-      new TypescriptFunctionalModule(extraInsertableItems),
+      new TypescriptFunctionalModule(extraInsertableItems, defaultInsertNodeName),
       ...(extraModules ?? []),
     ],
     parentContainer,

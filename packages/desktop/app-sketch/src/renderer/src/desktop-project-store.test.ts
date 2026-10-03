@@ -1,15 +1,12 @@
 // @vitest-environment jsdom
 // oxlint-disable max-lines -- crossed 300 lines with the new "function name validation" describe
 // block; not accumulated complexity worth splitting the file over.
-// `DesktopProjectStore` transitively imports `@falang/typescript-scheme`'s Monaco-backed blocks
-// (`function`/`objects-structure` scheme factories), which reach for a real `window` at import
-// time — same reason `@falang/text-scheme`'s `html-round-trip.test.ts` needs this directive.
-import './monaco-jsdom-shim.js';
 import 'reflect-metadata';
 import { describe, it, expect, vi } from 'vitest';
 import type { INode, IProjectDocument } from '@falang/dto';
 import type { IProjectTree } from '@falang/desktop-project-fs';
 import { resolveService } from '@falang/di';
+import { CMD_INSERT_NODE } from '@falang/scheme';
 import { OBJECTS_STRUCTURE_NAME } from '@falang/typescript-dto';
 import { TOKEN_TYPESCRIPT_PROJECT_SERVICE } from '@falang/typescript-scheme';
 import { DesktopProjectStore } from './desktop-project-store.js';
@@ -511,6 +508,83 @@ describe('DesktopProjectStore — getActiveHistory', () => {
     try {
       store.createDocument('function', 'myFunctionName');
       expect(store.getActiveHistory()).not.toBeNull();
+    } finally {
+      store.dispose();
+    }
+  });
+});
+
+describe('DesktopProjectStore — autosave after a scheme edit', () => {
+  const setUpFunctionProject = (): {
+    write: ReturnType<typeof vi.fn>;
+    emitProjectChanged: (event: { kind: string }) => void;
+  } => {
+    const rootNode: INode = {
+      id: 'fn-root',
+      name: 'function',
+      children: [
+        { id: 'fn-header', name: 'function-header', data: '' },
+        { id: 'fn-body', name: 'function-body', children: [], data: { parameters: [] } },
+        { id: 'fn-footer', name: 'function-footer', data: '' },
+      ],
+    };
+    const document: IProjectDocument = { id: 'fn', name: 'Main', root: rootNode, type: 'function' };
+    const write = vi.fn().mockResolvedValue(null);
+    const tree: IProjectTree = {
+      documents: [{ id: 'fn', folderId: null, name: 'Main', type: 'function' }],
+      folders: [],
+    };
+    const onChanged = vi.fn().mockReturnValue(vi.fn());
+    (globalThis as { falang?: unknown }).falang = {
+      codeExport: { onProgress: vi.fn().mockReturnValue(vi.fn()) },
+      document: { read: vi.fn().mockResolvedValue(document), write },
+      locks: { read: vi.fn().mockResolvedValue([]) },
+      logicExport: { onProgress: vi.fn().mockReturnValue(vi.fn()), readConfig: vi.fn().mockResolvedValue(null) },
+      project: {
+        listTree: vi.fn().mockResolvedValue(tree),
+        onChanged,
+      },
+    };
+    return { emitProjectChanged: (event) => onChanged.mock.calls[0]?.[0](event), write };
+  };
+
+  const insertAction = (store: DesktopProjectStore): void => {
+    store.getScheme('fn').commands.dispatchCommand(CMD_INSERT_NODE, {
+      index: 0,
+      node: { id: 'new-action', name: 'action', data: 'x = 1' },
+      parentId: 'fn-body',
+    });
+  };
+
+  it('writes the edited tree through document.write after the debounce', async () => {
+    const { write } = setUpFunctionProject();
+    const store = new DesktopProjectStore('/fake/project', 'logic');
+    try {
+      await vi.waitFor(() => expect(store.isLoadingTree).toBe(false));
+      insertAction(store);
+      await vi.waitFor(() => expect(write).toHaveBeenCalled(), { timeout: 3000 });
+      expect(JSON.stringify(write.mock.calls[0]?.[1])).toContain('new-action');
+    } finally {
+      store.dispose();
+    }
+  });
+
+  it('still writes the edit when the watcher refreshed the project tree after the scheme was built', async () => {
+    // Every watcher `manifest` event (e.g. right after "New Project…" created the default document) re-reads the tree;
+    // it used to replace the document objects, leaving a live scheme syncing into an orphan while autosave read the copy.
+    const { write, emitProjectChanged } = setUpFunctionProject();
+    const store = new DesktopProjectStore('/fake/project', 'logic');
+    try {
+      await vi.waitFor(() => expect(store.isLoadingTree).toBe(false));
+      store.getScheme('fn');
+      const before = store.getDocument('fn');
+      emitProjectChanged({ kind: 'manifest' });
+      await vi.waitFor(() => expect(globalThis.falang.project.listTree).toHaveBeenCalledTimes(2));
+      await Promise.resolve();
+      expect(store.getDocument('fn')).toBe(before);
+      insertAction(store);
+      await vi.waitFor(() => expect(write).toHaveBeenCalled(), { timeout: 3000 });
+      expect(JSON.stringify(write.mock.calls[0]?.[1])).toContain('new-action');
     } finally {
       store.dispose();
     }

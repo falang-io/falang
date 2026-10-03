@@ -3,7 +3,7 @@ import { promises as fs } from 'node:fs';
 import * as os from 'node:os';
 import * as path from 'node:path';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
-import { monitorPort } from './monitor-port.js';
+import { isSerialMonitorSupported, monitorPort, sttyArgs } from './monitor-port.js';
 
 /**
  * A pseudo-terminal pair standing in for the serial device: python's `pty.openpty()` (python3 is
@@ -30,6 +30,27 @@ while True:
         break
     os.write(master, data)
 `;
+
+describe('sttyArgs', () => {
+  it('uses GNU -F on Linux and BSD -f on macOS', () => {
+    expect(sttyArgs('/dev/ttyACM0', 9600, 'linux')).toEqual(['-F', '/dev/ttyACM0', 'raw', '9600', '-echo']);
+    expect(sttyArgs('/dev/cu.usbmodem1', 115_200, 'darwin')).toEqual([
+      '-f',
+      '/dev/cu.usbmodem1',
+      'raw',
+      '115200',
+      '-echo',
+    ]);
+  });
+});
+
+describe('isSerialMonitorSupported', () => {
+  it('is false only on Windows', () => {
+    expect(isSerialMonitorSupported('linux')).toBe(true);
+    expect(isSerialMonitorSupported('darwin')).toBe(true);
+    expect(isSerialMonitorSupported('win32')).toBe(false);
+  });
+});
 
 describe('monitorPort', () => {
   // oxlint-disable-next-line init-declarations

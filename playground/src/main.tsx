@@ -1,5 +1,6 @@
 import { StrictMode } from 'react';
 import { createRoot } from 'react-dom/client';
+import '@falang/text-scheme/src/browser.js';
 import './index.css';
 import App from './app.tsx';
 

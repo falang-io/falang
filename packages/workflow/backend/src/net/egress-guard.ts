@@ -2,6 +2,7 @@ import { lookup as dnsLookup } from 'node:dns';
 import type { LookupAddress } from 'node:dns';
 import { BlockList, isIP } from 'node:net';
 import type { IBackendEgress } from '@falang/workflow-integrations-common';
+import { wouldProxyRequest } from '@falang/workflow-egress';
 import { Agent, fetch as undiciFetch } from 'undici';
 
 /**
@@ -197,11 +198,21 @@ export const createBackendEgress = (options: ICreateEgressOptions = {}): IBacken
       if (parsed.protocol !== 'http:' && parsed.protocol !== 'https:') {
         throw new EgressBlockedError(`Protocol "${parsed.protocol}" is not allowed`);
       }
+      // A vendor routed through the admin-configured egress proxy (ADR 0056): the proxy opens the socket (and resolves
+      // the name) itself, so the guarded `Agent` cannot be used — go through the global egress dispatcher, after a
+      // best-effort pre-check of every address the name currently resolves to (and of an IP literal).
+      const proxied = wouldProxyRequest(parsed);
       // IP literals never go through `connect.lookup` (the socket layer skips DNS for them), so check them here.
-      if (isIP(parsed.hostname.replaceAll(/^\[|\]$/g, '')) !== 0)
-        await resolveSafeAddress(parsed.hostname, policy(), lookupAll);
+      const isLiteral = isIP(parsed.hostname.replaceAll(/^\[|\]$/g, '')) !== 0;
+      if (isLiteral) await resolveSafeAddress(parsed.hostname, policy(), lookupAll);
+      else if (proxied) {
+        // A name the backend itself cannot resolve may still resolve at the proxy — only a *blocked* answer refuses.
+        await resolveSafeAddress(parsed.hostname, policy(), lookupAll).catch((error: unknown) => {
+          if (error instanceof EgressBlockedError && !error.message.includes('did not resolve')) throw error;
+        });
+      }
       // Redirects are never followed: the target of a redirect would bypass the pre-connect checks of the first hop's intent.
-      const response = await undiciFetch(url, { ...(init as object), dispatcher, redirect: 'manual' });
+      const response = await undiciFetch(url, { ...(init as object), ...(proxied ? {} : { dispatcher }), redirect: 'manual' });
       if (response.status >= 300 && response.status < 400) {
         throw new EgressBlockedError(`Redirects are not followed (got ${response.status} from ${parsed.host})`);
       }

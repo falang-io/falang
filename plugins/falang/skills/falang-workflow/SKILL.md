@@ -69,6 +69,17 @@ flat object of expression-string fields specific to that action; call `get_node_
 document type to get the exact field list/schema once you know which action's node kind you need.
 Don't guess an integration action's node name or fields from memory — look it up.
 
+## Project layout: fixed sections
+
+The project root holds the pinned `Integrations` document and three fixed section folders — **Triggers**
+(`trigger-function`), **Functions** (`function`), **Types** (`objects-structure`); `list_documents` marks them
+with `fixedKind` (`triggers`/`functions`/`types`) and pinned documents with `pinned`. Each document type lives
+only in its own section or a subfolder of it. Omit `folderId` on `create_document` (or pass `null` to
+`move_document`) to land in the type's section; a `folderId` outside it is refused with an error naming the right
+section and its folder id. `create_folder` needs a `parentId` inside a section (never the root), a folder can be
+moved only within its own section, and the section folders and pinned documents can't be renamed, moved or
+deleted. Nested folders inside a section are free.
+
 ## `call-function` across documents
 
 Same rule as `falang-schemes`: `call-function.data.schemeId` is a **document id**, from

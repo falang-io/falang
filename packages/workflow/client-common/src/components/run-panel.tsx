@@ -5,6 +5,7 @@ import { CloseOutlined } from '@ant-design/icons';
 import { getGlobalI18n, type TFunction } from '@falang/scheme';
 import type { IApiWorkflowPosition, IApiWorkflowRunEvent } from '../api-client.js';
 import { useWorkflowStore } from '../workflow-store-context.js';
+import { TerminateRunButton } from './terminate-run-button.js';
 
 const styles: Record<string, React.CSSProperties> = {
   root: { display: 'flex', flexDirection: 'column', gap: 8, color: '#cdd6f4', fontSize: 12, minHeight: 0 },
@@ -63,6 +64,7 @@ export const RunPanel: React.FC = observer(() => {
         <Tag color={position ? statusTagColor(position.status) : 'default'}>
           {position ? position.status : t('client:run-panel.loading')}
         </Tag>
+        {liveRun.isOpen && <TerminateRunButton onTerminate={() => liveRun.terminateWatched()} />}
         <Button size="small" type="text" icon={<CloseOutlined />} onClick={() => liveRun.unwatch()} />
       </div>
 

@@ -3,12 +3,11 @@ import { app, BrowserWindow, shell } from 'electron';
 import { registerIpcHandlers } from './ipc-handlers.js';
 import { buildApplicationMenu } from './menu.js';
 import { reportError } from '../shared/report-error.js';
+import { bundledDriversDir } from './bundled-drivers-dir.js';
 import { loadDriverRegistry, type IDriverRegistry } from './drivers/driver-registry.js';
 import { stopProjectWatcher } from './project-watcher-state.js';
 import { installGracefulClose } from './graceful-close.js';
 
-/** Bundled drivers ship under this app's own `resources/drivers/` (see `electron-builder.yml`'s `files`/`asarUnpack`); `import.meta.dirname` is always `<app>/out/main` in both dev and packaged builds (electron-vite compiles `main` the same way for either), so this one relative path works unchanged in both. */
-const bundledDriversDir = (): string => join(import.meta.dirname, '../../resources/drivers');
 /** A user's own custom drivers (ADR 0023 (private)'s Phase C) — installed once per app install, not per project, matching the ADR's "Registration mechanism" note. */
 const userDriversDir = (): string => join(app.getPath('userData'), 'drivers');
 

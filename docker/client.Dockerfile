@@ -35,6 +35,7 @@ COPY packages/workflow/client/package.json packages/workflow/client/
 COPY packages/workflow/compiler/package.json packages/workflow/compiler/
 COPY packages/workflow/dto/package.json packages/workflow/dto/
 COPY packages/workflow/e2e-tests/package.json packages/workflow/e2e-tests/
+COPY packages/workflow/egress/package.json packages/workflow/egress/
 COPY packages/workflow/runner/package.json packages/workflow/runner/
 COPY packages/workflow/scheme/package.json packages/workflow/scheme/
 COPY playground/package.json playground/

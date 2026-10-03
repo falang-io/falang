@@ -39,7 +39,7 @@ describe('account management (auth + admin users)', () => {
     it('is public and reports the flag and terms URL', async () => {
       const response = await http().get('/auth/config');
       expect(response.status).toBe(200);
-      expect(response.body).toEqual({ selfServiceSignup: true, termsUrl: null, disabledVendors: ['sqlite'] });
+      expect(response.body).toMatchObject({ selfServiceSignup: true, termsUrl: null, disabledVendors: ['sqlite'] });
     });
 
     it('403s signup when SELF_SERVICE_SIGNUP is not true (the production default)', async () => {

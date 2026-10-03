@@ -2,7 +2,6 @@ import React, { useEffect, useRef } from 'react';
 import { observer } from 'mobx-react-lite';
 import Prism from 'prismjs';
 import 'prismjs/components/prism-typescript';
-import './prism-styles.css';
 import { useCodeTheme } from '../../monaco/use-code-theme.js';
 import { applyPrismTheme } from './prism-theme.js';
 

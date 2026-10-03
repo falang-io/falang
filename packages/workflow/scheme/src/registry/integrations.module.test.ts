@@ -1,18 +1,8 @@
 import { container as diContainer, resolveService } from '@falang/di';
 import { registerGlobalTokens, TOKEN_I18N, type Scheme } from '@falang/scheme';
 import type { IWorkflowIntegration, TIntegrationLocaleLoader } from '@falang/workflow-integrations-common';
-import { describe, expect, it, vi } from 'vitest';
+import { describe, expect, it } from 'vitest';
 import { IntegrationsModule } from './integrations.module.js';
-
-// `integrations.module.ts` imports `TOKEN_TYPESCRIPT_PROJECT_SERVICE` from `@falang/typescript-scheme`,
-// whose package root eagerly pulls in monaco-editor (via its block-config exports) and touches
-// `window` at import time — same issue flagged in `seed-integration-types.test.ts`. Only the token
-// itself is used (to look up an optional, try/caught service), so a dummy symbol is enough.
-// vitest hoists this above the imports above at transform time, so it takes effect before
-// `integrations.module.js` (and transitively `@falang/typescript-scheme`) is evaluated.
-vi.mock('@falang/typescript-scheme', () => ({
-  TOKEN_TYPESCRIPT_PROJECT_SERVICE: Symbol('mock-typescript-project-service'),
-}));
 
 const loaderFor =
   (resources: Record<string, Record<string, unknown>>): TIntegrationLocaleLoader =>

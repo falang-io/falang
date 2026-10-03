@@ -122,6 +122,12 @@ const toToolCall = (call: {
   }
 };
 
+const CORE_BODY_FIELDS = new Set(['messages', 'model', 'tools']);
+
+/** `extraBody` minus the fields this port owns — a caller can never override or inject them. */
+const omitCoreFields = (extraBody: Record<string, unknown> | undefined): Record<string, unknown> =>
+  Object.fromEntries(Object.entries(extraBody ?? {}).filter(([key]) => !CORE_BODY_FIELDS.has(key)));
+
 export interface ICallOpenAiChatParams {
   readonly baseUrl: string;
   readonly apiKey: string;
@@ -129,6 +135,10 @@ export interface ICallOpenAiChatParams {
   readonly system: string;
   readonly messages: readonly TAgentChatMessage[];
   readonly tools: readonly IAgentChatToolDefinition[];
+  /** Extra top-level request-body fields (sampling/provider params: `temperature`, `top_p`, `seed`, `reasoning`, …) — for
+   *  headless tooling such as the agent tuner; production callers don't pass it. Core fields (`model`, `messages`,
+   *  `tools`) always win over it. */
+  readonly extraBody?: Record<string, unknown>;
   /** Retries/timeout — see `agent-chat-transport.ts`. Defaults to `DEFAULT_AGENT_CHAT_*`. */
   readonly transport?: IAgentChatTransportOptions;
 }
@@ -144,7 +154,11 @@ export const callOpenAiChat = async (params: ICallOpenAiChatParams): Promise<IAg
     { content: params.system, role: 'system' },
     ...params.messages.flatMap(toOpenAiMessages),
   ];
-  const body: Record<string, unknown> = { messages: openaiMessages, model: params.model };
+  const body: Record<string, unknown> = {
+    ...omitCoreFields(params.extraBody),
+    messages: openaiMessages,
+    model: params.model,
+  };
   if (params.tools.length > 0) body.tools = toOpenAiTools(params.tools);
 
   const data = (await postJsonWithRetries(

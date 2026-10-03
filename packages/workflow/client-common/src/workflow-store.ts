@@ -1,30 +1,23 @@
+import { eventTracker } from './analytics/event-tracker.js';
 // oxlint-disable max-lines -- versioning (ADR 0025 (private)) added a handful of small fields/methods; the bulk of the new logic itself lives in `versioning/*.ts` to keep this file's growth minimal.
 import 'reflect-metadata';
 import { action, makeObservable, observable, reaction, runInAction, type IReactionDisposer } from 'mobx';
-import { AgentSession, ProjectDocumentsContextProvider } from '@falang/agent';
+import type { AgentSession } from '@falang/agent';
 import {
   type Scheme,
-  createNodeStoreFromNode,
-  setRootNodeForScheme,
   DebugSessionStore,
   DebuggerModule,
   type IDebugSessionStartParams,
   type HistoryStore,
-  HistoryModule,
-  type IModule,
   type ITheme,
-  EVENT_ONCHANGE,
   ExecutionPositionModule,
   focusNode,
-  getNodeStoreDto,
   scrollToNode,
   setSchemeStartPosition,
   TOKEN_HISTORY,
   type TVersionDiffSide,
 } from '@falang/scheme';
-import { ScopeVariablesContextProvider } from '@falang/typescript-agent';
 import {
-  objectsStructureSchemeFactory,
   registerTypescriptProjectService,
   updateTypesRegistryFromINode,
   TOKEN_TYPESCRIPT_PROJECT_SERVICE,
@@ -33,20 +26,42 @@ import {
 import { OBJECTS_STRUCTURE_NAME } from '@falang/typescript-dto';
 import { container, resolveService, type DependencyContainer } from '@falang/di';
 import type { INodeTreeDiff, ISnapshotDocument } from '@falang/versioning';
-import { AgentChatSessionStore, VersionHistoryStore } from '@falang/antd';
-import { TRIGGER_FUNCTION_NAME, type TTriggerFunctionBodyData } from '@falang/workflow-dto';
+import { AgentChatSessionStore, PrintExportStore, VersionHistoryStore } from '@falang/antd';
+import { navigationStore } from './navigation-store.js';
+import { pruneKeepAlive, touchKeepAlive } from './keep-alive.js';
+import type { IProjectTabs } from './project-tabs-storage.js';
+import { startWorkspaceSync } from './workspace-sync.js';
+import { createPrintExportHost } from './print/create-print-export-host.js';
+import {
+  checkDocumentPlacement,
+  checkFolderPlacement,
+  findSectionFolder,
+  isFixedFolder,
+  MAGIC_NAME,
+  sectionForDocumentType,
+  TRIGGER_FUNCTION_NAME,
+  type TTriggerFunctionBodyData,
+} from '@falang/workflow-dto';
 import type { IIntegrationInstance } from '@falang/workflow-integrations-common';
 import { SCHEDULE_VENDOR } from '@falang/workflow-integrations-schedule';
-import { TOKEN_SCHEDULE_STATUS, workflowFunctionalSchemeFactory } from '@falang/workflow-scheme';
+import { TOKEN_SCHEDULE_STATUS } from '@falang/workflow-scheme';
 import { workflowApi } from './api-client.js';
 import { AgentLockTracker } from './agent/agent-lock-tracker.js';
-import { createAgentDocumentResolver, isAgentEditableType } from './agent/create-agent-document-resolver.js';
-import { DocumentToolProvider } from './agent/document-tool-provider.js';
-import { createWorkflowNodeKindFilter } from './agent/integration-catalog.js';
+import { AgentSettingsStore } from './agent/agent-settings-store.js';
+import { MagicInsertSetting } from './agent/magic-insert-setting.js';
+import type { MagicRunStore } from './agent/magic-run-store.js';
+import { authStore } from './auth-store.js';
+import { buildMagicPopup, type IMagicPopup } from './magic/build-magic-popup.js';
+import { isAgentEditableType } from './agent/create-agent-document-resolver.js';
+import { createWorkflowAgentSession } from './agent/create-workflow-agent-session.js';
+import { createWorkflowMagicRunStore, getMagicHostScheme } from './agent/create-workflow-magic-run-store.js';
 import { shouldOpenAgentDocumentTab } from './agent/follow-agent-document.js';
 import { HttpLlmClient } from './agent/http-llm-client.js';
 import { IndexedDbAgentSessionStore } from './agent/indexed-db-session-store.js';
-import { IntegrationToolProvider } from './agent/integration-tool-provider.js';
+import type { IWorkflowAgentStore } from './agent/workflow-agent-store.js';
+import { buildWorkflowDocumentScheme } from './build-workflow-document-scheme.js';
+import { subscribeWorkflowDocumentSync } from './sync-document-from-scheme.js';
+import { findDocumentNameConflict } from './document-names.js';
 import { generateUuid } from './generate-uuid.js';
 import { loadDisabledVendors } from './disabled-vendors.js';
 import { REGISTERED_INTEGRATIONS } from './integrations-registry.js';
@@ -73,7 +88,6 @@ import { buildReadOnlySchemeForDiff as buildReadOnlySchemeForDiffImpl } from './
 import { HttpVersionStore } from './versioning/http-version-store.js';
 import {
   getTriggerFunctionBodyData,
-  ROOT_NODE,
   type DocumentType,
   type WorkflowDocument,
   type WorkflowFolder,
@@ -91,7 +105,7 @@ const darkTheme: ITheme = {
 };
 
 /** Local editor state for one open project — folders, tabs, scheme instances, selection. Backend I/O is `ProjectSync`'s job. */
-export class WorkflowStore {
+export class WorkflowStore implements IWorkflowAgentStore {
   readonly projectId: string;
   readonly container: DependencyContainer;
   readonly folders = observable<WorkflowFolder>([]);
@@ -122,7 +136,15 @@ export class WorkflowStore {
   /** Which project-level right-sidebar panel is open — replaces the old per-panel `historyPanelOpen`
    *  boolean (ADR 0036 (private) §3): at most one of Agent/History shows at a time. */
   @observable rightPanel: 'agent' | 'history' | null = null;
+  /** `GET /agent/settings` once per project (ADR 0031 (private)) — shared by the chat panel and the magic-insert gate. */
+  readonly agentSettings = new AgentSettingsStore();
+  /** The per-user "Magic insert" toolbar toggle (ADR 0046 (private)). */
+  readonly magicInsert: MagicInsertSetting;
+  /** Every magic node's AI run, confirm dialog and popup-editor target (ADR 0046 (private)). */
+  readonly magicRuns: MagicRunStore;
   @observable diffModalOpen = false;
+  /** The PDF print export's selection/preview state (ADR 0048 (private)); `null` while closed. */
+  @observable.ref printExport: PrintExportStore | null = null;
   /**
    * The project's uploaded/produced files (ADR 0038 (private) §7) — no
    * project-specific construction needed (unlike e.g. `scheduleStatus`), so this is a plain class-field
@@ -151,7 +173,16 @@ export class WorkflowStore {
    */
   @observable activeView: 'files' | 'tasks' | null = null;
 
+  /**
+   * Scheme tabs that stay mounted (the active one plus the most recently active others, hidden) so a
+   * tab switch doesn't rebuild the canvas — see `keep-alive.ts` and `ProjectWorkspace`. Closing a tab
+   * drops it (unmounts).
+   */
+  @observable keepAliveSchemeIds: string[] = [];
+
   private readonly sync: ProjectSync;
+  private readonly workspaceSyncDisposer: () => void;
+  private readonly keepAliveDisposer: IReactionDisposer;
   private readonly schemes = new Map<string, Scheme>();
   private readonly followRunDisposer: IReactionDisposer;
   private readonly persistBreakpointsDisposer: IReactionDisposer;
@@ -231,29 +262,23 @@ export class WorkflowStore {
       allowQuestionsStorageKey: `falang:agent-allow-questions:${projectId}`,
     });
     this.agentChat.loadSessions();
-    this.agentSession = new AgentSession(
-      null,
-      new HttpLlmClient(projectId),
-      [
-        new ScopeVariablesContextProvider(),
-        new ProjectDocumentsContextProvider(() =>
-          this.documents.filter((doc) => !doc.pinned).map((doc) => ({ id: doc.id, name: doc.name, type: doc.type })),
-        ),
-      ],
-      {
-        documentResolver: createAgentDocumentResolver({
-          acquireLock: (documentId) => this.agentLocks.acquire(documentId),
-          getDocument: (documentId) => this.getDocument(documentId),
-          getScheme: (documentId) => this.getScheme(documentId),
-        }),
-        onOpenDocument: (target) => this.followAgentDocument(target.id),
-        onRunFinished: () => this.agentLocks.releaseAll(),
-        toolProviders: [new DocumentToolProvider(this), new IntegrationToolProvider(this)],
-        nodeKindFilter: createWorkflowNodeKindFilter(REGISTERED_INTEGRATIONS, () =>
-          getIntegrationInstances(this.documents),
-        ),
+    this.agentSession = createWorkflowAgentSession({
+      acquireLock: (documentId) => this.agentLocks.acquire(documentId),
+      llmClient: new HttpLlmClient(projectId),
+      onOpenDocument: (documentId) => this.followAgentDocument(documentId),
+      onRunFinished: (session) => {
+        this.agentLocks.releaseAll();
+        eventTracker.track('agent_turn', { status: session.status });
       },
-    );
+      store: this,
+    });
+    this.agentSettings.load();
+    this.magicInsert = new MagicInsertSetting(authStore.currentUser?.id);
+    this.magicRuns = createWorkflowMagicRunStore({
+      createLlmClient: () => new HttpLlmClient(projectId),
+      getAllowQuestions: () => this.agentChat.allowQuestions,
+      store: this,
+    });
     this.sync = new ProjectSync(
       projectId,
       lockHooks,
@@ -276,6 +301,43 @@ export class WorkflowStore {
         this.loadVendorData();
       },
     );
+    // Keep-alive bookkeeping: whenever the active tab is a scheme document, it becomes the most recent.
+    this.keepAliveDisposer = reaction(
+      () => this.activeSchemeDocumentId,
+      (id) => {
+        if (id) this.touchKeepAlive(id);
+      },
+      { fireImmediately: true },
+    );
+    // Restore/persist the open tabs and mirror the active one into the URL (`workspace-sync.ts`).
+    this.workspaceSyncDisposer = startWorkspaceSync(this);
+  }
+
+  /** The active tab's id when it is a document with a scheme editor (not the pinned `integrations`, not a loading placeholder). */
+  get activeSchemeDocumentId(): string | null {
+    const id = this.activeTabId;
+    if (!id) return null;
+    const doc = this.getDocument(id);
+    return doc && !doc.pinned ? id : null;
+  }
+
+  @action private touchKeepAlive(id: string): void {
+    this.keepAliveSchemeIds = touchKeepAlive(this.keepAliveSchemeIds, id);
+  }
+
+  hasDocument(documentId: string): boolean {
+    return this.documents.some((d) => d.id === documentId);
+  }
+
+  /** Replaces the open tabs wholesale (restoring a remembered/URL state) — no scheme is built until a tab is shown. */
+  @action restoreTabs(tabs: IProjectTabs): void {
+    this.openTabIds = tabs.openTabIds;
+    this.activeTabId = tabs.activeTabId;
+    this.keepAliveSchemeIds = pruneKeepAlive(this.keepAliveSchemeIds, (id) => tabs.openTabIds.includes(id));
+  }
+
+  @action setActiveView(view: 'files' | 'tasks' | null): void {
+    this.activeView = view;
   }
 
   get isLoadingTree(): boolean {
@@ -352,6 +414,10 @@ export class WorkflowStore {
     return this.sync.stopProject();
   }
 
+  restartProject(): Promise<void> {
+    return this.sync.restartProject();
+  }
+
   publishProject(): Promise<void> {
     return this.sync.publishProject();
   }
@@ -364,8 +430,16 @@ export class WorkflowStore {
     return this.sync.stopProdRunner();
   }
 
+  /** The id of the section folder (Triggers/Functions/Types) accepting `type`, or `null` (e.g. before the tree has loaded). */
+  getSectionFolderId(type: string): string | null {
+    const kind = sectionForDocumentType(type);
+    return kind === null ? null : (findSectionFolder(kind, this.folders)?.id ?? null);
+  }
+
   @action createFolder(name: string, parentId: string | null = null): string {
     const id = generateUuid();
+    const reason = checkFolderPlacement(id, parentId, this.folders);
+    if (reason) throw new Error(reason);
     const folder: WorkflowFolder = { id, name, parentId };
     this.folders.push(folder);
     this.sync.createFolderRemote(folder);
@@ -373,6 +447,7 @@ export class WorkflowStore {
   }
 
   @action deleteFolder(id: string): void {
+    if (isFixedFolder(this.folders.find((f) => f.id === id))) return;
     const allIds = new Set([id, ...this.getFolderDescendantIds(id)]);
     const docsToDelete = this.documents.filter((d) => d.folderId !== null && allIds.has(d.folderId));
     for (const doc of docsToDelete) {
@@ -384,9 +459,15 @@ export class WorkflowStore {
     this.sync.deleteFolderRemote(id);
   }
 
+  /** Whether another document (any type) of this project already holds `name` — case-insensitive. */
+  hasDocumentName(name: string, exceptId: string | null = null): boolean {
+    return Boolean(findDocumentNameConflict(this.documents, name, exceptId));
+  }
+
   @action createDocument(type: DocumentType, name: string, folderId: string | null = null): string {
+    if (this.hasDocumentName(name)) throw new Error(`A document named "${name}" already exists`);
     const id = generateUuid();
-    const doc: WorkflowDocument = { id, name, type, folderId };
+    const doc: WorkflowDocument = { id, name, type, folderId: folderId ?? this.getSectionFolderId(type) };
     this.documents.push(doc);
     this.sync.createDocumentRemote(doc);
     this.openTab(id);
@@ -398,11 +479,41 @@ export class WorkflowStore {
     bodyData: TTriggerFunctionBodyData,
     folderId: string | null = null,
   ): string {
-    const doc = buildTriggerFunctionDocument(name, bodyData, folderId);
+    if (this.hasDocumentName(name)) throw new Error(`A document named "${name}" already exists`);
+    const doc = buildTriggerFunctionDocument(
+      name,
+      bodyData,
+      folderId ?? this.getSectionFolderId(TRIGGER_FUNCTION_NAME),
+    );
     this.documents.push(doc);
     this.sync.createDocumentRemote(doc);
     this.openTab(doc.id);
     return doc.id;
+  }
+
+  /**
+   * Renames a document locally and on the backend. Refused (no-op, `false`) for a pinned document, an
+   * unknown id, an unchanged name, or one that is taken by another document (case-insensitive); the
+   * caller validates first to show the reason.
+   */
+  @action renameDocument(id: string, name: string): boolean {
+    const doc = this.documents.find((d) => d.id === id);
+    const trimmed = name.trim();
+    if (!doc || doc.pinned || !trimmed || trimmed === doc.name) return false;
+    if (this.hasDocumentName(trimmed, id)) return false;
+    doc.name = trimmed;
+    this.sync.updateDocumentRemote(id, { name: trimmed });
+    return true;
+  }
+
+  /** Renames a user folder; section folders (and an unchanged/empty name) are refused with `false`. */
+  @action renameFolder(id: string, name: string): boolean {
+    const folder = this.folders.find((f) => f.id === id);
+    const trimmed = name.trim();
+    if (!folder || isFixedFolder(folder) || !trimmed || trimmed === folder.name) return false;
+    folder.name = trimmed;
+    this.sync.updateFolderRemote(id, { name: trimmed });
+    return true;
   }
 
   @action deleteDocument(id: string): void {
@@ -417,18 +528,16 @@ export class WorkflowStore {
 
   @action moveDocument(docId: string, folderId: string | null): void {
     const doc = this.documents.find((d) => d.id === docId);
-    if (!doc) return;
+    if (!doc || doc.pinned) return;
+    if (checkDocumentPlacement(doc.type, folderId, this.folders) !== null) return;
     doc.folderId = folderId;
     this.sync.updateDocumentRemote(docId, { folderId });
   }
 
   @action moveFolder(folderId: string, newParentId: string | null): void {
-    if (newParentId !== null) {
-      if (folderId === newParentId) return;
-      if (this.getFolderDescendantIds(folderId).includes(newParentId)) return;
-    }
     const folder = this.folders.find((f) => f.id === folderId);
-    if (!folder) return;
+    if (!folder || isFixedFolder(folder)) return;
+    if (checkFolderPlacement(folderId, newParentId, this.folders) !== null) return;
     folder.parentId = newParentId;
     this.sync.updateFolderRemote(folderId, { parentId: newParentId });
   }
@@ -455,6 +564,7 @@ export class WorkflowStore {
 
   @action closeTab(id: string): void {
     this.openTabIds = this.openTabIds.filter((t) => t !== id);
+    this.keepAliveSchemeIds = this.keepAliveSchemeIds.filter((item) => item !== id);
     if (this.activeTabId === id) {
       this.activeTabId = this.openTabIds.at(-1) ?? null;
     }
@@ -591,10 +701,14 @@ export class WorkflowStore {
    * entry only when the user hasn't set any breakpoints yet — otherwise a first click would run to
    * completion with nothing to show, which defeats the point of clicking "Debug" at all.
    */
-  debugFunction(functionName: string, args: readonly unknown[]): Promise<void> {
+  debugFunction(
+    functionName: string,
+    args: readonly unknown[],
+    triggerPayload?: Record<string, unknown>,
+  ): Promise<void> {
     const params: IDebugSessionStartParams = {
       pauseOnEntry: this.debugSession.breakpointList.length === 0,
-      entry: { functionName, args },
+      entry: { functionName, args, ...(triggerPayload ? { triggerPayload } : {}) },
     };
     return this.debugSession.start(params);
   }
@@ -667,7 +781,58 @@ export class WorkflowStore {
       getCredentialInstances: () => getIntegrationInstances(this.documents),
     });
 
+  /** The main scheme of a function/trigger-function document for a magic run, `null` for anything else. */
+  private getMagicHostScheme(documentId: string): Scheme | null {
+    return getMagicHostScheme(this, documentId);
+  }
+
+  /** A transient popup scheme for one magic node (`MagicEditorModal`); the caller disposes it. */
+  buildMagicPopup(
+    documentId: string,
+    nodeId: string,
+    onHeaderSpellCommitted: (prev: string, next: string) => void,
+  ): IMagicPopup | null {
+    const mainScheme = this.getMagicHostScheme(documentId);
+    if (!mainScheme) return null;
+    return buildMagicPopup({
+      container: this.container,
+      getCredentialInstances: () => getIntegrationInstances(this.documents),
+      mainScheme,
+      nodeId,
+      onHeaderSpellCommitted,
+      projectId: this.projectId,
+      theme: darkTheme,
+    });
+  }
+
+  /** The toolbar's "PDF" button: opens the selection modal (a fresh `PrintExportStore` each time). */
+  @action openPrintExport(): void {
+    this.printExport?.dispose();
+    this.printExport = new PrintExportStore(
+      createPrintExportHost({
+        projectId: this.projectId,
+        projectName: () => navigationStore.selectedProjectName ?? 'project',
+        container: this.container,
+        folders: () => this.folders,
+        documents: () => this.documents,
+        activeTabId: () => this.activeTabId,
+        getLiveScheme: (id) => this.schemes.get(id),
+        getCredentialInstances: () => getIntegrationInstances(this.documents),
+      }),
+    );
+  }
+
+  @action closePrintExport(): void {
+    this.printExport?.dispose();
+    this.printExport = null;
+  }
+
   dispose(): void {
+    this.workspaceSyncDisposer();
+    this.keepAliveDisposer();
+    this.printExport?.dispose();
+    this.magicRuns.dispose();
+    this.agentSettings.dispose();
     this.followRunDisposer();
     this.persistBreakpointsDisposer();
     this.liveRun.dispose();
@@ -682,48 +847,29 @@ export class WorkflowStore {
   }
 
   private buildScheme(doc: WorkflowDocument): Scheme {
-    // Every scheme follows the same project-level `liveRun` — a run's location names the document
-    // it's in, and the module only highlights when that's this scheme (see `ExecutionPositionModule`).
-    // `DebuggerModule` shares the same `debugSession` across every scheme the same way, per
-    // ADR 0021 (private) §3.
-    const extraModules: IModule[] = [
-      new ExecutionPositionModule(this.liveRun),
-      new DebuggerModule({ session: this.debugSession, documentId: doc.id }),
-    ];
     const isFunctionDoc = doc.type === 'function' || doc.type === TRIGGER_FUNCTION_NAME;
-    // The project's one `AgentSession` (ADR 0036 (private) §1/§3) needs `HistoryModule` in every
-    // document it can run against (one agent request = one undo group per document touched) — still
-    // registered per agent-editable scheme (`objects-structure` too, since 2026-09-27), unlike
-    // `AgentModule` itself, which this store no longer uses (the session lives on the store, not in any
-    // one scheme's container).
-    if (isAgentEditableType(doc.type)) extraModules.push(new HistoryModule());
-    const scheme = isFunctionDoc
-      ? workflowFunctionalSchemeFactory({
-          id: doc.id,
-          name: doc.name,
-          parentContainer: this.container,
-          extraModules,
-          integrations: REGISTERED_INTEGRATIONS,
-          getCredentialInstances: () => getIntegrationInstances(this.documents),
-          getFieldOptionsProvider: () => createFieldOptionsProvider(this.projectId),
-          getActivepiecesCatalogProvider: () => createActivepiecesCatalogProvider(),
-          getActivepiecesFieldOptionsProvider: () => createActivepiecesFieldOptionsProvider(this.projectId),
-        })
-      : objectsStructureSchemeFactory({
-          id: doc.id,
-          name: doc.name,
-          extraModules,
-          parentContainer: this.container,
-        });
-    scheme.theme.setTheme(darkTheme);
-    // Safe to narrow: `getScheme` already rejects pinned (non-schemable) documents before this runs.
-    const rootNode = doc.data ?? scheme.infra.structure.factory(ROOT_NODE[doc.type as DocumentType]);
-    const rootStore = createNodeStoreFromNode(rootNode, scheme);
-    setRootNodeForScheme(scheme, rootStore);
-    scheme.events.subscribeEvent(EVENT_ONCHANGE, () => {
-      this.schemeOnChanged(doc, scheme);
-      return false;
+    const scheme = buildWorkflowDocumentScheme({
+      doc,
+      parentContainer: this.container,
+      // Every scheme follows the same project-level `liveRun` — a run's location names the document
+      // it's in, and the module only highlights when that's this scheme (see `ExecutionPositionModule`).
+      // `DebuggerModule` shares the same `debugSession` across every scheme the same way, per
+      // ADR 0021 (private) §3.
+      extraModules: [
+        new ExecutionPositionModule(this.liveRun),
+        new DebuggerModule({ session: this.debugSession, documentId: doc.id }),
+      ],
+      theme: darkTheme,
+      getCredentialInstances: () => getIntegrationInstances(this.documents),
+      getFieldOptionsProvider: () => createFieldOptionsProvider(this.projectId),
+      getActivepiecesCatalogProvider: () => createActivepiecesCatalogProvider(),
+      getActivepiecesFieldOptionsProvider: () => createActivepiecesFieldOptionsProvider(this.projectId),
+      defaultInsertNodeName: () => (this.agentSettings.configured && this.magicInsert.enabled ? MAGIC_NAME : 'action'),
+      onSchemeCreated: (created) => {
+        if (isFunctionDoc) this.magicRuns.registerHost(doc.id, created);
+      },
     });
+    subscribeWorkflowDocumentSync(doc, scheme, this.typesRegistry, () => this.sync.scheduleSaveDocument(doc));
     return scheme;
   }
 
@@ -768,14 +914,5 @@ export class WorkflowStore {
   /** `ScheduleStatusStore`'s "is it even worth polling" gate — see ADR 0037 (private) §7. */
   private hasScheduleTrigger(): boolean {
     return this.documents.some((doc) => getTriggerFunctionBodyData(doc)?.vendor === SCHEDULE_VENDOR);
-  }
-
-  private schemeOnChanged(doc: WorkflowDocument, scheme: Scheme) {
-    const rootNode = scheme.rootNode;
-    if (!rootNode) return;
-    const node = getNodeStoreDto(rootNode, scheme);
-    doc.data = node;
-    updateTypesRegistryFromINode(node, this.typesRegistry);
-    this.sync.scheduleSaveDocument(doc);
   }
 }

@@ -1,7 +1,9 @@
 import { promises as fs } from 'node:fs';
 import * as path from 'node:path';
-import { createEmptyManifest, readManifest, writeManifest } from './manifest.js';
+import { createEmptyManifest, writeManifest } from './manifest.js';
 import { isV3FormatProject, migrateV3Project } from './migrate-v3.js';
+import { reconcileProjectLayoutUnlocked } from './reconcile-layout.js';
+import { withProjectLock } from './project-lock.js';
 import { configDir, documentsDir, LEGACY_MANIFEST_FILENAME, MANIFEST_FILENAME } from './paths.js';
 import type { ICreateProjectParams, IProjectManifest } from './types.js';
 
@@ -37,7 +39,7 @@ const fileExists = async (filePath: string): Promise<boolean> => {
  * it too, recursively, but doing it explicitly up front keeps the existence check and the "make the
  * directory" step in the obvious order).
  */
-export const createProject = async (projectDir: string, params: ICreateProjectParams): Promise<IProjectManifest> => {
+const createProjectUnlocked = async (projectDir: string, params: ICreateProjectParams): Promise<IProjectManifest> => {
   await fs.mkdir(projectDir, { recursive: true });
   const existingManifestFilenames = [MANIFEST_FILENAME, LEGACY_MANIFEST_FILENAME, OLD_FORMAT_MANIFEST_FILENAME];
   for (const filename of existingManifestFilenames) {
@@ -55,14 +57,19 @@ export const createProject = async (projectDir: string, params: ICreateProjectPa
   return manifest;
 };
 
+export const createProject = (projectDir: string, params: ICreateProjectParams): Promise<IProjectManifest> =>
+  withProjectLock(projectDir, () => createProjectUnlocked(projectDir, params));
+
 /**
- * Opens an existing project, migrating a v3-format project (`project.json` + `documents/`) to the
- * current v4 layout (`falang.json` + `falang/schemes/`) in place first, if needed — see
- * `migrate-v3.ts`.
+ * Opens an existing project, migrating a v3-format project (`project.json` + `documents/`) to v4
+ * (`falang.json` + `falang/schemes/<id>.json`) in place first, if needed (`migrate-v3.ts`), then
+ * running the v4 → v5 migration / self-healing pass (`reconcile-layout.ts`: name-based file paths,
+ * real folder directories; idempotent, a no-op write-wise on a healthy project).
  */
-export const openProject = async (projectDir: string): Promise<IProjectManifest> => {
-  if (await isV3FormatProject(projectDir)) {
-    await migrateV3Project(projectDir);
-  }
-  return readManifest(projectDir);
-};
+export const openProject = (projectDir: string): Promise<IProjectManifest> =>
+  withProjectLock(projectDir, async () => {
+    if (await isV3FormatProject(projectDir)) {
+      await migrateV3Project(projectDir);
+    }
+    return reconcileProjectLayoutUnlocked(projectDir);
+  });

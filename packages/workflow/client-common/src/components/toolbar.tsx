@@ -3,25 +3,17 @@
 import type React from 'react';
 import { useEffect, useState } from 'react';
 import { observer } from 'mobx-react-lite';
-import { Badge, Button, Dropdown, notification, type MenuProps } from 'antd';
-import {
-  CarryOutOutlined,
-  CodeOutlined,
-  DownOutlined,
-  ExportOutlined,
-  FolderOutlined,
-  HistoryOutlined,
-  RobotOutlined,
-} from '@ant-design/icons';
+import { Button, Dropdown, notification, Tooltip, type MenuProps } from 'antd';
+import { DownOutlined, RobotOutlined, ThunderboltOutlined } from '@ant-design/icons';
 import { getGlobalI18n, type TFunction } from '@falang/scheme';
-import { workflowApi } from '../api-client.js';
 import { navigationStore } from '../navigation-store.js';
 import { useWorkflowStore } from '../workflow-store-context.js';
 import { BuildErrorsModal } from './build-errors-modal.js';
-import { CodeViewerModal } from './code-viewer-modal.js';
-import { LiveRunControls } from './live-run-controls.js';
+import { ProjectMenu } from './project-menu.js';
+import { useDevRunActions, type IDevRunActions } from './use-dev-run-actions.js';
 import { RunFunctionModal } from './run-function-modal.js';
 import { VersionsModal } from './versions-modal.js';
+import { SupportButton } from './support-button.js';
 
 const RUNNING_COLOR = '#a6e3a1';
 const STOPPED_COLOR = '#f38ba8';
@@ -62,25 +54,46 @@ const S: Record<string, React.CSSProperties> = {
   error: { color: '#f38ba8' },
 };
 
-const buildDevMenuItems = (
-  t: TFunction,
-  devRunning: boolean,
-  canBuild: boolean,
-  canStop: boolean,
-  onToggle: () => void,
-  onRun: () => void,
-): MenuProps['items'] => [
+interface IDevMenuState {
+  readonly devRunning: boolean;
+  readonly canBuild: boolean;
+  readonly canStop: boolean;
+  readonly onToggle: () => void;
+  readonly onRestart: () => void;
+  readonly onRunDialog: () => void;
+}
+
+const buildDevMenuItems = (t: TFunction, state: IDevMenuState, run: IDevRunActions): MenuProps['items'] => [
   {
     key: 'toggle',
-    label: devRunning ? t('client:toolbar.dev-menu.stop') : t('client:toolbar.dev-menu.start'),
-    disabled: devRunning ? !canStop : !canBuild,
-    onClick: onToggle,
+    label: state.devRunning ? t('client:toolbar.dev-menu.stop') : t('client:toolbar.dev-menu.start'),
+    disabled: state.devRunning ? !state.canStop : !state.canBuild,
+    onClick: state.onToggle,
+  },
+  {
+    key: 'restart',
+    label: t('client:toolbar.dev-menu.restart'),
+    disabled: !state.devRunning || !state.canStop,
+    onClick: state.onRestart,
+  },
+  { type: 'divider' },
+  {
+    key: 'run-function',
+    label: run.isStarting ? t('client:toolbar.run-starting') : t('client:toolbar.run'),
+    disabled: run.isStarting || run.isLoadingDocuments,
+    onClick: run.onRun,
+  },
+  {
+    key: 'debug',
+    label: t('client:toolbar.debug'),
+    disabled: run.isLoadingDocuments || run.isDebugging || run.isDebugStarting,
+    onClick: run.onDebug,
   },
   {
     key: 'run',
     label: t('client:toolbar.dev-menu.run'),
-    disabled: !devRunning,
-    onClick: onRun,
+    disabled: !state.devRunning,
+    onClick: state.onRunDialog,
   },
 ];
 
@@ -113,47 +126,46 @@ const buildProdMenuItems = (
   },
 ];
 
+/** The per-user "Magic insert" toggle (ADR 0046 (private)); disabled until an admin configured the agent. */
+const MagicInsertButton: React.FC = observer(() => {
+  const t = getGlobalI18n().t;
+  const store = useWorkflowStore();
+  const configured = store.agentSettings.configured;
+  return (
+    <Tooltip title={t(configured ? 'client:toolbar.magic-insert-tooltip' : 'client:toolbar.magic-insert-disabled')}>
+      <Button
+        icon={<ThunderboltOutlined />}
+        style={S.btn}
+        data-testid="toolbar-magic-insert"
+        disabled={!configured}
+        type={toggleButtonType(configured && store.magicInsert.enabled)}
+        onClick={() => store.magicInsert.setEnabled(!store.magicInsert.enabled)}
+      >
+        {t('client:toolbar.magic-insert')}
+      </Button>
+    </Tooltip>
+  );
+});
+
 export const Toolbar: React.FC = observer(() => {
   const t = getGlobalI18n().t;
   const store = useWorkflowStore();
   const devRunning = store.buildStatus === 'running';
-  const canBuild = !store.isLoadingTree && store.buildStatus !== 'building';
+  const canBuild = !store.isLoadingTree && store.buildStatus !== 'building' && store.buildStatus !== 'stopping';
   const canStop = store.buildStatus === 'running';
   const canPublish = !store.isLoadingTree && !store.isPublishing;
-  const [codeViewerOpen, setCodeViewerOpen] = useState(false);
   const [versionsOpen, setVersionsOpen] = useState(false);
   const [runOpen, setRunOpen] = useState(false);
   const [buildErrorsOpen, setBuildErrorsOpen] = useState(false);
-  const [isExporting, setIsExporting] = useState(false);
-  const [exportError, setExportError] = useState<string | null>(null);
   const activeDocument = store.activeTabId ? store.getDocument(store.activeTabId) : null;
   const initialFunctionName = activeDocument?.type === 'function' ? activeDocument.name : null;
+  const devRun = useDevRunActions();
 
   // Surfaces a failed test-stand build (project doesn't compile) the moment its error list lands,
   // rather than requiring the user to notice and click a summary line first.
   useEffect(() => {
     if (store.buildErrors.length > 0) setBuildErrorsOpen(true);
   }, [store.buildErrors]);
-
-  const handleExport = async () => {
-    setIsExporting(true);
-    setExportError(null);
-    try {
-      const payload = await workflowApi.exportProject(store.projectId);
-      const fileName = `${(navigationStore.selectedProjectName ?? 'project').replaceAll(/[^a-z0-9-_]+/gi, '-')}.json`;
-      const blob = new Blob([JSON.stringify(payload, null, 2)], { type: 'application/json' });
-      const url = URL.createObjectURL(blob);
-      const link = document.createElement('a');
-      link.href = url;
-      link.download = fileName;
-      link.click();
-      URL.revokeObjectURL(url);
-    } catch (error) {
-      setExportError(error instanceof Error ? error.message : t('client:toolbar.export-failed'));
-    } finally {
-      setIsExporting(false);
-    }
-  };
 
   const handleProdToggle = async () => {
     const wasRunning = store.prodRunning;
@@ -178,11 +190,15 @@ export const Toolbar: React.FC = observer(() => {
 
   const devMenuItems = buildDevMenuItems(
     t,
-    devRunning,
-    canBuild,
-    canStop,
-    () => (devRunning ? store.stopProject() : store.buildProject()),
-    () => setRunOpen(true),
+    {
+      devRunning,
+      canBuild,
+      canStop,
+      onToggle: () => (devRunning ? store.stopProject() : store.buildProject()),
+      onRestart: () => store.restartProject(),
+      onRunDialog: () => setRunOpen(true),
+    },
+    devRun,
   );
 
   const prodMenuItems = buildProdMenuItems(
@@ -223,27 +239,8 @@ export const Toolbar: React.FC = observer(() => {
       {store.lastPublishedVersion && (
         <span>{t('client:toolbar.published-version', { version: store.lastPublishedVersion.versionNumber })}</span>
       )}
-      <Button icon={<CodeOutlined />} style={S.btn} onClick={() => setCodeViewerOpen(true)}>
-        {t('client:toolbar.view-code')}
-      </Button>
-      <Button
-        icon={<FolderOutlined />}
-        style={S.btn}
-        type={toggleButtonType(store.activeView === 'files')}
-        onClick={() => store.toggleFilesView()}
-      >
-        {t('client:toolbar.files')}
-      </Button>
-      <Badge count={store.tasks.openCount} size="small" offset={[-4, 4]}>
-        <Button
-          icon={<CarryOutOutlined />}
-          style={S.btn}
-          type={toggleButtonType(store.activeView === 'tasks')}
-          onClick={() => store.toggleTasksView()}
-        >
-          {t('client:toolbar.tasks')}
-        </Button>
-      </Badge>
+      <ProjectMenu buttonStyle={S.btn} errorStyle={S.error} />
+      <SupportButton type="default" style={S.btn} />
       <Button
         icon={<RobotOutlined />}
         style={S.btn}
@@ -252,26 +249,7 @@ export const Toolbar: React.FC = observer(() => {
       >
         {t('client:toolbar.agent')}
       </Button>
-      <Button
-        icon={<HistoryOutlined />}
-        style={S.btn}
-        type={store.rightPanel === 'history' ? 'primary' : 'default'}
-        onClick={() => store.toggleRightPanel('history')}
-      >
-        {t('client:toolbar.history')}
-      </Button>
-      <Button
-        icon={<ExportOutlined />}
-        style={S.btn}
-        loading={isExporting}
-        onClick={() => {
-          handleExport();
-        }}
-      >
-        {isExporting ? t('client:toolbar.exporting') : t('client:toolbar.export')}
-      </Button>
-      {exportError && <span style={S.error}>{exportError}</span>}
-      <LiveRunControls />
+      <MagicInsertButton />
       <Dropdown menu={{ items: devMenuItems }} trigger={['click']}>
         <Button style={S.btn}>
           <span style={{ ...S.dot, background: devRunning ? RUNNING_COLOR : STOPPED_COLOR }} />
@@ -286,7 +264,7 @@ export const Toolbar: React.FC = observer(() => {
           <DownOutlined style={S.dropdownIcon} />
         </Button>
       </Dropdown>
-      <CodeViewerModal projectId={store.projectId} open={codeViewerOpen} onClose={() => setCodeViewerOpen(false)} />
+      {devRun.modals}
       <VersionsModal projectId={store.projectId} open={versionsOpen} onClose={() => setVersionsOpen(false)} />
       <BuildErrorsModal
         open={buildErrorsOpen}

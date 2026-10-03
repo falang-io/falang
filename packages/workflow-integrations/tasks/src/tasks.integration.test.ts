@@ -65,21 +65,18 @@ describe('humanTaskQuestion', () => {
     expect(configs.map((config) => config.name)).toEqual([HUMAN_TASK_NAME, HUMAN_TASK_OPTION_NAME]);
   });
 
-  it('every default option carries a void dataType, plus a fixed timeout option (timeoutField is set)', () => {
+  it('every default option carries a void dataType, and no timeout option until a timeout is set', () => {
     const [header] = buildQuestionNodeConfig(humanTaskQuestion);
     const node = header.factory?.();
     expect(node?.children?.map((child) => child.data)).toEqual([
       { label: 'Вариант 1', dataType: 'void' },
       { label: 'Вариант 2', dataType: 'void' },
-      { label: 'timeout', dataType: 'void', fixed: true },
     ]);
   });
 
   it('the option schema accepts a typed, non-void option with a prompt (e.g. a Reject reason)', () => {
     const [, option] = buildQuestionNodeConfig(humanTaskQuestion);
-    expect(() =>
-      option.data?.type.parse({ label: 'Reject', dataType: 'string', prompt: 'Reason' }),
-    ).not.toThrow();
+    expect(() => option.data?.type.parse({ label: 'Reject', dataType: 'string', prompt: 'Reason' })).not.toThrow();
     expect(() => option.data?.type.parse({ label: 'Bad', dataType: 'not-a-type' })).toThrow();
   });
 });

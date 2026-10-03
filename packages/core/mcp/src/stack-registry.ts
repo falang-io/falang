@@ -1,5 +1,5 @@
 import type { INode } from '@falang/dto';
-import { mindTreeCfg, NodesGroup, NodesStack } from '@falang/dto';
+import { commentCfg, mindTreeCfg, NodesGroup, NodesStack } from '@falang/dto';
 import {
   CODE_LANGUAGES,
   codeFunctionNodesGroup,
@@ -13,7 +13,12 @@ import {
   functionNodesGroup,
   objectStructureNodes,
 } from '@falang/typescript-dto';
-import { activepiecesActionNodesGroup, triggerFunctionNodesGroup, TRIGGER_FUNCTION_NAME } from '@falang/workflow-dto';
+import {
+  activepiecesActionNodesGroup,
+  magicNodesGroup,
+  triggerFunctionNodesGroup,
+  TRIGGER_FUNCTION_NAME,
+} from '@falang/workflow-dto';
 
 /**
  * One registered document type: the `NodesStack` that validates it / serves `get_node_kinds` for it,
@@ -169,6 +174,8 @@ const buildWorkflowFunctionRegistration = (): IDocumentTypeRegistration => {
   const stack = new NodesStack([
     functionNodesGroup,
     new NodesGroup(triggerFunctionNodesGroup),
+    new NodesGroup(magicNodesGroup),
+    new NodesGroup([commentCfg()]),
     new NodesGroup(activepiecesActionNodesGroup),
   ]);
   return { rootNodeName: 'function', stack };

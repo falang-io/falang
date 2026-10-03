@@ -21,7 +21,7 @@
 // a *local* file (not just a workspace package) needed this too, unlike `app-sketch`'s own export
 // worker (ADR 0019 (private)), which only ever imports workspace packages directly.
 import { runWorkerMain } from '@falang/desktop-worker-process';
-import { compileArduinoProject } from '../arduino-compiler/compile-arduino-project.js';
+import { compileArduinoProject } from '@falang/desktop-arduino-compiler';
 import type { ICompileWorkerJob, TCompileWorkerResult } from '../../shared/compile-worker-protocol.js';
 
 // oxlint-disable-next-line require-await -- `runWorkerMain`'s handler type is `Promise<TResult>`; the compile itself is synchronous (that's the whole reason it's isolated in this process), no `await` needed inside.

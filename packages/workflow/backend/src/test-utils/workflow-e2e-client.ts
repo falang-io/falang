@@ -84,6 +84,16 @@ export const WORKFLOW_E2E_MEDIA_URL = process.env.MEDIA_URL ?? 'http://localhost
 export const WORKFLOW_E2E_RUNNER_MEDIA_URL =
   process.env.RUNNER_MEDIA_SERVICE_URL ?? `http://${process.env.KIND_GATEWAY_IP ?? '172.18.0.1'}:4204`;
 
+/**
+ * Egress proxy (ADR 0056 (private)) as configured into admin settings — the one URL both `backend` (docker
+ * network) and runner pods (kind) can reach (`docker-compose.workflow-e2e.yml`'s `proxy`, host port `4301` via the
+ * docker-bridge gateway). `WORKFLOW_E2E_PROXY_STATS_URL` is the same service as seen from this test process.
+ */
+export const WORKFLOW_E2E_PROXY_URL =
+  process.env.E2E_PROXY_URL ?? `http://${process.env.KIND_GATEWAY_IP ?? '172.18.0.1'}:4301`;
+export const WORKFLOW_E2E_PROXY_TOKEN = process.env.E2E_PROXY_TOKEN ?? 'e2e-proxy-token';
+export const WORKFLOW_E2E_PROXY_STATS_URL = process.env.E2E_PROXY_STATS_URL ?? 'http://localhost:4301';
+
 const ADMIN_USERNAME = 'admin';
 const ADMIN_PASSWORD = 'admin';
 

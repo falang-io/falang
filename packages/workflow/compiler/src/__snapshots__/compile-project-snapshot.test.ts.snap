@@ -26,6 +26,12 @@ export const callAiText = async () => "answer";
 
 export const httpRequest = async () => ({ status: 200, body: "" });
 
+export const __falangActivityVendors: Record<string, string> = {
+  telegramSendMessage: 'telegram',
+  callAiText: 'openai',
+  httpRequest: 'http-request',
+};
+
 "
 `;
 

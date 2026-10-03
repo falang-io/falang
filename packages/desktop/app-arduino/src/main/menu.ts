@@ -52,6 +52,10 @@ export const buildApplicationMenu = async (mainWindow: BrowserWindow): Promise<v
         label: l.buildUpload,
         click: () => mainWindow.webContents.send(IPC.menuOpenBuildPanel),
       },
+      {
+        label: l.exportPdf,
+        click: () => mainWindow.webContents.send(IPC.menuExportPdf),
+      },
       { type: 'separator' },
       {
         label: l.versionHistory,

@@ -4,7 +4,7 @@ import { InjectRepository } from '@nestjs/typeorm';
 import * as bcrypt from 'bcrypt';
 import { randomBytes } from 'node:crypto';
 import type { Repository } from 'typeorm';
-import { User, type TUserRole } from './user.entity.js';
+import { User, type TSignupSource, type TUserRole } from './user.entity.js';
 
 const SALT_ROUNDS = 10;
 const DEFAULT_ADMIN_USERNAME = 'admin';
@@ -81,6 +81,29 @@ export class UsersService implements OnModuleInit {
     return this.users.findOneBy({ username });
   }
 
+  findByEmail(email: string): Promise<User | null> {
+    return this.users.findOneBy({ email: email.trim().toLowerCase() });
+  }
+
+  /** Admins that can receive mail (the seeded `admin` has no e-mail and is skipped). */
+  async findAdminEmails(): Promise<User[]> {
+    const admins = await this.users.find({ where: { role: 'admin' } });
+    return admins.filter((admin) => typeof admin.email === 'string' && admin.email.length > 0);
+  }
+
+  /** A random hash nobody knows the preimage of — an application has no password until activation. */
+  async setUnusablePassword(id: string): Promise<void> {
+    await this.setPassword(id, randomBytes(32).toString('base64url'));
+  }
+
+  async markEmailVerified(id: string): Promise<void> {
+    await this.users.update({ id }, { emailVerifiedAt: new Date() });
+  }
+
+  async markActivated(id: string): Promise<void> {
+    await this.users.update({ id }, { activatedAt: new Date() });
+  }
+
   findById(id: string): Promise<User | null> {
     return this.users.findOneBy({ id });
   }
@@ -94,6 +117,14 @@ export class UsersService implements OnModuleInit {
     password: string;
     role?: TUserRole;
     termsAcceptedAt?: Date | null;
+    email?: string | null;
+    emailVerifiedAt?: Date | null;
+    /** Omitted = active now; pass `null` for an application awaiting activation. */
+    activatedAt?: Date | null;
+    companyName?: string | null;
+    automationInterest?: string | null;
+    signupSource?: TSignupSource;
+    language?: string;
   }): Promise<User> {
     const password = await bcrypt.hash(input.password, SALT_ROUNDS);
     const user = this.users.create({
@@ -101,6 +132,13 @@ export class UsersService implements OnModuleInit {
       password,
       role: input.role ?? 'user',
       termsAcceptedAt: input.termsAcceptedAt ?? null,
+      email: input.email ?? null,
+      emailVerifiedAt: input.emailVerifiedAt ?? null,
+      activatedAt: 'activatedAt' in input ? (input.activatedAt ?? null) : new Date(),
+      companyName: input.companyName ?? null,
+      automationInterest: input.automationInterest ?? null,
+      signupSource: input.signupSource ?? 'admin',
+      ...(input.language ? { language: input.language } : {}),
     });
     return this.users.save(user);
   }

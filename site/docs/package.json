@@ -11,6 +11,7 @@
     "build:ru": "SITE_LOCALE=ru astro build --outDir dist/ru",
     "build": "npm run build:en && npm run build:ru",
     "publish:ru": "npm run build:ru && scp -r dist/ru/. falang-ru:/projects/falang-docs/",
+    "publish:en": "npm run build:en && scp -r dist/en/. falang-io:/projects/falang-docs/",
     "preview:en": "SITE_LOCALE=en astro preview --outDir dist/en",
     "preview:ru": "SITE_LOCALE=ru astro preview --outDir dist/ru",
     "check": "SITE_LOCALE=en astro check"

@@ -79,6 +79,10 @@ export default defineConfig({
         'icons',
         'basics',
         'text',
+        'code',
+        'pdf-export',
+        'ai-agent',
+        'coding-agents',
         { label: LOGIC_GROUP_LABEL[locale], items: ['logic', 'logic/examples'] },
         {
           label: WORKFLOW_GROUP_LABEL[locale],
@@ -92,15 +96,14 @@ export default defineConfig({
             'workflow/human-tasks',
             'workflow/media',
             'workflow/ai-agent',
+            'workflow/magic-node',
             'workflow/administration',
+            'workflow/integration-proxy',
             'workflow/debugging',
             'workflow/versioning',
           ],
         },
-        // Only `arduino/project-setup` and `arduino/debugging` exist so far — a fuller Arduino product
-        // overview page analogous to `workflow`'s own is still a known gap (the Arduino desktop app itself
-        // never got a top-level site/docs landing page), not something either of those pages' scope covers.
-        { label: ARDUINO_GROUP_LABEL[locale], items: ['arduino/project-setup', 'arduino/debugging'] },
+        { label: ARDUINO_GROUP_LABEL[locale], items: ['arduino', 'arduino/project-setup', 'arduino/debugging'] },
       ],
       // Every content page's section headings are `<h4>` (see e.g. `basics.mdx`/`logic/index.mdx`),
       // below Starlight's default "On this page" range of h2-h3 — without this, the sidebar TOC only

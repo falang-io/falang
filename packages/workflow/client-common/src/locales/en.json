@@ -11,7 +11,37 @@
       "have-account": "I already have an account",
       "terms-prefix": "I accept the",
       "terms-link": "terms",
-      "terms-required": "You must accept the terms"
+      "terms-required": "You must accept the terms",
+      "email": "E-mail",
+      "email-optional": "E-mail (optional)",
+      "company": "Company",
+      "interest": "What would you like to automate?",
+      "apply-title": "Apply for early access",
+      "apply-intro": "Falang is in closed beta. Tell us a little about yourself; we will activate your account after reviewing the application.",
+      "apply-submit": "Send application",
+      "captcha-required": "Please confirm you are not a robot",
+      "check-email-title": "Check your e-mail",
+      "check-email-text": "We sent an e-mail to {{email}} — follow the link in it to confirm your address.",
+      "resend": "Send again",
+      "resent": "Sent",
+      "back-to-signin": "Back to sign in",
+      "forgot-link": "Forgot password?",
+      "forgot-title": "Reset password",
+      "forgot-submit": "Send reset link",
+      "forgot-sent": "If the address exists, a mail has been sent.",
+      "reset-title": "New password",
+      "new-password": "New password",
+      "repeat-password": "Repeat password",
+      "passwords-differ": "Passwords do not match",
+      "reset-submit": "Save password",
+      "reset-done": "Password changed. You can sign in now.",
+      "verified-title": "E-mail confirmation",
+      "verified-pending": "E-mail confirmed. Your application is under review; the activation mail will arrive at your address.",
+      "verified-active": "E-mail confirmed, you can sign in.",
+      "verify-failed-title": "Confirmation failed",
+      "verify-failed": "The link is invalid or has expired.",
+      "error-not-activated": "Your account has not been activated yet. We will e-mail you when it is.",
+      "error-email-not-verified": "Confirm your e-mail first — follow the link in the mail we sent you."
     },
     "project-list-page": {
       "title": "Projects",
@@ -27,6 +57,7 @@
       "mode-empty": "Empty project",
       "mode-file": "From file",
       "file-hint": "Select a project export (.json) file created with \"Export\" in the project toolbar.",
+      "template-placeholder": "Template (optional)",
       "name-placeholder": "Project name",
       "create": "Create",
       "import": "Import",
@@ -38,9 +69,10 @@
     "toolbar": {
       "back": "← Projects",
       "view-code": "View Code",
-      "export": "Export",
+      "export": "Save as JSON",
       "exporting": "Exporting…",
       "export-failed": "Failed to export project",
+      "export-pdf": "Download PDF",
       "versions": "Versions",
       "files": "Files",
       "tasks": "Tasks",
@@ -58,7 +90,8 @@
         "label": "Dev",
         "start": "Start",
         "stop": "Stop",
-        "run": "Run function"
+        "run": "Run function…",
+        "restart": "Restart"
       },
       "prod-menu": {
         "label": "Prod",
@@ -69,10 +102,14 @@
         "publish": "Publish version",
         "publish-success": "Version published"
       },
-      "run": "Run",
+      "run": "Run function",
       "run-starting": "Starting…",
       "debug": "Debug",
-      "runs": "Runs"
+      "runs": "Runs",
+      "magic-insert": "Magic insert",
+      "magic-insert-tooltip": "A click on a valence point inserts a magic node: describe the step in words and the agent builds it",
+      "magic-insert-disabled": "Magic insert needs the AI agent to be configured by an administrator",
+      "project-menu": "Project"
     },
     "run-function-modal": {
       "title": "Run function",
@@ -107,13 +144,17 @@
       "trigger-type-required": "Trigger type is required",
       "trigger-type-placeholder": "Select a trigger",
       "field-required": "{{label}} is required",
-      "credential-label": "Credential",
+      "credential-label": "Credentials",
       "credential-required": "Credential is required",
       "credential-placeholder": "Select a credential",
       "no-credentials": "No credentials configured for this integration yet — add one in the Integrations tab first.",
       "cron-builder-custom-hint": "This expression can't be shown in the builder — edit it as text instead.",
       "next-fire-times-label": "Next fire times:",
-      "create": "Create"
+      "create": "Create",
+      "name-taken": "A document with this name already exists in the project (names are case-insensitive)",
+      "group-credentials": "Credentials",
+      "group-no-credentials": "No credentials needed",
+      "no-credentials-hint": "No integration with triggers is available yet — first create an integration (credentials) in the Integrations tab."
     },
     "versions-modal": {
       "title": "Published versions",
@@ -168,6 +209,10 @@
       "sync-structure-failed": "Failed to sync structure"
     },
     "project-tree": {
+      "section-triggers": "Triggers",
+      "section-functions": "Functions",
+      "section-types": "Types",
+      "new-trigger-here": "New trigger here",
       "header": "Project",
       "add": "+ Add",
       "add-function": "Function",
@@ -186,7 +231,13 @@
       "delete": "Delete",
       "root": "root",
       "folder-fallback": "folder",
-      "invalid-function-name": "Function name must be English, camelCase (e.g. myFunctionName) — no spaces, punctuation, or a leading digit"
+      "invalid-function-name": "Function name must be English, camelCase (e.g. myFunctionName) — no spaces, punctuation, or a leading digit",
+      "rename": "Rename",
+      "rename-document": "Rename document",
+      "rename-folder": "Rename folder",
+      "rename-ok": "Rename",
+      "name-required": "Name is required",
+      "name-taken": "A document with this name already exists in the project (names are case-insensitive)"
     },
     "runs-page": {
       "title": "Runs",
@@ -362,6 +413,55 @@
     "default-password-banner": {
       "message": "The default admin password is in use — change it.",
       "action": "Change password"
+    },
+    "magic": {
+      "title": "Magic node",
+      "spell-label": "Text of the step",
+      "ok": "OK",
+      "cancel": "Cancel",
+      "generating": "The agent is building the steps…",
+      "cancel-run": "Cancel generation",
+      "asking": "The agent has a question",
+      "failed": "The agent failed: {{error}}",
+      "retry": "Retry",
+      "idle": "Edit the steps of this node",
+      "hand-edited": "Edited by hand",
+      "note": "Agent's note",
+      "confirm-update-title": "Update the steps to match the new text?",
+      "confirm-update-ok": "Update with AI",
+      "confirm-keep": "Keep as is",
+      "confirm-regenerate-title": "Regenerate the steps with AI?",
+      "confirm-regenerate-ok": "Regenerate"
+    },
+    "email-not-verified-banner": {
+      "message": "Your e-mail {{email}} is not confirmed yet.",
+      "action": "Send again",
+      "sent": "Sent"
+    },
+    "support": {
+      "button": "Support",
+      "title": "Support",
+      "placeholder": "Write to the administrator… (Enter to send, Shift+Enter for a new line)",
+      "send": "Send",
+      "empty": "No messages yet. Ask us anything."
+    },
+    "terminate-run": {
+      "failed": "Failed to terminate the run",
+      "confirm": "Terminate this run? It will be stopped immediately.",
+      "ok": "Terminate",
+      "cancel": "Cancel",
+      "button": "Terminate"
+    },
+    "trigger-payload-modal": {
+      "title-run": "Run trigger \"{{name}}\"",
+      "title-debug": "Debug trigger \"{{name}}\"",
+      "hint": "The event the trigger would deliver, as JSON (e.g. an incoming Telegram message). It is checked against the trigger's payload type; the last payload is remembered.",
+      "unknown-type": "The payload type of this trigger is unknown — any JSON object is accepted.",
+      "type-mismatch": "The payload does not match the trigger's type — fix the underlined places.",
+      "reset": "Reset to sample",
+      "cancel": "Cancel",
+      "run": "Run",
+      "debug": "Debug"
     }
   },
   "version-history": {
@@ -423,5 +523,20 @@
     "dont-ask-tooltip": "The agent won't ask clarifying questions and will pick the most reasonable option itself.",
     "send": "Send",
     "stop": "Stop"
+  },
+  "print-export": {
+    "title": "Export to PDF",
+    "hint": "One page per document. Format is chosen per scheme (A4–A1).",
+    "all": "All",
+    "active-only": "Active document only",
+    "print": "Print",
+    "cancel": "Cancel",
+    "nothing": "No documents to print",
+    "save-pdf": "Save as PDF",
+    "close": "Close",
+    "measuring": "Measuring…",
+    "timeout": "Layout did not settle",
+    "portrait": "portrait",
+    "landscape": "landscape"
   }
 }

@@ -2,10 +2,15 @@ import type { INode } from '@falang/dto';
 import { variableInfoToTsType, type TVariableInfo } from '@falang/typescript-dto';
 import type { ITriggerDescriptor, IWorkflowIntegration } from '@falang/workflow-integrations-common';
 import { buildChoiceEmitters } from './choice-emitters.js';
-import { wrapBodyWithPositionTracking, type ITrackPositionOptions } from './compile-function.js';
+import {
+  wrapBodyWithDebugTracking,
+  wrapBodyWithPositionTracking,
+  type ITrackPositionOptions,
+} from './compile-function.js';
+import { getContainerScopeContribution } from '@falang/typescript-common';
 import { indentLines } from './indent.js';
 import { buildIntegrationEmitters } from './integration-emitters.js';
-import { compileStatements, type TResolveFunctionName } from './node-emitters.js';
+import { compileStatements, type IDebugEmitOptions, type TResolveFunctionName } from './node-emitters.js';
 import { NodeCompileError } from './node-compile-error.js';
 import { asComment, asStatement } from './raw-code.js';
 import { buildQuestionEmitters } from './question-emitters.js';
@@ -39,6 +44,8 @@ export interface ICompileTriggerFunctionOptions {
   readonly resolveFunctionName?: TResolveFunctionName;
   /** Instruments the body for live execution-position tracking — see `position-runtime.ts`. Off unless set. */
   readonly trackPosition?: ITrackPositionOptions;
+  /** Instruments the body for breakpoint debugging — see `debug-runtime.ts`. Off unless set. */
+  readonly debug?: IDebugEmitOptions;
 }
 
 /**
@@ -121,6 +128,9 @@ export const compileTriggerFunction = (
     integrationEmitters,
     branchEmitters,
     Boolean(options.trackPosition),
+    options.debug,
+    // The trigger's payload variable (declared by the preamble above) is in scope for every statement.
+    options.debug ? getContainerScopeContribution(body) : [],
   );
   const footerCode = asStatement(footer?.data as string | undefined);
 
@@ -128,7 +138,10 @@ export const compileTriggerFunction = (
   // so a triggered execution still parked on its first signal reports its document with a `null`
   // node — "started, nothing ran yet".
   const plainBody = [preamble, statements, footerCode].filter((line) => line !== '').join('\n');
-  const bodyCode = options.trackPosition ? wrapBodyWithPositionTracking(plainBody, options.trackPosition) : plainBody;
+  const positionWrappedBody = options.trackPosition
+    ? wrapBodyWithPositionTracking(plainBody, options.trackPosition)
+    : plainBody;
+  const bodyCode = options.debug ? wrapBodyWithDebugTracking(positionWrappedBody) : positionWrappedBody;
   const params = isStartDelivery ? `payload: ${payloadType}` : '';
   const declaration = `export async function ${name}(${params}): Promise<${returnType}> {\n${indentLines(bodyCode)}\n}`;
   return headerComment === '' ? declaration : `${headerComment}\n${declaration}`;

@@ -18,6 +18,7 @@ const workspacePackages = [
   '@falang/debug',
   '@falang/desktop-project-fs',
   '@falang/desktop-arduino-cli',
+  '@falang/desktop-arduino-compiler',
   '@falang/desktop-arduino-dto',
   // `main`'s agent IPC handlers (ADR 0026) call `callOpenAiChat` from this package — the same
   // gotcha `app-sketch`'s own `electron.vite.config.ts` already lists it for.
