@@ -37,6 +37,8 @@ export class VersionHistoryStore {
   @observable showAuto = false;
   @observable.ref workingCopy: IProjectSnapshot | null = null;
   @observable.ref headSnapshot: IProjectSnapshot | null = null;
+  /** `IVersionStore.hasExtraChanges` result — changes outside the document snapshot (e.g. driver files). */
+  @observable extraChanges = false;
   @observable.ref comparison: IVersionComparison | null = null;
 
   private readonly store: IVersionStore;
@@ -62,7 +64,7 @@ export class VersionHistoryStore {
   /** Whether the working copy differs from `HEAD` — `false` while nothing has loaded yet, or once there's no commit and no document. */
   @computed get dirty(): boolean {
     if (!this.workingCopy) return false;
-    return isSnapshotDirty(this.headSnapshot, this.workingCopy);
+    return this.extraChanges || isSnapshotDirty(this.headSnapshot, this.workingCopy);
   }
 
   @action setShowAuto(value: boolean): void {
@@ -76,12 +78,17 @@ export class VersionHistoryStore {
       this.error = null;
     });
     try {
-      const [commits, workingCopy] = await Promise.all([this.store.listCommits(), this.store.getWorkingCopy()]);
+      const [commits, workingCopy, extraChanges] = await Promise.all([
+        this.store.listCommits(),
+        this.store.getWorkingCopy(),
+        this.store.hasExtraChanges?.() ?? false,
+      ]);
       const headSnapshot = commits.length > 0 ? await this.store.getSnapshot(commits[0].id) : null;
       runInAction(() => {
         this.commits = commits;
         this.workingCopy = workingCopy;
         this.headSnapshot = headSnapshot;
+        this.extraChanges = extraChanges;
       });
       if (commits.length > 0) {
         await this.compareHeadWithWorkingCopy();

@@ -9,7 +9,7 @@ import type { IGitVersioningOptions } from './git-version-store-types.js';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import { createDocument, deleteDocument, readDocument, renameDocument, writeDocument } from '../documents.js';
 import { readManifest } from '../manifest.js';
-import { documentsDir, driversDir, manifestPath } from '../paths.js';
+import { configDir, documentsDir, driversDir, manifestPath } from '../paths.js';
 import { createFolder, renameFolder } from '../folders.js';
 import { createProject, openProject } from '../project.js';
 import { createGitVersionStore } from './git-version-store.js';
@@ -150,6 +150,57 @@ describe('GitVersionStore', () => {
 
     await store.restore((c2 as { id: string }).id);
     await expect(fs.readFile(path.join(extra, 'driver.config.json'), 'utf8')).resolves.toContain('extra');
+  });
+
+  it('a change only under falang/drivers/ or falang/config/ is dirty and makes a commit', async () => {
+    await createDocument(projectDir, { document: doc('doc-1', 'v1'), folderId: null });
+    const store = createGitVersionStore(projectDir, () => makeOptions());
+    await expect(store.hasExtraChanges?.()).resolves.toBe(false);
+    expect(await store.commit({ kind: 'named', message: 'base' })).not.toBeNull();
+    await expect(store.hasExtraChanges?.()).resolves.toBe(false);
+    await expect(store.commit({ kind: 'auto', message: 'nothing' })).resolves.toBeNull();
+
+    const driver = path.join(driversDir(projectDir), 'blinker');
+    await fs.mkdir(driver, { recursive: true });
+    await fs.writeFile(path.join(driver, 'blinker.h'), '// v1');
+    await expect(store.hasExtraChanges?.()).resolves.toBe(true);
+    expect(await store.commit({ kind: 'auto', message: 'driver added' })).not.toBeNull();
+    await expect(store.hasExtraChanges?.()).resolves.toBe(false);
+
+    await fs.writeFile(path.join(driver, 'blinker.h'), '// version two');
+    await expect(store.hasExtraChanges?.()).resolves.toBe(true);
+    expect(await store.commit({ kind: 'auto', message: 'driver edited' })).not.toBeNull();
+
+    await fs.rm(driver, { recursive: true });
+    await expect(store.hasExtraChanges?.()).resolves.toBe(true);
+    expect(await store.commit({ kind: 'auto', message: 'driver removed' })).not.toBeNull();
+    await expect(store.commit({ kind: 'auto', message: 'nothing' })).resolves.toBeNull();
+
+    await fs.mkdir(configDir(projectDir), { recursive: true });
+    await fs.writeFile(path.join(configDir(projectDir), 'x.json'), '{"a":1}');
+    await expect(store.hasExtraChanges?.()).resolves.toBe(true);
+    expect(await store.commit({ kind: 'auto', message: 'config added' })).not.toBeNull();
+    await fs.writeFile(path.join(configDir(projectDir), 'x.json'), '{"a":22}');
+    expect(await store.commit({ kind: 'auto', message: 'config edited' })).not.toBeNull();
+    await fs.rm(path.join(configDir(projectDir), 'x.json'));
+    expect(await store.commit({ kind: 'auto', message: 'config removed' })).not.toBeNull();
+    await expect(store.hasExtraChanges?.()).resolves.toBe(false);
+  });
+
+  it('empty drivers/config directories are not dirty, even with no repo or HEAD', async () => {
+    const store = createGitVersionStore(projectDir, () => makeOptions());
+    await fs.mkdir(driversDir(projectDir), { recursive: true });
+    await expect(store.hasExtraChanges?.()).resolves.toBe(false);
+    await expect(store.commit({ kind: 'auto', message: 'empty' })).resolves.toBeNull();
+  });
+
+  it('a driver-only first commit (no HEAD yet) is dirty and committable', async () => {
+    const store = createGitVersionStore(projectDir, () => makeOptions());
+    const driver = path.join(driversDir(projectDir), 'solo');
+    await fs.mkdir(driver, { recursive: true });
+    await fs.writeFile(path.join(driver, 'driver.config.json'), '{}');
+    await expect(store.hasExtraChanges?.()).resolves.toBe(true);
+    expect(await store.commit({ kind: 'auto', message: 'first' })).not.toBeNull();
   });
 
   it('deleting a document then committing, then restoring an earlier commit, recreates the file', async () => {

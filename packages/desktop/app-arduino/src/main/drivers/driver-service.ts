@@ -40,6 +40,13 @@ export interface IDriverServiceDeps {
   /** Tell the project watcher / library watcher a write is ours, so it does not echo back as an external change. */
   readonly markOwnProjectWrite: () => void;
   readonly markOwnLibraryWrite: () => void;
+  /**
+   * Wraps every write into the *project* (`<project>/falang/drivers/`) — the host passes `withAutoVersion`, so a driver
+   * edit gets the same session-gap auto-commit of the pre-edit state a document write does. Library writes are not
+   * project writes and never go through it. Applied at the leaf writers only (`save`, `remove`, `adoptReferenced`),
+   * so the composite operations (`createFromTemplate`, `copy`, `importFolder` → `save`) never nest it.
+   */
+  readonly withProjectWrite?: <T>(projectDir: string, write: () => Promise<T>) => Promise<T>;
 }
 
 /** A build was refused because a driver the project uses is `invalid-on-disk`/`load-error` (ADR 0054 (private) §5). */
@@ -111,6 +118,9 @@ export const createDriverService = (deps: IDriverServiceDeps) => {
     return projectDriversDir(requireProjectDir());
   };
 
+  const projectWrite = <T>(projectDir: string, write: () => Promise<T>): Promise<T> =>
+    deps.withProjectWrite ? deps.withProjectWrite(projectDir, write) : write();
+
   const markOwn = (scope: TDriverEditScope): void =>
     scope === 'project' ? deps.markOwnProjectWrite() : deps.markOwnLibraryWrite();
 
@@ -124,10 +134,13 @@ export const createDriverService = (deps: IDriverServiceDeps) => {
     if (scope === 'project') requireProjectDir();
     const validation = await deps.validate(bundle, scope);
     if (!validation.ok) return validation;
-    markOwn(scope);
-    await fs.mkdir(scopeDir(scope), { recursive: true });
-    await writeDriverBundle(scopeDir(scope), parseDriverBundle(bundle));
-    markOwn(scope);
+    const write = async (): Promise<void> => {
+      markOwn(scope);
+      await fs.mkdir(scopeDir(scope), { recursive: true });
+      await writeDriverBundle(scopeDir(scope), parseDriverBundle(bundle));
+      markOwn(scope);
+    };
+    await (scope === 'project' ? projectWrite(requireProjectDir(), write) : write());
     await registry.reload();
     return validation;
   };
@@ -142,9 +155,12 @@ export const createDriverService = (deps: IDriverServiceDeps) => {
         if (usages.length > 0) return { deleted: false, usages };
       }
     }
-    markOwn(scope);
-    await deleteDriverDir(scopeDir(scope), id);
-    markOwn(scope);
+    const write = async (): Promise<void> => {
+      markOwn(scope);
+      await deleteDriverDir(scopeDir(scope), id);
+      markOwn(scope);
+    };
+    await (scope === 'project' ? projectWrite(requireProjectDir(), write) : write());
     await registry.reload();
     return { deleted: true };
   };
@@ -208,8 +224,10 @@ export const createDriverService = (deps: IDriverServiceDeps) => {
     return result;
   };
 
-  const adoptReferenced = async (projectDir: string): Promise<IDriverAdoptResult> =>
-    adoptFrom(projectDir, await deps.readProjectContext(projectDir));
+  const adoptReferenced = async (projectDir: string): Promise<IDriverAdoptResult> => {
+    const context = await deps.readProjectContext(projectDir);
+    return projectWrite(projectDir, () => adoptFrom(projectDir, context));
+  };
 
   /** Project create/open (call site 1): adopt what the project references, then point the registry at it (one reload). */
   const openProject = async (projectDir: string): Promise<IDriverAdoptResult> => {
@@ -220,7 +238,8 @@ export const createDriverService = (deps: IDriverServiceDeps) => {
 
   /** After a version restore swapped `falang/drivers/` under us. */
   const reloadAfterRestore = async (projectDir: string): Promise<void> => {
-    await adoptReferenced(projectDir);
+    // Not `adoptReferenced`: the restore just committed this state, no auto-version wrapper wanted here.
+    await adoptFrom(projectDir, await deps.readProjectContext(projectDir), false);
     await registry.reload();
   };
 

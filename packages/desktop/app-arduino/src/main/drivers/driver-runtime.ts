@@ -3,6 +3,7 @@ import type { IDriverCliCheckResult } from '@falang/desktop-arduino-compiler/src
 import { DEFAULT_BOARD_FQBN } from '../../shared/board.js';
 import { readArduinoProjectConfig } from '../arduino-project-config.js';
 import { runValidateDriversJob } from '../compile-worker/run-compile-job.js';
+import { withAutoVersion } from '../versioning.js';
 import { markOwnDriversWrite } from '../project-watcher-state.js';
 import { createBatchValidator, createFullValidator } from './driver-validation.js';
 import { createDriverService, type TDriverService } from './driver-service.js';
@@ -70,6 +71,7 @@ export const createDriverRuntime = ({ bundledDir, libraryDir, onChanged }: IDriv
     }),
     markOwnProjectWrite: markOwnDriversWrite,
     markOwnLibraryWrite: () => libraryWatcher?.markOwnWrite(),
+    withProjectWrite: withAutoVersion,
   });
   registry.onChange(onChanged);
 

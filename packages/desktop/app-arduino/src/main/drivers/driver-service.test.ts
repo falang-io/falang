@@ -12,7 +12,12 @@ import {
 } from '@falang/desktop-arduino-dto';
 import { validateDriverBundle, ProjectDriverRegistry } from '@falang/desktop-arduino-compiler';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { buildTemplateBundle, createDriverService, DriverBuildBlockedError } from './driver-service.js';
+import {
+  buildTemplateBundle,
+  createDriverService,
+  DriverBuildBlockedError,
+  type IDriverServiceDeps,
+} from './driver-service.js';
 
 const bundleOf = (id: string, marker = 'v1'): IDriverBundle => {
   const base = buildTemplateBundle(id, `${id} ${marker}`);
@@ -47,8 +52,11 @@ describe('driver service', () => {
   // Real stages 1-3 (schema, collisions, templates) — no worker, no CLI.
   const validate = vi.fn((bundle: unknown) => validateDriverBundle(bundle, { otherDrivers: [] }));
 
+  const withProjectWrite = vi.fn((_dir: string, write: () => Promise<unknown>) => write());
+
   const makeService = () =>
     createDriverService({
+      withProjectWrite: withProjectWrite as unknown as NonNullable<IDriverServiceDeps['withProjectWrite']>,
       registry,
       bundledDir: path.join(root, 'bundled'),
       libraryDir,
@@ -66,6 +74,7 @@ describe('driver service', () => {
     projectDocuments = [];
     markProject.mockClear();
     markLibrary.mockClear();
+    withProjectWrite.mockClear();
     registry = new ProjectDriverRegistry({
       bundledDir: path.join(root, 'bundled'),
       libraryDir,
@@ -177,6 +186,36 @@ describe('driver service', () => {
     await expect(refusal).rejects.toThrow('used-one');
     // Only the unused one is broken -> the build is allowed.
     await expect(service.prepareBuildDrivers(projectDir, [docUsing('nothing-here')])).resolves.toBeDefined();
+  });
+
+  it('routes project writes through withProjectWrite exactly once each, and library writes never', async () => {
+    const service = makeService();
+    await service.save(bundleOf('a'), 'project');
+    expect(withProjectWrite).toHaveBeenCalledTimes(1);
+    expect(withProjectWrite).toHaveBeenLastCalledWith(projectDir, expect.any(Function));
+
+    withProjectWrite.mockClear();
+    // createFromTemplate saves inside (no nesting); saveToLibrary writes the library only.
+    await service.createFromTemplate('tmpl', 'Tmpl');
+    await service.saveToLibrary('a');
+    expect(withProjectWrite).toHaveBeenCalledTimes(1);
+
+    withProjectWrite.mockClear();
+    await writeDriverBundle(libraryDir, bundleOf('lib-one'));
+    await service.addFromLibrary('lib-one');
+    await service.delete('a', 'project');
+    expect(withProjectWrite).toHaveBeenCalledTimes(2);
+
+    withProjectWrite.mockClear();
+    await service.delete('lib-one', 'library');
+    await service.save(bundleOf('lib-two'), 'library');
+    expect(withProjectWrite).not.toHaveBeenCalled();
+
+    await service.adoptReferenced(projectDir);
+    expect(withProjectWrite).toHaveBeenCalledTimes(1);
+    withProjectWrite.mockClear();
+    await service.reloadAfterRestore(projectDir);
+    expect(withProjectWrite).not.toHaveBeenCalled();
   });
 
   it('requires an open project for project-scope writes', async () => {

@@ -385,6 +385,10 @@ export const registerIpcHandlers = (
     (_event, dir: string): Promise<IProjectSnapshot> => getVersionStore(dir).getWorkingCopy(),
   );
   ipcMain.handle(
+    IPC.versioningHasExtraChanges,
+    (_event, dir: string): Promise<boolean> => getVersionStore(dir).hasExtraChanges?.() ?? Promise.resolve(false),
+  );
+  ipcMain.handle(
     IPC.versioningCommit,
     (_event, dir: string, params: { kind: TCommitKind; message: string }): Promise<ICommitInfo | null> =>
       getVersionStore(dir).commit(params),
