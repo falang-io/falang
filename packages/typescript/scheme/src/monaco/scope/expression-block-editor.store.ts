@@ -1,11 +1,16 @@
 import { resolveService } from '@falang/di';
 import { BlockEditorStore, type IBlockEditorFactoryParams, type NodeStore } from '@falang/scheme';
-import type { TVariableInfo } from '@falang/typescript-dto';
+import type { zod } from '@falang/dto';
+import type { callApiDto, callFunctionDto, TVariableInfo } from '@falang/typescript-dto';
 import { computed } from 'mobx';
 import { buildHiddenScopeCode } from './build-hidden-scope-code.js';
-import { collectScopeVariables } from './collect-scope-variables.js';
+import { collectScopeVariables, type TScopeContributionResolver } from './collect-scope-variables.js';
+import type { IScopeVariable } from '@falang/typescript-common';
 import { TOKEN_TYPESCRIPT_PROJECT_SERVICE } from '../../typescript-project-service/typescript-project.service.token.js';
 import type { TypescriptProjectService } from '../../typescript-project-service/typescript-project.service.js';
+
+type TCallFunctionData = zod.infer<typeof callFunctionDto>;
+type TCallApiData = zod.infer<typeof callApiDto>;
 
 /**
  * Base for block editor stores that back one or more fields with a monaco `CodeModelStore`.
@@ -27,7 +32,7 @@ export abstract class ExpressionBlockEditorStore<TData> extends BlockEditorStore
   }
 
   @computed get hiddenScopeCode(): string {
-    const variables = collectScopeVariables(this.dataNode);
+    const variables = collectScopeVariables(this.dataNode, this.resolveDynamicScopeContribution);
     return buildHiddenScopeCode(variables, this.projectService?.typesRegistry ?? null);
   }
 
@@ -39,8 +44,36 @@ export abstract class ExpressionBlockEditorStore<TData> extends BlockEditorStore
    * dynamically-typed parameters, driven by the target function's signature).
    */
   protected buildHiddenPrefixForType(type: TVariableInfo): string {
-    const variables = [...collectScopeVariables(this.dataNode), { name: '_value', type: { ...type, constant: false } }];
+    const variables = [
+      ...collectScopeVariables(this.dataNode, this.resolveDynamicScopeContribution),
+      { name: '_value', type: { ...type, constant: false } },
+    ];
     const scopeCode = buildHiddenScopeCode(variables, this.projectService?.typesRegistry ?? null);
     return `${scopeCode}_value = \n`;
   }
+
+  /**
+   * `call-function`/`call-api`'s `returnVariable` isn't a `SCOPE_CONTRIBUTORS` entry (see
+   * `@falang/typescript-common`'s `node-scope-contribution.ts`) because its type is the *target*
+   * function/API endpoint's declared return type — only resolvable through this project's
+   * `functionsRegistry`/`externalApiRegistry`, which that package can't see. Resolved here instead,
+   * where `this.projectService` already gives safe, container-scoped (not global) access to them.
+   */
+  private readonly resolveDynamicScopeContribution: TScopeContributionResolver = (node): IScopeVariable | undefined => {
+    if (!this.projectService || !node.data) return;
+    if (node.name === 'call-function') {
+      const { schemeId, returnVariable } = node.data as TCallFunctionData;
+      if (!returnVariable) return;
+      const target = this.projectService.functionsRegistry.functions.get(schemeId);
+      if (!target?.returnValue || target.returnValue.type === 'void') return;
+      return { name: returnVariable, type: { ...target.returnValue, constant: false } };
+    }
+    if (node.name === 'call-api') {
+      const { iconId, returnVariable } = node.data as TCallApiData;
+      if (!returnVariable || !iconId) return;
+      const endpoint = this.projectService.externalApiRegistry.endpoints.get(iconId);
+      if (!endpoint?.returnValue || endpoint.returnValue.type === 'void') return;
+      return { name: returnVariable, type: { ...endpoint.returnValue, constant: false } };
+    }
+  };
 }

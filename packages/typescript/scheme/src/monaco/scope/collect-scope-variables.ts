@@ -1,1 +1,1 @@
-export { collectScopeVariables } from '@falang/typescript-common';
+export { collectScopeVariables, type TScopeContributionResolver } from '@falang/typescript-common';

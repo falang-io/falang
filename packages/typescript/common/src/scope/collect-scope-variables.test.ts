@@ -11,6 +11,16 @@ const makeNode = (node: INode, parent: NodeStore | null = null): NodeStore => {
   return store;
 };
 
+const resolveCallFunctionAsSum = (node: NodeStore) => {
+  if (node.name !== 'call-function') return;
+  return { name: 'sum', type: { type: 'number' as const, numberType: { type: 'any' as const } } };
+};
+
+const resolveXAsNumber = (node: NodeStore) => {
+  if (node.name !== 'create-var') return;
+  return { name: 'x', type: { type: 'number' as const, numberType: { type: 'any' as const } } };
+};
+
 describe('collectScopeVariables', () => {
   it('collects function parameters and create-var siblings visible from the current position', () => {
     const functionHeader: INode = {
@@ -238,6 +248,39 @@ describe('collectScopeVariables', () => {
 
     expect(collectScopeVariables(currentStore)).toEqual([
       { name: 'message', type: { type: 'struct', id: 'telegram/Message', constant: true } },
+    ]);
+  });
+
+  // `call-function`'s `returnVariable` is typed through a per-project registry this package can't
+  // see (@falang/typescript-scheme's `ExpressionBlockEditorStore`) — stood in here by a plain node
+  // name this package has no registered contributor for at all.
+  it('consults `resolveExtra` only for a sibling the static/dynamic registries contribute nothing for', () => {
+    const callFunction: INode = {
+      id: 'call',
+      name: 'call-function',
+      data: { schemeId: 'other-fn', parameters: [], returnVariable: 'sum' },
+    };
+    const createVarX: INode = { id: 'x', name: 'create-var', data: { name: 'x', variableType: { type: 'string' } } };
+    const currentAction: INode = { id: 'current', name: 'action', data: '' };
+    const functionBody: INode = {
+      id: 'body',
+      name: 'function-body',
+      children: [callFunction, createVarX, currentAction],
+      data: { name: 'fn', parameters: [] },
+    };
+    const functionNode: INode = { id: 'fn', name: 'function', children: [functionBody] };
+
+    const functionStore = makeNode(functionNode);
+    const bodyStore = functionStore.children.find((child) => child.name === 'function-body');
+    const currentStore = bodyStore?.children.find((child) => child.name === 'action');
+    if (!currentStore) throw new Error('test setup failed');
+
+    expect(collectScopeVariables(currentStore)).toEqual([{ name: 'x', type: { type: 'string' } }]);
+    // `resolveXAsNumber` never wins over `create-var`'s own registered contribution for `x`.
+    expect(collectScopeVariables(currentStore, resolveXAsNumber)).toEqual([{ name: 'x', type: { type: 'string' } }]);
+    expect(collectScopeVariables(currentStore, resolveCallFunctionAsSum)).toEqual([
+      { name: 'sum', type: { type: 'number', numberType: { type: 'any' } } },
+      { name: 'x', type: { type: 'string' } },
     ]);
   });
 });
