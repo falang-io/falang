@@ -1,6 +1,7 @@
 import { zod } from '@falang/dto';
 import type { IMcpToolDefinition } from '@falang/mcp-core';
 import { driverBundleZod } from '@falang/desktop-arduino-dto';
+import { DEVICES_TOOLS } from './devices-tools.js';
 
 /**
  * The Arduino-only driver tool definitions of ADR 0054 (private) §7 — registered by `server.ts` only for an
@@ -34,7 +35,7 @@ export const DRIVER_TOOLS: readonly IMcpToolDefinition[] = [
   },
   {
     annotations: { destructiveHint: true },
-    description: `Creates or replaces a driver (project: <project>/falang/drivers/<id>/, library: the user's personal library) after the full validate_driver pipeline — nothing is written unless it passes. New driver-action kinds are visible to get_node_kinds/set_document immediately. Use the project scope unless the user wants it in their library. ${VALIDATE_FIRST}`,
+    description: `Creates or replaces a driver (project: <project>/falang/drivers/<id>/, library: the user's personal library) after the full validate_driver pipeline — nothing is written unless it passes. New driver-action kinds are visible to get_node_kinds/set_document immediately. If the driver has a \`device\` section, call get_devices then set_devices to add an instance of it to the Devices document. Use the project scope unless the user wants it in their library. ${VALIDATE_FIRST}`,
     inputSchema: zod.object({ bundle: driverBundleZod, scope: editScopeZod }),
     name: 'set_driver',
   },
@@ -52,4 +53,5 @@ export const DRIVER_TOOLS: readonly IMcpToolDefinition[] = [
     inputSchema: zod.object({ id: zod.string() }),
     name: 'use_library_driver',
   },
+  ...DEVICES_TOOLS,
 ];

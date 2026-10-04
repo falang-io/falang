@@ -27,16 +27,22 @@ import { driversRegistry } from './drivers-registry-store.js';
 import { ElectronAgentSessionStore } from './agent/electron-agent-session-store.js';
 import { ElectronLlmClient } from './agent/electron-llm-client.js';
 import { DEFAULT_BOARD_FQBN } from '../../shared/board.js';
-import { DEVICES_DOCUMENT_TYPE, type IDevicesDocumentData } from '../../shared/devices-document.js';
+import {
+  DEVICES_DOCUMENT_TYPE,
+  emptyDevicesDocumentData,
+  parseDevicesDocumentData,
+  type IDevicesDocumentData,
+} from '../../shared/devices-document.js';
 import { reportError } from '../../shared/report-error.js';
 import { createArduinoDebugSession } from './create-arduino-debug-session.js';
 import * as folderActions from './folder-actions.js';
-import { arduinoSchemeFactory } from '@falang/desktop-arduino-scheme';
+import { arduinoSchemeFactory, getDriverConfigs } from '@falang/desktop-arduino-scheme';
 import {
   buildArduinoDocumentScheme,
   createArduinoProjectContainer,
   createDesktopAgentDocumentResolver,
   createDesktopAgentSession,
+  DevicesToolProvider,
   DriverToolProvider,
   isAgentCapableDocumentType,
   subscribeDesktopDocumentSync,
@@ -188,6 +194,11 @@ export class ArduinoProjectStore {
             refreshDrivers: () => this.refreshDrivers(),
           }),
         ),
+        new DevicesToolProvider({
+          getDevices: () => this.getDevicesDocumentData(),
+          listDeviceDrivers: () => getDriverConfigs(),
+          setDevices: (data) => this.setDevicesFromAgent(data),
+        }),
       ],
       onOpenDocument: (id) => this.ensureAgentDocumentOpen(id),
     });
@@ -543,6 +554,28 @@ export class ArduinoProjectStore {
     doc.data = data;
     this.scheduleSave(doc.id);
     this.adoptLibraryDriversIfReferenced(data.devices.map((device) => device.driverId));
+  }
+
+  /** The `Devices` document's current data (empty when it has none yet or it fails to parse). */
+  getDevicesDocumentData(): IDevicesDocumentData {
+    const doc = this.documents.find((candidate) => candidate.type === DEVICES_DOCUMENT_TYPE);
+    if (!doc) return emptyDevicesDocumentData();
+    try {
+      return parseDevicesDocumentData(toJS(doc.data));
+    } catch {
+      return emptyDevicesDocumentData();
+    }
+  }
+
+  /**
+   * The agent's `set_devices`: the same path as a manual edit (`setDevicesDocumentData` — debounced save, library-driver
+   * adoption), then bumps the document's reload version so an open `DevicesEditor` rebuilds from the new data.
+   */
+  @action setDevicesFromAgent(data: IDevicesDocumentData): void {
+    const doc = this.documents.find((candidate) => candidate.type === DEVICES_DOCUMENT_TYPE);
+    if (!doc) throw new Error('This project has no Devices document');
+    this.setDevicesDocumentData(doc.id, data);
+    this.reloadVersions.set(doc.id, (this.reloadVersions.get(doc.id) ?? 0) + 1);
   }
 
   getScheme(docId: string): Scheme {

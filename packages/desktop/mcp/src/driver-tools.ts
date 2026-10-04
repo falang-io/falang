@@ -21,6 +21,7 @@ import {
   type IDriverValidationResult,
 } from '@falang/desktop-arduino-compiler';
 import type { ArduinoDriversState, TDriverScope } from './arduino-drivers-state.js';
+import { handleGetDevices, handleSetDevices } from './devices-tools.js';
 import { errorResult, jsonResult, messageOf } from './tool-results.js';
 
 type TEditScope = 'project' | 'library';
@@ -243,8 +244,10 @@ export const DRIVER_HANDLERS: Readonly<
   Record<string, (ctx: IDriverToolContext, args: any) => CallToolResult | Promise<CallToolResult>>
 > = {
   delete_driver: handleDeleteDriver,
+  get_devices: handleGetDevices,
   get_driver: handleGetDriver,
   list_drivers: handleListDrivers,
+  set_devices: handleSetDevices,
   set_driver: handleSetDriver,
   use_library_driver: handleUseLibraryDriver,
   validate_driver: handleValidateDriver,

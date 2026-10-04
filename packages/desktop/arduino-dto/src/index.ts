@@ -12,3 +12,5 @@ export * from './project-drivers.js';
 export * from './devices-document.js';
 export * from './pinned-documents.js';
 export * from './arduino-builtins.js';
+export * from './driver-field-problem.js';
+export * from './devices-validation.js';

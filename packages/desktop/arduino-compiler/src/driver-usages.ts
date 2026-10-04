@@ -1,9 +1,9 @@
 import type { INode } from '@falang/dto';
 import {
   DEVICES_DOCUMENT_TYPE,
+  driverFieldProblem,
   parseDriverActionNodeName,
   type IDriverConfig,
-  type IDriverFieldDescriptor,
 } from '@falang/desktop-arduino-dto';
 import type { IDriverUsage, IDriverValidationIssue, IDriverValidationProject } from './driver-validation-types.js';
 
@@ -35,19 +35,6 @@ export const findDriverUsages = (id: string, project: IDriverValidationProject):
   return usages;
 };
 
-/** Problems with one field value against its descriptor: absent without default, or a select value that is no longer an option. */
-const fieldProblem = (field: IDriverFieldDescriptor, value: string | undefined): string | null => {
-  if (field.kind === 'new-variable') return null;
-  const effective = value ?? field.default ?? '';
-  if (effective === '') {
-    return field.kind === 'string' ? null : `field "${field.name}" has no value and no default`;
-  }
-  if (field.kind === 'select' && !field.options?.some((option) => option.value === effective)) {
-    return `field "${field.name}" value "${effective}" is not one of the options`;
-  }
-  return null;
-};
-
 export const usagesStage = (config: IDriverConfig, project: IDriverValidationProject): IDriverValidationIssue[] => {
   const issues: IDriverValidationIssue[] = [];
   for (const usage of findDriverUsages(config.id, project)) {
@@ -71,7 +58,7 @@ export const usagesStage = (config: IDriverConfig, project: IDriverValidationPro
         });
       }
       for (const field of action.fields) {
-        const problem = fieldProblem(field, data[field.name]);
+        const problem = driverFieldProblem(field, data[field.name]);
         if (problem) {
           issues.push({
             stage: 'usages',
@@ -95,7 +82,7 @@ export const usagesStage = (config: IDriverConfig, project: IDriverValidationPro
       continue;
     }
     for (const field of config.device.fields) {
-      const problem = fieldProblem(field, instance?.params[field.name]);
+      const problem = driverFieldProblem(field, instance?.params[field.name]);
       if (problem) {
         issues.push({
           stage: 'usages',
