@@ -88,8 +88,11 @@ instead of pasting raw C++ into `action` strings — it becomes pickable icons a
    `falang/drivers/`; use `library` only if the user wants it in their personal library, and `use_library_driver` to
    copy one in). `set_driver` re-runs the whole check and writes nothing unless it passes.
 5. The new `driver-action::<id>::<action>` kinds are available to `get_node_kinds`/`set_document` right away. Use them
-   in `setup`/`loop`, and tell the user to add the device in the `Devices` document if the driver has a `device`
-   section (the `Devices` document is not editable over MCP).
+   in `setup`/`loop`. If the driver has a `device` section, add an instance to the `Devices` document: `get_devices`
+   (current `{ pins, devices }`), then `set_devices` with the full replacement — `pins: [{ pin, mode }]` and
+   `devices: [{ driverId, name, params }]` (params are string values of the driver's `device.fields`; absent ones take
+   the field default). It validates the driver, fields and pin numbers, names the failing path, and writes nothing on
+   error; the driver's `setupTemplate` is then compiled into `setup()`.
 
 `delete_driver` refuses a project driver that nodes or `Devices` still use (it lists the usages).
 

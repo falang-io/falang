@@ -85,7 +85,7 @@ const TOOLS: readonly ILlmToolDefinition[] = [
     name: 'validate_driver',
   },
   {
-    description: `Creates or replaces a driver in this project (project scope) after the full validate_driver checks — nothing is written when it fails (the errors are returned). The project's schemes are rebuilt before this returns, so the new node kinds \`driver-action::<id>::<actionId>\` exist for the next call: call get_node_kinds again before inserting them. If the driver has a \`device\` section, tell the user to add an instance on the Devices document (you cannot edit it). Validate first. ${FORMAT}`,
+    description: `Creates or replaces a driver in this project (project scope) after the full validate_driver checks — nothing is written when it fails (the errors are returned). The project's schemes are rebuilt before this returns, so the new node kinds \`driver-action::<id>::<actionId>\` exist for the next call: call get_node_kinds again before inserting them. If the driver has a \`device\` section, call get_devices then set_devices to add an instance of it to the Devices document. Validate first. ${FORMAT}`,
     inputSchema: bundleInput,
     name: 'set_driver',
   },

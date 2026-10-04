@@ -35,6 +35,7 @@ import {
   createDesktopAgentDocumentResolver,
   createDesktopAgentSession,
   createSketchProjectContainer,
+  DevicesToolProvider,
   DriverToolProvider,
   subscribeDesktopDocumentSync,
   syncDesktopDocumentFromScheme,
@@ -50,6 +51,7 @@ import {
   buildDriverActionNodeName,
   DEVICES_DOCUMENT_TYPE,
   emptyDevicesDocumentData,
+  type IDevicesDocumentData,
   loadDriverRegistryFromDirs,
   type IDriverConfig,
   parseDriverBundle,
@@ -380,6 +382,10 @@ const smokeDriverBundle = {
       },
     ],
     declarations: ['declare function smk_set(pin: number, on: number): void;'],
+    device: {
+      fields: [{ default: '7', kind: 'pin', label: 'Pin', name: 'pin' }],
+      setupTemplate: 'smk_set(${pin}, 0)',
+    },
     id: SMOKE_DRIVER_ID,
     includes: ['smoke-led.h'],
     label: 'Smoke LED',
@@ -417,7 +423,18 @@ const arduinoCustomDriver = async (bundledRegistry: IDriverRegistry): Promise<vo
         project: projectContext(),
       });
     };
+    let devicesData: IDevicesDocumentData = emptyDevicesDocumentData();
     const makeProviders = (getSession: () => AgentSession): IAgentToolProvider[] => [
+      new DevicesToolProvider({
+        getDevices: () => devicesData,
+        listDeviceDrivers: async () => {
+          const { drivers } = await resolve();
+          return drivers.map((driver) => driver.config);
+        },
+        setDevices: (data) => {
+          devicesData = data;
+        },
+      }),
       new DriverToolProvider({
         getDriver: async (id) => {
           const { drivers } = await resolve();
@@ -459,13 +476,18 @@ const arduinoCustomDriver = async (bundledRegistry: IDriverRegistry): Promise<vo
           node: { data: { on: '1', pin: '12' }, name: buildDriverActionNodeName(SMOKE_DRIVER_ID, 'set') },
           parentId: setupBody,
         }),
+        toolCall('get_devices', {}),
+        toolCall('set_devices', {
+          devices: [{ driverId: SMOKE_DRIVER_ID, name: 'Status LED', params: { pin: '8' } }],
+          pins: [],
+        }),
         toolCall('finish', { message: 'Wrote the smoke-led driver and used it in setup.' }),
       ],
       'setup',
       makeProviders,
     );
     const toolNames = new Set(client.requests[0]?.tools.map((tool) => tool.name));
-    for (const name of ['list_drivers', 'get_driver', 'validate_driver', 'set_driver']) {
+    for (const name of ['list_drivers', 'get_driver', 'validate_driver', 'set_driver', 'get_devices', 'set_devices']) {
       assert(toolNames.has(name), `session did not offer ${name}`);
     }
     const afterSet = client.requests[4]?.messages.map((message) => JSON.stringify(message)).join('\n') ?? '';
@@ -473,7 +495,8 @@ const arduinoCustomDriver = async (bundledRegistry: IDriverRegistry): Promise<vo
       afterSet.includes('driver-action::smoke-led::set'),
       'get_node_kinds after set_driver did not list the new driver-action kind',
     );
-    assert(session.steps.length === 6, `expected 6 steps, got ${session.steps.length}`);
+    assert(session.steps.length === 8, `expected 8 steps, got ${session.steps.length}`);
+    assert(devicesData.devices.length === 1, 'set_devices did not reach the host');
 
     const resolved = await resolve();
     const drivers = resolved.drivers.map((driver) => ({ config: driver.config, dir: driver.dir }));
@@ -483,7 +506,9 @@ const arduinoCustomDriver = async (bundledRegistry: IDriverRegistry): Promise<vo
       root: store.rootOf(doc),
       type: doc.type,
     }));
+    documents.push({ data: devicesData, id: 'devices', name: 'Devices', type: DEVICES_DOCUMENT_TYPE });
     const compiled = compileArduinoProject({ documents, drivers: drivers.map((driver) => driver.config) });
+    assert(compiled.code.includes('smk_set(8, 0)'), `setup() misses the device setupTemplate:\n${compiled.code}`);
     assert(compiled.code.includes('smk_set(12, 1)'), `sketch misses the custom driver call:\n${compiled.code}`);
     assert(compiled.usedDriverIds.has(SMOKE_DRIVER_ID), 'smoke-led not recorded as used');
     assert(bundledRegistry.drivers.length >= 6, 'bundled drivers vanished');

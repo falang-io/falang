@@ -1,3 +1,4 @@
+// oxlint-disable max-lines -- one test file for the store's driver/Devices integration; split would duplicate the whole mock-IPC setup.
 // @vitest-environment jsdom
 import 'reflect-metadata';
 import { afterEach, describe, expect, it, vi } from 'vitest';
@@ -46,10 +47,13 @@ const rootNode: INode = {
 };
 
 /** A project with one `function` document `fn`; `list` answers with whatever `listResult.current` holds. */
-const setUpProject = (initial: IDriverListPayload) => {
+const setUpProject = (initial: IDriverListPayload, withDevices = false) => {
   const listResult = { current: initial };
   const tree: IProjectTree = {
-    documents: [{ id: 'fn', folderId: null, name: 'setup', type: 'function' }],
+    documents: [
+      { id: 'fn', folderId: null, name: 'setup', type: 'function' },
+      ...(withDevices ? [{ id: 'dev', folderId: null, name: 'Devices', type: 'devices' }] : []),
+    ],
     folders: [],
   };
   const adoptReferenced = vi.fn().mockResolvedValue({ adopted: [], missing: [] });
@@ -62,7 +66,15 @@ const setUpProject = (initial: IDriverListPayload) => {
       writeBreakpoints: vi.fn().mockImplementation(() => Promise.resolve()),
     },
     document: {
-      read: vi.fn().mockResolvedValue({ id: 'fn', name: 'setup', root: rootNode, type: 'function' }),
+      read: vi
+        .fn()
+        .mockImplementation((_dir: string, id: string) =>
+          Promise.resolve(
+            id === 'dev'
+              ? { id: 'dev', name: 'Devices', data: { devices: [], pins: [] }, type: 'devices' }
+              : { id: 'fn', name: 'setup', root: rootNode, type: 'function' },
+          ),
+        ),
       write,
     },
     drivers: { list: vi.fn().mockImplementation(() => Promise.resolve(listResult.current)), adoptReferenced },
@@ -72,8 +84,8 @@ const setUpProject = (initial: IDriverListPayload) => {
   return { listResult, adoptReferenced, write };
 };
 
-const openProject = async (initial: IDriverListPayload) => {
-  const mocks = setUpProject(initial);
+const openProject = async (initial: IDriverListPayload, withDevices = false) => {
+  const mocks = setUpProject(initial, withDevices);
   const store = new ArduinoProjectStore('/fake/project');
   await vi.waitFor(() => expect(store.isLoadingTree).toBe(false));
   store.openTab('fn');
@@ -235,6 +247,23 @@ describe('ArduinoProjectStore — drivers', () => {
       });
       await settle();
       expect(adoptReferenced).not.toHaveBeenCalled();
+    } finally {
+      store.dispose();
+    }
+  });
+
+  it("the agent's set_devices path saves the Devices document, adopts a library driver and bumps its reload version", async () => {
+    const { store, adoptReferenced } = await openProject(payload(entry(demoConfig(), 'library')), true);
+    try {
+      const version = store.getReloadVersion('dev');
+      expect(store.getDevicesDocumentData()).toEqual({ devices: [], pins: [] });
+      store.setDevicesFromAgent({
+        pins: [],
+        devices: [{ id: 'd1', driverId: 'demo-led', name: 'Demo', params: {} }],
+      });
+      expect(store.getDevicesDocumentData().devices).toHaveLength(1);
+      expect(store.getReloadVersion('dev')).toBe(version + 1);
+      await vi.waitFor(() => expect(adoptReferenced).toHaveBeenCalledTimes(1));
     } finally {
       store.dispose();
     }

@@ -10,9 +10,9 @@ head:
 
 <p>
   The desktop apps — Falang and Falang for Arduino — have a built-in AI agent: describe in plain words what to change,
-  and it edits the schemes through the same actions you use by hand (insert, move and delete icons, change their
-  text). Every change appears on the canvas as it happens and can be undone. The web workflow builder has its own
-  agent, see <a href="../workflow/ai-agent/">AI agent</a> in the Workflow section.
+  and it edits the schemes through the same actions you use by hand (insert, move and delete icons, change their text).
+  Every change appears on the canvas as it happens and can be undone. The web workflow builder has its own agent, see{' '}
+  <a href="../workflow/ai-agent/">AI agent</a> in the Workflow section.
 </p>
 
 #### Setting it up
@@ -34,8 +34,8 @@ head:
 </ul>
 <p>
   The settings belong to the app on this computer and apply to every project. They are kept in the app's own settings
-  file, not in the project folder, so the key never ends up in a project you share or commit. Until the agent is set
-  up, its panel shows a hint pointing to <b>Settings → Agent…</b>.
+  file, not in the project folder, so the key never ends up in a project you share or commit. Until the agent is set up,
+  its panel shows a hint pointing to <b>Settings → Agent…</b>.
 </p>
 
 #### Opening the agent
@@ -50,16 +50,16 @@ head:
 
 <ul>
   <li>
-    In Falang: the functions of <a href="../logic/">logic</a> projects and the schemes of{' '}
-    <a href="../code/">code</a> projects. Text projects are not supported.
+    In Falang: the functions of <a href="../logic/">logic</a> projects and the schemes of <a href="../code/">code</a>{' '}
+    projects. Text projects are not supported.
   </li>
   <li>
-    In Falang for Arduino: <code>setup</code>, <code>loop</code> and your other schemes. The <code>Devices</code>{' '}
-    document is not edited by the agent.
+    In Falang for Arduino: <code>setup</code>, <code>loop</code> and your other schemes. In the <code>Devices</code>{' '}
+    document the agent can read and replace the pin and device tables.
   </li>
   <li>
-    The agent is not limited to the open tab: it can read and change other schemes of the project, and opens a tab for
-    a scheme it starts working on.
+    The agent is not limited to the open tab: it can read and change other schemes of the project, and opens a tab for a
+    scheme it starts working on.
   </li>
   <li>
     It does not create new documents — create the scheme yourself and ask the agent to fill it in, or use a{' '}
@@ -79,15 +79,15 @@ head:
 <p>
   Conversations are kept as sessions of the project: start a new one, switch between them, rename, delete, or export a
   session as a JSON file. Sessions are saved in the project folder, one file per session under{' '}
-  <code>falang/agent-sessions/</code>. Under each reply the panel shows how many tokens it used, and the individual steps
-  the agent took can be expanded.
+  <code>falang/agent-sessions/</code>. Under each reply the panel shows how many tokens it used, and the individual
+  steps the agent took can be expanded.
 </p>
 
 #### Clarifying questions
 
 <p>
-  When a request is ambiguous in a way that changes the result, the agent stops and asks one question with a few
-  options instead of guessing. Click an option, choose <b>Other…</b> to type your own answer, or <b>Decide yourself</b>
-  to let the agent pick; your answer continues the same conversation. It asks at most three questions in a row. To
-  never be asked, turn on <b>Don't ask, just do</b> in the panel — the setting is remembered per project.
+  When a request is ambiguous in a way that changes the result, the agent stops and asks one question with a few options
+  instead of guessing. Click an option, choose <b>Other…</b> to type your own answer, or <b>Decide yourself</b>
+  to let the agent pick; your answer continues the same conversation. It asks at most three questions in a row. To never
+  be asked, turn on <b>Don't ask, just do</b> in the panel — the setting is remembered per project.
 </p>
