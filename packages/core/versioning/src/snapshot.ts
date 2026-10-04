@@ -56,6 +56,11 @@ export interface IVersionStore {
   listCommits(): Promise<ICommitInfo[]>;
   getSnapshot(commitId: string): Promise<IProjectSnapshot>;
   getWorkingCopy(): Promise<IProjectSnapshot>;
+  /**
+   * Optional: whether the working copy differs from HEAD in ways `IProjectSnapshot` doesn't carry (desktop:
+   * files under `falang/config/` and `falang/drivers/`). Stores whose snapshot covers everything omit it.
+   */
+  hasExtraChanges?(): Promise<boolean>;
   /** Snapshots the working copy. Returns `null` (no new commit) when the tree diff against HEAD is empty. */
   commit(params: { kind: TCommitKind; message: string }): Promise<ICommitInfo | null>;
   /** Promotes an `auto` commit to `named` (or renames a `named` one) — metadata only, history is never rewritten. */

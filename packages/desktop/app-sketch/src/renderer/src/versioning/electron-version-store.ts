@@ -25,6 +25,10 @@ export class ElectronVersionStore implements IVersionStore {
     return globalThis.falang.versioning.getWorkingCopy(this.projectDir);
   }
 
+  hasExtraChanges(): Promise<boolean> {
+    return globalThis.falang.versioning.hasExtraChanges(this.projectDir);
+  }
+
   commit(params: { kind: TCommitKind; message: string }): Promise<ICommitInfo | null> {
     return globalThis.falang.versioning.commit(this.projectDir, params);
   }

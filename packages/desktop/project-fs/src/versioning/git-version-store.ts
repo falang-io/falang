@@ -27,6 +27,7 @@ import {
   resolveRepoContext,
   type IRepoContext,
 } from './git-paths.js';
+import { hasExtraFileChanges } from './git-extra-changes.js';
 import { readSnapshotAtOid, readWorkingCopySnapshot } from './git-snapshot-io.js';
 import { stageWorkingCopy } from './git-stage.js';
 import { createSerialQueue } from './serial-queue.js';
@@ -119,6 +120,10 @@ class GitVersionStore implements IVersionStore {
     return this.enqueue(() => readWorkingCopySnapshot(this.projectDir));
   }
 
+  hasExtraChanges(): Promise<boolean> {
+    return this.enqueue(async () => hasExtraFileChanges(await this.resolveContext()));
+  }
+
   commit(params: { kind: TCommitKind; message: string }): Promise<ICommitInfo | null> {
     return this.enqueue(async () => {
       const options = await this.getOptions();
@@ -191,9 +196,11 @@ class GitVersionStore implements IVersionStore {
     // path existing at all (e.g. the outer repo's history before this project was added to it) —
     // not a real error, just "no prior snapshot of this project yet".
     const headSnapshot = headOid === null ? null : await readSnapshotAtOid(ctx, headOid).catch(() => null);
-    const dirty =
+    const documentsDirty =
       headSnapshot === null ? isSnapshotDirty(null, workingCopy) : !diffSnapshots(headSnapshot, workingCopy).isEmpty;
-    if (!dirty) return null;
+    // Files outside the document snapshot (`falang/config/**`, `falang/drivers/**`) are staged too, so a change
+    // to only those must still make a commit.
+    if (!documentsDirty && !(await hasExtraFileChanges(ctx))) return null;
 
     if (await needsInit(ctx)) {
       await git.init({ fs: nodeFs, dir: ctx.repoRoot, defaultBranch: 'main' });

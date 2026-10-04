@@ -18,6 +18,7 @@ const isEqualSnapshot = (a: IProjectSnapshot, b: IProjectSnapshot): boolean => J
 /** A minimal in-memory `IVersionStore` for the tests below — no HTTP/IPC, no git; a `Map` of commits plus one mutable "working copy" pointer. */
 class FakeVersionStore implements IVersionStore {
   workingCopy: IProjectSnapshot = emptySnapshot;
+  extraChanges = false;
   private readonly commits: ICommitInfo[] = [];
   private readonly snapshots = new Map<string, IProjectSnapshot>();
 
@@ -29,6 +30,10 @@ class FakeVersionStore implements IVersionStore {
     const snapshot = this.snapshots.get(commitId);
     if (!snapshot) throw new Error(`No snapshot for commit ${commitId}`);
     return Promise.resolve(snapshot);
+  }
+
+  hasExtraChanges(): Promise<boolean> {
+    return Promise.resolve(this.extraChanges);
   }
 
   getWorkingCopy(): Promise<IProjectSnapshot> {
@@ -117,6 +122,16 @@ describe('VersionHistoryStore', () => {
         { id: 'doc-1', type: 'function', name: 'greet', folderId: null, pinned: false, root: buildNode('n1', 'if') },
       ],
     };
+    await store.refresh();
+    expect(store.dirty).toBe(true);
+  });
+
+  it('is dirty when only changes outside the document snapshot exist', async () => {
+    const fakeStore = new FakeVersionStore();
+    const store = new VersionHistoryStore({ store: fakeStore });
+    await store.refresh();
+    expect(store.dirty).toBe(false);
+    fakeStore.extraChanges = true;
     await store.refresh();
     expect(store.dirty).toBe(true);
   });

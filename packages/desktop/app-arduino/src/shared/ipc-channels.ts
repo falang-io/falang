@@ -38,6 +38,7 @@ export const IPC = {
   versioningListCommits: 'versioning:list-commits',
   versioningGetSnapshot: 'versioning:get-snapshot',
   versioningGetWorkingCopy: 'versioning:get-working-copy',
+  versioningHasExtraChanges: 'versioning:has-extra-changes',
   versioningCommit: 'versioning:commit',
   versioningNameCommit: 'versioning:name-commit',
   versioningRestore: 'versioning:restore',

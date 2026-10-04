@@ -142,6 +142,7 @@ const falangApi = {
     getSnapshot: (dir: string, commitId: string): Promise<IProjectSnapshot> =>
       ipcRenderer.invoke(IPC.versioningGetSnapshot, dir, commitId),
     getWorkingCopy: (dir: string): Promise<IProjectSnapshot> => ipcRenderer.invoke(IPC.versioningGetWorkingCopy, dir),
+    hasExtraChanges: (dir: string): Promise<boolean> => ipcRenderer.invoke(IPC.versioningHasExtraChanges, dir),
     commit: (dir: string, params: { kind: TCommitKind; message: string }): Promise<ICommitInfo | null> =>
       ipcRenderer.invoke(IPC.versioningCommit, dir, params),
     nameCommit: (dir: string, commitId: string, message: string): Promise<ICommitInfo> =>
