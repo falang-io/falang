@@ -1,4 +1,5 @@
 import { resolveService } from '@falang/di';
+import { toJS } from 'mobx';
 import type { Scheme } from '../../scheme/scheme.js';
 import { TOKEN_HISTORY } from './history.store.token.js';
 import {
@@ -17,41 +18,25 @@ import { moveNodes } from '../../actions/move-nodes.js';
 import { setData } from '../../actions/set-data.js';
 import { setMeta } from '../../actions/set-meta.js';
 
+/**
+ * Items hold only ids and plain DTO/value snapshots and act on the scheme the store is attached to when they run
+ * (`HistoryStore.replay`), so the store can outlive the scheme it recorded on (see `HistoryModule`'s `store` option).
+ */
 export const registerHistoryHandlers = (scheme: Scheme) => {
-  let isHistoryActionInProcess = false;
+  const history = () => resolveService(TOKEN_HISTORY, scheme.container);
 
   scheme.events.subscribeEvent(EVENT_NODE_DELETED, ({ index, node, parentId, slot }) => {
-    if (isHistoryActionInProcess) return false;
-    resolveService(TOKEN_HISTORY, scheme.container).add({
-      back: () => {
-        isHistoryActionInProcess = true;
-        insertNode(
-          {
-            index,
-            parentId: parentId,
-            node,
-            slot,
-          },
-          scheme,
-        );
-        isHistoryActionInProcess = false;
-      },
-      forward: () => {
-        isHistoryActionInProcess = true;
-        deleteNode(
-          {
-            id: node.id,
-          },
-          scheme,
-        );
-        isHistoryActionInProcess = false;
-      },
+    if (history().isReplaying) return false;
+    const store = history();
+    store.add({
+      back: () => store.replay((target) => insertNode({ index, parentId, node, slot }, target)),
+      forward: () => store.replay((target) => deleteNode({ id: node.id }, target)),
     });
     return false;
   });
 
   scheme.events.subscribeEvent(EVENT_NODE_INSERTED, ({ node }) => {
-    if (isHistoryActionInProcess) return false;
+    if (history().isReplaying) return false;
     const parent = node.parent;
     if (!parent) {
       logger.warn(`Parent node not found for ${node.id}`);
@@ -68,36 +53,18 @@ export const registerHistoryHandlers = (scheme: Scheme) => {
       return false;
     }
     const nodeDto = getDto(node.id, scheme);
-    resolveService(TOKEN_HISTORY, scheme.container).add({
-      forward: () => {
-        isHistoryActionInProcess = true;
-        insertNode(
-          {
-            index,
-            node: nodeDto,
-            parentId: parent.id,
-            slot,
-          },
-          scheme,
-        );
-        isHistoryActionInProcess = false;
-      },
-      back: () => {
-        isHistoryActionInProcess = true;
-        deleteNode(
-          {
-            id: node.id,
-          },
-          scheme,
-        );
-        isHistoryActionInProcess = false;
-      },
+    const nodeId = node.id;
+    const parentId = parent.id;
+    const store = history();
+    store.add({
+      forward: () => store.replay((target) => insertNode({ index, node: nodeDto, parentId, slot }, target)),
+      back: () => store.replay((target) => deleteNode({ id: nodeId }, target)),
     });
     return false;
   });
 
   scheme.events.subscribeEvent(EVENT_NODES_MOVED, (params) => {
-    if (isHistoryActionInProcess) return false;
+    if (history().isReplaying) return false;
     const { indexStart, insertIndex, length, newParentId, oldParentId } = params;
     const isSameParent = oldParentId === newParentId;
     const isMoveForwardSameNode = isSameParent && insertIndex > indexStart;
@@ -106,88 +73,49 @@ export const registerHistoryHandlers = (scheme: Scheme) => {
     if (isSameParent && isMoveForwardSameNode) {
       backIndexStart = insertIndex - length;
     }
-    resolveService(TOKEN_HISTORY, scheme.container).add({
-      forward: () => {
-        isHistoryActionInProcess = true;
-        moveNodes(params, scheme);
-        isHistoryActionInProcess = false;
-      },
-      back: () => {
-        isHistoryActionInProcess = true;
-        moveNodes(
-          {
-            indexStart: backIndexStart,
-            insertIndex: backInsertIndex,
-            length,
-            newParentId: oldParentId,
-            oldParentId: newParentId,
-          },
-          scheme,
-        );
-        isHistoryActionInProcess = false;
-      },
+    const store = history();
+    store.add({
+      forward: () => store.replay((target) => moveNodes(params, target)),
+      back: () =>
+        store.replay((target) =>
+          moveNodes(
+            {
+              indexStart: backIndexStart,
+              insertIndex: backInsertIndex,
+              length,
+              newParentId: oldParentId,
+              oldParentId: newParentId,
+            },
+            target,
+          ),
+        ),
     });
     return false;
   });
 
   scheme.events.subscribeEvent(EVENT_DATA_UPDATED, ({ node, oldData }) => {
-    if (isHistoryActionInProcess) return false;
-    const data = node.data;
+    if (history().isReplaying) return false;
+    // Snapshots: the live node data belongs to this scheme's stores and must not leak into another scheme.
+    const data = toJS(node.data);
+    const previous = toJS(oldData);
     const id = node.id;
-    resolveService(TOKEN_HISTORY, scheme.container).add({
-      forward: () => {
-        isHistoryActionInProcess = true;
-        setData(
-          {
-            id,
-            data,
-          },
-          scheme,
-        );
-        isHistoryActionInProcess = false;
-      },
-      back: () => {
-        isHistoryActionInProcess = true;
-        setData(
-          {
-            id,
-            data: oldData,
-          },
-          scheme,
-        );
-        isHistoryActionInProcess = false;
-      },
+    const store = history();
+    store.add({
+      forward: () => store.replay((target) => setData({ id, data }, target)),
+      back: () => store.replay((target) => setData({ id, data: previous }, target)),
     });
     return false;
   });
 
   scheme.events.subscribeEvent(EVENT_META_UPDATED, ({ node, oldMeta }) => {
-    if (isHistoryActionInProcess) return false;
-    const meta = node.meta;
+    if (history().isReplaying) return false;
+    const meta = toJS(node.meta);
+    const previous = toJS(oldMeta);
     const id = node.id;
-    resolveService(TOKEN_HISTORY, scheme.container).add({
-      forward: () => {
-        isHistoryActionInProcess = true;
-        setMeta(
-          {
-            id,
-            meta,
-          },
-          scheme,
-        );
-        isHistoryActionInProcess = false;
-      },
-      back: () => {
-        isHistoryActionInProcess = true;
-        setMeta(
-          {
-            id,
-            meta: oldMeta,
-          },
-          scheme,
-        );
-        isHistoryActionInProcess = false;
-      },
+    const store = history();
+    store.add({
+      forward: () => store.replay((target) => setMeta({ id, meta }, target)),
+      back: () => store.replay((target) => setMeta({ id, meta: previous }, target)),
     });
     return false;
   });

@@ -148,6 +148,12 @@ export class ArduinoProjectStore {
   readonly reloadVersions = observable.map<string, number>();
 
   private readonly schemes = new Map<string, Scheme>();
+  /**
+   * Undo stacks of documents whose scheme `rebuildOpenSchemes` disposed: `buildScheme` hands the stack to the rebuilt
+   * scheme (same node ids), so a driver change doesn't wipe undo history. Dropped wherever the document's tree changes
+   * under it (closed tab, reload from disk, restore, dispose).
+   */
+  private readonly carriedHistories = new Map<string, HistoryStore>();
   private readonly saveTimers = new Map<string, ReturnType<typeof setTimeout>>();
   private readonly disposeFunctionsRegistrySync: () => void;
   private readonly disposeDebugSession: () => void;
@@ -341,6 +347,7 @@ export class ArduinoProjectStore {
       existingScheme.dispose();
       this.schemes.delete(id);
     }
+    this.carriedHistories.delete(id);
     runInAction(() => this.reloadVersions.set(id, (this.reloadVersions.get(id) ?? 0) + 1));
   }
 
@@ -528,6 +535,7 @@ export class ArduinoProjectStore {
       scheme.dispose();
       this.schemes.delete(id);
     }
+    this.carriedHistories.delete(id);
   }
 
   getFolderDescendantIds(folderId: string): string[] {
@@ -797,7 +805,7 @@ export class ArduinoProjectStore {
    * Disposes every built scheme and bumps the reload version of every open tab so `ProjectWorkspace` remounts them
    * (and `DevicesEditor` re-reads its driver list) against the current driver registry. Documents are not re-read
    * from disk: pending autosaves are flushed first and a live scheme keeps `doc.root` current, so the rebuilt
-   * scheme starts from the same tree. Undo history of the rebuilt schemes is reset.
+   * scheme starts from the same tree. Each document's undo stack is carried over to its rebuilt scheme (`carriedHistories`).
    */
   async rebuildOpenSchemes(): Promise<void> {
     this.pendingDriverRebuild = false;
@@ -812,7 +820,11 @@ export class ArduinoProjectStore {
         const doc = this.getDocument(id);
         if (doc) syncDesktopDocumentFromScheme(doc, scheme);
       }
-      for (const scheme of this.schemes.values()) scheme.dispose();
+      this.carriedHistories.clear();
+      for (const [id, scheme] of this.schemes) {
+        this.carriedHistories.set(id, resolveService(TOKEN_HISTORY, scheme.container));
+        scheme.dispose();
+      }
       this.schemes.clear();
       for (const id of this.openTabIds) this.reloadVersions.set(id, (this.reloadVersions.get(id) ?? 0) + 1);
     });
@@ -887,6 +899,7 @@ export class ArduinoProjectStore {
     this.flushPendingSaves().catch((error: unknown) => reportError('Failed to flush pending saves', error));
     for (const scheme of this.schemes.values()) scheme.dispose();
     this.schemes.clear();
+    this.carriedHistories.clear();
   }
 
   private buildScheme(doc: DesktopDocument): Scheme {
@@ -899,6 +912,7 @@ export class ArduinoProjectStore {
     const scheme = buildArduinoDocumentScheme({
       doc,
       parentContainer: this.container,
+      historyStore: this.carriedHistories.get(doc.id),
       extraModules: [new DebuggerModule({ session: this.debugSession, documentId: doc.id })],
     });
     scheme.events.subscribeEvent(EVENT_NODE_INSERTED, ({ node }) => {
@@ -906,6 +920,7 @@ export class ArduinoProjectStore {
       if (parsed) this.adoptLibraryDriversIfReferenced([parsed.driverId]);
       return false;
     });
+    this.carriedHistories.delete(doc.id);
     subscribeDesktopDocumentSync(doc, scheme, {
       typesRegistry: resolveService(TOKEN_TYPESCRIPT_PROJECT_SERVICE, this.container).typesRegistry,
       onSynced: () => this.scheduleSave(doc.id),

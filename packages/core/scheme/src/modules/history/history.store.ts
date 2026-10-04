@@ -1,4 +1,5 @@
 import { action, computed, makeObservable, observable } from 'mobx';
+import type { Scheme } from '../../scheme/scheme.js';
 
 export interface IHistoryStoreItem {
   stackName?: string;
@@ -15,9 +16,46 @@ export class HistoryStore {
   @observable private saveIndex = -1;
   @observable private groupDepth = 0;
   private groupItems: IHistoryStoreItem[] = [];
+  private attachedScheme: Scheme | null = null;
+  private replayDepth = 0;
 
   constructor() {
     makeObservable(this);
+  }
+
+  /**
+   * Binds the store to the scheme whose tree the items act on. Items resolve the scheme at `back`/`forward` time
+   * (`requireScheme`), so a store can be moved to a rebuilt scheme (same node ids) and keep its undo stack.
+   */
+  attach(scheme: Scheme): void {
+    if (this.groupDepth > 0) throw new Error('HistoryStore.attach: cannot move the store while a group is open');
+    if (this.replayDepth > 0) throw new Error('HistoryStore.attach: cannot move the store during a replay');
+    this.attachedScheme = scheme;
+  }
+
+  /** Unbinds `scheme` if it is still the attached one (a no-op once the store moved on to another scheme). */
+  detach(scheme: Scheme): void {
+    if (this.attachedScheme === scheme) this.attachedScheme = null;
+  }
+
+  requireScheme(): Scheme {
+    if (!this.attachedScheme) throw new Error('HistoryStore: no scheme attached');
+    return this.attachedScheme;
+  }
+
+  /** True while a history item is being replayed — the handlers must not record its own mutations. */
+  get isReplaying(): boolean {
+    return this.replayDepth > 0;
+  }
+
+  replay<T>(fn: (scheme: Scheme) => T): T {
+    const scheme = this.requireScheme();
+    this.replayDepth += 1;
+    try {
+      return fn(scheme);
+    } finally {
+      this.replayDepth -= 1;
+    }
   }
 
   @computed get isModified(): boolean {

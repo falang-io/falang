@@ -3,6 +3,7 @@ import type { INode } from '@falang/dto';
 import {
   createNodeStoreFromNode,
   HistoryModule,
+  type HistoryStore,
   setRootNodeForScheme,
   type IModule,
   type Scheme,
@@ -16,6 +17,8 @@ export interface IBuildArduinoDocumentSchemeParams {
   readonly parentContainer: DependencyContainer;
   /** Host-only modules (the editor's `DebuggerModule`, …) — added before the history module. */
   readonly extraModules?: readonly IModule[];
+  /** The undo stack of a previous scheme of the same document (same node ids) to continue — see `HistoryModule`. */
+  readonly historyStore?: HistoryStore;
 }
 
 /**
@@ -27,7 +30,7 @@ export interface IBuildArduinoDocumentSchemeParams {
  */
 export const buildArduinoDocumentScheme = (params: IBuildArduinoDocumentSchemeParams): Scheme => {
   const { doc } = params;
-  const extraModules: IModule[] = [...(params.extraModules ?? []), new HistoryModule()];
+  const extraModules: IModule[] = [...(params.extraModules ?? []), new HistoryModule({ store: params.historyStore })];
   const scheme = arduinoSchemeFactory({
     id: doc.id,
     name: doc.name,
