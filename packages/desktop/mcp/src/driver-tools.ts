@@ -1,11 +1,9 @@
 import { promises as fs } from 'node:fs';
 import type { CallToolResult } from '@modelcontextprotocol/sdk/types.js';
-import { configFilePath, listTree, readDocument } from '@falang/desktop-project-fs';
+import { configFilePath } from '@falang/desktop-project-fs';
 import {
   DEFAULT_BOARD_FQBN,
   deleteDriverDir,
-  DEVICES_DOCUMENT_TYPE,
-  parseDevicesDocumentData,
   parseDriverBundle,
   readDriverBundle,
   writeDriverBundle,
@@ -17,10 +15,10 @@ import {
   findDriverUsages,
   validateDriverBundle,
   type IDriverCliCheckResult,
-  type IDriverValidationProject,
   type IDriverValidationResult,
 } from '@falang/desktop-arduino-compiler';
 import type { ArduinoDriversState, TDriverScope } from './arduino-drivers-state.js';
+import { readProjectContext } from './project-context.js';
 import { errorResult, jsonResult, messageOf } from './tool-results.js';
 
 type TEditScope = 'project' | 'library';
@@ -69,15 +67,15 @@ const summarize = (config: IDriverConfig) => ({
 
 export const handleListDrivers = (ctx: IDriverToolContext): CallToolResult => {
   const { state } = ctx;
-  const effective = new Set(state.drivers.map((driver) => `${driver.scope}:${driver.config.id}`));
   return jsonResult({
     drivers: [
       ...state.all.map((driver) => ({
         ...summarize(driver.config),
+        ...(driver.errors ? { errors: driver.errors } : {}),
         ...(driver.overrides ? { overrides: driver.overrides } : {}),
-        effective: effective.has(`${driver.scope}:${driver.config.id}`),
+        effective: state.lookup(driver.config.id) === driver,
         scope: driver.scope,
-        status: 'ok',
+        status: driver.status,
       })),
       ...state.brokenDrivers.map((broken) => ({
         id: broken.id,
@@ -112,21 +110,6 @@ const readBoardFqbn = async (projectDir: string): Promise<string> => {
   } catch {
     return DEFAULT_BOARD_FQBN;
   }
-};
-
-const readProjectContext = async (projectDir: string): Promise<IDriverValidationProject> => {
-  const tree = await listTree(projectDir);
-  const documents = await Promise.all(tree.documents.map((doc) => readDocument(projectDir, doc.id)));
-  const devices = documents.find((document) => document.type === DEVICES_DOCUMENT_TYPE);
-  let devicesData = null;
-  if (devices?.data) {
-    try {
-      devicesData = parseDevicesDocumentData(devices.data);
-    } catch {
-      devicesData = null;
-    }
-  }
-  return { devicesData, documents };
 };
 
 const validateFor = async (

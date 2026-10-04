@@ -1,4 +1,3 @@
-import { createHash } from 'node:crypto';
 import * as path from 'node:path';
 import {
   driverContentHash,
@@ -8,22 +7,20 @@ import {
   type IDriverConfig,
   type IResolvedDriver,
 } from '@falang/desktop-arduino-dto';
-import type {
-  IDriverValidationProject,
-  IDriverValidationResult,
-} from '@falang/desktop-arduino-compiler/src/driver-validation-types.js';
+import type { ILoadedDriver } from '@falang/desktop-arduino-dto';
+import type { IDriverValidationProject, IDriverValidationResult } from './driver-validation-types.js';
 import type {
   IDriverListEntry,
   IDriverListPayload,
   IDriverLoadErrorEntry,
   TDriverEditScope,
   TDriverScope,
-} from '../../shared/driver-ipc-types.js';
-import type { ILoadedDriver } from './driver-registry.js';
+} from './driver-list-types.js';
+import { bundleErrors, describeIssues, othersSignature, withScope } from './driver-registry-helpers.js';
 import { keepReferencedMissing } from './referenced-missing.js';
 
 /**
- * The per-project driver registry of the Arduino app's `main` (ADR 0054 (private) §3): bundled ∪ library ∪
+ * The per-project driver registry shared by the Arduino app's `main` and the MCP server (ADR 0054 (private) §3): bundled ∪ library ∪
  * project drivers resolved with precedence project > library > bundled, each library/project driver
  * validated, with the **last valid** version of every driver kept for the session — a driver whose files
  * stop validating on disk (a hand edit, a git checkout) keeps being served as it was and is flagged
@@ -42,23 +39,16 @@ export interface IDriverCheckItem {
 export type TDriverBatchValidator = (items: readonly IDriverCheckItem[]) => Promise<IDriverValidationResult[]>;
 
 export interface IProjectDriverRegistryParams {
-  readonly bundledDir: string;
-  readonly libraryDir: string;
+  readonly bundledDir: string | readonly string[];
+  /** `null`: no personal library (MCP without one). */
+  readonly libraryDir: string | null;
   readonly validate: TDriverBatchValidator;
+  /** The project to start with (default none); `setProject` switches it later. */
+  readonly projectDir?: string | null;
   readonly readProjectContext: (projectDir: string) => Promise<IDriverValidationProject | null>;
 }
 
 const MAX_CACHED_RESULTS = 200;
-
-const describeIssues = (result: IDriverValidationResult): string[] =>
-  result.errors.map((issue) => `[${issue.stage}] ${issue.message}`);
-
-const errorMessage = (error: unknown): string => (error instanceof Error ? error.message : String(error));
-
-const bundleErrors = (error: unknown): string[] => {
-  const messages = (error as { messages?: unknown }).messages;
-  return Array.isArray(messages) ? messages.map(String) : [errorMessage(error)];
-};
 
 interface ILastValid {
   readonly config: IDriverConfig;
@@ -71,22 +61,6 @@ interface ISlot {
   readError: string[] | null;
 }
 
-const othersSignature = (others: readonly IDriverConfig[]): string =>
-  createHash('sha256')
-    .update(
-      JSON.stringify(
-        others
-          .map((other) => [other.id, other.declarations])
-          .toSorted(([a], [b]) => String(a).localeCompare(String(b))),
-      ),
-    )
-    .digest('hex');
-
-const withScope = (config: IDriverConfig, scope: TDriverScope): IDriverConfig & { scope: TDriverScope } => ({
-  ...config,
-  scope,
-});
-
 interface IServed {
   entry: IDriverListEntry;
   dir: string;
@@ -97,6 +71,7 @@ export class ProjectDriverRegistry {
   private projectDir: string | null = null;
   private payload: IDriverListPayload = { drivers: [], loadErrors: [] };
   private entries: IServed[] = [];
+  private shadowed: readonly IResolvedDriver[] = [];
   private readonly lastValid = new Map<string, ILastValid>();
   private readonly results = new Map<string, IDriverValidationResult>();
   private readonly listeners = new Set<(payload: IDriverListPayload) => void>();
@@ -104,6 +79,7 @@ export class ProjectDriverRegistry {
 
   constructor(params: IProjectDriverRegistryParams) {
     this.params = params;
+    this.projectDir = params.projectDir ?? null;
   }
 
   /** Switches to another project (or none) and reloads; the "last valid" memory is per project. */
@@ -124,6 +100,16 @@ export class ProjectDriverRegistry {
   onChange(listener: (payload: IDriverListPayload) => void): () => void {
     this.listeners.add(listener);
     return () => this.listeners.delete(listener);
+  }
+
+  /** Every served entry (the effective driver per id) with the directory it is served from. */
+  getEntries(): readonly { readonly entry: IDriverListEntry; readonly dir: string }[] {
+    return this.entries;
+  }
+
+  /** Drivers hidden by a higher-precedence one of the same id, as found on disk (not validated). */
+  getShadowed(): readonly IResolvedDriver[] {
+    return this.shadowed;
   }
 
   /** What a build compiles with: bundled ∪ project drivers (a library driver only counts once adopted into the project). */
@@ -153,6 +139,7 @@ export class ProjectDriverRegistry {
     const { bundledDir, libraryDir } = this.params;
     const { projectDir } = this;
     const resolved = await resolveProjectDrivers({ bundledDir, libraryDir, projectDir });
+    this.shadowed = resolved.shadowed;
     const slots = await Promise.all(resolved.drivers.map((driver) => this.readSlot(driver)));
     const verdicts = await this.validateSlots(slots, projectDir);
 
@@ -279,10 +266,12 @@ export class ProjectDriverRegistry {
 
   private async differsFromLibrary(item: IServed, slots: readonly ISlot[]): Promise<IServed> {
     if (item.entry.scope !== 'project' || item.entry.overrides !== 'library') return item;
+    const { libraryDir } = this.params;
+    if (libraryDir === null) return item;
     const id = item.entry.config.id;
     const mine = slots.find((slot) => slot.resolved.scope === 'project' && slot.resolved.config.id === id)?.bundle;
     try {
-      const library = await readDriverBundle(path.join(this.params.libraryDir, id));
+      const library = await readDriverBundle(path.join(libraryDir, id));
       const differs = !mine || driverContentHash(mine) !== driverContentHash(library);
       return { ...item, entry: { ...item.entry, differsFromLibrary: differs } };
     } catch {

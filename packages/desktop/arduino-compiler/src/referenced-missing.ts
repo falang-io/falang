@@ -1,7 +1,7 @@
-import { findDriverUsages } from '@falang/desktop-arduino-compiler';
+import { findDriverUsages } from './driver-usages.js';
 import type { IDriverConfig } from '@falang/desktop-arduino-dto';
-import type { IDriverValidationProject } from '@falang/desktop-arduino-compiler/src/driver-validation-types.js';
-import type { IDriverListEntry, TDriverScope } from '../../shared/driver-ipc-types.js';
+import type { IDriverValidationProject } from './driver-validation-types.js';
+import type { IDriverListEntry, TDriverScope } from './driver-list-types.js';
 
 export interface IReferencedMissingParams {
   /** The drivers served so far, by id — entries are added for referenced-but-missing drivers. */

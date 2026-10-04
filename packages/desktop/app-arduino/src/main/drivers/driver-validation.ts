@@ -5,7 +5,7 @@ import type {
 import type { IDriverBundle } from '../../shared/driver-ipc-types.js';
 import type { TDriverEditScope } from '../../shared/driver-ipc-types.js';
 import type { IValidateDriversWorkerItem, IValidateDriversWorkerResult } from '../../shared/compile-worker-protocol.js';
-import type { IDriverCheckItem, TDriverBatchValidator } from './project-driver-registry.js';
+import type { IDriverCheckItem, TDriverBatchValidator } from '@falang/desktop-arduino-compiler';
 
 type TRunWorker = (items: readonly IValidateDriversWorkerItem[]) => Promise<IValidateDriversWorkerResult['results']>;
 
