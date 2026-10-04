@@ -169,6 +169,32 @@ describe('ArduinoProjectStore — drivers', () => {
     }
   });
 
+  it('rebuildOpenSchemes carries the undo stack over: Undo reverts an edit made before the rebuild', async () => {
+    const { store } = await openProject(payload(entry(demoConfig())));
+    try {
+      const first = store.getScheme('fn');
+      first.commands.dispatchCommand(CMD_INSERT_NODE, {
+        index: 0,
+        node: { id: 'a1', name: 'action', data: 'x = 1' },
+        parentId: 'fn-body',
+      });
+      const history = store.getActiveHistory();
+      expect(history?.isBackAvailable).toBe(true);
+      await store.rebuildOpenSchemes();
+      const second = store.getScheme('fn');
+      expect(second).not.toBe(first);
+      expect(store.getActiveHistory()).toBe(history);
+      expect(second.nodes.getNode('fn-body').children.map((child) => child.id)).toEqual(['a1']);
+      history?.back();
+      expect(second.nodes.getNode('fn-body').children).toHaveLength(0);
+      expect(JSON.stringify(store.getDocument('fn')?.root)).not.toContain('a1');
+      history?.forward();
+      expect(second.nodes.getNode('fn-body').children.map((child) => child.id)).toEqual(['a1']);
+    } finally {
+      store.dispose();
+    }
+  });
+
   it('refreshDrivers re-reads the list and rebuilds when the set changed, not otherwise', async () => {
     const { store, listResult } = await openProject(payload(entry(demoConfig())));
     try {
