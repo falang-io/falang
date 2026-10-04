@@ -9,6 +9,16 @@ import { bundleWorkflowCode as temporalBundleWorkflowCode } from '@temporalio/wo
  */
 const ISOLATED_MODULE_CACHE = 'var __webpack_module_cache__ = globalThis.__webpack_module_cache__';
 
+/** Throws unless Temporal's per-execution module-cache rewrite landed in `code`. */
+export const assertIsolatedModuleCache = (code: string): void => {
+  if (!code.includes(ISOLATED_MODULE_CACHE)) {
+    throw new Error(
+      'Workflow bundle does not use the per-execution module cache — executions would share module state. ' +
+        'Check the webpack output (`output.environment.const`) against @temporalio/worker\'s bundler.',
+    );
+  }
+};
+
 /**
  * Pre-bundles a compiled workflows module into a single webpack bundle string, so a runner pod can
  * hand it straight to `Worker.create({ workflowBundle: { code } })` at pod start without ever
@@ -35,14 +45,4 @@ export const bundleWorkflowCode = async (workflowsPath: string): Promise<string>
   });
   assertIsolatedModuleCache(code);
   return code;
-};
-
-/** Throws unless Temporal's per-execution module-cache rewrite landed in `code`. */
-export const assertIsolatedModuleCache = (code: string): void => {
-  if (!code.includes(ISOLATED_MODULE_CACHE)) {
-    throw new Error(
-      'Workflow bundle does not use the per-execution module cache — executions would share module state. ' +
-        'Check the webpack output (`output.environment.const`) against @temporalio/worker\'s bundler.',
-    );
-  }
 };
