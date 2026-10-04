@@ -1,5 +1,5 @@
 import { telegramIntegration } from '@falang/workflow-integrations-telegram';
-import { getTelegramCalls, pushTelegramUpdate, type ITelegramMockCall } from '@falang/workflow-mocks';
+import { getTelegramCalls, pushTelegramUpdate } from '@falang/workflow-mocks';
 import { beforeAll, describe, expect, it } from 'vitest';
 import type { IProjectExportPayload } from '../projects/export/project-export.service.js';
 import {
@@ -232,11 +232,18 @@ describe('integrations (workflow tier): Telegram', () => {
         );
       }, 60_000);
 
-      const calls: readonly ITelegramMockCall[] = await getTelegramCalls(WORKFLOW_E2E_MOCKS_URL, botToken);
-      expect(calls.some((call) => call.method === 'editMessageReplyMarkup')).toBe(true);
-      expect(
-        calls.some((call) => call.method === 'sendMessage' && (call.body as { text?: string }).text === 'Chose B'),
-      ).toBe(true);
+      // Each of these is produced by a different step of the workflow, so none may be assumed present just
+      // because another one already is — wait for each.
+      await workflowE2eWaitForValue(async () => {
+        const calls = await getTelegramCalls(WORKFLOW_E2E_MOCKS_URL, botToken);
+        return calls.find((call) => call.method === 'editMessageReplyMarkup');
+      }, 60_000);
+      await workflowE2eWaitForValue(async () => {
+        const calls = await getTelegramCalls(WORKFLOW_E2E_MOCKS_URL, botToken);
+        return calls.find(
+          (call) => call.method === 'sendMessage' && (call.body as { text?: string }).text === 'Chose B',
+        );
+      }, 60_000);
 
       await workflowE2eApi().post(`/projects/${projectId}/stop`).set(workflowE2eAuth(token)).expect(204);
       await waitForDevRunnerStatus(projectId, false, 20_000);

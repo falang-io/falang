@@ -1,4 +1,4 @@
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
 import type { INode, IProjectDocument } from '@falang/dto';
 import { compileArduinoProject } from './compile-arduino-project.js';
 
@@ -23,6 +23,9 @@ const functionDocument = (id: string, name: string, root: INode): IProjectDocume
   name,
   root,
 });
+
+// Real ts.Program type-check / app boot (~3.6s alone); the package has no own vitest config, so the default 5s/10s would flake under a full parallel run.
+vi.setConfig({ testTimeout: 20_000 });
 
 describe('compileArduinoProject — built-in-function nodes (ADR 0023 (private))', () => {
   it('compiles the pin-less Arduino built-in-function nodes end-to-end through the lowering pass', () => {

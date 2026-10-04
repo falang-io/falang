@@ -98,14 +98,24 @@ test.describe('agent clarifying questions', () => {
       ]);
       const reply = 'Logged hello to a file.';
       await queueOpenAiToolCalls(MOCKS_URL, apiKey, [{ arguments: { message: reply }, name: 'finish' }]);
+      // Autosave is debounced and suspended while the agent holds the document lock, so wait for the PATCH
+      // that actually carries the inserted node (registered before the click that triggers the run).
+      const savedPatch = page.waitForResponse(
+        (res) =>
+          res.request().method() === 'PATCH' &&
+          res.url().includes(`/documents/${mainId}`) &&
+          (res.request().postData() ?? '').includes('hello file'),
+        { timeout: 60_000 },
+      );
       await fileOption.click();
 
       await expect(agentPanel.getByText(reply)).toBeVisible({ timeout: 30_000 });
       await expect(input).toBeEnabled();
+      await savedPatch;
       await waitForCondition(async () => {
         const logs = await fetchBodyLogMessages(api, projectId, mainId);
         return logs.includes('hello file');
-      }, 20_000);
+      }, 30_000);
 
       const requests = (await getOpenAiRequests(MOCKS_URL, apiKey)) as readonly IOpenAiRequest[];
       expect(requests).toHaveLength(3);

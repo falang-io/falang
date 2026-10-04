@@ -1,4 +1,4 @@
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
 import type { INode, IProjectDocument } from '@falang/dto';
 import type { IDriverConfig } from '@falang/desktop-arduino-dto';
 import { compileArduinoProject } from './compile-arduino-project.js';
@@ -39,6 +39,9 @@ const devicesDocumentFixture: IProjectDocument = {
     devices: [{ id: 'd1', driverId: 'lcd1602-i2c', name: 'Front display', params: { address: '39' } }],
   },
 };
+
+// Real ts.Program type-check / app boot (real type-check); the package has no own vitest config, so the default 5s/10s would flake under a full parallel run.
+vi.setConfig({ testTimeout: 20_000 });
 
 describe('compileArduinoProject — Devices document setup prologue (ADR 0032 (private))', () => {
   const lcdDriver: IDriverConfig = {

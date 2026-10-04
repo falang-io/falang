@@ -3,7 +3,7 @@ import * as path from 'node:path';
 import type { IProjectDocument } from '@falang/dto';
 import { BUNDLED_DRIVERS_DIR } from '@falang/desktop-arduino-drivers';
 import { readDriverBundle, type IDriverBundle, type IDriverConfig } from '@falang/desktop-arduino-dto';
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
 import { findDriverUsages } from './driver-usages.js';
 import { validateDriverBundle } from './validate-driver-bundle.js';
 
@@ -53,6 +53,9 @@ const actionNodeDoc = (name: string, data: Record<string, string>, id = 'doc-1',
     children: [{ id: 'b', name: 'function-body', children: [{ id: nodeId, name, data }] }],
   },
 });
+
+// Real ts.Program type-check / app boot (~2.5s alone); the package has no own vitest config, so the default 5s/10s would flake under a full parallel run.
+vi.setConfig({ testTimeout: 20_000 });
 
 describe('validateDriverBundle', () => {
   it('accepts a valid bundle (templates + device) and an existing bundled driver as positive control', async () => {

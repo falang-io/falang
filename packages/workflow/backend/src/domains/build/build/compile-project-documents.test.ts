@@ -26,6 +26,9 @@ const functionNode = (id: string, bodyChildren: INode[] = []): INode => ({
   ],
 });
 
+// Real ts.Program type-check / app boot (up to ~11s alone); the package has no own vitest config, so the default 5s/10s would flake under a full parallel run.
+vi.setConfig({ testTimeout: 45_000 });
+
 describe('compileProjectDocuments', () => {
   it('returns the compiled project when every document compiles and type-checks', () => {
     const document: IProjectDocument = {

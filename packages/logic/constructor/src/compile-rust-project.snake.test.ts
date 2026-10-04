@@ -1,7 +1,7 @@
 // oxlint-disable unicorn/prefer-module -- this package is CommonJS (package.json "type"); __dirname is the correct tool here, not ESM's import.meta (same posture as compile-expression.ts's own VIRTUAL_PATH).
 import * as path from 'node:path';
 import { readFileSync, readdirSync } from 'node:fs';
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
 import type { IProjectDocument } from '@falang/dto';
 import { compileRustProject } from './compile-rust-project.js';
 
@@ -35,6 +35,9 @@ const loadSnakeDocuments = (): readonly IProjectDocument[] =>
  * run in isolation.
  */
 const SMOKE_TEST_TIMEOUT_MS = 60_000;
+
+// Real ts.Program type-check / app boot (~15s alone); the package has no own vitest config, so the default 5s/10s would flake under a full parallel run.
+vi.setConfig({ testTimeout: 60_000 });
 
 describe('compileRustProject: real-project smoke test (ADR 0019 (private), "Rust target — old-app layout")', () => {
   it(

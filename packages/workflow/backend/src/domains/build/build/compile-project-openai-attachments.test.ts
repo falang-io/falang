@@ -25,6 +25,9 @@ vi.setConfig({ testTimeout: 20_000 });
  * `callAiChoice`'s own `activitySignature`/`activityCode` in `openai.integration.ts` (accepts
  * `attachments: … | undefined`, defaults it to `[]` before using it).
  */
+// Real ts.Program type-check / app boot (up to ~11s alone); the package has no own vitest config, so the default 5s/10s would flake under a full parallel run.
+vi.setConfig({ testTimeout: 45_000 });
+
 describe('compileProjectDocuments — openai attachments field (call-ai-choice, call-ai-text)', () => {
   it('type-checks a call-ai-choice node whose data has no attachments key at all (pre-existing document/fixture shape)', () => {
     const document: IProjectDocument = {
