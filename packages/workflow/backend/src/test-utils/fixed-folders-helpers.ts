@@ -1,7 +1,7 @@
 import type { INestApplication } from '@nestjs/common';
 import { randomUUID } from 'node:crypto';
 import request from 'supertest';
-import { auth } from '../../../test-utils/e2e-app.js';
+import { auth } from './e2e-app.js';
 
 export interface ITreeFolder {
   id: string;

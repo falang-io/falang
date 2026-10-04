@@ -2,7 +2,7 @@ import type { INestApplication } from '@nestjs/common';
 import request from 'supertest';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { auth, createTestApp, login } from '../../../test-utils/e2e-app.js';
-import { sectionId } from '../layout/fixed-folders-helpers.js';
+import { sectionId } from '../../../test-utils/fixed-folders-helpers.js';
 
 const DOC_ID = '33333333-3333-4333-8333-333333333333';
 const FOLDER_ID = '44444444-4444-4444-8444-444444444444';

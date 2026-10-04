@@ -7,7 +7,12 @@ import { auth, createTestApp, login } from '../../../test-utils/e2e-app.js';
 import { Document } from '../documents/document.entity.js';
 import { Folder } from '../folders/folder.entity.js';
 import { ProjectCommit } from '../versioning/project-commit.entity.js';
-import { makeFolderTestHelpers, sectionId, type ITreeDocument, type ITreeFolder } from './fixed-folders-helpers.js';
+import {
+  makeFolderTestHelpers,
+  sectionId,
+  type ITreeDocument,
+  type ITreeFolder,
+} from '../../../test-utils/fixed-folders-helpers.js';
 import { normalizeStoredProjectLayout } from './project-layout.js';
 
 const doc = (id: string, type: string, name: string, folder: string | null) => ({

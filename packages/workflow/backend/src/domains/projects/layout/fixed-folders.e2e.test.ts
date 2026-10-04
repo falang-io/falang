@@ -2,7 +2,7 @@ import type { INestApplication } from '@nestjs/common';
 import { randomUUID } from 'node:crypto';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { auth, createTestApp, login } from '../../../test-utils/e2e-app.js';
-import { makeFolderTestHelpers, sectionId, statusOf } from './fixed-folders-helpers.js';
+import { makeFolderTestHelpers, sectionId, statusOf } from '../../../test-utils/fixed-folders-helpers.js';
 
 describe('fixed workflow folders (e2e)', () => {
   // oxlint-disable-next-line init-declarations
