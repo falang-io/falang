@@ -1,7 +1,7 @@
 import { mkdirSync, rmSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { afterAll, beforeAll, describe, expect, it, vi } from 'vitest';
-import { bundleWorkflowCode } from './bundle-workflow-code.js';
+import { assertIsolatedModuleCache, bundleWorkflowCode } from './bundle-workflow-code.js';
 
 // Webpack cold-start (module graph resolution across the repo's node_modules tree) can exceed
 // vitest's default 5s timeout — same reasoning as `type-check-project.test.ts`'s bump.
@@ -37,5 +37,16 @@ describe('bundleWorkflowCode', () => {
     // The exported workflow function's name survives webpack bundling unminified — this is what a
     // runner pod's `Worker.create({ workflowBundle: { code } })` discovers workflows by.
     expect(code).toContain('myTestWorkflow');
+  });
+
+  it("keeps Temporal's per-execution module cache, so executions never share module-level state", async () => {
+    const code = await bundleWorkflowCode(WORKFLOWS_PATH);
+
+    expect(code).toContain('var __webpack_module_cache__ = globalThis.__webpack_module_cache__');
+    expect(code).not.toContain('const __webpack_module_cache__ = {}');
+  });
+
+  it('assertIsolatedModuleCache rejects a bundle whose module cache is a plain shared object', () => {
+    expect(() => assertIsolatedModuleCache('const __webpack_module_cache__ = {};')).toThrow(/share module state/);
   });
 });

@@ -29,7 +29,10 @@
  *
  * Module-level state is per-execution in Temporal's workflow sandbox (both with and without
  * `reuseV8Context` — the SDK swaps each Workflow's module state in and out of the shared context
- * per Workflow Task), so no explicit plumbing is needed to keep two executions' stacks apart.
+ * per Workflow Task), so no explicit plumbing is needed to keep two executions' stacks apart —
+ * provided the bundle keeps Temporal's per-execution webpack module cache, which
+ * `@falang/workflow-backend`'s `bundleWorkflowCode` enforces (a newer webpack's `const` module cache
+ * once silently made every execution on a Worker share this stack).
  */
 
 /** Temporal query name the compiled runtime answers with its current `IWorkflowPositionFrame[]`. */
