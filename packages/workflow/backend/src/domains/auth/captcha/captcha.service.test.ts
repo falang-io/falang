@@ -43,4 +43,25 @@ describe('CaptchaService', () => {
     const service = make({ CAPTCHA_PROVIDER: 'recaptcha', CAPTCHA_SECRET: 'x' }, fetchFn as unknown as typeof fetch);
     await expect(service.verify('tok', null)).rejects.toMatchObject({ status: 503 });
   });
+
+  it('selects Yandex SmartCaptcha and reports its public config', async () => {
+    const fetchFn = vi.fn().mockImplementation(() => jsonResponse({ status: 'ok' }));
+    const service = make(
+      { CAPTCHA_PROVIDER: 'smartcaptcha', CAPTCHA_SECRET: 'srv', CAPTCHA_SITE_KEY: 'cli' },
+      fetchFn as unknown as typeof fetch,
+    );
+    expect(service.getPublicConfig()).toEqual({ provider: 'smartcaptcha', siteKey: 'cli' });
+    await service.verify('tok', '1.2.3.4');
+    expect((fetchFn.mock.calls[0] as [string])[0]).toBe('https://smartcaptcha.yandexcloud.net/validate');
+  });
+
+  it('maps a SmartCaptcha outage to 503 and a failed check to 400', async () => {
+    const env = { CAPTCHA_PROVIDER: 'smartcaptcha', CAPTCHA_SECRET: 'x' };
+    const down = vi.fn().mockImplementation(() => Promise.resolve(new Response('', { status: 500 })));
+    await expect(make(env, down as unknown as typeof fetch).verify('tok', null)).rejects.toMatchObject({ status: 503 });
+    const failed = vi.fn().mockImplementation(() => jsonResponse({ status: 'failed' }));
+    await expect(make(env, failed as unknown as typeof fetch).verify('tok', null)).rejects.toMatchObject({
+      status: 400,
+    });
+  });
 });

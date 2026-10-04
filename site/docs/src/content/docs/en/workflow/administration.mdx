@@ -112,9 +112,10 @@ head:
     URL, the backend rejects a signup without acceptance, and the acceptance time is recorded on the account.
   </li>
   <li>
-    <code>CAPTCHA_PROVIDER</code> — <code>none</code> (default) or <code>recaptcha</code> (Google reCAPTCHA v2
-    checkbox, with <code>CAPTCHA_SITE_KEY</code> and <code>CAPTCHA_SECRET</code> registered for your domain in the
-    Google console). The captcha guards signup and "Forgot password?"; if Google can't be reached the request fails
+    <code>CAPTCHA_PROVIDER</code> — <code>none</code> (default) <code>recaptcha</code> (Google reCAPTCHA v2
+    checkbox) or <code>smartcaptcha</code> (Yandex SmartCaptcha), with <code>CAPTCHA_SITE_KEY</code> (client key) and
+    <code>CAPTCHA_SECRET</code> (server key) registered for your domain with the vendor. The captcha guards signup and
+    "Forgot password?"; if the vendor can't be reached the request fails
     with <code>503</code> rather than passing.
   </li>
 </ul>

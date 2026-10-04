@@ -120,9 +120,10 @@ head:
     учётной записи.
   </li>
   <li>
-    <code>CAPTCHA_PROVIDER</code> — <code>none</code> (по умолчанию) или <code>recaptcha</code> (Google reCAPTCHA v2
-    «я не робот», с <code>CAPTCHA_SITE_KEY</code> и <code>CAPTCHA_SECRET</code>, зарегистрированными для вашего домена
-    в консоли Google). Капча защищает регистрацию и «Забыли пароль?»; если Google недоступен, запрос завершается
+    <code>CAPTCHA_PROVIDER</code> — <code>none</code> (по умолчанию) <code>recaptcha</code> (Google reCAPTCHA v2
+    «я не робот») или <code>smartcaptcha</code> (Яндекс SmartCaptcha), с <code>CAPTCHA_SITE_KEY</code> (клиентский
+    ключ) и <code>CAPTCHA_SECRET</code> (серверный ключ), зарегистрированными для вашего домена у провайдера. Капча
+    защищает регистрацию и «Забыли пароль?»; если провайдер недоступен, запрос завершается
     <code>503</code>, а не пропускается.
   </li>
 </ul>

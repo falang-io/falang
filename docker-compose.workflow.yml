@@ -359,7 +359,7 @@ services:
       - CLIENT_PUBLIC_URL=${CLIENT_PUBLIC_URL:-http://localhost:5175}
       # off | open | application (closed beta: e-mail application, admin activates). Wins over SELF_SERVICE_SIGNUP.
       - SIGNUP_MODE=${SIGNUP_MODE:-open}
-      # none | recaptcha (+ CAPTCHA_SITE_KEY / CAPTCHA_SECRET)
+      # none | recaptcha | smartcaptcha (+ CAPTCHA_SITE_KEY / CAPTCHA_SECRET)
       - CAPTCHA_PROVIDER=${CAPTCHA_PROVIDER:-none}
       - TERMS_URL=${TERMS_URL:-}
       # Unset by default: with no public ingress, `@falang/workflow-gateway`'s `GatewayRuntimeService`

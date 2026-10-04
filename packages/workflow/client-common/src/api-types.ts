@@ -30,7 +30,7 @@ export interface IApiAuthConfig {
   readonly disabledVendors?: readonly string[];
   /** Absent on an older backend — derive from `selfServiceSignup` then. */
   readonly signupMode?: 'off' | 'open' | 'application';
-  readonly captcha?: { readonly provider: 'recaptcha'; readonly siteKey: string } | null;
+  readonly captcha?: { readonly provider: 'recaptcha' | 'smartcaptcha'; readonly siteKey: string } | null;
   readonly mailConfigured?: boolean;
 }
 

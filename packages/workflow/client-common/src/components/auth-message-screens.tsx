@@ -5,7 +5,8 @@ import { getGlobalI18n } from '@falang/scheme';
 import { Alert, Button, Form, Input, Spin, Typography } from 'antd';
 import { authStore, type TAuthScreen } from '../auth-store.js';
 import { authStyles } from './auth-styles.js';
-import { RecaptchaWidget, type IRecaptchaControl } from './recaptcha-widget.js';
+import { CaptchaWidget } from './captcha-widget.js';
+import type { ICaptchaControl } from './captcha-control.js';
 
 const BackToSignIn: React.FC = () => (
   <Button type="link" block onClick={() => authStore.setScreen('signin')}>
@@ -38,7 +39,7 @@ const CheckEmailScreen: React.FC = observer(() => {
 
 const ForgotScreen: React.FC = observer(() => {
   const t = getGlobalI18n().t;
-  const captchaRef = useRef<IRecaptchaControl | null>(null);
+  const captchaRef = useRef<ICaptchaControl | null>(null);
   const [captchaError, setCaptchaError] = useState(false);
   const captcha = authStore.authConfig?.captcha ?? null;
 
@@ -62,7 +63,7 @@ const ForgotScreen: React.FC = observer(() => {
         <Form.Item label={t('client:login-page.email')} name="email" rules={[{ required: true, type: 'email' }]}>
           <Input type="email" autoFocus />
         </Form.Item>
-        {captcha?.provider === 'recaptcha' && <RecaptchaWidget siteKey={captcha.siteKey} controlRef={captchaRef} />}
+        {captcha && <CaptchaWidget provider={captcha.provider} siteKey={captcha.siteKey} controlRef={captchaRef} />}
         {(captchaError || authStore.loginError) && (
           <Form.Item>
             <Typography.Text type="danger">

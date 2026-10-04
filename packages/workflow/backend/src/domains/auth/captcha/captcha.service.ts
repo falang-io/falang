@@ -2,6 +2,7 @@ import { BadRequestException, Inject, Injectable, ServiceUnavailableException } 
 import { ConfigService } from '@nestjs/config';
 import { CaptchaUnavailableError, type ICaptchaProvider, type TFetch } from './captcha-provider.js';
 import { RecaptchaProvider } from './recaptcha.provider.js';
+import { SmartCaptchaProvider } from './smartcaptcha.provider.js';
 
 export const CAPTCHA_FETCH = Symbol('CAPTCHA_FETCH');
 
@@ -10,7 +11,7 @@ export interface ICaptchaPublicConfig {
   siteKey: string;
 }
 
-/** Provider chosen per call from `CAPTCHA_PROVIDER` (`none` | `recaptcha`) so env changes follow the live process. */
+/** Provider chosen per call from `CAPTCHA_PROVIDER` (`none` | `recaptcha` | `smartcaptcha`) so env changes follow the live process. */
 @Injectable()
 export class CaptchaService {
   private readonly config: ConfigService;
@@ -24,6 +25,9 @@ export class CaptchaService {
   private provider(): ICaptchaProvider | null {
     const name = this.config.get<string>('CAPTCHA_PROVIDER', 'none').trim().toLowerCase();
     if (name === 'recaptcha') return new RecaptchaProvider(this.config.get<string>('CAPTCHA_SECRET', ''), this.fetchFn);
+    if (name === 'smartcaptcha') {
+      return new SmartCaptchaProvider(this.config.get<string>('CAPTCHA_SECRET', ''), this.fetchFn);
+    }
     return null;
   }
 

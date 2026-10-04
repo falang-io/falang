@@ -1,5 +1,6 @@
 import type React from 'react';
 import { useEffect, useRef } from 'react';
+import type { ICaptchaControl } from './captcha-control.js';
 
 interface IGrecaptcha {
   ready: (callback: () => void) => void;
@@ -34,16 +35,10 @@ const loadRecaptcha = (): Promise<IGrecaptcha> => {
   return scriptPromise;
 };
 
-/** What the parent holds on to: read the token at submit time, reset after a failed submit. */
-export interface IRecaptchaControl {
-  getToken: () => string;
-  reset: () => void;
-}
-
 interface IProps {
   siteKey: string;
   /** Filled in once the widget has rendered; `null` while it is loading (or unmounted). */
-  controlRef: { current: IRecaptchaControl | null };
+  controlRef: { current: ICaptchaControl | null };
 }
 
 /** reCAPTCHA v2 checkbox, rendered explicitly — no wrapper library. */

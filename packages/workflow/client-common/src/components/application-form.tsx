@@ -5,7 +5,8 @@ import { getGlobalI18n } from '@falang/scheme';
 import { Button, Checkbox, Form, Input, Typography } from 'antd';
 import { authStore } from '../auth-store.js';
 import { authStyles } from './auth-styles.js';
-import { RecaptchaWidget, type IRecaptchaControl } from './recaptcha-widget.js';
+import { CaptchaWidget } from './captcha-widget.js';
+import type { ICaptchaControl } from './captcha-control.js';
 
 interface IValues {
   email: string;
@@ -17,7 +18,7 @@ interface IValues {
 /** Closed-beta application (`signupMode: 'application'`). */
 export const ApplicationForm: React.FC = observer(() => {
   const t = getGlobalI18n().t;
-  const captchaRef = useRef<IRecaptchaControl | null>(null);
+  const captchaRef = useRef<ICaptchaControl | null>(null);
   const [captchaError, setCaptchaError] = useState(false);
   const termsUrl = authStore.authConfig?.termsUrl ?? null;
   const captcha = authStore.authConfig?.captcha ?? null;
@@ -79,7 +80,7 @@ export const ApplicationForm: React.FC = observer(() => {
             </Checkbox>
           </Form.Item>
         )}
-        {captcha?.provider === 'recaptcha' && <RecaptchaWidget siteKey={captcha.siteKey} controlRef={captchaRef} />}
+        {captcha && <CaptchaWidget provider={captcha.provider} siteKey={captcha.siteKey} controlRef={captchaRef} />}
         {captchaError && (
           <Form.Item>
             <Typography.Text type="danger">{t('client:login-page.captcha-required')}</Typography.Text>
