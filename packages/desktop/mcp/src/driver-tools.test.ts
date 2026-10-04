@@ -1,3 +1,4 @@
+/* oxlint-disable no-await-expression-member -- test file: terse awaits on tool results */
 // oxlint-disable unicorn/prefer-module -- this package is CommonJS (package.json "type"); __dirname is the correct tool here.
 import { promises as fs } from 'node:fs';
 import * as os from 'node:os';
@@ -200,6 +201,60 @@ describe('arduino driver MCP tools', () => {
     const deleted = await call('delete_driver', { id: 'unused', scope: 'project' });
     expect(jsonOf(deleted).deleted).toBe(true);
     await expect(fs.access(path.join(projectDir, 'falang', 'drivers', 'unused'))).rejects.toThrow();
+  });
+
+  describe('externally changed project drivers', () => {
+    interface TListed {
+      drivers: { id: string; scope: string; status: string; errors?: string[] }[];
+    }
+    const entryOf = async (id: string) =>
+      (jsonOf(await call('list_drivers')) as unknown as TListed).drivers.find((driver) => driver.id === id);
+    const configPath = (id: string) => path.join(projectDir, 'falang', 'drivers', id, 'driver.config.json');
+
+    it('keeps serving the last valid config of a driver broken on disk (invalid-on-disk), and recovers', async () => {
+      await call('set_driver', { bundle: makeBundle('my-led'), scope: 'project' });
+      const good = await fs.readFile(configPath('my-led'), 'utf8');
+      const config = JSON.parse(good) as { actions: { codeTemplate: string }[] };
+      config.actions[0].codeTemplate = 'undeclared_fn(${pin})';
+      await fs.writeFile(configPath('my-led'), JSON.stringify(config));
+      const broken = await entryOf('my-led');
+      expect(broken?.status).toBe('invalid-on-disk');
+      expect(broken?.errors?.length).toBeGreaterThan(0);
+
+      expect(JSON.stringify(jsonOf(await call('get_node_kinds', { documentType: 'function' })))).toContain(
+        'driver-action::my-led::go',
+      );
+      const created = jsonOf(await call('create_document', { name: 'blink', type: 'function' })) as { id: string };
+      expect(isError(await setDriverActionDocument(created.id))).toBe(false);
+
+      await fs.writeFile(configPath('my-led'), `${good}\n`);
+      expect((await entryOf('my-led'))?.status).toBe('ok');
+    });
+
+    it('reports load-error (last valid config still served) for an unreadable driver.config.json', async () => {
+      await call('set_driver', { bundle: makeBundle('my-led'), scope: 'project' });
+      await entryOf('my-led');
+      await fs.writeFile(configPath('my-led'), '{ not json');
+      expect((await entryOf('my-led'))?.status).toBe('load-error');
+      expect(JSON.stringify(jsonOf(await call('get_node_kinds', { documentType: 'function' })))).toContain(
+        'driver-action::my-led::go',
+      );
+    });
+
+    it('reports missing-on-disk for a used driver whose folder was deleted, and drops an unused one', async () => {
+      await call('set_driver', { bundle: makeBundle('my-led'), scope: 'project' });
+      await call('set_driver', { bundle: makeBundle('unused'), scope: 'project' });
+      const created = jsonOf(await call('create_document', { name: 'blink', type: 'function' })) as { id: string };
+      await setDriverActionDocument(created.id);
+      await fs.rm(path.join(projectDir, 'falang', 'drivers', 'my-led'), { recursive: true });
+      await fs.rm(path.join(projectDir, 'falang', 'drivers', 'unused'), { recursive: true });
+
+      expect((await entryOf('my-led'))?.status).toBe('missing-on-disk');
+      expect(await entryOf('unused')).toBeUndefined();
+      expect(JSON.stringify(jsonOf(await call('get_node_kinds', { documentType: 'function' })))).toContain(
+        'driver-action::my-led::go',
+      );
+    });
   });
 });
 

@@ -3,7 +3,7 @@ import { promises as fs } from 'node:fs';
 import * as os from 'node:os';
 import * as path from 'node:path';
 import { projectDriversDir, writeDriverBundle, type IDriverBundle } from '@falang/desktop-arduino-dto';
-import type { IDriverValidationResult } from '@falang/desktop-arduino-compiler/src/driver-validation-types.js';
+import type { IDriverValidationResult } from './driver-validation-types.js';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { ProjectDriverRegistry, type TDriverBatchValidator } from './project-driver-registry.js';
 

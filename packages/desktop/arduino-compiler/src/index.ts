@@ -25,3 +25,16 @@ export {
   type ICliCompileOutcome,
   type ICreateArduinoCliDriverCheckParams,
 } from './cli-driver-check.js';
+export {
+  ProjectDriverRegistry,
+  type IDriverCheckItem,
+  type IProjectDriverRegistryParams,
+  type TDriverBatchValidator,
+} from './project-driver-registry.js';
+export type {
+  IDriverListEntry,
+  IDriverListPayload,
+  IDriverLoadErrorEntry,
+  TDriverEditScope,
+  TDriverStatus,
+} from './driver-list-types.js';

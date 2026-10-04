@@ -80,12 +80,16 @@ export interface IResolvedDriver {
 
 export interface IResolvedProjectDrivers {
   readonly drivers: readonly IResolvedDriver[];
+  /** Drivers hidden by a higher-precedence one with the same id (lowest scope first). */
+  readonly shadowed: readonly IResolvedDriver[];
   readonly errors: readonly (IDriverLoadError & { readonly scope: TDriverScope })[];
 }
 
 export interface IResolveProjectDriversParams {
-  readonly bundledDir: string;
-  readonly libraryDir: string;
+  /** One directory, or several (lowest precedence first). */
+  readonly bundledDir: string | readonly string[];
+  /** `null` when there is no personal library (e.g. an MCP server started without one). */
+  readonly libraryDir: string | null;
   /** `null` while no project is open — only bundled and library drivers are resolved then. */
   readonly projectDir: string | null;
 }
@@ -96,18 +100,21 @@ export const resolveProjectDrivers = async ({
   libraryDir,
   projectDir,
 }: IResolveProjectDriversParams): Promise<IResolvedProjectDrivers> => {
+  const bundledDirs = typeof bundledDir === 'string' ? [bundledDir] : bundledDir;
   const scopes: readonly [TDriverScope, string][] = [
-    ['bundled', bundledDir],
-    ['library', libraryDir],
+    ...bundledDirs.map((dir) => ['bundled', dir] as [TDriverScope, string]),
+    ...(libraryDir === null ? [] : [['library', libraryDir] as [TDriverScope, string]]),
     ...(projectDir === null ? [] : [['project', projectDriversDir(projectDir)] as [TDriverScope, string]]),
   ];
   const scans = await Promise.all(scopes.map(([, dir]) => scanDriversDir(dir)));
   const byId = new Map<string, IResolvedDriver>();
   const errors: (IDriverLoadError & { scope: TDriverScope })[] = [];
+  const shadowed: IResolvedDriver[] = [];
   scans.forEach((scan, index) => {
     const scope = scopes[index][0];
     for (const driver of scan.drivers) {
       const previous = byId.get(driver.config.id);
+      if (previous) shadowed.push(previous);
       byId.set(driver.config.id, {
         config: driver.config,
         dir: driver.dir,
@@ -117,7 +124,7 @@ export const resolveProjectDrivers = async ({
     }
     for (const error of scan.errors) errors.push({ ...error, scope });
   });
-  return { drivers: [...byId.values()], errors };
+  return { drivers: [...byId.values()], shadowed, errors };
 };
 
 const walkNodes = (node: INode, visit: (node: INode) => void): void => {

@@ -3,22 +3,32 @@ import * as path from 'node:path';
 import { NodesGroup, NodesStack } from '@falang/dto';
 import { functionNodesGroup } from '@falang/typescript-dto';
 import {
+  ProjectDriverRegistry,
+  validateDriverBundle,
+  type IDriverListEntry,
+  type TDriverStatus,
+} from '@falang/desktop-arduino-compiler';
+import {
   arduinoFunctionNodeConfigs,
   buildDriverNodeConfigs,
   pinNodeConfigs,
   projectDriversDir,
-  scanDriversDir,
   type IDriverConfig,
-  type IDriverLoadError,
 } from '@falang/desktop-arduino-dto';
 import type { DocumentStackRegistry } from '@falang/mcp-core';
+import { readProjectContext } from './project-context.js';
+
 const ARDUINO_PROJECT_TYPE = 'arduino';
 const ARDUINO_FUNCTION_DOCUMENT_TYPE = 'function';
 
 export type TDriverScope = 'bundled' | 'library' | 'project';
 
 export interface IServedDriver {
+  /** The config the project is served with: the last valid one when the files on disk stopped validating. */
   readonly config: IDriverConfig;
+  readonly status: TDriverStatus;
+  /** Why `status` isn't `ok`. */
+  readonly errors?: readonly string[];
   readonly dir: string;
   readonly scope: TDriverScope;
   /** The lower-precedence scope this driver shadows, if any (project > library > bundled). */
@@ -41,13 +51,6 @@ export interface IArduinoDriversStateParams {
   readonly libraryDir?: string;
 }
 
-const toBroken = (error: IDriverLoadError, scope: TDriverScope): IBrokenDriver => ({
-  id: path.basename(error.dir),
-  dir: error.dir,
-  scope,
-  message: error.message,
-});
-
 /** (Re-)registers the `'arduino'` project type with one `driver-action::…` kind per action of `configs`. */
 export const registerArduinoStack = (registry: DocumentStackRegistry, configs: readonly IDriverConfig[]): void => {
   const stack = new NodesStack([
@@ -61,11 +64,21 @@ export const registerArduinoStack = (registry: DocumentStackRegistry, configs: r
   });
 };
 
+const toServed = ({ entry, dir }: { entry: IDriverListEntry; dir: string }): IServedDriver => ({
+  config: entry.config,
+  dir,
+  scope: entry.scope,
+  status: entry.status,
+  ...(entry.errors ? { errors: entry.errors } : {}),
+  ...(entry.overrides ? { overrides: entry.overrides } : {}),
+});
+
 /**
- * The Arduino MCP host's view of the driver folders (ADR 0054 (private) §7): scans bundled ∪ library ∪ project
- * (project > library > bundled), re-registers the `'arduino'` project type's `NodesStack` after a write and —
- * cheaply, by comparing directory mtimes — whenever a driver was changed by someone else since the last load,
- * so a driver the app (or the user's editor) just wrote is visible in the same MCP session.
+ * The Arduino MCP host's view of the driver folders (ADR 0054 (private) §7): a `ProjectDriverRegistry` — the same one
+ * the app uses, so a driver that stops validating on disk keeps being served by its last valid config and flagged
+ * (`invalid-on-disk` / `load-error` / `missing-on-disk`) — plus the `'arduino'` project type's `NodesStack`, re-registered
+ * after a write and, cheaply by comparing directory mtimes, whenever someone else changed a driver since the last load.
+ * This process has no file watcher and (like the app's watcher reloads) no `arduino-cli` stage on a rescan.
  */
 export class ArduinoDriversState {
   readonly projectDir: string;
@@ -73,8 +86,8 @@ export class ArduinoDriversState {
   readonly projectDriversDirPath: string;
   private readonly dirs: readonly string[];
   private readonly registry: DocumentStackRegistry;
+  private readonly drivers_: ProjectDriverRegistry;
   private served: readonly IServedDriver[] = [];
-  private broken: readonly IBrokenDriver[] = [];
   private stamp = '';
   private chain: Promise<unknown> = Promise.resolve();
 
@@ -85,12 +98,22 @@ export class ArduinoDriversState {
     this.projectDriversDirPath = path.resolve(projectDriversDir(params.projectDir));
     const dirs = params.dirs.map((dir) => path.resolve(dir));
     this.dirs = dirs.includes(this.projectDriversDirPath) ? dirs : [...dirs, this.projectDriversDirPath];
-  }
-
-  private scopeOf(dir: string): TDriverScope {
-    if (dir === this.projectDriversDirPath) return 'project';
-    if (this.libraryDir !== null && dir === this.libraryDir) return 'library';
-    return 'bundled';
+    const bundledDirs = this.dirs.filter((dir) => dir !== this.projectDriversDirPath && dir !== this.libraryDir);
+    this.drivers_ = new ProjectDriverRegistry({
+      bundledDir: bundledDirs,
+      libraryDir: this.libraryDir,
+      projectDir: params.projectDir,
+      readProjectContext,
+      validate: (items) =>
+        Promise.all(
+          items.map((item) =>
+            validateDriverBundle(item.bundle, {
+              otherDrivers: item.ctx.otherDrivers,
+              ...(item.ctx.project ? { project: item.ctx.project } : {}),
+            }),
+          ),
+        ),
+    });
   }
 
   /** Directory a driver of `scope` lives in for writes (`bundled` is never writable). */
@@ -98,12 +121,19 @@ export class ArduinoDriversState {
     return scope === 'project' ? this.projectDriversDirPath : this.libraryDir;
   }
 
+  /** The effective driver per id (last valid config, with its status). */
   get drivers(): readonly IServedDriver[] {
     return this.served;
   }
 
+  /** Folders that could not be loaded and have no earlier valid version to serve. */
   get brokenDrivers(): readonly IBrokenDriver[] {
-    return this.broken;
+    return this.drivers_.getPayload().loadErrors.map((error) => ({
+      dir: error.dir,
+      id: path.basename(error.dir),
+      message: error.message,
+      scope: error.scope,
+    }));
   }
 
   /** `scope` omitted → the effective (highest-precedence) driver with that id. */
@@ -114,6 +144,15 @@ export class ArduinoDriversState {
 
   /** Every driver found, including ones shadowed by a higher scope. */
   all: readonly IServedDriver[] = [];
+
+  /** Every effective driver plus the on-disk configs of the shadowed ones. */
+  private collect(): void {
+    this.served = this.drivers_.getEntries().map((item) => toServed(item));
+    const shadowed: IServedDriver[] = this.drivers_
+      .getShadowed()
+      .map((driver) => ({ config: driver.config, dir: driver.dir, scope: driver.scope, status: 'ok' as const }));
+    this.all = [...shadowed, ...this.served];
+  }
 
   private async computeStamp(): Promise<string> {
     const parts = await Promise.all(
@@ -159,28 +198,8 @@ export class ArduinoDriversState {
 
   private async reloadNow(): Promise<void> {
     const stamp = await this.computeStamp();
-    const scans = await Promise.all(this.dirs.map((dir) => scanDriversDir(dir)));
-    const byId = new Map<string, IServedDriver>();
-    const all: IServedDriver[] = [];
-    const broken: IBrokenDriver[] = [];
-    scans.forEach((scan, index) => {
-      const scope = this.scopeOf(this.dirs[index]);
-      for (const driver of scan.drivers) {
-        const previous = byId.get(driver.config.id);
-        const served: IServedDriver = {
-          config: driver.config,
-          dir: driver.dir,
-          scope,
-          ...(previous && previous.scope !== scope ? { overrides: previous.scope as 'bundled' | 'library' } : {}),
-        };
-        byId.set(driver.config.id, served);
-        all.push(served);
-      }
-      for (const error of scan.errors) broken.push(toBroken(error, scope));
-    });
-    this.served = [...byId.values()];
-    this.all = all;
-    this.broken = broken;
+    await this.drivers_.reload();
+    this.collect();
     this.stamp = stamp;
     registerArduinoStack(
       this.registry,

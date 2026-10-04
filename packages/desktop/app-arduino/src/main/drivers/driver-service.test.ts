@@ -10,10 +10,9 @@ import {
   writeDriverBundle,
   type IDriverBundle,
 } from '@falang/desktop-arduino-dto';
-import { validateDriverBundle } from '@falang/desktop-arduino-compiler';
+import { validateDriverBundle, ProjectDriverRegistry } from '@falang/desktop-arduino-compiler';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { buildTemplateBundle, createDriverService, DriverBuildBlockedError } from './driver-service.js';
-import { ProjectDriverRegistry } from './project-driver-registry.js';
 
 const bundleOf = (id: string, marker = 'v1'): IDriverBundle => {
   const base = buildTemplateBundle(id, `${id} ${marker}`);

@@ -1,4 +1,4 @@
-import { createArduinoCliDriverCheck } from '@falang/desktop-arduino-compiler';
+import { createArduinoCliDriverCheck, ProjectDriverRegistry } from '@falang/desktop-arduino-compiler';
 import type { IDriverCliCheckResult } from '@falang/desktop-arduino-compiler/src/driver-validation-types.js';
 import { DEFAULT_BOARD_FQBN } from '../../shared/board.js';
 import { readArduinoProjectConfig } from '../arduino-project-config.js';
@@ -7,7 +7,6 @@ import { markOwnDriversWrite } from '../project-watcher-state.js';
 import { createBatchValidator, createFullValidator } from './driver-validation.js';
 import { createDriverService, type TDriverService } from './driver-service.js';
 import { watchDriverLibrary, type ILibraryWatcher } from './library-watcher.js';
-import { ProjectDriverRegistry } from './project-driver-registry.js';
 import { readDriverProjectContext } from './project-context.js';
 import type { IDriverListPayload } from '../../shared/driver-ipc-types.js';
 

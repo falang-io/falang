@@ -15,7 +15,7 @@ const VALIDATE_FIRST = `A driver is a bundle { formatVersion: 1, config, files }
 export const DRIVER_TOOLS: readonly IMcpToolDefinition[] = [
   {
     annotations: { readOnlyHint: true },
-    description: `Read-only. Lists every Arduino device driver visible to this project — built-in, the personal library and the project's own falang/drivers — with id, label, scope, notes, each action (id, notes, field names and kinds, result type), the device section if it has one, and a status (ok / load-error with the reason). A driver in a higher scope shadows a same-id one below it (project > library > built-in).`,
+    description: `Read-only. Lists every Arduino device driver visible to this project — built-in, the personal library and the project's own falang/drivers — with id, label, scope, notes, each action (id, notes, field names and kinds, result type), the device section if it has one, and a status: ok; invalid-on-disk (its files were changed outside this server and no longer validate — it is still served with its last valid config, errors say what is wrong; fix the files or re-save it with set_driver); load-error (the folder could not be read — served by its last valid config if there was one, else listed with the reason only); missing-on-disk (the folder was deleted but nodes or Devices entries still use the driver — still served by its last valid config, re-create it or remove its usages). A driver in a higher scope shadows a same-id one below it (project > library > built-in).`,
     inputSchema: zod.object({}),
     name: 'list_drivers',
   },

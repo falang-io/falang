@@ -12,7 +12,7 @@ import {
   writeDriverBundle,
   type IDriverBundle,
 } from '@falang/desktop-arduino-dto';
-import { findDriverUsages } from '@falang/desktop-arduino-compiler';
+import { findDriverUsages, type ProjectDriverRegistry } from '@falang/desktop-arduino-compiler';
 import type { IDriverValidationProject } from '@falang/desktop-arduino-compiler/src/driver-validation-types.js';
 import type {
   IDriverAdoptResult,
@@ -24,7 +24,6 @@ import type {
   TDriverScope,
 } from '../../shared/driver-ipc-types.js';
 import type { ILoadedDriver } from './driver-registry.js';
-import type { ProjectDriverRegistry } from './project-driver-registry.js';
 import { toDriverProjectContext } from './project-context.js';
 
 /**
