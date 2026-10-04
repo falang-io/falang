@@ -152,13 +152,13 @@ describe('tasks (workflow tier): telegram-question timeout (shared codegen with 
         return calls.find((call) => call.method === 'editMessageReplyMarkup');
       }, 60_000);
 
-      const calls = await getTelegramCalls(WORKFLOW_E2E_MOCKS_URL, botToken);
-      expect(calls.some((call) => call.method === 'editMessageReplyMarkup')).toBe(true);
-      expect(
-        calls.some(
+      // The timeout message is a separate step after the markup edit — wait for it too.
+      await workflowE2eWaitForValue(async () => {
+        const calls = await getTelegramCalls(WORKFLOW_E2E_MOCKS_URL, botToken);
+        return calls.find(
           (call) => call.method === 'sendMessage' && (call.body as { text?: string }).text === 'Время истекло',
-        ),
-      ).toBe(true);
+        );
+      }, 60_000);
 
       await workflowE2eApi().post(`/projects/${projectId}/stop`).set(workflowE2eAuth(token)).expect(204);
       await waitForDevRunnerStatus(projectId, false, 20_000);

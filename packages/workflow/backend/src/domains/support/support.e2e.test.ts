@@ -1,11 +1,14 @@
 // oxlint-disable init-declarations, no-await-expression-member, no-non-null-assertion, no-promise-executor-return -- e2e suite style: `let`s assigned in beforeEach, terse request/response assertions.
 import type { INestApplication } from '@nestjs/common';
 import request from 'supertest';
-import { afterEach, beforeEach, describe, expect, it } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import type { CapturingMailTransport } from '../../test-utils/capturing-mail-transport.js';
 import { auth, createTestApp, login } from '../../test-utils/e2e-app.js';
 import { MAIL_TRANSPORT } from '../mail/mail.service.js';
 import { UsersService } from '../users/users/users.service.js';
+
+// Real ts.Program type-check / app boot (full Nest app boot + 3 bcrypt logins per beforeEach (~1-2s alone)); the package has no own vitest config, so the default 5s/10s would flake under a full parallel run.
+vi.setConfig({ testTimeout: 30_000, hookTimeout: 30_000 });
 
 describe('support chat (e2e)', () => {
   let app: INestApplication;

@@ -1,4 +1,4 @@
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
 import type { INode, IProjectDocument } from '@falang/dto';
 import type { IDriverConfig } from '@falang/desktop-arduino-dto';
 import { ArduinoProjectCompileError, compileArduinoProject } from './compile-arduino-project.js';
@@ -28,6 +28,9 @@ const functionDocument = (id: string, name: string, root: INode): IProjectDocume
 });
 
 const int32 = { type: 'number', numberType: { type: 'integer', integerType: 'int32' } };
+
+// Real ts.Program type-check / app boot (~2.3s alone); the package has no own vitest config, so the default 5s/10s would flake under a full parallel run.
+vi.setConfig({ testTimeout: 20_000 });
 
 describe('compileArduinoProject', () => {
   it('compiles setup/loop into a sketch with an Arduino preamble, real builtin calls, and no int main()', () => {
