@@ -9,7 +9,17 @@ import {
 } from '@falang/workflow-dto';
 import { nanoid } from 'nanoid';
 
-const clone = <T>(value: T): T => structuredClone(value);
+/**
+ * Deep clone of plain JSON-shaped data that may hold MobX observables at any depth (a live node store's
+ * `data`, `collectScopeVariables`' types) — `structuredClone` throws on such a Proxy.
+ */
+const clone = <T>(value: T): T => {
+  if (Array.isArray(value)) return value.map((item: unknown) => clone(item)) as T;
+  if (value === null || typeof value !== 'object') return value;
+  const result: Record<string, unknown> = {};
+  for (const [key, item] of Object.entries(value)) result[key] = clone(item);
+  return result as T;
+};
 
 /**
  * The transient popup document for one magic node (never persisted): header = the spell, body = a deep

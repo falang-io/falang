@@ -2,6 +2,7 @@ import type { INode, NodesStack } from '@falang/dto';
 import { collectScopeVariables, type IScopeVariable } from '@falang/typescript-common';
 import { registerGlobalTokens, schemeFactory } from '@falang/scheme';
 import { MAGIC_FUNCTION_BODY_NAME } from '@falang/workflow-dto';
+import { observable } from 'mobx';
 import { afterEach, describe, expect, it } from 'vitest';
 import { getMagicTestInfrastructure } from './magic-test-harness.js';
 import { buildMagicFunctionDocument, readMagicFunctionDocument } from './magic-function-document.js';
@@ -34,6 +35,16 @@ describe('magic function document helpers', () => {
     expect(back.spell).toBe('do the thing');
     expect(back.children).toEqual(steps);
     expect(back.children[0]).not.toBe(root.children?.[1].children?.[0]);
+  });
+
+  it('accepts MobX-observable input (a live node store DTO / scope) — structuredClone alone throws on a Proxy', () => {
+    // plain containers with observables inside, like getNodeStoreDto / collectScopeVariables return
+    const liveMagic: INode = { ...magic, children: steps.map((step) => observable(step)) };
+    const liveScope = outerScope.map((variable) => ({ ...variable, type: observable(variable.type) }));
+    const root = buildMagicFunctionDocument(liveMagic, liveScope);
+    expect(root.children?.[1].data).toEqual({ outerScope });
+    expect(root.children?.[1].children).toEqual(steps);
+    expect(readMagicFunctionDocument(observable(root)).children).toEqual(steps);
   });
 
   it('validates against the popup node stack', () => {
