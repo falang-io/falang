@@ -39,4 +39,14 @@ export class Project {
    */
   @Column({ name: 'prod_enabled', type: 'boolean', default: false })
   prodEnabled!: boolean;
+
+  /**
+   * The published version (`ProjectVersion.buildId`) production runs — the Worker Deployment's
+   * current version, which new starts and triggers are routed to. Set by `BuildService.publish`
+   * (a new version becomes prod), `activate` (a rollback) and `startProd`; read by `startProd` and
+   * the scale-to-zero wake (`ensureRunnerRunning`) so a rollback survives the pod being idle-stopped.
+   * `null` (no version published, or the version was deleted) falls back to the latest version.
+   */
+  @Column({ name: 'prod_build_id', type: 'varchar', nullable: true })
+  prodBuildId!: string | null;
 }

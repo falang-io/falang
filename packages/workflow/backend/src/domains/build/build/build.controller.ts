@@ -11,7 +11,7 @@ import type { IGeneratedFile } from './compile-project-documents.js';
 import { RunFunctionDto } from './dto/run-function.dto.js';
 // oxlint-disable-next-line consistent-type-imports
 import { StartRunDto } from './dto/start-run.dto.js';
-import type { IProjectVersionSummary } from './project-version-summary.js';
+import type { IProjectVersionListItem, IProjectVersionSummary } from './project-version-summary.js';
 import type { IWorkflowPosition } from './workflow-position.js';
 import type { IRunFunctionResult } from './workflow-run.service.js';
 
@@ -107,7 +107,7 @@ export class BuildController {
   listVersions(
     @Param('projectId') projectId: string,
     @CurrentUser() user: IJwtPayloadUser,
-  ): Promise<IProjectVersionSummary[]> {
+  ): Promise<IProjectVersionListItem[]> {
     return this.buildService.listVersions(projectId, user.id);
   }
 

@@ -1,4 +1,3 @@
-import type { Repository } from 'typeorm';
 import type { ProjectTokenService } from '../../internal-auth/project-token.service.js';
 import type { DevArtifactStore } from './dev-artifact-store.service.js';
 import type { DeploymentCliService } from './deployment-cli.service.js';
@@ -9,9 +8,10 @@ export interface IEnsureRunnerRunningDeps {
   readonly runnerProcessManager: RunnerProcessManager;
   readonly devArtifacts: DevArtifactStore;
   readonly projectTokens: ProjectTokenService;
-  readonly versions: Repository<ProjectVersion>;
+  /** The version production runs (`Project.prodBuildId`, else the latest), or `null` if nothing is published — `BuildService.resolveProdVersion`. */
+  readonly resolveProdVersion: (projectId: string) => Promise<Pick<ProjectVersion, 'buildId'> | null>;
   readonly deploymentCli: DeploymentCliService;
-  /** `BuildService`'s own `startVersionRunnerIfNeeded` — reused here to (re)spawn prod's latest version the exact same way `startProd()` does. */
+  /** `BuildService`'s own `startVersionRunnerIfNeeded` — reused here to (re)spawn prod's version the exact same way `startProd()` does. */
   readonly startVersionRunnerIfNeeded: (
     projectId: string,
     taskQueue: string,
@@ -69,9 +69,10 @@ export const ensureRunnerRunning = async (
   }
 
   if (await deps.runnerProcessManager.isAnyRunning(taskQueue)) return;
-  const latest = await deps.versions.findOne({ where: { projectId }, order: { versionNumber: 'DESC' } });
+  // The version production runs — not simply the latest, or waking a scaled-down pod would undo a rollback.
+  const version = await deps.resolveProdVersion(projectId);
   // Nothing published yet.
-  if (!latest) return;
-  await deps.startVersionRunnerIfNeeded(projectId, taskQueue, latest);
-  await deps.deploymentCli.setCurrentVersionWithRetry(projectId, taskQueue, latest.buildId);
+  if (!version) return;
+  await deps.startVersionRunnerIfNeeded(projectId, taskQueue, version);
+  await deps.deploymentCli.setCurrentVersionWithRetry(projectId, taskQueue, version.buildId);
 };

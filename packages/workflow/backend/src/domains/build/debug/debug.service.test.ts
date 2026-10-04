@@ -37,7 +37,7 @@ const fakeEnsureRunnerDeps = (running: boolean): IEnsureRunnerRunningDeps =>
     },
     devArtifacts: { has: vi.fn(() => true) },
     projectTokens: { getOrCreateToken: vi.fn(() => 'token') },
-    versions: {},
+    resolveProdVersion: () => Promise.resolve(null),
     deploymentCli: {},
     startVersionRunnerIfNeeded: vi.fn(() => Promise.resolve()),
   }) as unknown as IEnsureRunnerRunningDeps;

@@ -154,6 +154,10 @@ export interface IApiProjectVersion {
   readonly versionNumber: number;
   readonly buildId: string;
   readonly createdAt: string;
+  /** Production's version — where new runs and triggers go while prod is on, and what Start brings up. Only in `listVersions` rows. */
+  readonly current?: boolean;
+  /** Whether this version's runner pod is up (an idle prod pod is scaled to zero and woken by its triggers). Only in `listVersions` rows. */
+  readonly running?: boolean;
 }
 
 export interface IApiFunctionParameter {

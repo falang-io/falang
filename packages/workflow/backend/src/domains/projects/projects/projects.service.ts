@@ -71,6 +71,17 @@ export class ProjectsService {
     return (result.affected ?? 0) > 0;
   }
 
+  /** `Project.prodBuildId` of `id`, or `null` (also for an unknown project). */
+  async getProdBuildId(id: string): Promise<string | null> {
+    const project = await this.projects.findOne({ select: { id: true, prodBuildId: true }, where: { id } });
+    return project?.prodBuildId ?? null;
+  }
+
+  /** Records which published version production runs — see `Project.prodBuildId`. */
+  async setProdBuildId(id: string, buildId: string | null): Promise<void> {
+    await this.projects.update({ id }, { prodBuildId: buildId });
+  }
+
   /** Ids of every project whose production is turned on — `BuildService` re-activates their prod ingress on boot. */
   async listProdEnabledIds(): Promise<string[]> {
     const rows = await this.projects.find({ select: { id: true }, where: { prodEnabled: true } });

@@ -2,7 +2,7 @@ import type React from 'react';
 import { useCallback, useEffect, useState } from 'react';
 import { observer } from 'mobx-react-lite';
 import { getGlobalI18n } from '@falang/scheme';
-import { Button, Modal, Space, Table, Typography } from 'antd';
+import { Button, Modal, Space, Table, Tag, Tooltip, Typography } from 'antd';
 import { workflowApi, type IApiProjectVersion } from '../api-client.js';
 
 interface Props {
@@ -13,10 +13,12 @@ interface Props {
 
 /**
  * Fetches `GET /projects/:id/versions` + `GET /projects/:id/versions/status` on open. The top
- * Start/Stop toggle is project-wide — Start (re)starts only the latest version, Stop kills every
- * running version together (see `BuildService.startProd`/`stopProd`); the per-row Activate/Stop
- * buttons still target one specific version (rollback / retiring an old one without touching the
- * rest). Delete is only allowed while the toggle shows "stopped".
+ * Start/Stop toggle is project-wide — Start (re)starts the current version (the last published or
+ * activated one, tagged "Current"), Stop kills every running version together (see
+ * `BuildService.startProd`/`stopProd`); the per-row Activate/Stop buttons still target one specific
+ * version (rollback / retiring an old one without touching the rest). Activate is disabled on the
+ * current version while prod runs, Stop runner on a version whose runner pod isn't up. Delete is only
+ * allowed while the toggle shows "stopped".
  */
 export const VersionsModal: React.FC<Props> = observer(({ projectId, open, onClose }) => {
   const t = getGlobalI18n().t;
@@ -73,7 +75,7 @@ export const VersionsModal: React.FC<Props> = observer(({ projectId, open, onClo
   const taskQueue = `workflow-${projectId}`;
 
   return (
-    <Modal title={t('client:versions-modal.title')} open={open} onCancel={onClose} footer={null} width={700}>
+    <Modal title={t('client:versions-modal.title')} open={open} onCancel={onClose} footer={null} width={880}>
       <Typography.Paragraph>
         {t('client:versions-modal.task-queue')}{' '}
         <Typography.Text code copyable>
@@ -115,11 +117,36 @@ export const VersionsModal: React.FC<Props> = observer(({ projectId, open, onClo
         dataSource={versions ?? []}
         pagination={false}
         columns={[
-          { title: t('client:versions-modal.version'), dataIndex: 'versionNumber', render: (v: number) => `v${v}` },
+          {
+            title: t('client:versions-modal.version'),
+            dataIndex: 'versionNumber',
+            render: (v: number, version) => (
+              <Space size={4}>
+                {`v${v}`}
+                {version.current && (
+                  <Tooltip title={t('client:versions-modal.current-hint')}>
+                    <Tag color={prodRunning ? 'green' : 'default'}>{t('client:versions-modal.current')}</Tag>
+                  </Tooltip>
+                )}
+              </Space>
+            ),
+          },
           {
             title: t('client:versions-modal.published'),
             dataIndex: 'createdAt',
             render: (createdAt: string) => new Date(createdAt).toLocaleString(),
+          },
+          {
+            title: t('client:versions-modal.runner'),
+            key: 'runner',
+            onCell: () => ({ style: { whiteSpace: 'nowrap' } }),
+            render: (_, version) => {
+              if (version.running) return <Typography.Text>{t('client:versions-modal.runner-up')}</Typography.Text>;
+              if (version.current && prodRunning) {
+                return <Typography.Text type="secondary">{t('client:versions-modal.runner-asleep')}</Typography.Text>;
+              }
+              return <Typography.Text type="secondary">—</Typography.Text>;
+            },
           },
           {
             title: t('client:versions-modal.actions'),
@@ -128,6 +155,8 @@ export const VersionsModal: React.FC<Props> = observer(({ projectId, open, onClo
               <Space>
                 <Button
                   size="small"
+                  disabled={version.current && prodRunning}
+                  title={version.current && prodRunning ? t('client:versions-modal.already-active') : ''}
                   loading={actioningVersion === version.versionNumber}
                   onClick={() =>
                     runAction(version.versionNumber, () =>
@@ -139,6 +168,8 @@ export const VersionsModal: React.FC<Props> = observer(({ projectId, open, onClo
                 </Button>
                 <Button
                   size="small"
+                  disabled={!version.running}
+                  title={version.running ? '' : t('client:versions-modal.runner-not-running')}
                   loading={actioningVersion === version.versionNumber}
                   onClick={() =>
                     runAction(version.versionNumber, () => workflowApi.stopVersion(projectId, version.versionNumber))

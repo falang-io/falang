@@ -38,7 +38,11 @@ import {
 } from './ensure-runner-running.js';
 import { assertUnderProdVersionLimit, resolveProdVersionLimit } from './prod-version-limit.js';
 import { ProjectVersion } from './project-version.entity.js';
-import { toVersionSummary, type IProjectVersionSummary } from './project-version-summary.js';
+import {
+  toVersionSummary,
+  type IProjectVersionListItem,
+  type IProjectVersionSummary,
+} from './project-version-summary.js';
 import { startAndRouteProdVersion, type IRouteProdVersionDeps } from './route-prod-version.js';
 import { RunnerProcessManager } from './runner-process-manager.js';
 import { resolveStartDeliveryArgs, type IStartDeliveryResolution } from './start-delivery-args.js';
@@ -181,7 +185,7 @@ export class BuildService implements OnModuleInit, OnApplicationBootstrap {
       runnerProcessManager: this.runnerProcessManager,
       devArtifacts: this.devArtifacts,
       projectTokens: this.projectTokens,
-      versions: this.versions,
+      resolveProdVersion: (projectId) => this.resolveProdVersion(projectId),
       deploymentCli: this.deploymentCli,
       startVersionRunnerIfNeeded: this.startVersionRunnerIfNeeded.bind(this),
     };
@@ -431,14 +435,28 @@ export class BuildService implements OnModuleInit, OnApplicationBootstrap {
     if (await this.runnerProcessManager.isAnyRunning(taskQueue)) {
       await startAndRouteProdVersion(this.routeProdVersionDeps(projectId, taskQueue), projectId, taskQueue, buildId);
     }
+    // A new version becomes production's version: routed right away if prod is live, otherwise the one
+    // the next Start (or a trigger waking a scaled-down pod) brings up.
+    await this.projectsService.setProdBuildId(projectId, buildId);
 
     return toVersionSummary(version);
   }
 
-  async listVersions(projectId: string, ownerId: string): Promise<IProjectVersionSummary[]> {
+  /** Every published version, oldest first, with whether it is production's version and whether its runner pod is up. */
+  async listVersions(projectId: string, ownerId: string): Promise<IProjectVersionListItem[]> {
     await this.projectsService.getOwnedProject(projectId, ownerId);
-    const versions = await this.versions.find({ where: { projectId }, order: { versionNumber: 'ASC' } });
-    return versions.map((version) => toVersionSummary(version));
+    const [versions, current, runningBuildIds] = await Promise.all([
+      this.versions.find({ where: { projectId }, order: { versionNumber: 'ASC' } }),
+      this.resolveProdVersion(projectId),
+      this.runnerProcessManager.listRunningBuildIds(prodTaskQueue(projectId)),
+    ]);
+    const running = new Set(runningBuildIds);
+    return versions.map((version) =>
+      Object.assign(toVersionSummary(version), {
+        current: version.buildId === current?.buildId,
+        running: running.has(version.buildId),
+      }),
+    );
   }
 
   /**
@@ -450,6 +468,7 @@ export class BuildService implements OnModuleInit, OnApplicationBootstrap {
     const version = await this.getOwnedVersion(projectId, ownerId, versionNumber);
     const taskQueue = prodTaskQueue(projectId);
     await startAndRouteProdVersion(this.routeProdVersionDeps(projectId, taskQueue), projectId, taskQueue, version.buildId);
+    await this.projectsService.setProdBuildId(projectId, version.buildId);
     await this.turnProdOn(projectId);
   }
 
@@ -469,14 +488,19 @@ export class BuildService implements OnModuleInit, OnApplicationBootstrap {
     return project.prodEnabled;
   }
 
-  /** The project-wide "Start" toggle: starts only the latest published version, and resumes any prod-env vendor polling (e.g. Telegram) parked by a previous `stopProd()`. */
+  /**
+   * The project-wide "Start" toggle: starts production's version (`Project.prodBuildId` — the last
+   * published or activated one, so a rollback survives Stop/Start), and resumes any prod-env vendor
+   * polling (e.g. Telegram) parked by a previous `stopProd()`.
+   */
   async startProd(projectId: string, ownerId: string): Promise<void> {
     await this.projectsService.getOwnedProject(projectId, ownerId);
-    const latest = await this.versions.findOne({ where: { projectId }, order: { versionNumber: 'DESC' } });
-    if (!latest) throw new NotFoundException(`Project "${projectId}" has no published versions`);
+    const version = await this.resolveProdVersion(projectId);
+    if (!version) throw new NotFoundException(`Project "${projectId}" has no published versions`);
 
     const taskQueue = prodTaskQueue(projectId);
-    await startAndRouteProdVersion(this.routeProdVersionDeps(projectId, taskQueue), projectId, taskQueue, latest.buildId);
+    await startAndRouteProdVersion(this.routeProdVersionDeps(projectId, taskQueue), projectId, taskQueue, version.buildId);
+    await this.projectsService.setProdBuildId(projectId, version.buildId);
     await this.turnProdOn(projectId);
   }
 
@@ -496,6 +520,15 @@ export class BuildService implements OnModuleInit, OnApplicationBootstrap {
       throw new ConflictException('Stop the published workflow before deleting versions');
     }
     await this.versions.remove(version);
+    // Production's version is gone — the next Start falls back to the latest remaining one.
+    if (project.prodBuildId === version.buildId) await this.projectsService.setProdBuildId(projectId, null);
+  }
+
+  /** The version production runs: `Project.prodBuildId` if that version still exists, else the latest one; `null` if nothing is published. */
+  private async resolveProdVersion(projectId: string): Promise<ProjectVersion | null> {
+    const buildId = await this.projectsService.getProdBuildId(projectId);
+    const current = buildId ? await this.versions.findOneBy({ projectId, buildId }) : null;
+    return current ?? this.versions.findOne({ where: { projectId }, order: { versionNumber: 'DESC' } });
   }
 
   /** The project *owner's* cap (`UserLimitsService`: per-user override, else `MAX_CONCURRENT_PROD_VERSIONS`), same owner-not-caller rule as `FilesService`. */

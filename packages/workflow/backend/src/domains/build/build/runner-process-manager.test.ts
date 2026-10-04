@@ -373,4 +373,14 @@ describe('RunnerProcessManager tenant isolation (ADR 0057 (private))', () => {
     ).rejects.toThrow('Request unauthorized.');
     expect(client.deployments.size).toBe(0);
   });
+
+  it('listRunningBuildIds lists the build ids with a live pod on one prod task queue only', async () => {
+    const { manager } = createManager();
+    await manager.start({ taskQueue: 'workflow-1', projectId: 'p', internalProjectToken: 't', workflowEnv: 'prod', buildId: 'v1' });
+    await manager.start({ taskQueue: 'workflow-1', projectId: 'p', internalProjectToken: 't', workflowEnv: 'prod', buildId: 'v3' });
+    await manager.start({ taskQueue: 'workflow-2', projectId: 'q', internalProjectToken: 't', workflowEnv: 'prod', buildId: 'v2' });
+
+    const buildIds = await manager.listRunningBuildIds('workflow-1');
+    expect(buildIds.toSorted()).toEqual(['v1', 'v3']);
+  });
 });

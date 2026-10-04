@@ -199,6 +199,13 @@ export class RunnerProcessManager {
     return names.length > 0;
   }
 
+  /** The build ids of every published version with a live pod on `taskQueue` — backs the Versions modal's per-version "running" flag. */
+  async listRunningBuildIds(taskQueue: string): Promise<string[]> {
+    const names = await this.params.deploymentsClient.listNames(this.params.k8sNamespace, taskQueueSelector(taskQueue));
+    const prefix = `${taskQueue}-`;
+    return names.filter((name) => name.startsWith(prefix)).map((name) => name.slice(prefix.length));
+  }
+
   /** How many versions currently have a live pod on `taskQueue` — backs `BuildService`'s per-project cap on concurrently-running published versions (see ADR 0016 (private)'s "Per-tenant ResourceQuota" follow-up). */
   async countRunning(taskQueue: string): Promise<number> {
     const names = await this.params.deploymentsClient.listNames(this.params.k8sNamespace, taskQueueSelector(taskQueue));

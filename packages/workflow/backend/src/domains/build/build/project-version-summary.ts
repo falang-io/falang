@@ -17,6 +17,14 @@ export interface IProjectVersionSummary {
   readonly createdAt: Date;
 }
 
+/** A row of `GET /projects/:id/versions` — the summary plus its live state. */
+export interface IProjectVersionListItem extends IProjectVersionSummary {
+  /** Production's version (`Project.prodBuildId`, else the latest): where new starts and triggers go while prod is on, and what Start brings up. */
+  readonly current: boolean;
+  /** Whether this version's runner pod is up right now (a live prod pod may be scaled to zero when idle). */
+  readonly running: boolean;
+}
+
 export const toVersionSummary = (version: ProjectVersion): IProjectVersionSummary => ({
   id: version.id,
   projectId: version.projectId,
