@@ -8,16 +8,17 @@ import type {
   TAgentQuestionAnswer,
   TLlmMessage,
 } from '@falang/agent';
-import { buildQuestionAnswerText } from '@falang/agent';
+import { buildQuestionAnswerText, DEFAULT_CHAT_SESSION_TITLE } from '@falang/agent';
 import { generateId } from './generate-id.js';
 import {
   buildPriorMessages,
+  buildSessionTitle,
   countConsecutiveQuestions,
   readAllowQuestions,
   writeAllowQuestions,
 } from './agent-chat-helpers.js';
 
-export { buildPriorMessages, countConsecutiveQuestions } from './agent-chat-helpers.js';
+export { buildPriorMessages, buildSessionTitle, countConsecutiveQuestions } from './agent-chat-helpers.js';
 
 export interface IAgentChatStoreOptions {
   /** `localStorage` key persisting the per-project "Don't ask, just do" toggle. */
@@ -154,13 +155,19 @@ export class AgentChatSessionStore {
   }
 
   /**
-   * Sends `text`, auto-creating a session first if none is active yet. Runs `params.agentSession` against
-   * `params.activeDocumentId` (the document open at send time, or `null` — ADR 0036's "no home document"
-   * amendment), then — right after `run()` resolves, before anything else can reset it — reads its
+   * Sends `text`, auto-creating a session first if none is active yet — titled after `text` (see
+   * `buildSessionTitle`), as is an empty session still carrying the default title. Runs `params.agentSession`
+   * against `params.activeDocumentId` (the document open at send time, or `null` — ADR 0036's "no home
+   * document" amendment), then — right after `run()` resolves, before anything else can reset it — reads its
    * `steps`/`message`/`status`/`error` into a persisted `IChatTurn`.
    */
   async send(text: string, params: IAgentChatSendParams): Promise<void> {
-    if (!this.activeSession) await this.createSession();
+    const title = buildSessionTitle(text);
+    const current = this.activeSession;
+    if (!current) await this.createSession(title || DEFAULT_CHAT_SESSION_TITLE);
+    else if (title && current.turns.length === 0 && current.title === DEFAULT_CHAT_SESSION_TITLE) {
+      await this.rename(current.id, title);
+    }
     const session = this.activeSession;
     if (!session) return;
     await this.runTurn(session, text, params, {

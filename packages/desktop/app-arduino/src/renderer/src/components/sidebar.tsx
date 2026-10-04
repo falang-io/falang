@@ -141,6 +141,7 @@ export const ProjectRightSidebar: React.FC = observer(() => {
               configured={agentSettings.configured}
               configuredLoading={agentSettings.loading}
               model={agentSettings.model}
+              onClose={() => store.toggleRightPanel('agent')}
             />
           </div>
         )}

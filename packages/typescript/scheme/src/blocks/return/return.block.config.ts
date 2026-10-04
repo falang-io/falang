@@ -1,12 +1,11 @@
 import type { IBlockConfig, IBlockShapeConfig, IIconConfig } from '@falang/scheme';
-import { BaseIconComponent, CELL_SIZE_2, EditorType, rectangleShape } from '@falang/scheme';
+import { BaseIconComponent, EditorType, rectangleShape } from '@falang/scheme';
 import { ReturnBlockComponent, ReturnEditBlockComponent } from './return.block.cmp.js';
 import { ReturnEditorStore } from './return-editor.store.js';
 import { ReturnIconStore } from './return.icon.store.js';
 
 export const returnBlockConfig = {
   view: ReturnBlockComponent,
-  minHeight: CELL_SIZE_2,
   editor: {
     view: ReturnEditBlockComponent,
     editorFactory: (params) => new ReturnEditorStore(params),

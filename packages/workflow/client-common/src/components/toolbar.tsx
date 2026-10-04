@@ -4,7 +4,7 @@ import type React from 'react';
 import { useEffect, useState } from 'react';
 import { observer } from 'mobx-react-lite';
 import { Button, Dropdown, notification, Tooltip, type MenuProps } from 'antd';
-import { DownOutlined, RobotOutlined, ThunderboltOutlined } from '@ant-design/icons';
+import { DownOutlined, RobotOutlined, ThunderboltFilled, ThunderboltOutlined } from '@ant-design/icons';
 import { getGlobalI18n, type TFunction } from '@falang/scheme';
 import { navigationStore } from '../navigation-store.js';
 import { useWorkflowStore } from '../workflow-store-context.js';
@@ -17,10 +17,6 @@ import { SupportButton } from './support-button.js';
 
 const RUNNING_COLOR = '#a6e3a1';
 const STOPPED_COLOR = '#f38ba8';
-
-/** Kept as its own tiny function (not an inline ternary in `Toolbar` itself) purely to stay under
- *  oxlint's `complexity` cap — `Toolbar` was already at the limit before the "Files" button below. */
-const toggleButtonType = (active: boolean): 'primary' | 'default' => (active ? 'primary' : 'default');
 
 const S: Record<string, React.CSSProperties> = {
   root: {
@@ -52,6 +48,18 @@ const S: Record<string, React.CSSProperties> = {
     cursor: 'pointer',
   },
   error: { color: '#f38ba8' },
+};
+
+/** An on/off toolbar button's "on" look — `S.btn`'s inline background would otherwise hide antd's `primary`. */
+const btnActive: React.CSSProperties = { ...S.btn, background: '#89b4fa', color: '#11111b', fontWeight: 600 };
+
+/** "Magic insert" on: a filled, glowing mauve button, so a plain click on a valence point visibly means magic. */
+const btnMagicActive: React.CSSProperties = {
+  ...S.btn,
+  background: 'linear-gradient(135deg, #cba6f7, #f5c2e7)',
+  color: '#11111b',
+  fontWeight: 600,
+  boxShadow: '0 0 0 1px #cba6f7, 0 0 10px rgba(203, 166, 247, 0.65)',
 };
 
 interface IDevMenuState {
@@ -131,19 +139,39 @@ const MagicInsertButton: React.FC = observer(() => {
   const t = getGlobalI18n().t;
   const store = useWorkflowStore();
   const configured = store.agentSettings.configured;
+  const active = configured && store.magicInsert.enabled;
   return (
     <Tooltip title={t(configured ? 'client:toolbar.magic-insert-tooltip' : 'client:toolbar.magic-insert-disabled')}>
       <Button
-        icon={<ThunderboltOutlined />}
-        style={S.btn}
+        icon={active ? <ThunderboltFilled /> : <ThunderboltOutlined />}
+        style={active ? btnMagicActive : S.btn}
         data-testid="toolbar-magic-insert"
+        aria-pressed={active}
         disabled={!configured}
-        type={toggleButtonType(configured && store.magicInsert.enabled)}
+        type={active ? 'primary' : 'default'}
         onClick={() => store.magicInsert.setEnabled(!store.magicInsert.enabled)}
       >
         {t('client:toolbar.magic-insert')}
       </Button>
     </Tooltip>
+  );
+});
+
+/** Toggles the agent chat in the project-level right sidebar. */
+const AgentPanelButton: React.FC = observer(() => {
+  const t = getGlobalI18n().t;
+  const store = useWorkflowStore();
+  const active = store.rightPanel === 'agent';
+  return (
+    <Button
+      icon={<RobotOutlined />}
+      style={active ? btnActive : S.btn}
+      aria-pressed={active}
+      type={active ? 'primary' : 'default'}
+      onClick={() => store.toggleRightPanel('agent')}
+    >
+      {t('client:toolbar.agent')}
+    </Button>
   );
 });
 
@@ -241,14 +269,7 @@ export const Toolbar: React.FC = observer(() => {
       )}
       <ProjectMenu buttonStyle={S.btn} errorStyle={S.error} />
       <SupportButton type="default" style={S.btn} />
-      <Button
-        icon={<RobotOutlined />}
-        style={S.btn}
-        type={store.rightPanel === 'agent' ? 'primary' : 'default'}
-        onClick={() => store.toggleRightPanel('agent')}
-      >
-        {t('client:toolbar.agent')}
-      </Button>
+      <AgentPanelButton />
       <MagicInsertButton />
       <Dropdown menu={{ items: devMenuItems }} trigger={['click']}>
         <Button style={S.btn}>

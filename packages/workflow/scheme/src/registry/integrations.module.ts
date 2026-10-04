@@ -25,6 +25,7 @@ import { getIntegrationMenuVendors } from './integration-insert-menu.js';
 import { seedIntegrationTypes } from './seed-integration-types.js';
 import { registerWorkflowSchemeLocales } from '../locales/workflow-scheme-locales.js';
 import { registerOptionsSyncOnMove } from '../blocks/sync-options-on-move.js';
+import { registerOptionsValencePointsFilter } from '../blocks/options-valence-points-filter.js';
 
 const NO_CREDENTIAL_INSTANCES = (): readonly IIntegrationInstance[] => [];
 const NO_FIELD_OPTIONS_PROVIDER: IFieldOptionsProvider = {
@@ -116,9 +117,12 @@ export class IntegrationsModule implements IModule {
   }
 
   initialize(scheme: Scheme) {
-    // Dragging a question/choice option keeps the header's `options` list in the new order.
+    // Dragging a question/choice option keeps the header's `options` list in the new order; their branch
+    // valence points only show while icons are moved (options are added in the header block).
+    const registry = resolveService(TOKEN_INTEGRATIONS_REGISTRY, scheme.container);
     this.disposers.push(
-      registerOptionsSyncOnMove(scheme, resolveService(TOKEN_INTEGRATIONS_REGISTRY, scheme.container)),
+      registerOptionsSyncOnMove(scheme, registry),
+      registerOptionsValencePointsFilter(scheme, registry),
     );
 
     // "Integrations" → vendor → actions/questions/choices, only for vendors that have an instance in the

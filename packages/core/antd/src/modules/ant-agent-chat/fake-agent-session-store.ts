@@ -1,3 +1,4 @@
+import { DEFAULT_CHAT_SESSION_TITLE } from '@falang/agent';
 import type { IAgentSessionStore, IChatSession, IChatSessionSummary } from '@falang/agent';
 
 let nextId = 0;
@@ -16,7 +17,7 @@ export class FakeAgentSessionStore implements IAgentSessionStore {
     );
   }
 
-  createSession(title = 'New session'): Promise<IChatSession> {
+  createSession(title = DEFAULT_CHAT_SESSION_TITLE): Promise<IChatSession> {
     const now = new Date().toISOString();
     const session: IChatSession = { createdAt: now, id: generateId(), title, turns: [], updatedAt: now };
     this.sessions.set(session.id, session);

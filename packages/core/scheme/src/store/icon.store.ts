@@ -51,6 +51,16 @@ export abstract class IconStore extends FlowNodeStore {
     this.blockWidth = width;
   }
 
+  /** Minimum block height — the block config's by default; an icon whose look depends on its state may override it. */
+  get blockMinHeight(): number | undefined {
+    return this.config.block.minHeight;
+  }
+
+  /** Whether the user may resize the block's width — the block config's `resizable` by default; overridable like `blockMinHeight`. */
+  get blockResizable(): boolean {
+    return this.config.block.resizable !== false;
+  }
+
   protected setShapePosition({ dx, dy }: { dx: TNumberComputed; dy: TNumberComputed }): void {
     this._shapeDX = dx;
     this._shapeDY = dy;

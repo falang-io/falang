@@ -5,6 +5,7 @@
     "new-session": "Новая сессия",
     "rename": "Переименовать",
     "export-session": "Экспортировать сессию (JSON)",
+    "close-panel": "Закрыть панель агента",
     "delete": "Удалить",
     "delete-confirm": "Удалить эту сессию? Это действие нельзя отменить.",
     "steps-count_one": "{{count}} шаг",

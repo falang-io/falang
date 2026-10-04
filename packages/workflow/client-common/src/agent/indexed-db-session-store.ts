@@ -1,4 +1,5 @@
 import { openDB, type DBSchema, type IDBPDatabase } from 'idb';
+import { DEFAULT_CHAT_SESSION_TITLE } from '@falang/agent';
 import type { IAgentSessionStore, IChatSession, IChatSessionSummary, IChatTurn } from '@falang/agent';
 import { generateUuid } from '../generate-uuid.js';
 
@@ -54,7 +55,7 @@ export class IndexedDbAgentSessionStore implements IAgentSessionStore {
     return sessions.map((session) => toSummary(session));
   }
 
-  async createSession(title = 'New session'): Promise<IChatSession> {
+  async createSession(title = DEFAULT_CHAT_SESSION_TITLE): Promise<IChatSession> {
     const db = await this.getDb();
     const now = new Date().toISOString();
     const session: IChatSession & { projectId: string } = {

@@ -163,6 +163,8 @@ export interface IAgentChatPanelProps {
   /** Optional host hook: given the original thrown value of a failed turn / send, return a node to show instead of the
    *  plain error text (replaces it, since it is meant as the full notice), or `null` for the default text. */
   readonly renderError?: (error: unknown) => ReactNode | null;
+  /** Shows a close (×) button in the panel's header row when set — the host hides the panel. */
+  readonly onClose?: () => void;
 }
 
 /**
@@ -176,7 +178,17 @@ export interface IAgentChatPanelProps {
  * is currently active.
  */
 export const AgentChatPanel: React.FC<IAgentChatPanelProps> = observer(
-  ({ store, agentSession, history, getActiveDocumentId, configured, configuredLoading, model, renderError }) => {
+  ({
+    store,
+    agentSession,
+    history,
+    getActiveDocumentId,
+    configured,
+    configuredLoading,
+    model,
+    renderError,
+    onClose,
+  }) => {
     const t = useAgentChatT();
     const [request, setRequest] = useState('');
 
@@ -204,7 +216,7 @@ export const AgentChatPanel: React.FC<IAgentChatPanelProps> = observer(
           <Alert type="warning" showIcon message={t('agent-chat:not-configured')} />
         ) : null}
 
-        <SessionPickerHeader store={store} model={configured ? model : null} />
+        <SessionPickerHeader store={store} model={configured ? model : null} onClose={onClose} />
 
         <Space wrap>
           <Tag color={statusTagColor(agentSession.status)}>{agentSession.status}</Tag>

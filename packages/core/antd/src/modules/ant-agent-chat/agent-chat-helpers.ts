@@ -54,3 +54,17 @@ export const writeAllowQuestions = (key: string | undefined, value: boolean): vo
     // storage unavailable — the toggle just doesn't persist
   }
 };
+
+/** Longest session title derived from a request, in characters (the ellipsis included). */
+export const SESSION_TITLE_MAX_LENGTH = 50;
+
+/** A session title from the user's first request: whitespace collapsed, cut to `SESSION_TITLE_MAX_LENGTH` at a word
+ *  boundary when there is one in the second half, with a trailing `…` when cut. Empty for a blank request. */
+export const buildSessionTitle = (request: string): string => {
+  const text = request.replaceAll(/\s+/g, ' ').trim();
+  if (text.length <= SESSION_TITLE_MAX_LENGTH) return text;
+  const head = text.slice(0, SESSION_TITLE_MAX_LENGTH - 1);
+  const lastSpace = head.lastIndexOf(' ');
+  const cut = lastSpace >= SESSION_TITLE_MAX_LENGTH / 2 ? head.slice(0, lastSpace) : head;
+  return `${cut.replace(/[\s.,;:!?-]+$/, '')}…`;
+};

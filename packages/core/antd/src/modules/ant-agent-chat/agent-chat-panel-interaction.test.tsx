@@ -21,7 +21,7 @@ vi.stubGlobal(
   }),
 );
 
-const setup = async () => {
+const setup = async (onClose?: () => void) => {
   const store = new AgentChatSessionStore(new FakeAgentSessionStore());
   const client = new ScriptedLlmClient([
     (): ILlmResponse => ({
@@ -54,6 +54,7 @@ const setup = async () => {
         getActiveDocumentId: () => null,
         history: null,
         model: 'm',
+        onClose,
         store,
       }),
     );
@@ -81,5 +82,18 @@ describe('AgentChatPanel clarifying questions (interaction)', () => {
     });
     expect(store.allowQuestions).toBe(false);
     act(() => root.unmount());
+  });
+
+  it('shows a close button only when onClose is given, and calls it', async () => {
+    const onClose = vi.fn();
+    const withClose = await setup(onClose);
+    const close = withClose.container.querySelector<HTMLElement>('[data-testid="agent-chat-close"]');
+    act(() => close?.click());
+    expect(onClose).toHaveBeenCalledTimes(1);
+    act(() => withClose.root.unmount());
+
+    const without = await setup();
+    expect(without.container.querySelector('[data-testid="agent-chat-close"]')).toBeNull();
+    act(() => without.root.unmount());
   });
 });

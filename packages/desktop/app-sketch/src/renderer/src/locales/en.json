@@ -5,6 +5,7 @@
     "new-session": "New session",
     "rename": "Rename",
     "export-session": "Export session (JSON)",
+    "close-panel": "Close the agent panel",
     "delete": "Delete",
     "delete-confirm": "Delete this session? This can't be undone.",
     "steps-count_one": "{{count}} step",

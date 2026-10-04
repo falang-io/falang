@@ -50,6 +50,7 @@ export const listSessions = async (projectDir: string): Promise<IChatSessionSumm
   return sessions.filter((session): session is IChatSession => session !== null).map((session) => toSummary(session));
 };
 
+// `@falang/agent`'s `DEFAULT_CHAT_SESSION_TITLE` (only type-imported here, so the literal is repeated).
 export const createSession = async (projectDir: string, title = 'New session'): Promise<IChatSession> => {
   const now = new Date().toISOString();
   const session: IChatSession = { createdAt: now, id: nanoid(), title, turns: [], updatedAt: now };

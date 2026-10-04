@@ -18,7 +18,7 @@ export class BlockResizeService {
   }
 
   isResizable(icon: IconStore): boolean {
-    return icon.config.block.resizable !== false;
+    return icon.blockResizable;
   }
 
   getHandleIcon(scheme: Scheme): IconStore | null {

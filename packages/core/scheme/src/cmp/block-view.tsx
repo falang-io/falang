@@ -46,7 +46,7 @@ const BlockContainer: React.FC<{ icon: IconStore } & React.PropsWithChildren> = 
         if (!ref.current) return;
         icon.blockHeight = calculateHeight(
           ref.current.clientHeight,
-          icon.config.block.minHeight ?? icon.config.shape.minHeight,
+          icon.blockMinHeight ?? icon.config.shape.minHeight,
         );
       });
     });
@@ -54,7 +54,7 @@ const BlockContainer: React.FC<{ icon: IconStore } & React.PropsWithChildren> = 
 
   useResizeObserver(ref, (target) => {
     runInAction(() => {
-      icon.blockHeight = calculateHeight(target.contentRect.height, icon.config.block.minHeight);
+      icon.blockHeight = calculateHeight(target.contentRect.height, icon.blockMinHeight);
     });
   });
 

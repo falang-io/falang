@@ -36,6 +36,7 @@ export * from './icons/contour/contour.icon.config.js';
 export * from './utils/create-node-store-from-node.js';
 export * from './hooks/use-service.js';
 export * from './types/toolbar-icon.js';
+export type * from './types/valence-point-item.js';
 export * from './modules/icons-transfer/icons-transfer.module.js';
 export * from './modules/icons-transfer/icons-transfer.service.token.js';
 export { ICONS_DRAGGING_MODE_NAME, DRAG_START_THRESHOLD } from './modules/icons-transfer/constants.js';

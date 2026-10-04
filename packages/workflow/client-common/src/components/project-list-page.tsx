@@ -41,6 +41,7 @@ const styles: Record<string, React.CSSProperties> = {
   modeSwitch: { marginBottom: 16 },
   spacedTop: { marginTop: 16 },
   fileHint: { display: 'block', marginTop: 8 },
+  newProject: { marginLeft: 8, fontWeight: 600 },
 };
 
 const renderProjectList = (store: ProjectListStore, t: TFunction): React.ReactNode => {
@@ -192,7 +193,7 @@ export const ProjectListPage: React.FC = observer(() => {
         <Button type="text" onClick={() => authStore.logout()}>
           {t('client:project-list-page.logout')}
         </Button>
-        <Button type="text" onClick={() => setModalOpen(true)}>
+        <Button type="primary" style={styles.newProject} onClick={() => setModalOpen(true)}>
           {t('client:project-list-page.new-project')}
         </Button>
       </TopBar>

@@ -33,6 +33,10 @@ export interface IChatSession extends IChatSessionSummary {
   readonly turns: readonly IChatTurn[];
 }
 
+/** The title `IAgentSessionStore.createSession()` gives a session when none is passed. Until its first turn,
+ *  a session still carrying it is renamed after the first request (see `@falang/antd`'s `AgentChatSessionStore`). */
+export const DEFAULT_CHAT_SESSION_TITLE = 'New session';
+
 /**
  * Host-supplied persistence for agent chat sessions — one per project, independent of which document is
  * currently open (a project's sessions all show up in the same picker regardless of which document each of
@@ -41,6 +45,7 @@ export interface IChatSession extends IChatSessionSummary {
  */
 export interface IAgentSessionStore {
   listSessions: () => Promise<IChatSessionSummary[]>;
+  /** Without `title`, the session is named `DEFAULT_CHAT_SESSION_TITLE`. */
   createSession: (title?: string) => Promise<IChatSession>;
   getSession: (id: string) => Promise<IChatSession | null>;
   renameSession: (id: string, title: string) => Promise<void>;
