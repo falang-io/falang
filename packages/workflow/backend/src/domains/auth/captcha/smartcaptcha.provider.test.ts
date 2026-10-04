@@ -9,7 +9,7 @@ describe('SmartCaptchaProvider', () => {
     const fetchFn = vi.fn().mockImplementation(() => Promise.resolve(Response.json({ status: 'ok' })));
     await expect(make(fetchFn).verify('tok', '1.2.3.4')).resolves.toBe(true);
     const [url, init] = fetchFn.mock.calls[0] as [string, { body: string }];
-    expect(url).toBe('https://smartcaptcha.yandexcloud.net/validate');
+    expect(url).toBe('https://smartcaptcha.cloud.yandex.ru/validate');
     const params = new URLSearchParams(init.body);
     expect(params.get('secret')).toBe('srv');
     expect(params.get('token')).toBe('tok');

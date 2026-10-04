@@ -52,7 +52,7 @@ describe('CaptchaService', () => {
     );
     expect(service.getPublicConfig()).toEqual({ provider: 'smartcaptcha', siteKey: 'cli' });
     await service.verify('tok', '1.2.3.4');
-    expect((fetchFn.mock.calls[0] as [string])[0]).toBe('https://smartcaptcha.yandexcloud.net/validate');
+    expect((fetchFn.mock.calls[0] as [string])[0]).toBe('https://smartcaptcha.cloud.yandex.ru/validate');
   });
 
   it('maps a SmartCaptcha outage to 503 and a failed check to 400', async () => {

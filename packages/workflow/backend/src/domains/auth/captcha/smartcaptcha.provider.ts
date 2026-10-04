@@ -1,8 +1,12 @@
 import { CaptchaUnavailableError, type ICaptchaProvider, type TFetch } from './captcha-provider.js';
 
-const VALIDATE_URL = 'https://smartcaptcha.yandexcloud.net/validate';
+const VALIDATE_URL = 'https://smartcaptcha.cloud.yandex.ru/validate';
 
-/** Yandex SmartCaptcha. A non-200 reply is a vendor problem (outage), not a failed check. */
+/**
+ * Yandex SmartCaptcha. A non-200 reply is a vendor problem, not a failed check — but deliberately NOT a pass, although
+ * Yandex's docs suggest treating it as `ok`: a wrong server key also answers non-200 (403 "Invalid secret"), and failing
+ * open would silently switch the captcha off on a misconfigured deployment.
+ */
 export class SmartCaptchaProvider implements ICaptchaProvider {
   readonly name = 'smartcaptcha';
   private readonly secret: string;

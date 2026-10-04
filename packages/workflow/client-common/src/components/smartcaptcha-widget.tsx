@@ -10,7 +10,7 @@ interface ISmartCaptcha {
 }
 
 const CALLBACK_NAME = '__falangSmartCaptchaOnload';
-const SCRIPT_SRC = `https://smartcaptcha.yandexcloud.net/captcha.js?render=onload&onload=${CALLBACK_NAME}`;
+const SCRIPT_SRC = `https://smartcaptcha.cloud.yandex.ru/captcha.js?render=onload&onload=${CALLBACK_NAME}`;
 let scriptPromise: Promise<ISmartCaptcha> | null = null;
 
 /** Appends Yandex's script tag on first use; every later caller shares the same promise. */
