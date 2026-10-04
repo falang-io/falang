@@ -58,7 +58,8 @@ export class DevicesDocumentStore {
   constructor(params: IDevicesDocumentStoreParams) {
     this.drivers = params.drivers;
     this.onChange = params.onChange;
-    const parsed = parseDevicesDataOrFallback(params.document.data);
+    // `document.data` is a MobX-observable proxy (from `ArduinoProjectStore.documents`); zod throws on its Symbol keys.
+    const parsed = parseDevicesDataOrFallback(toJS(params.document.data));
     this.pins = [...parsed.data.pins];
     this.devices = [...parsed.data.devices];
     this.loadError = parsed.error;
