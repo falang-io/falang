@@ -6,6 +6,7 @@ import {
   Injectable,
   Logger,
   NotFoundException,
+  type OnApplicationBootstrap,
   type OnModuleInit,
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
@@ -38,6 +39,7 @@ import {
 import { assertUnderProdVersionLimit, resolveProdVersionLimit } from './prod-version-limit.js';
 import { ProjectVersion } from './project-version.entity.js';
 import { toVersionSummary, type IProjectVersionSummary } from './project-version-summary.js';
+import { startAndRouteProdVersion, type IRouteProdVersionDeps } from './route-prod-version.js';
 import { RunnerProcessManager } from './runner-process-manager.js';
 import { resolveStartDeliveryArgs, type IStartDeliveryResolution } from './start-delivery-args.js';
 import { devTaskQueue, prodTaskQueue } from './task-queue-names.js';
@@ -74,7 +76,7 @@ export interface IStartedDevRun extends IStartedRun {
  * versions can coexist on the stable prod task queue — see ADR 0004 (private).
  */
 @Injectable()
-export class BuildService implements OnModuleInit {
+export class BuildService implements OnModuleInit, OnApplicationBootstrap {
   private readonly logger = new Logger(BuildService.name);
   private readonly documentsService: DocumentsService;
   private readonly projectsService: ProjectsService;
@@ -140,6 +142,37 @@ export class BuildService implements OnModuleInit {
     this.gatewayRuntime.setEnsureRunnerRunning((params) =>
       ensureRunnerRunning(deps, params.projectId, params.env, params.taskQueue),
     );
+  }
+
+  /**
+   * Restores vendor ingress the gateway only keeps in memory: prod for every project whose production
+   * is turned on (`Project.prodEnabled`), dev for every project with a live dev runner pod. Without it,
+   * a `backend` restart leaves running bots deaf until someone presses Stop/Start. A prod pod still
+   * running for a project without the flag (started before the column existed) adopts the flag.
+   * Runs in the background so an unreachable cluster never delays boot.
+   */
+  onApplicationBootstrap(): void {
+    this.restoreIngress().catch((error: unknown) => {
+      this.logger.error('Failed to restore integrations ingress on boot', error instanceof Error ? error.stack : error);
+    });
+  }
+
+  private async restoreIngress(): Promise<void> {
+    const prodProjects = new Set(await this.projectsService.listProdEnabledIds());
+    const running = await this.runnerProcessManager.listRunning().catch((error: unknown) => {
+      this.logger.error('Could not list runner pods on boot', error instanceof Error ? error.stack : error);
+      return [];
+    });
+    const legacyProd = new Set(
+      running.filter((runner) => runner.env === 'prod' && !prodProjects.has(runner.projectId)).map((runner) => runner.projectId),
+    );
+    const adopted = await Promise.all(
+      Array.from(legacyProd, async (projectId) => ((await this.projectsService.setProdEnabled(projectId, true)) ? projectId : null)),
+    );
+    for (const projectId of adopted) if (projectId) prodProjects.add(projectId);
+    for (const projectId of prodProjects) this.gatewayRuntime.resumeProjectIntegrations(projectId, 'prod');
+    const devProjects = new Set(running.filter((runner) => runner.env === 'dev').map((runner) => runner.projectId));
+    for (const projectId of devProjects) this.gatewayRuntime.resumeProjectIntegrations(projectId, 'dev');
   }
 
   /** Also used by `DebugService` (via `build.module.ts`'s factory provider) — a debug session's `ensureRunnerRunning` call is always `env: 'dev'`, which never touches `versions`/`deploymentCli`/`startVersionRunnerIfNeeded` below, but the shared helper's signature wants the full deps shape regardless. */
@@ -396,19 +429,7 @@ export class BuildService implements OnModuleInit {
 
     const taskQueue = prodTaskQueue(projectId);
     if (await this.runnerProcessManager.isAnyRunning(taskQueue)) {
-      await assertUnderProdVersionLimit(
-        this.runnerProcessManager,
-        taskQueue,
-        await this.getMaxConcurrentProdVersions(projectId),
-      );
-      await this.runnerProcessManager.start({
-        taskQueue,
-        projectId,
-        internalProjectToken: this.projectTokens.getOrCreateToken(projectId),
-        buildId,
-        workflowEnv: 'prod',
-      });
-      await this.deploymentCli.setCurrentVersionWithRetry(projectId, taskQueue, buildId);
+      await startAndRouteProdVersion(this.routeProdVersionDeps(projectId, taskQueue), projectId, taskQueue, buildId);
     }
 
     return toVersionSummary(version);
@@ -420,12 +441,16 @@ export class BuildService implements OnModuleInit {
     return versions.map((version) => toVersionSummary(version));
   }
 
-  /** Rolls back to (or re-activates) an already-published version, respawning its runner pod from its immutable artifact if it isn't already running. */
+  /**
+   * Rolls back to (or re-activates) an already-published version, respawning its runner pod from its
+   * immutable artifact if it isn't already running. Turns production on like `startProd` does — a
+   * live, routed prod version with its ingress parked would look running while nothing reaches it.
+   */
   async activate(projectId: string, ownerId: string, versionNumber: number): Promise<void> {
     const version = await this.getOwnedVersion(projectId, ownerId, versionNumber);
     const taskQueue = prodTaskQueue(projectId);
-    await this.startVersionRunnerIfNeeded(projectId, taskQueue, version);
-    await this.deploymentCli.setCurrentVersionWithRetry(projectId, taskQueue, version.buildId);
+    await startAndRouteProdVersion(this.routeProdVersionDeps(projectId, taskQueue), projectId, taskQueue, version.buildId);
+    await this.turnProdOn(projectId);
   }
 
   /** Explicitly retires a published version's runner pod. No drainage check — see ADR 0004 (private)'s open follow-ups. */
@@ -434,10 +459,14 @@ export class BuildService implements OnModuleInit {
     await this.runnerProcessManager.stopVersion(prodTaskQueue(projectId), version.buildId);
   }
 
-  /** Whether any published version currently has a live runner pod for this project — backs the client's Start/Stop toggle and gates `deleteVersion`. */
+  /**
+   * Whether production is turned on — backs the client's Start/Stop toggle. The persisted flag, not
+   * "a pod is running": an idle prod pod is scaled to zero and woken by its triggers, so its absence
+   * doesn't mean prod is off, and a pod alone doesn't mean its ingress is on.
+   */
   async isProdRunning(projectId: string, ownerId: string): Promise<boolean> {
-    await this.projectsService.getOwnedProject(projectId, ownerId);
-    return this.runnerProcessManager.isAnyRunning(prodTaskQueue(projectId));
+    const project = await this.projectsService.getOwnedProject(projectId, ownerId);
+    return project.prodEnabled;
   }
 
   /** The project-wide "Start" toggle: starts only the latest published version, and resumes any prod-env vendor polling (e.g. Telegram) parked by a previous `stopProd()`. */
@@ -447,22 +476,23 @@ export class BuildService implements OnModuleInit {
     if (!latest) throw new NotFoundException(`Project "${projectId}" has no published versions`);
 
     const taskQueue = prodTaskQueue(projectId);
-    await this.startVersionRunnerIfNeeded(projectId, taskQueue, latest);
-    await this.deploymentCli.setCurrentVersionWithRetry(projectId, taskQueue, latest.buildId);
-    this.gatewayRuntime.resumeProjectIntegrations(projectId, 'prod');
+    await startAndRouteProdVersion(this.routeProdVersionDeps(projectId, taskQueue), projectId, taskQueue, latest.buildId);
+    await this.turnProdOn(projectId);
   }
 
   /** The project-wide "Stop" toggle: stops every published version's runner pod together (see `RunnerProcessManager.stopAll`) and parks prod-env vendor polling. */
   async stopProd(projectId: string, ownerId: string): Promise<void> {
     await this.projectsService.getOwnedProject(projectId, ownerId);
     await this.runnerProcessManager.stopAll(prodTaskQueue(projectId));
+    await this.projectsService.setProdEnabled(projectId, false);
     this.gatewayRuntime.stopProjectIntegrations(projectId, 'prod');
   }
 
   /** Deletes a published version's row. Only allowed while prod is fully stopped, matching the user's requirement — otherwise the immutable artifact a live runner pod was started from could be pulled out from under it. */
   async deleteVersion(projectId: string, ownerId: string, versionNumber: number): Promise<void> {
     const version = await this.getOwnedVersion(projectId, ownerId, versionNumber);
-    if (await this.runnerProcessManager.isAnyRunning(prodTaskQueue(projectId))) {
+    const project = await this.projectsService.getOwnedProject(projectId, ownerId);
+    if (project.prodEnabled || (await this.runnerProcessManager.isAnyRunning(prodTaskQueue(projectId)))) {
       throw new ConflictException('Stop the published workflow before deleting versions');
     }
     await this.versions.remove(version);
@@ -492,6 +522,20 @@ export class BuildService implements OnModuleInit {
       buildId: version.buildId,
       workflowEnv: 'prod',
     });
+  }
+
+  /** Persists production as on and resumes its prod-env vendor ingress (e.g. Telegram polling) parked by a previous `stopProd()`. */
+  private async turnProdOn(projectId: string): Promise<void> {
+    await this.projectsService.setProdEnabled(projectId, true);
+    this.gatewayRuntime.resumeProjectIntegrations(projectId, 'prod');
+  }
+
+  private routeProdVersionDeps(projectId: string, taskQueue: string): IRouteProdVersionDeps {
+    return {
+      runnerProcessManager: this.runnerProcessManager,
+      deploymentCli: this.deploymentCli,
+      startRunner: (buildId) => this.startVersionRunnerIfNeeded(projectId, taskQueue, { buildId }),
+    };
   }
 
   private async getOwnedVersion(projectId: string, ownerId: string, versionNumber: number): Promise<ProjectVersion> {

@@ -65,6 +65,18 @@ export class ProjectsService {
     return project.ownerId;
   }
 
+  /** Persists the client's prod Start/Stop toggle — see `Project.prodEnabled`. Returns whether a project row was updated. */
+  async setProdEnabled(id: string, enabled: boolean): Promise<boolean> {
+    const result = await this.projects.update({ id }, { prodEnabled: enabled });
+    return (result.affected ?? 0) > 0;
+  }
+
+  /** Ids of every project whose production is turned on — `BuildService` re-activates their prod ingress on boot. */
+  async listProdEnabledIds(): Promise<string[]> {
+    const rows = await this.projects.find({ select: { id: true }, where: { prodEnabled: true } });
+    return rows.map((row) => row.id);
+  }
+
   /**
    * Removes the project row. Its folders/documents cascade via each entity's `onDelete: 'CASCADE'`
    * FK to `projectId` (see `Folder`/`Document`); anything with a plain, non-FK `projectId` column

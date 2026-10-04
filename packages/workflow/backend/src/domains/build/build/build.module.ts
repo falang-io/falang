@@ -23,7 +23,7 @@ import { VersioningModule } from '../../projects/versioning/versioning.module.js
 import { BuildController } from './build.controller.js';
 import { UserLimitsModule } from '../../admin/user-limits/user-limits.module.js';
 import { BuildService, BUILD_OUTPUT_DIR } from './build.service.js';
-import { DeploymentCliService } from './deployment-cli.service.js';
+import { DEFAULT_RUNNER_READY_TIMEOUT_MS, DeploymentCliService } from './deployment-cli.service.js';
 import { DevArtifactStore } from './dev-artifact-store.service.js';
 import { InternalArtifactsController } from './internal-artifacts.controller.js';
 import { InternalCoverageController } from './internal-coverage.controller.js';
@@ -299,8 +299,12 @@ const createTerminateRunningExecutions = (graceMs: number, tenancy: ITemporalTen
     },
     {
       provide: DeploymentCliService,
-      inject: [TEMPORAL_TENANCY],
-      useFactory: (tenancy: ITemporalTenancy) => new DeploymentCliService({ tenancy }),
+      inject: [ConfigService, TEMPORAL_TENANCY],
+      useFactory: (config: ConfigService, tenancy: ITemporalTenancy) =>
+        new DeploymentCliService({
+          tenancy,
+          readyTimeoutMs: Number(config.get<string>('RUNNER_READY_TIMEOUT_MS') ?? DEFAULT_RUNNER_READY_TIMEOUT_MS),
+        }),
     },
     {
       provide: WorkflowRunService,

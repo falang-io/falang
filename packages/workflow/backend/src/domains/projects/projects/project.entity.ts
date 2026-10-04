@@ -29,4 +29,14 @@ export class Project {
    */
   @Column({ name: 'last_edited_at', type: Date, nullable: true })
   lastEditedAt!: Date | null;
+
+  /**
+   * Whether the owner has turned production on (the client's Start/Stop toggle — `BuildService.startProd`/
+   * `stopProd`). Persisted because a prod runner pod outlives a `backend` restart and is scaled to zero
+   * when idle: neither "a pod is running" nor the gateway's in-memory activation set survives, so this
+   * column is what `BuildService` restores prod-env vendor ingress (e.g. Telegram polling) from on boot,
+   * and what the client's prod status reports.
+   */
+  @Column({ name: 'prod_enabled', type: 'boolean', default: false })
+  prodEnabled!: boolean;
 }

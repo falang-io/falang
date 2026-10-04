@@ -33,10 +33,32 @@ export interface IDeploymentCliParams {
   /** Test seam; defaults to the real raw RPC. */
   readonly setCurrentVersion?: TSetCurrentVersion;
   readonly retryDelayMs?: number;
+  /** How long `setCurrentVersionWithRetry` keeps retrying before giving up — env `RUNNER_READY_TIMEOUT_MS`, default 60 s. */
+  readonly readyTimeoutMs?: number;
+  /** Test seam for the clock `readyTimeoutMs` is measured against. */
+  readonly now?: () => number;
 }
 
-const SET_CURRENT_VERSION_ATTEMPTS = 5;
 const SET_CURRENT_VERSION_RETRY_DELAY_MS = 1000;
+/**
+ * A fresh runner pod needs its image, the artifact download, a Temporal token and the first poll
+ * before Temporal knows its Worker Deployment exists — ~7 s on a warm local `kind` node, much longer
+ * on a cold cloud node pulling the image. The previous fixed 5 × 1 s budget lost that race and left
+ * the pod running with no version routed to it.
+ */
+export const DEFAULT_RUNNER_READY_TIMEOUT_MS = 60_000;
+
+/**
+ * gRPC codes worth waiting out while a runner registers: NOT_FOUND ("no Worker Deployment found …;
+ * does your Worker Deployment have pollers?"), FAILED_PRECONDITION, UNAVAILABLE, DEADLINE_EXCEEDED.
+ * An error with no gRPC code is retried too; anything else (e.g. PERMISSION_DENIED) fails at once.
+ */
+const RETRYABLE_GRPC_CODES = new Set([4, 5, 9, 14]);
+
+const isRetryable = (error: unknown): boolean => {
+  const code = (error as { code?: unknown } | null)?.code;
+  return typeof code !== 'number' || RETRYABLE_GRPC_CODES.has(code);
+};
 
 const sleep = (ms: number): Promise<void> => new Promise((resolve) => { setTimeout(resolve, ms) });
 
@@ -49,11 +71,15 @@ export class DeploymentCliService {
   private readonly tenancy: IDeploymentTenancy;
   private readonly setCurrent: TSetCurrentVersion;
   private readonly retryDelayMs: number;
+  private readonly readyTimeoutMs: number;
+  private readonly now: () => number;
 
   constructor(params: IDeploymentCliParams) {
     this.tenancy = params.tenancy;
     this.setCurrent = params.setCurrentVersion ?? defaultSetCurrentVersion;
     this.retryDelayMs = params.retryDelayMs ?? SET_CURRENT_VERSION_RETRY_DELAY_MS;
+    this.readyTimeoutMs = params.readyTimeoutMs ?? DEFAULT_RUNNER_READY_TIMEOUT_MS;
+    this.now = params.now ?? Date.now;
   }
 
   /** Makes `buildId` the routing target for new workflow starts on `deploymentName`'s task queue, in `projectId`'s namespace. */
@@ -63,17 +89,19 @@ export class DeploymentCliService {
   }
 
   /**
-   * Retries `setCurrentVersion` a few times: right after starting a new version's runner, its
-   * poller may not be registered with the matching service yet, and the call fails until it is (see
-   * ADR 0004 (private)'s open follow-ups — no real readiness probe).
+   * Retries `setCurrentVersion` until it succeeds or `readyTimeoutMs` runs out: right after starting a
+   * new version's runner, its poller may not be registered with the matching service yet, and the call
+   * fails until it is (see ADR 0004 (private)'s open follow-ups — no real readiness probe). A
+   * non-retryable error (see `RETRYABLE_GRPC_CODES`) is rethrown at once.
    */
   async setCurrentVersionWithRetry(projectId: string, deploymentName: string, buildId: string): Promise<void> {
-    for (let attempt = 1; attempt <= SET_CURRENT_VERSION_ATTEMPTS; attempt += 1) {
+    const deadline = this.now() + this.readyTimeoutMs;
+    for (;;) {
       try {
         await this.setCurrentVersion(projectId, deploymentName, buildId);
         return;
       } catch (error) {
-        if (attempt === SET_CURRENT_VERSION_ATTEMPTS) throw error;
+        if (!isRetryable(error) || this.now() + this.retryDelayMs > deadline) throw error;
         await sleep(this.retryDelayMs);
       }
     }
