@@ -64,6 +64,7 @@ export default defineConfig({
     starlight({
       title: 'Falang',
       favicon: '/favicon.ico',
+      logo: { src: './src/assets/logo.png', alt: 'Falang' },
       // Single root locale, no URL prefix — each build (SITE_LOCALE=en|ru) ships one language on
       // its own subdomain, same per-build-locale model as the marketing site.
       locales: {
