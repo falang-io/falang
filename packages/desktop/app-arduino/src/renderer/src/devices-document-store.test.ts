@@ -1,4 +1,5 @@
 import 'reflect-metadata';
+import { observable } from 'mobx';
 import { describe, expect, it, vi } from 'vitest';
 import type { IDriverConfig } from '../../shared/driver-config.js';
 import type { IDevicesDocumentData } from '../../shared/devices-document.js';
@@ -67,6 +68,18 @@ const makeDocument = (data?: unknown): DesktopDocument => ({
 });
 
 describe('DevicesDocumentStore', () => {
+  it('reads non-empty data from a MobX-observable document (as held by ArduinoProjectStore.documents)', () => {
+    const data: IDevicesDocumentData = {
+      pins: [{ id: 'p1', pin: 13, mode: 'output', label: 'LED' }],
+      devices: [{ id: 'd1', driverId: 'lcd1602-i2c', name: 'Front display', params: { address: '39' } }],
+    };
+    const document = observable(makeDocument(data));
+    const store = new DevicesDocumentStore({ document, drivers: [lcdDriver], onChange: vi.fn() });
+    expect(store.loadError).toBeNull();
+    expect(store.pins).toEqual(data.pins);
+    expect(store.devices).toEqual(data.devices);
+  });
+
   it('starts empty for a document with no data yet (a project restored from before this document type existed)', () => {
     const onChange = vi.fn();
     const store = new DevicesDocumentStore({ document: makeDocument(), drivers: [lcdDriver], onChange });
