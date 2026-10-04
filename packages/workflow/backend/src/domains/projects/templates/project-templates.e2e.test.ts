@@ -128,7 +128,13 @@ describe('project templates (e2e)', () => {
     expect(types).toEqual(['function', 'integrations']);
     const withData = await http().get(`/projects/${newProjectId}/export`).set(auth(aliceToken));
     const raw = JSON.stringify(withData.body);
-    expect(raw).toContain('cred-1');
+    // Import issues fresh instance ids (security P0), so the original id must not survive.
+    expect(raw).not.toContain('cred-1');
+    const integrationsDoc = (
+      withData.body.documents as { type: string; data?: { instances?: Record<string, unknown>[] } }[]
+    ).find((d) => d.type === 'integrations');
+    const instance = integrationsDoc?.data?.instances?.find((i) => i.vendor === 'telegram' && i.name === 'Bot');
+    expect(instance).toBeDefined();
     expect(raw).not.toContain('raw-token');
     expect(raw).not.toContain('prod-tok');
 
