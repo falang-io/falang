@@ -196,13 +196,65 @@ export class Parser implements IParser {
     return items;
   }
 
+  /** The list being built and the index of its next item — what `takeNextStatement` reads. */
+  private cursor: { readonly items: readonly TItem[]; readonly state: { index: number } } | null = null;
+
+  /** Consumes the statement right after the current one (no comment between) when `accept` says so — for node forms that
+   *  span two statements (`const choice = await ai.callAiChoice(…); switch (choice.action) { … }`). */
+  takeNextStatement(accept: (statement: ts.Statement) => boolean): ts.Statement | undefined {
+    const cursor = this.cursor;
+    const next = cursor?.items[cursor.state.index];
+    if (!cursor || next?.kind !== 'statement' || !accept(next.statement)) return undefined;
+    cursor.state.index += 1;
+    return next.statement;
+  }
+
   private buildNodes(items: readonly TItem[]): IParsedList {
     const nodes: INode[] = [];
     let footer: string | undefined;
-    let index = 0;
-    while (index < items.length) {
-      const item = items[index] as TItem;
-      index += 1;
+    const state = { index: 0 };
+    const outer = this.cursor;
+    try {
+      while (state.index < items.length) {
+        const item = items[state.index] as TItem;
+        state.index += 1;
+        if (item.kind === 'statement') {
+          this.cursor = { items, state };
+          nodes.push(this.statement(item.statement));
+          continue;
+        }
+        let index = state.index;
+        footer =
+          this.buildSpecialItem(
+            item,
+            items,
+            nodes,
+            (value) => {
+              index = value;
+            },
+            () => index,
+          ) ?? footer;
+        state.index = index;
+      }
+    } finally {
+      this.cursor = outer;
+    }
+    return footer === undefined ? { nodes } : { footer, nodes };
+  }
+
+  /** A comment, magic region or `/*@action N*\/` directive at `items[index - 1]`; returns a footer text when it was one. */
+  private buildSpecialItem(
+    item: TItem,
+    items: readonly TItem[],
+    nodes: INode[],
+    setIndex: (index: number) => void,
+    getIndex: () => number,
+  ): string | undefined {
+    let index = getIndex();
+    let footer: string | undefined;
+    // The loop runs exactly once: it keeps the original item handling (and its `continue`s) unchanged.
+    // oxlint-disable-next-line no-unreachable-loop
+    for (let once = 0; once < 1; once += 1) {
       if (item.kind === 'comment') {
         const body = item.text.trim();
         if (body.startsWith(MAGIC_START)) {
@@ -251,9 +303,9 @@ export class Parser implements IParser {
         });
         continue;
       }
-      nodes.push(this.statement(item.statement));
     }
-    return footer === undefined ? { nodes } : { footer, nodes };
+    setIndex(index);
+    return footer;
   }
 
   private failAt(pos: number, message: string): never {
@@ -597,7 +649,10 @@ export class Parser implements IParser {
     return { children: options, data: this.text(statement.expression), id: this.newId(), name: 'switch' };
   }
 
-  cases(block: ts.CaseBlock): { test: ts.Expression | null; clause: ts.CaseOrDefaultClause; nodes: INode[] }[] {
+  cases(
+    block: ts.CaseBlock,
+    takeLeading?: (statement: ts.Statement) => boolean,
+  ): { test: ts.Expression | null; clause: ts.CaseOrDefaultClause; nodes: INode[]; leading?: ts.Statement }[] {
     return block.clauses.map((clause) => {
       let statements: readonly ts.Statement[] = clause.statements;
       let end = clause.statements.end;
@@ -623,9 +678,13 @@ export class Parser implements IParser {
           `\`${ts.isDefaultClause(clause) ? 'default' : `case ${clause.expression.getText(this.source)}`}:\` must end with \`break;\` (or return/throw/continue) — fall-through to the next case is not supported.`,
         );
       }
+      const first = statements[0];
+      const leading = first && takeLeading?.(first) ? first : undefined;
+      if (leading) statements = statements.slice(1);
       this.frames.push({ kind: 'switch' });
       try {
         return {
+          ...(leading ? { leading } : {}),
           clause,
           nodes: this.buildNodes(this.collectItems(statements, end)).nodes,
           test: ts.isDefaultClause(clause) ? null : clause.expression,

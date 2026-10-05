@@ -86,6 +86,15 @@ const vendorBlock = (integration: IWorkflowIntegration, model: WorkflowModel, wi
         `  ${questionMethodName(question.name, integration.vendor)}(${paramsType(fields, model, question.timeoutField)}): Promise<${result}>;`,
       );
     }
+    for (const choice of integration.choices ?? []) {
+      const fields = [...choice.contextFields, ...choice.promptFields];
+      lines.push(
+        '  /** AI picks one of the options you list as cases: `const choice = await …; switch (choice.action) { case "name": { const data = choice.data as string; … } }`. */',
+      );
+      lines.push(
+        `  ${actionMethodName(choice.name, integration.vendor)}(${paramsType(fields, model)}): Promise<{ action: string; data: unknown }>;`,
+      );
+    }
     for (const trigger of integration.triggers) {
       const payload = `(${trigger.scopeVariableName}: ${renderType(trigger.scopeType, model.types)}) => Promise<unknown>`;
       const config =
@@ -130,7 +139,9 @@ export const usedVendors = (model: WorkflowModel): { withInstance: Set<string>; 
     if (doc.type === 'trigger-function' && typeof vendor === 'string' && vendor !== '') withInstance.add(vendor);
   }
   for (const integration of model.input.integrations) {
-    const kinds = [...integration.actions, ...(integration.questions ?? [])].map((descriptor) => descriptor.name);
+    const kinds = [...integration.actions, ...(integration.questions ?? []), ...(integration.choices ?? [])].map(
+      (descriptor) => descriptor.name,
+    );
     if (kinds.some((kind) => names.has(kind))) withInstance.add(integration.vendor);
   }
   const ownerOf = new Map<string, string>();
@@ -178,10 +189,10 @@ export const integrationsDeclarations = (model: WorkflowModel): string => {
 };
 
 /** `objects-structure` documents as interfaces. */
-export const typesDeclarations = (model: WorkflowModel): string => {
+export const typesDeclarations = (model: WorkflowModel, excludeDocumentId?: string): string => {
   const blocks: string[] = [];
   for (const doc of model.input.documents) {
-    if (doc.type !== 'objects-structure' || !doc.root) continue;
+    if (doc.type !== 'objects-structure' || !doc.root || doc.id === excludeDocumentId) continue;
     for (const thread of doc.root.children?.[1]?.children ?? []) {
       const name = typeof thread.data === 'string' ? thread.data.trim() : '';
       if (name === '') continue;

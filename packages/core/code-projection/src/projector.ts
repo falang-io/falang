@@ -63,6 +63,14 @@ export class Projector implements IProjector {
   readonly types: IProjectionContext['types'];
   private readonly ctx: IProjectionContext;
   private readonly frames: IFrame[] = [];
+  private readonly usedNames = new Map<string, number>();
+
+  /** `base`, then `base2`, `base3`, … — unique within the file this projector prints. */
+  uniqueName(base: string): string {
+    const count = (this.usedNames.get(base) ?? 0) + 1;
+    this.usedNames.set(base, count);
+    return count === 1 ? base : `${base}${count}`;
+  }
 
   constructor(ctx: IProjectionContext) {
     this.ctx = ctx;
@@ -241,12 +249,12 @@ export class Projector implements IProjector {
   }
 
   /** One `case v: { … }` of a switch-like node; the terminating `break;` is omitted when the body already ends in a jump. */
-  caseClause(test: string, option: INode): string {
+  caseClause(test: string, option: INode, prefix?: string): string {
     this.frames.push({ depth: this.loopDepth(), kind: 'switch', usedLabel: false });
     try {
       const statements = withOut(option);
       const last = statements.at(-1);
-      const body = this.list(statements);
+      const body = [prefix, this.list(statements)].filter((part) => part !== undefined && part !== '').join('\n');
       const terminator = last && JUMP_KINDS.has(last.name) ? '' : 'break;';
       const content = [body, terminator].filter((part) => part !== '').join('\n');
       // A `switch-option` whose value is `default` is the default branch (the logic constructor compiles it so).

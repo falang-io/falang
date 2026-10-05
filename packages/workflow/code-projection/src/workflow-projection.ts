@@ -1,6 +1,9 @@
 // oxlint-disable no-undefined, init-declarations, max-classes-per-file, no-map-spread, no-array-callback-reference, catch-error-name, prefer-string-raw, max-lines, no-console, complexity, no-non-null-assertion, no-use-before-define, require-array-join-separator -- spike code (ADR 0061 (private))
 import {
+  assertNoDroppedTypes,
   matchAndValidate,
+  parseTypesFile,
+  projectTypesFile,
   parseFunctionFile,
   parseTypeText,
   ProjectionError,
@@ -14,8 +17,8 @@ import {
   type IProjectionContext,
 } from '@falang/code-projection';
 import type ts from 'typescript';
-import { isValidFunctionName, type INode } from '@falang/dto';
-import type { TVariableInfo } from '@falang/typescript-dto';
+import { isValidFunctionName, NodesStack, zod, type INode } from '@falang/dto';
+import { objectStructureNodes, type TVariableInfo } from '@falang/typescript-dto';
 import {
   FALANG_DECLARATIONS,
   integrationsDeclarations,
@@ -28,7 +31,12 @@ import { WorkflowModel, type IWorkflowProjectDocument, type IWorkflowProjectInpu
 
 export const FUNCTIONS_DIR = 'functions';
 export const TRIGGERS_DIR = 'triggers';
-export const READ_ONLY_FILES = ['falang.d.ts', 'vendors.d.ts', 'integrations.ts', 'types.d.ts'] as const;
+export const TYPES_DIR = 'types';
+export const READ_ONLY_FILES = ['falang.d.ts', 'vendors.d.ts', 'integrations.ts'] as const;
+/** Internal: every types file's interfaces, so function files see them (the file being written is left out). */
+const TYPES_DECLARATIONS = '__types.d.ts';
+const objectsStructureStack = new NodesStack([objectStructureNodes]);
+const TYPE_DOCUMENT_NAME = /^[A-Za-z][A-Za-z0-9]*$/;
 /** Internal: the project's function signatures, so files can call each other without imports. */
 const PROJECT_DECLARATIONS = '__project.d.ts';
 
@@ -48,7 +56,7 @@ export interface IWriteOptions {
 export interface IWriteResult {
   /** `undefined` when the file is new — the caller creates the document. */
   readonly documentId?: string;
-  readonly type: 'function' | 'trigger-function';
+  readonly type: 'function' | 'trigger-function' | 'objects-structure';
   readonly name: string;
   readonly root: INode;
   readonly stats: IMatchStats;
@@ -59,6 +67,7 @@ export interface IWriteResult {
 const fileOf = (doc: IWorkflowProjectDocument): string | undefined => {
   if (doc.type === 'function') return `${FUNCTIONS_DIR}/${doc.name}.ts`;
   if (doc.type === 'trigger-function') return `${TRIGGERS_DIR}/${doc.name}.ts`;
+  if (doc.type === 'objects-structure') return `${TYPES_DIR}/${doc.name}.ts`;
   return undefined;
 };
 
@@ -135,9 +144,6 @@ export class WorkflowProjection {
       case 'integrations.ts': {
         return integrationsDeclarations(this.model);
       }
-      case 'types.d.ts': {
-        return typesDeclarations(this.model);
-      }
       default: {
         break;
       }
@@ -154,6 +160,7 @@ export class WorkflowProjection {
 
   /** A function/trigger document (or a modified copy of one) as file text. */
   projectDocument(doc: IWorkflowProjectDocument): string {
+    if (doc.type === 'objects-structure') return projectTypesFile(this.rootOf(doc), this.model.types);
     return doc.type === 'function'
       ? projectFunctionFile(this.rootOf(doc), doc.name, this.ctx)
       : projectTriggerFile(this.rootOf(doc), this.model, this.ctx);
@@ -181,12 +188,17 @@ export class WorkflowProjection {
   }
 
   /** The checker's input: every generated declaration + the file being written. */
-  private checkFiles(path: string, text: string, returnValueType: string | undefined): Map<string, string> {
+  private checkFiles(
+    path: string,
+    text: string,
+    returnValueType: string | undefined,
+    excludeTypesOf?: string,
+  ): Map<string, string> {
     return new Map([
       ['falang.d.ts', FALANG_DECLARATIONS],
       ['vendors.d.ts', vendorsDeclarations(this.model)],
       ['integrations.d.ts', integrationsDeclarations(this.model)],
-      ['types.d.ts', typesDeclarations(this.model)],
+      [TYPES_DECLARATIONS, typesDeclarations(this.model, excludeTypesOf)],
       [PROJECT_DECLARATIONS, this.projectDeclarations(returnValueType)],
       [path, text],
     ]);
@@ -194,7 +206,7 @@ export class WorkflowProjection {
 
   /** Runs the write pipeline. Throws `ProjectionError` (every diagnostic, with file/line) on any failure. */
   writeFile(path: string, text: string, options: IWriteOptions = {}): IWriteResult {
-    const match = /^(functions|triggers)\/([^/]+)\.ts$/.exec(path);
+    const match = /^(functions|triggers|types)\/([^/]+)\.ts$/.exec(path);
     if (!match) {
       const readOnly = (READ_ONLY_FILES as readonly string[]).includes(path);
       throw new ProjectionError([
@@ -204,11 +216,12 @@ export class WorkflowProjection {
           line: 1,
           message: readOnly
             ? `${path} is generated and read-only.`
-            : 'Only functions/<name>.ts and triggers/<name>.ts files can be written.',
+            : 'Only functions/<name>.ts, triggers/<name>.ts and types/<Name>.ts files can be written.',
         },
       ]);
     }
     const [, dir, name = ''] = match;
+    if (dir === TYPES_DIR) return this.writeTypesFile(path, name, text, options);
     const type = dir === FUNCTIONS_DIR ? 'function' : 'trigger-function';
     const existing = this.findDocument(path);
     if (!existing) this.assertNewName(path, name);
@@ -264,6 +277,80 @@ export class WorkflowProjection {
     return type === 'function'
       ? parseFunctionFile(text, path, name, ctx)
       : parseTriggerFile(text, path, this.model, ctx);
+  }
+
+  /** `types/<Name>.ts`: interfaces ⇄ an `objects-structure` document (thread ids kept by interface name). */
+  private writeTypesFile(path: string, name: string, text: string, options: IWriteOptions): IWriteResult {
+    const existing = this.findDocument(path);
+    if (!existing) {
+      const fail = (message: string): never => {
+        throw new ProjectionError([{ column: 1, file: path, line: 1, message }]);
+      };
+      if (!TYPE_DOCUMENT_NAME.test(name))
+        fail(`"${name}" is not a valid name: Latin letters and digits, e.g. GameTypes.`);
+      const clash = this.documents().find((doc) => doc.name.toLowerCase() === name.toLowerCase());
+      if (clash) fail(`A document named "${clash.name}" already exists (${clash.type}).`);
+    }
+    const oldRoot = options.oldRoot ?? existing?.root ?? undefined;
+    const takenNames = new Set(
+      this.documents()
+        .filter((doc) => doc.type === 'objects-structure' && doc.id !== existing?.id)
+        .flatMap((doc) => (doc.root?.children?.[1]?.children ?? []).map((thread) => String(thread.data))),
+    );
+    let input: string | ts.SourceFile = text;
+    // Structure first (only interfaces, known types), then the check against everything else.
+    parseTypesFile(text, path, this.ctx, { oldRoot: oldRoot ?? undefined, takenNames });
+    if (options.typeCheck !== false) {
+      const check = typeCheckFile(this.checkFiles(path, text, undefined, existing?.id), path);
+      if (check.diagnostics.length > 0) throw new ProjectionError(check.diagnostics.slice(0, 20).map(withHint));
+      input = check.source;
+    }
+    const root = parseTypesFile(input, path, this.ctx, { oldRoot: oldRoot ?? undefined, takenNames });
+    assertNoDroppedTypes(path, oldRoot ?? undefined, root, (threadId) => this.structUser(threadId, existing?.id));
+    try {
+      objectsStructureStack.parseDocument({ id: existing?.id ?? 'new', name, root });
+    } catch (error) {
+      if (error instanceof zod.ZodError) {
+        throw new ProjectionError(
+          error.issues.map((issue) => ({ column: 1, file: path, line: 1, message: issue.message })),
+        );
+      }
+      throw error;
+    }
+    const before = new Set<string>();
+    const collect = (node: INode | undefined): void => {
+      if (!node) return;
+      before.add(node.id);
+      node.children?.forEach(collect);
+    };
+    collect(oldRoot ?? undefined);
+    let kept = 0;
+    let fresh = 0;
+    const count = (node: INode): void => {
+      if (before.has(node.id)) kept += 1;
+      else fresh += 1;
+      node.children?.forEach(count);
+    };
+    count(root);
+    return {
+      ...(existing ? { documentId: existing.id } : {}),
+      name,
+      root,
+      stats: { fresh, kept },
+      type: 'objects-structure',
+    };
+  }
+
+  /** The name of a document that refers to struct `threadId` (other than `exceptId`), if any. */
+  private structUser(threadId: string, exceptId: string | undefined): string | undefined {
+    const refers = (value: unknown): boolean => {
+      if (Array.isArray(value)) return value.some(refers);
+      if (!value || typeof value !== 'object') return false;
+      const record = value as Record<string, unknown>;
+      if (record.type === 'struct' && record.id === threadId) return true;
+      return Object.values(record).some(refers);
+    };
+    return this.documents().find((doc) => doc.id !== exceptId && refers(doc.root))?.name;
   }
 
   /** When the file uses the implicit `returnValue` local of a function with a return type: that type's text. */

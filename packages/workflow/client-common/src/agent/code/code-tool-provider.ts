@@ -11,7 +11,12 @@ import { resolveService } from '@falang/di';
 import type { INode } from '@falang/dto';
 import { CMD_DELETE_NODE, CMD_INSERT_NODE, CMD_SET_DATA, TOKEN_HISTORY, type Scheme } from '@falang/scheme';
 import type { TTriggerFunctionBodyData } from '@falang/workflow-dto';
-import { WorkflowProjection, type IWorkflowProjectDocument, type IWriteResult } from '@falang/workflow-code-projection';
+import {
+  vendorNamespace,
+  WorkflowProjection,
+  type IWorkflowProjectDocument,
+  type IWriteResult,
+} from '@falang/workflow-code-projection';
 import type { IWorkflowIntegration } from '@falang/workflow-integrations-common';
 import { getIntegrationInstances } from '../../integration-instances.js';
 import type { IWorkflowAgentStore } from '../workflow-agent-store.js';
@@ -186,6 +191,7 @@ export class CodeToolProvider implements IAgentToolProvider {
 
   private create(result: IWriteResult): string {
     if (result.type === 'function') return this.deps.store.createDocument('function', result.name);
+    if (result.type === 'objects-structure') return this.deps.store.createDocument('objects-structure', result.name);
     if (!result.triggerBody) throw new Error('A new trigger file must bind a trigger');
     return this.deps.store.createTriggerFunctionDocument(result.name, result.triggerBody as TTriggerFunctionBodyData);
   }
@@ -231,3 +237,23 @@ export class CodeFilesContextProvider implements IAgentContextProvider {
     return `Project files:\n${files.map((file) => `- ${file.path}${file.writable ? '' : ' (read-only)'}`).join('\n')}`;
   }
 }
+
+/** "In code: `supportBot` (telegram) — methods: sendMessage, askQuestion, onMessage, …" for a just-created instance. */
+export const describeInstanceForCode = (
+  store: IWorkflowAgentStore,
+  integrations: readonly IWorkflowIntegration[],
+  instanceId: string,
+): string | undefined => {
+  const projection = buildProjection(store, integrations);
+  const entry = projection.model.instanceById(instanceId);
+  if (!entry) return undefined;
+  const vendors = projection.readFile('vendors.d.ts');
+  const block = vendors.slice(
+    vendors.indexOf(
+      `interface Instance {`,
+      vendors.indexOf(`declare namespace ${vendorNamespace(entry.integration.vendor)}`),
+    ),
+  );
+  const methods = [...block.slice(0, block.indexOf('\n  }')).matchAll(/^\s{4}(\w+)[<(]/gm)].map((match) => match[1]);
+  return `In code this instance is the global \`${entry.identifier}\` (integrations.ts); its methods: ${methods.join(', ')} — signatures in vendors.d.ts.`;
+};

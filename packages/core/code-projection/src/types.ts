@@ -50,7 +50,9 @@ export interface IProjector {
   /** A template-string field as a template literal (backticks included). */
   template(body: string): string;
   /** One `case <test>: { …; break; }` clause of a switch-like node with `option`'s statements. */
-  caseClause(test: string, option: INode): string;
+  caseClause(test: string, option: INode, prefix?: string): string;
+  /** `base`, then `base2`, … — a name unique within the file being printed. */
+  uniqueName(base: string): string;
 }
 
 /** What a statement extension may call back into while parsing its statement. */
@@ -71,7 +73,15 @@ export interface IParser {
   /** `test` is `null` for `default:`. */
   cases(
     block: ts.CaseBlock,
-  ): { readonly test: ts.Expression | null; readonly clause: ts.CaseOrDefaultClause; readonly nodes: INode[] }[];
+    takeLeading?: (statement: ts.Statement) => boolean,
+  ): {
+    readonly test: ts.Expression | null;
+    readonly clause: ts.CaseOrDefaultClause;
+    readonly nodes: INode[];
+    readonly leading?: ts.Statement;
+  }[];
+  /** Consumes the statement right after the current one when `accept` says so (two-statement node forms). */
+  takeNextStatement(accept: (statement: ts.Statement) => boolean): ts.Statement | undefined;
   typeOf(node: ts.TypeNode): TVariableInfo;
 }
 

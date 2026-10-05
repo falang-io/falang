@@ -19,15 +19,27 @@ export class CodeIntegrationTools implements IAgentToolProvider {
   readonly tools: readonly ILlmToolDefinition[];
   private readonly inner: IAgentToolProvider;
 
-  constructor(inner: IAgentToolProvider) {
+  /** Names an instance id as code sees it (its `integrations.ts` constant and vendor methods). */
+  private readonly describeInstance?: (instanceId: string) => string | undefined;
+
+  constructor(inner: IAgentToolProvider, describeInstance?: (instanceId: string) => string | undefined) {
     this.inner = inner;
+    this.describeInstance = describeInstance;
     this.tools = inner.tools
       .filter((tool) => tool.name in CODE_DESCRIPTIONS)
       .map((tool) => ({ ...tool, description: CODE_DESCRIPTIONS[tool.name] ?? tool.description }));
   }
 
-  execute(call: ILlmToolCall): TToolExecutionResult | Promise<TToolExecutionResult> {
+  async execute(call: ILlmToolCall): Promise<TToolExecutionResult> {
     if (!(call.name in CODE_DESCRIPTIONS)) return { error: `Unknown tool: ${call.name}`, ok: false };
-    return this.inner.execute(call);
+    const result = await this.inner.execute(call);
+    if (call.name !== 'create_integration_instance' || !result.ok || !this.describeInstance) return result;
+    try {
+      const { instanceId } = JSON.parse(result.content) as { instanceId?: string };
+      const description = instanceId ? this.describeInstance(instanceId) : undefined;
+      return description ? { content: `${result.content}\n${description}`, ok: true } : result;
+    } catch {
+      return result;
+    }
   }
 }

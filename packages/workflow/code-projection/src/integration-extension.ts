@@ -4,6 +4,8 @@ import type { INode } from '@falang/dto';
 import {
   TIMEOUT_OPTION_LABEL,
   type IActionDescriptor,
+  type IChoiceDescriptor,
+  type IChoiceOption,
   type IFieldConfig,
   type IQuestionDescriptor,
   type IWorkflowIntegration,
@@ -20,7 +22,8 @@ export const instanceFactoryName = (vendor: string): string => `${vendorNamespac
 
 type TDescriptor =
   | { readonly kind: 'action'; readonly integration: IWorkflowIntegration; readonly descriptor: IActionDescriptor }
-  | { readonly kind: 'question'; readonly integration: IWorkflowIntegration; readonly descriptor: IQuestionDescriptor };
+  | { readonly kind: 'question'; readonly integration: IWorkflowIntegration; readonly descriptor: IQuestionDescriptor }
+  | { readonly kind: 'choice'; readonly integration: IWorkflowIntegration; readonly descriptor: IChoiceDescriptor };
 
 const str = (value: unknown): string => (typeof value === 'string' ? value : '');
 
@@ -28,10 +31,17 @@ const str = (value: unknown): string => (typeof value === 'string' ? value : '')
 const isArgumentField = (field: IFieldConfig, credentialField: IFieldConfig | undefined): boolean =>
   field !== credentialField && field.kind !== 'new-variable' && field.kind !== 'result-type';
 
-export const actionFields = (descriptor: TDescriptor): readonly IFieldConfig[] =>
-  descriptor.kind === 'action'
-    ? descriptor.descriptor.fields
-    : [...descriptor.descriptor.contextFields, ...descriptor.descriptor.questionFields];
+export const actionFields = (descriptor: TDescriptor): readonly IFieldConfig[] => {
+  if (descriptor.kind === 'action') return descriptor.descriptor.fields;
+  if (descriptor.kind === 'choice')
+    return [...descriptor.descriptor.contextFields, ...descriptor.descriptor.promptFields];
+  return [...descriptor.descriptor.contextFields, ...descriptor.descriptor.questionFields];
+};
+
+const methodNameOf = (entry: TDescriptor): string =>
+  entry.kind === 'question'
+    ? questionMethodName(entry.descriptor.name, entry.integration.vendor)
+    : actionMethodName(entry.descriptor.name, entry.integration.vendor);
 
 /**
  * Vendor actions and questions as method calls on an integration instance:
@@ -58,6 +68,11 @@ export class IntegrationExtension implements IStatementExtension {
         const entry: TDescriptor = { descriptor, integration, kind: 'question' };
         this.byNodeName.set(descriptor.name, entry);
         methods.set(questionMethodName(descriptor.name, integration.vendor), entry);
+      }
+      for (const descriptor of integration.choices ?? []) {
+        const entry: TDescriptor = { descriptor, integration, kind: 'choice' };
+        this.byNodeName.set(descriptor.name, entry);
+        methods.set(actionMethodName(descriptor.name, integration.vendor), entry);
       }
       this.byMethod.set(integration.vendor, methods);
     }
@@ -87,10 +102,7 @@ export class IntegrationExtension implements IStatementExtension {
     const data = (node.data ?? {}) as Readonly<Record<string, unknown>>;
     const fields = actionFields(entry);
     const credentialField = fields.find((field) => field.kind === 'credential-ref');
-    const method =
-      entry.kind === 'action'
-        ? actionMethodName(entry.descriptor.name, entry.integration.vendor)
-        : questionMethodName(entry.descriptor.name, entry.integration.vendor);
+    const method = methodNameOf(entry);
     const resultField = fields.find((field) => field.kind === 'result-type');
     const resultType = resultField ? str(data[resultField.name]).trim() : '';
     let typeArgument = '';
@@ -127,6 +139,7 @@ export class IntegrationExtension implements IStatementExtension {
       const call = this.call(node, entry, projector);
       return variable === '' ? `${call};` : `const ${variable} = ${call};`;
     }
+    if (entry.kind === 'choice') return this.projectChoice(node, entry, projector);
     if (entry.descriptor.optionDataTypes || entry.descriptor.answerScope) {
       throw new UnsupportedNodeError(node, `"${node.name}" options with typed data are not projected yet`);
     }
@@ -139,6 +152,22 @@ export class IntegrationExtension implements IStatementExtension {
       .split('\n')
       .map((line) => (line === '' ? line : `  ${line}`))
       .join('\n')}${body === '' ? '' : '\n'}}`;
+  }
+
+  /** `const choice = await ai.callAiChoice({…}); switch (choice.action) { case "alias": { const data = choice.data as T; … } }`. */
+  private projectChoice(node: INode, entry: TDescriptor, projector: IProjector): string {
+    const name = projector.uniqueName('choice');
+    const cases = (node.children ?? []).map((option) => {
+      const data = option.data as IChoiceOption;
+      const binding = `const ${data.variable} = ${name}.data as ${projector.type(data.dataType)};`;
+      return projector.caseClause(JSON.stringify(data.alias), option, binding);
+    });
+    const body = cases
+      .join('\n')
+      .split('\n')
+      .map((line) => (line === '' ? line : `  ${line}`))
+      .join('\n');
+    return `const ${name} = ${this.call(node, entry, projector)};\nswitch (${name}.action) {\n${body}${body === '' ? '' : '\n'}}`;
   }
 
   // ---- parsing ---------------------------------------------------------------------------------------------------
@@ -247,6 +276,7 @@ export class IntegrationExtension implements IStatementExtension {
     if (!expression) return null;
     const read = this.readCall(expression, parser);
     if (!read) return null;
+    if (read.entry.kind === 'choice') return this.parseChoice(statement, variable, read, parser);
     if (read.entry.kind !== 'action') {
       parser.fail(
         statement,
@@ -264,6 +294,70 @@ export class IntegrationExtension implements IStatementExtension {
       values[variableField.name] = variable;
     }
     return { data: values, id: parser.newId(), name: read.entry.descriptor.name };
+  }
+
+  private parseChoice(
+    statement: ts.Statement,
+    variable: string,
+    read: { entry: TDescriptor; instanceId: string; call: ts.CallExpression },
+    parser: IParser,
+  ): INode {
+    const descriptor = read.entry.descriptor as IChoiceDescriptor;
+    const usage = `\`const ${variable || 'choice'} = await …; switch (${variable || 'choice'}.action) { case "alias": { const data = ${variable || 'choice'}.data as string; … break; } }\``;
+    if (variable === '') parser.fail(statement, `Keep the result and switch on it: ${usage}.`);
+    const isActionSwitch = (next: ts.Statement): boolean =>
+      ts.isSwitchStatement(next) &&
+      ts.isPropertyAccessExpression(next.expression) &&
+      ts.isIdentifier(next.expression.expression) &&
+      next.expression.expression.text === variable &&
+      next.expression.name.text === 'action';
+    const switchStatement = parser.takeNextStatement(isActionSwitch);
+    if (!switchStatement || !ts.isSwitchStatement(switchStatement)) {
+      parser.fail(
+        statement,
+        `The next statement must be \`switch (${variable}.action)\` — a choice is used as ${usage}.`,
+      );
+    }
+    const dataOf = (expression: ts.Expression | undefined): boolean =>
+      expression !== undefined &&
+      ts.isPropertyAccessExpression(expression) &&
+      ts.isIdentifier(expression.expression) &&
+      expression.expression.text === variable &&
+      expression.name.text === 'data';
+    const binding = (candidate: ts.Statement): ts.VariableDeclaration | undefined => {
+      if (!ts.isVariableStatement(candidate)) return undefined;
+      const [declaration] = candidate.declarationList.declarations;
+      const init = declaration?.initializer;
+      if (!declaration || !ts.isIdentifier(declaration.name) || !init) return undefined;
+      if (ts.isAsExpression(init) && dataOf(init.expression)) return declaration;
+      return declaration.type && dataOf(init) ? declaration : undefined;
+    };
+    const values = this.readFields(read.entry, read.instanceId, read.call, parser);
+    const options = parser
+      .cases(switchStatement.caseBlock, (candidate) => binding(candidate) !== undefined)
+      .map(({ test, nodes, clause, leading }) => {
+        if (!test || !ts.isStringLiteralLike(test)) {
+          parser.fail(
+            clause,
+            'Each case of a choice is an option name in quotes: `case "guess": { … }` (no `default:`).',
+          );
+        }
+        const declaration = leading ? binding(leading) : undefined;
+        const init = declaration?.initializer;
+        const typeNode = declaration?.type ?? (init && ts.isAsExpression(init) ? init.type : undefined);
+        const data: IChoiceOption = {
+          alias: test.text,
+          dataType: typeNode ? parser.typeOf(typeNode) : { type: 'string' },
+          variable: declaration && ts.isIdentifier(declaration.name) ? declaration.name.text : 'data',
+        };
+        return { children: nodes, data, id: parser.newId(), name: `${descriptor.name}-option` };
+      });
+    return {
+      children: options,
+      data: { ...values, options: options.map((option) => option.data) },
+      id: parser.newId(),
+      name: descriptor.name,
+    };
   }
 
   private parseQuestion(statement: ts.SwitchStatement, parser: IParser): INode | null {

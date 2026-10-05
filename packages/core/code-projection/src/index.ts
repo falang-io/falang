@@ -21,3 +21,4 @@ export * from './normalize.js';
 export * from './match.js';
 export * from './apply.js';
 export * from './simple-registries.js';
+export * from './types-file.js';

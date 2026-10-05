@@ -11,7 +11,7 @@ import { IntegrationToolProvider } from './integration-tool-provider.js';
 import type { IWorkflowAgentStore } from './workflow-agent-store.js';
 import { CodeIntegrationTools } from './code/code-integration-tools.js';
 import { CODE_SYSTEM_PROMPT } from './code/code-prompt.js';
-import { CodeFilesContextProvider, CodeToolProvider } from './code/code-tool-provider.js';
+import { CodeFilesContextProvider, CodeToolProvider, describeInstanceForCode } from './code/code-tool-provider.js';
 
 export interface ICreateWorkflowAgentSessionDeps {
   /** The vendor connection — the real host's is `HttpLlmClient` (the backend's `/agent/chat` proxy); a headless host passes its own. */
@@ -52,7 +52,9 @@ const createWorkflowCodeAgentSession = (deps: ICreateWorkflowAgentSessionDeps): 
           onOpenDocument: deps.onOpenDocument,
           store,
         }),
-        new CodeIntegrationTools(new IntegrationToolProvider(store)),
+        new CodeIntegrationTools(new IntegrationToolProvider(store), (instanceId) =>
+          describeInstanceForCode(store, integrations, instanceId),
+        ),
       ],
     },
   );

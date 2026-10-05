@@ -60,7 +60,6 @@ describe('WorkflowProjection', () => {
       'falang.d.ts',
       'vendors.d.ts',
       'integrations.ts',
-      'types.d.ts',
       'functions/greet.ts',
       'triggers/start.ts',
     ]);

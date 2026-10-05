@@ -50,6 +50,100 @@ const START_BROKEN = `export default supportBot.onCommand({ command: "/start" },
 });
 `;
 
+const GAME_TYPES = `interface GameState {
+  celebrity: string;
+  questions: int32;
+  answers: string[];
+}
+`;
+
+const NEW_GAME = `export async function newGame(): Promise<GameState> {
+  return { celebrity: '', questions: 0, answers: [] };
+}
+`;
+
+const START_GAME = `export default gameBot.onCommand({ command: "start_game" }, async (message: telegram.TelegramMessage): Promise<void> => {
+  const state = await newGame();
+  while (state.questions < 20) {
+    const choice = await ai.callAiChoice({ model: "gpt-4o-mini", prompt: \`Answers so far: \${state.answers.join(', ')}\` });
+    switch (choice.action) {
+      case "ask": {
+        const question = choice.data as string;
+        state.questions = state.questions + 1;
+        switch (await gameBot.askQuestion({ chatId: message.chat.id, question: \`\${question}\`, timeout: "10m" })) {
+          case "Да": {
+            state.answers.push(\`\${question}: да\`);
+            break;
+          }
+          case "Нет": {
+            state.answers.push(\`\${question}: нет\`);
+            break;
+          }
+          case TIMEOUT: {
+            return;
+          }
+        }
+        break;
+      }
+      case "guess": {
+        const name = choice.data as string;
+        await gameBot.sendMessage({ chatId: message.chat.id, text: \`Это \${name}!\` });
+        return;
+      }
+    }
+  }
+  const sorry = await ai.callAiText<string>({ model: "gpt-4o-mini", prompt: \`Apologise for giving up after \${state.questions} questions\` });
+  await gameBot.sendMessage({ chatId: message.chat.id, text: \`\${sorry}\` });
+});
+`;
+
+/** An empty project: instances are created with the integration tools, then types, a function and a trigger are written. */
+const runFromScratch = async (): Promise<void> => {
+  const store = new HeadlessWorkflowStore();
+  const created: string[] = [];
+  const client = new ScriptedLlmClient([
+    toolCall('search_integrations', { keywords: ['telegram', 'ai'] }),
+    toolCall('create_integration_instance', { name: 'Game bot', vendor: 'telegram' }),
+    toolCall('create_integration_instance', { name: 'AI', vendor: 'openai' }),
+    toolCall('write_file', { content: GAME_TYPES, path: 'types/GameTypes.ts' }),
+    toolCall('write_file', { content: NEW_GAME, path: 'functions/newGame.ts' }),
+    toolCall('write_file', { content: START_GAME, path: 'triggers/startGame.ts' }),
+    toolCall('finish', { message: 'The game bot is ready.' }),
+  ]);
+  const session = createWorkflowAgentSession({ agentInterface: 'code', focusPauseMs: 0, llmClient: client, store });
+  await session.run('Build the guess-the-celebrity bot.', { activeDocumentId: null });
+  for (const step of session.steps) created.push(`${step.result.ok ? 'ok ' : 'ERR'} ${step.call.name}`);
+  console.log(created.join('\n'));
+  const failed = session.steps.filter((step) => !step.result.ok);
+  assert(failed.length === 0, `scratch run failed: ${JSON.stringify(failed.map((step) => step.result))}`);
+  const instanceStep = session.steps.find((step) => step.call.name === 'create_integration_instance');
+  assert(
+    instanceStep?.result.ok && instanceStep.result.content.includes('`gameBot`'),
+    'create_integration_instance must name the code identifier',
+  );
+  const kinds = new Set<string>();
+  const walk = (node: { name: string; children?: readonly unknown[] } | undefined): void => {
+    if (!node) return;
+    kinds.add(node.name);
+    for (const child of node.children ?? []) walk(child as { name: string; children?: readonly unknown[] });
+  };
+  for (const doc of store.documents) if (doc.type !== 'integrations') walk(store.rootOf(doc));
+  for (const kind of [
+    'objects-structure-thread',
+    'call-ai-choice',
+    'call-ai-text',
+    'telegram-question',
+    'call-function',
+  ]) {
+    assert(kinds.has(kind), `expected a ${kind} node`);
+  }
+  compileAndTypeCheck(store);
+  console.log(
+    'ok   from an empty project: instances, types, function, trigger with AI choice/text and a question compile',
+  );
+  store.dispose();
+};
+
 const main = async (): Promise<void> => {
   const store = new HeadlessWorkflowStore();
   store.saveIntegrationInstance({
@@ -122,6 +216,7 @@ const main = async (): Promise<void> => {
   assert(compiled.workflows.includes('Hello, ${name}!'), 'compiled output misses the edited text');
   console.log('ok   compile + type-check of the agent-written files');
   store.dispose();
+  await runFromScratch();
 };
 
 main().then(
