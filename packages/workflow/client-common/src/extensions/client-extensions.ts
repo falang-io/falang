@@ -17,6 +17,16 @@ export interface IClientExtensionView {
   render: () => ReactNode;
 }
 
+/** What `IClientExtensions.renderAgentPanelHeader` is rendered with. */
+export interface IAgentPanelHeaderContext {
+  readonly projectId: string;
+  /**
+   * Finished agent runs of this project so far (the chat's and every magic node's) — changes after each one, so a
+   * header that shows something a turn changes (e.g. a balance) refetches when it changes.
+   */
+  readonly turnsFinished: number;
+}
+
 /**
  * The one explicit extension contract of the community client: a separate entry (e.g. the hosted cloud edition)
  * passes these slots to `renderWorkflowApp` instead of forking the client. Every slot is optional; `{}` changes nothing.
@@ -34,6 +44,8 @@ export interface IClientExtensions {
    * `ProjectRightSidebar`; a returned node replaces the plain error text.
    */
   renderAgentQuotaNotice?: (error: unknown) => ReactNode | null;
+  /** Rendered above the agent chat panel while it is open (cloud: the agent balance). */
+  renderAgentPanelHeader?: (ctx: IAgentPanelHeaderContext) => ReactNode;
 }
 
 const EMPTY_EXTENSIONS: IClientExtensions = {};

@@ -56,6 +56,10 @@ export const ProjectRightSidebar: React.FC = observer(() => {
       <div style={{ ...styles.sidebar, width }}>
         {showAgent && (
           <div style={styles.section}>
+            {extensions.renderAgentPanelHeader?.({
+              projectId: store.projectId,
+              turnsFinished: store.agentTurnsFinished,
+            })}
             <AgentChatPanel
               store={store.agentChat}
               agentSession={store.agentSession}

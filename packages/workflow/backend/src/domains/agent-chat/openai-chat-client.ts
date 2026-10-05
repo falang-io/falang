@@ -29,6 +29,10 @@ interface IOpenAiUsage {
   readonly prompt_tokens?: number;
   readonly completion_tokens?: number;
   readonly total_tokens?: number;
+  /** OpenAI's (and OpenAI-compatible gateways') cached part of `prompt_tokens`. */
+  readonly prompt_tokens_details?: { readonly cached_tokens?: number } | null;
+  /** DeepSeek's own API reports the cached part here instead. */
+  readonly prompt_cache_hit_tokens?: number;
 }
 
 interface IOpenAiChatCompletionResponse {
@@ -44,6 +48,13 @@ interface IOpenAiChatCompletionResponse {
   }[];
 }
 
+/** The cached part of the prompt in either known shape, clamped to `[0, promptTokens]`; `null` when not reported. */
+const toCachedPromptTokens = (raw: IOpenAiUsage, promptTokens: number): number | null => {
+  const reported = raw.prompt_tokens_details?.cached_tokens ?? raw.prompt_cache_hit_tokens;
+  if (typeof reported !== 'number' || !Number.isFinite(reported)) return null;
+  return Math.min(Math.max(reported, 0), promptTokens);
+};
+
 /** The vendor's `usage` object, or `null` when it is absent or not numeric (some OpenAI-compatible vendors omit it). */
 const toUsage = (raw: IOpenAiUsage | undefined): IAgentChatUsage | null => {
   if (!raw || typeof raw !== 'object') return null;
@@ -51,10 +62,12 @@ const toUsage = (raw: IOpenAiUsage | undefined): IAgentChatUsage | null => {
   const completionTokens = Number(raw.completion_tokens);
   if (!Number.isFinite(promptTokens) || !Number.isFinite(completionTokens)) return null;
   const total = Number(raw.total_tokens);
+  const cached = toCachedPromptTokens(raw, promptTokens);
   return {
     completionTokens,
     promptTokens,
     totalTokens: Number.isFinite(total) ? total : promptTokens + completionTokens,
+    ...(cached === null ? {} : { cachedPromptTokens: cached }),
   };
 };
 

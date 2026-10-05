@@ -18,6 +18,7 @@ import {
   LanguageSwitcher,
   TopBar,
 } from '@falang/workflow-client-common';
+import { findAdminExtensionPage, toAdminExtensionPage, useAdminExtensions } from '../admin-extensions.js';
 import { adminSupportStore } from '../admin-support-store.js';
 import { adminNavigationStore, type TAdminPage } from '../admin-navigation-store.js';
 import { AgentSettingsPage } from './agent-settings-page.js';
@@ -54,6 +55,8 @@ const MENU_LABEL_KEYS: Record<TAdminPage, string> = {
 /** The admin app's shell — `Sider` menu (users / OAuth credentials) plus a header, no router, see ADR 0030 (private). */
 export const AdminShell: React.FC = observer(() => {
   const t = getGlobalI18n().t;
+  const extensions = useAdminExtensions();
+  const extensionPage = findAdminExtensionPage(extensions, adminNavigationStore.page);
 
   // The unread badge on the "Support" menu entry: polled every 15s for as long as the shell is mounted.
   useEffect(() => {
@@ -83,18 +86,25 @@ export const AdminShell: React.FC = observer(() => {
             mode="inline"
             selectedKeys={[adminNavigationStore.page]}
             onSelect={({ key }) => adminNavigationStore.setPage(key as TAdminPage)}
-            items={PAGES.map(({ key, icon }) => ({
-              key,
-              icon,
-              label:
-                key === 'support' ? (
-                  <Badge count={adminSupportStore.unreadTotal} size="small" offset={[10, 0]}>
-                    <span style={{ color: 'inherit' }}>{t(`workflow-client-admin:${MENU_LABEL_KEYS[key]}`)}</span>
-                  </Badge>
-                ) : (
-                  t(`workflow-client-admin:${MENU_LABEL_KEYS[key]}`)
-                ),
-            }))}
+            items={[
+              ...PAGES.map(({ key, icon }) => ({
+                key,
+                icon,
+                label:
+                  key === 'support' ? (
+                    <Badge count={adminSupportStore.unreadTotal} size="small" offset={[10, 0]}>
+                      <span style={{ color: 'inherit' }}>{t(`workflow-client-admin:${MENU_LABEL_KEYS[key]}`)}</span>
+                    </Badge>
+                  ) : (
+                    t(`workflow-client-admin:${MENU_LABEL_KEYS[key]}`)
+                  ),
+              })),
+              ...(extensions.pages ?? []).map((page) => ({
+                key: toAdminExtensionPage(page.key),
+                icon: page.icon,
+                label: page.label,
+              })),
+            ]}
           />
         </Layout.Sider>
         <Layout.Content style={styles.content}>
@@ -105,6 +115,7 @@ export const AdminShell: React.FC = observer(() => {
           {adminNavigationStore.page === 'proxy' ? <ProxySettingsPage /> : null}
           {adminNavigationStore.page === 'project-templates' ? <ProjectTemplatesPage /> : null}
           {adminNavigationStore.page === 'support' ? <SupportPage /> : null}
+          {extensionPage?.render()}
         </Layout.Content>
       </Layout>
       <ChangePasswordModal />

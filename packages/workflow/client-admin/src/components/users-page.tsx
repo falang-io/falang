@@ -22,6 +22,7 @@ import {
 } from 'antd';
 import { authStore } from '@falang/workflow-client-common';
 import { adminApi, type IAdminUser } from '../admin-api.js';
+import { useAdminExtensions } from '../admin-extensions.js';
 import { UserLimitsModal } from './user-limits-modal.js';
 
 /**
@@ -173,8 +174,9 @@ const formatDate = (value: string | null): string => (value ? new Date(value).to
 
 const UserDetails: React.FC<{ user: IAdminUser }> = ({ user }) => {
   const t = getGlobalI18n().t;
+  const extensions = useAdminExtensions();
   const label = (key: string) => t(`workflow-client-admin:users-page.${key}`);
-  return (
+  const details = (
     <Descriptions column={1} size="small" bordered>
       <Descriptions.Item label={label('username-column')}>{user.username}</Descriptions.Item>
       <Descriptions.Item label={label('email-label')}>{user.email ?? '—'}</Descriptions.Item>
@@ -191,6 +193,14 @@ const UserDetails: React.FC<{ user: IAdminUser }> = ({ user }) => {
       <Descriptions.Item label={label('activated-label')}>{formatDate(user.activatedAt)}</Descriptions.Item>
       <Descriptions.Item label={label('role-label')}>{user.role}</Descriptions.Item>
     </Descriptions>
+  );
+  const extra = extensions.renderUserDetails?.(user);
+  if (!extra) return details;
+  return (
+    <>
+      {details}
+      <div style={{ marginTop: 16 }}>{extra}</div>
+    </>
   );
 };
 

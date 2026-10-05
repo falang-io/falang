@@ -114,6 +114,11 @@ export class WorkflowStore implements IWorkflowAgentStore {
   @observable activeTabId: string | null = null;
   @observable selectedNodeId: string | null = null;
   @observable selectedDocId: string | null = null;
+  /**
+   * Incremented after every finished agent run of this project — the chat's and every magic node's. Lets an
+   * extension (`IClientExtensions.renderAgentPanelHeader`) refetch something that a turn changes, e.g. a balance.
+   */
+  @observable agentTurnsFinished = 0;
   /** The execution the editor is following, if any — see ADR 0022 (private). */
   readonly liveRun: LiveRunStore;
   /** Shared by every open scheme's `DebuggerModule` — one session per project, see ADR 0021 (private) §3. */
@@ -269,6 +274,7 @@ export class WorkflowStore implements IWorkflowAgentStore {
       onRunFinished: (session) => {
         this.agentLocks.releaseAll();
         eventTracker.track('agent_turn', { status: session.status });
+        this.noteAgentTurnFinished();
       },
       store: this,
     });
@@ -277,6 +283,7 @@ export class WorkflowStore implements IWorkflowAgentStore {
     this.magicRuns = createWorkflowMagicRunStore({
       createLlmClient: () => new HttpLlmClient(projectId),
       getAllowQuestions: () => this.agentChat.allowQuestions,
+      onRunFinished: () => this.noteAgentTurnFinished(),
       store: this,
     });
     this.sync = new ProjectSync(
@@ -319,6 +326,10 @@ export class WorkflowStore implements IWorkflowAgentStore {
     if (!id) return null;
     const doc = this.getDocument(id);
     return doc && !doc.pinned ? id : null;
+  }
+
+  @action noteAgentTurnFinished(): void {
+    this.agentTurnsFinished += 1;
   }
 
   @action private touchKeepAlive(id: string): void {

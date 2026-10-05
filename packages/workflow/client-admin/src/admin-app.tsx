@@ -3,6 +3,7 @@ import { observer } from 'mobx-react-lite';
 import { getGlobalI18n } from '@falang/scheme';
 import { ConfigProvider, Result, Spin, theme as antdTheme } from 'antd';
 import { authStore, LoginPage } from '@falang/workflow-client-common';
+import { AdminExtensionsProvider, type IAdminExtensions } from './admin-extensions.js';
 import { AdminShell } from './components/admin-shell.js';
 import './locales/register-admin-locales.js';
 
@@ -21,9 +22,9 @@ const styles: Record<string, React.CSSProperties> = {
  * The admin sub-app's root component — served from `admin.html`/`admin-main.tsx` in
  * `@falang/workflow-client`, at the `/admin` path. Auth is shared with the main client (same
  * origin, same token, same `AuthStore`/`LoginPage`) — see
- * ADR 0030 (private).
+ * ADR 0030 (private). `extensions` adds pages/sections (`IAdminExtensions`); without it the app is unchanged.
  */
-export const AdminApp: React.FC = observer(() => {
+export const AdminApp: React.FC<{ extensions?: IAdminExtensions }> = observer(({ extensions }) => {
   const t = getGlobalI18n().t;
 
   const content = (() => {
@@ -50,5 +51,9 @@ export const AdminApp: React.FC = observer(() => {
     return <AdminShell />;
   })();
 
-  return <ConfigProvider theme={{ algorithm: antdTheme.darkAlgorithm }}>{content}</ConfigProvider>;
+  return (
+    <ConfigProvider theme={{ algorithm: antdTheme.darkAlgorithm }}>
+      <AdminExtensionsProvider extensions={extensions}>{content}</AdminExtensionsProvider>
+    </ConfigProvider>
+  );
 });

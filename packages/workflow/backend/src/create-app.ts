@@ -6,7 +6,7 @@ import { ValidationPipe } from '@nestjs/common';
 import type { DynamicModule, INestApplication, Type } from '@nestjs/common';
 import { NestFactory } from '@nestjs/core';
 import type { NestExpressApplication } from '@nestjs/platform-express';
-import { AppModule, type TAppImport } from './app.module.js';
+import { AppModule, type TAppImport, type TAppMigration } from './app.module.js';
 import { RunnerProcessManager } from './domains/build/build/runner-process-manager.js';
 import { validateSecrets } from './config/validate-secrets.js';
 import { McpService } from './domains/mcp/mcp.service.js';
@@ -15,6 +15,8 @@ import { portSplitMiddleware } from './port-split.js';
 export interface ICreateAppOptions {
   /** Extra Nest modules appended to `AppModule.forRoot` (ignored when `appModule` is given). */
   extraModules?: TAppImport[];
+  /** Migrations of `extraModules`' own tables, run with the built-in ones (ignored when `appModule` is given). */
+  extraMigrations?: TAppMigration[];
   /** Port `startApp` listens on; defaults to the `PORT` env var, then 4000. */
   port?: number;
   /**
@@ -81,7 +83,12 @@ const registerCoverageShutdownHook = (app: INestApplication): void => {
  */
 export const createApp = async (options: ICreateAppOptions = {}): Promise<NestExpressApplication> => {
   // After `AppModule.forRoot`'s `ConfigModule.forRoot` has loaded any `.env` file into `process.env`.
-  const rootModule = options.appModule ?? AppModule.forRoot({ extraModules: options.extraModules });
+  const rootModule =
+    options.appModule ??
+    AppModule.forRoot({
+      extraMigrations: options.extraMigrations,
+      extraModules: options.extraModules,
+    });
   // `rawBody: true` populates `req.rawBody` (the exact original bytes) alongside Nest's normal
   // parsed `req.body` — needed by `@falang/workflow-gateway`'s `IntegrationWebhookController` to
   // reconstruct a faithful `Request` for each vendor's own `registerBackend` handler regardless of
