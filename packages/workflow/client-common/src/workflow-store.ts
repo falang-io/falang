@@ -84,6 +84,7 @@ import { TasksStore } from './tasks-store.js';
 import { TemporalDebugAdapter } from './temporal-debug-adapter.js';
 import { buildTriggerFunctionDocument } from './trigger-function-document.js';
 import { VendorDataStore } from './vendor-data-store.js';
+import { resolveServerActivity, type TServerActivity } from './server-activity.js';
 import { buildReadOnlySchemeForDiff as buildReadOnlySchemeForDiffImpl } from './versioning/build-read-only-scheme-for-diff.js';
 import { HttpVersionStore } from './versioning/http-version-store.js';
 import {
@@ -386,6 +387,17 @@ export class WorkflowStore implements IWorkflowAgentStore {
 
   get isProdActionLoading(): boolean {
     return this.sync.isProdActionLoading;
+  }
+
+  /** The server-side action in flight (dev start/stop/restart, publish, prod start/stop) — drives the top loading bar. */
+  get serverActivity(): TServerActivity | null {
+    return resolveServerActivity({
+      buildStatus: this.sync.buildStatus,
+      isRestarting: this.sync.isRestarting,
+      isPublishing: this.sync.isPublishing,
+      isProdActionLoading: this.sync.isProdActionLoading,
+      prodRunning: this.sync.prodRunning,
+    });
   }
 
   buildProject(): Promise<void> {

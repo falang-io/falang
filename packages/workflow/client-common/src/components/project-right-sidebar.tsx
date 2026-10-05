@@ -63,7 +63,6 @@ export const ProjectRightSidebar: React.FC = observer(() => {
               getActiveDocumentId={() => store.getAgentActiveDocumentId()}
               configured={agentSettings.configured}
               configuredLoading={agentSettings.loading}
-              model={agentSettings.model}
               onClose={() => store.toggleRightPanel('agent')}
               renderError={extensions.renderAgentQuotaNotice}
             />

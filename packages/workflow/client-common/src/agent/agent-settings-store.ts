@@ -9,7 +9,6 @@ import { workflowApi } from '../api-client.js';
 export class AgentSettingsStore {
   @observable configured = false;
   @observable loading = true;
-  @observable model: string | null = null;
 
   private disposed = false;
 
@@ -21,9 +20,9 @@ export class AgentSettingsStore {
   async load(): Promise<void> {
     try {
       const status = await workflowApi.getAgentSettings();
-      this.apply(status.configured, status.model);
+      this.apply(status.configured);
     } catch {
-      this.apply(false, null);
+      this.apply(false);
     }
   }
 
@@ -31,10 +30,9 @@ export class AgentSettingsStore {
     this.disposed = true;
   }
 
-  @action private apply(configured: boolean, model: string | null): void {
+  @action private apply(configured: boolean): void {
     if (this.disposed) return;
     this.configured = configured;
-    this.model = model;
     this.loading = false;
   }
 }
