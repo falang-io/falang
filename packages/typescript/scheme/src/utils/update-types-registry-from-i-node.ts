@@ -10,11 +10,13 @@ import { OBJECTS_STRUCTURE_NAME } from '@falang/typescript-dto';
 export const updateTypesRegistryFromINode = (node: INode, registry: TypesRegistryStore) => {
   if (!objectStructureNodes.is(node, OBJECTS_STRUCTURE_NAME)) return;
   const items: ITypeRegistryObjectItem[] = [];
-  const body = node.children[1];
-  body.children.forEach((thread) => {
+  // A serialized tree (`getNodeStoreDto`) omits an empty `children` array, e.g. an interface whose last
+  // property was just deleted.
+  const body = node.children?.[1];
+  (body?.children ?? []).forEach((thread) => {
     const objetStructure: Record<string, TVariableInfo> = {};
     let added = false;
-    thread.children.forEach((ch) => {
+    (thread.children ?? []).forEach((ch) => {
       objetStructure[ch.data.name] = ch.data.variableType;
       added = true;
     });
