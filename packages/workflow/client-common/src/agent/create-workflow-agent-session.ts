@@ -85,7 +85,12 @@ const createJsonFilesSession = (
     coreTools: [],
     onRunFinished: () => deps.onRunFinished?.(getSession()),
     systemPrompt: JSON_FILES_SYSTEM_PROMPT,
-    toolProviders: [new JsonFileToolProvider(host), new DocumentToolProvider(deps.store), integrationTools],
+    // No create_document: a new `functions/`/`types/` file creates the document (two ways to create confused the model).
+    toolProviders: [
+      new JsonFileToolProvider(host),
+      new DocumentToolProvider(deps.store, ['create_trigger_document', 'list_types']),
+      integrationTools,
+    ],
   });
 };
 

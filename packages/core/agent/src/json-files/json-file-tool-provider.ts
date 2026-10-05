@@ -7,7 +7,7 @@ import type { TToolExecutionResult } from '../tool-executor.js';
 import { asRecord, fail, ok } from '../tool-result.js';
 import { applyTreeToScheme } from './apply-tree-to-scheme.js';
 import { prepareDocumentWrite } from './prepare-document-write.js';
-import { readSchemeTree, renderDocumentJson } from './project-node-tree.js';
+import { readSchemeTree, renderDocumentJson, type IJsonDataMapping } from './project-node-tree.js';
 
 /** One editable document as a file. */
 export interface IJsonFileDocument {
@@ -44,6 +44,8 @@ export interface IJsonFilesHost {
   readKindSchema(kind: string): string | null;
   /** Only used to word "allowed: …" lists (vendors without an instance stay valid but unlisted). */
   isListed?(kind: string): boolean;
+  /** Two-way `data` mapping between storage and the file (e.g. document references as file paths). */
+  readonly dataMapping?: IJsonDataMapping;
   /** Compile + type-check; absent → `check_project` is not offered. */
   checkProject?(): Promise<readonly IJsonFilesDiagnostic[]>;
 }
@@ -179,7 +181,7 @@ export class JsonFileToolProvider implements IAgentToolProvider {
   private renderDocument(doc: IJsonFileDocument): string {
     const tree = this.currentTree(doc.id);
     if (!tree) throw new Error(`${doc.path}: the document has no tree`);
-    return renderDocumentJson(tree, this.stackOf(doc.id));
+    return renderDocumentJson(tree, this.stackOf(doc.id), this.host.dataMapping);
   }
 
   private listFiles(): TToolExecutionResult {
@@ -249,6 +251,7 @@ export class JsonFileToolProvider implements IAgentToolProvider {
     const oldRoot = this.currentTree(doc.id);
     const stack = this.stackOf(doc.id);
     const prepared = prepareDocumentWrite({
+      dataMapping: this.host.dataMapping,
       documentId: doc.id,
       documentName: doc.name,
       documentType: doc.type,
@@ -260,7 +263,7 @@ export class JsonFileToolProvider implements IAgentToolProvider {
     if (!prepared.ok) return fail(`${doc.path}: nothing was changed.\n${prepared.error}`);
     this.host.beforeWrite?.(doc.id);
     applyTreeToScheme(this.host.getScheme(doc.id), prepared.root);
-    const canonical = renderDocumentJson(prepared.root, stack);
+    const canonical = renderDocumentJson(prepared.root, stack, this.host.dataMapping);
     return ok(
       JSON.stringify({
         changed: prepared.changes,

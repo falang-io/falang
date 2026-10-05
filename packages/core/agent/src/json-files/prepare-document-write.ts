@@ -9,6 +9,7 @@ import {
   type IStructureContext,
 } from './normalize-structure.js';
 import { applyMetaOverlay, orientIfs, stripTemplateBackticks, takeVisibleMeta, walkRaw } from './normalize-values.js';
+import type { IJsonDataMapping } from './project-node-tree.js';
 import { describeTreeChanges, type ITreeChanges } from './tree-changes.js';
 import { describeJsonError, formatValidationError } from './write-errors.js';
 
@@ -27,6 +28,8 @@ export interface IPrepareDocumentWriteParams {
   readonly isListed?: (kind: string) => boolean;
   /** Fresh node ids for nodes written without one (or with an id the old tree didn't have). */
   readonly createId?: () => string;
+  /** The host's `data` mapping (its `in` half runs on every written node before validation). */
+  readonly dataMapping?: IJsonDataMapping;
 }
 
 export type TPrepareDocumentWriteResult =
@@ -71,7 +74,10 @@ export const prepareDocumentWrite = (params: IPrepareDocumentWriteParams): TPrep
   const rootKind = oldRoot?.name;
   if (rootKind && raw.name !== rootKind) {
     return {
-      error: `root: this document's root must stay a "${rootKind}" node (got "${String(raw.name)}").`,
+      error:
+        typeof raw.name === 'string'
+          ? `root: this document's root must stay a "${rootKind}" node (got "${raw.name}").`
+          : `root: the file must be the whole document — its root node { "name": "${rootKind}", "children": [...] }, as read_file shows it. There is no way to delete a document by writing a file.`,
       ok: false,
     };
   }
@@ -91,6 +97,7 @@ export const prepareDocumentWrite = (params: IPrepareDocumentWriteParams): TPrep
   const rawRoot = raw;
   const overlay = new Map<string, INodeMeta>();
   walkRaw(rawRoot, (node) => {
+    if (params.dataMapping && 'data' in node) node.data = params.dataMapping.in(node.name as string, node.data);
     stripTemplateBackticks(node, stack);
     takeVisibleMeta(node, overlay);
   });

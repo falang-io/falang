@@ -61,19 +61,29 @@ export const readSchemeTree = (scheme: Scheme): INode | null =>
     ? fillDroppedData(toJS(getNodeStoreDto(scheme.rootNode, scheme)) as INode, scheme.infra.structure)
     : null;
 
-const project = (node: INode): INode => {
-  let children = node.children?.map((child) => project(child));
+/**
+ * A host's two-way mapping of a node's `data` between storage and the file (ADR 0062): e.g. a document reference
+ * stored as an id shown as that document's file path. `out` runs on read, `in` on write (before validation) and must
+ * accept what `out` produced (it may accept more, e.g. a bare id). Both return `data` unchanged for other kinds.
+ */
+export interface IJsonDataMapping {
+  out(kind: string, data: unknown): unknown;
+  in(kind: string, data: unknown): unknown;
+}
+
+const project = (node: INode, mapping?: IJsonDataMapping): INode => {
+  let children = node.children?.map((child) => project(child, mapping));
   if (node.name === IF_NODE_NAME && children?.length === 2 && isThenOnRight(node))
     children = [children[1], children[0]];
   const meta = pickMeta(node);
   return {
     id: node.id,
     name: node.name,
-    ...('data' in node ? { data: node.data } : {}),
+    ...('data' in node ? { data: mapping ? mapping.out(node.name, node.data) : node.data } : {}),
     ...(meta ? { meta } : {}),
     ...(children ? { children } : {}),
-    ...(node.mods && node.mods.length > 0 ? { mods: node.mods.map((mod) => project(mod)) } : {}),
-    ...(node.out ? { out: project(node.out) } : {}),
+    ...(node.mods && node.mods.length > 0 ? { mods: node.mods.map((mod) => project(mod, mapping)) } : {}),
+    ...(node.out ? { out: project(node.out, mapping) } : {}),
   };
 };
 
@@ -82,8 +92,9 @@ const project = (node: INode): INode => {
  * `data`/empty list the serializer dropped filled back (`fillDroppedData`), and every `if`'s branches in *semantic*
  * order — slot 0 is always the "then" branch, whatever side the editor draws it on. `prepareDocumentWrite` maps it back.
  */
-export const projectNodeTree = (node: INode, stack: NodesStack): INode => project(fillDroppedData(node, stack));
+export const projectNodeTree = (node: INode, stack: NodesStack, mapping?: IJsonDataMapping): INode =>
+  project(fillDroppedData(node, stack), mapping);
 
 /** Canonical file text: 2-space pretty JSON with a trailing newline — stable, so `edit_file` substrings stay exact. */
-export const renderDocumentJson = (root: INode, stack: NodesStack): string =>
-  `${JSON.stringify(projectNodeTree(root, stack), null, 2)}\n`;
+export const renderDocumentJson = (root: INode, stack: NodesStack, mapping?: IJsonDataMapping): string =>
+  `${JSON.stringify(projectNodeTree(root, stack, mapping), null, 2)}\n`;

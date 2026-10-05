@@ -1,5 +1,6 @@
 // oxlint-disable max-lines -- one host: paths, the reference files, document creation and check_project.
 import {
+  type IJsonDataMapping,
   buildKindSchemaFile,
   buildNodesReference,
   type IAgentNodeKindFilter,
@@ -23,6 +24,10 @@ const SECTION_DIR: Readonly<Record<string, string>> = {
 };
 
 const NODES_FILE = 'NODES.md';
+const CALL_FUNCTION_NAME = 'call-function';
+
+const isRecord = (value: unknown): value is Record<string, unknown> =>
+  typeof value === 'object' && value !== null && !Array.isArray(value);
 const INTEGRATIONS_FILE = 'integrations.json';
 
 /** What `check_project` runs — compile + type-check of the current documents (`compileProject` + `typeCheckProject`
@@ -56,7 +61,9 @@ const subPath = (folderId: string | null, folders: readonly IProjectTreeFolder[]
 const FUNCTION_NOTES = [
   'Statements go into `function-body`\'s "children". The signature is `function-body`\'s data: `parameters` (name + ' +
     'type) and `returnValue` (the return type); `function-header`/`function-footer` carry no meaning — keep them as read.',
-  'Create a new function by writing a new file `functions/<camelCaseName>.json` (latin camelCase name).',
+  'Create a new function by writing a new file `functions/<camelCaseName>.json` (latin camelCase name) — the whole ' +
+    'tree, as an existing function file looks.',
+  '`call-function`\'s `schemeId` is the called function\'s file path, e.g. "functions/greetUser.json"; `iconId` is null.',
 ];
 const TRIGGER_NOTES = [
   'Statements go into `trigger-function-body`\'s "children"; its data (vendor, trigger, credential, payload type) is ' +
@@ -94,6 +101,30 @@ export class WorkflowJsonFilesHost implements IJsonFilesHost {
   }
 
   checkProject?: () => Promise<readonly IJsonFilesDiagnostic[]>;
+
+  /** `call-function.schemeId` (a document id in storage) shown as the called document's file path; on write a path
+   *  (with or without `.json`), a document name or an id all resolve back to the id. */
+  readonly dataMapping: IJsonDataMapping = {
+    in: (kind, data) => this.mapSchemeId(kind, data, (value) => this.resolveDocumentReference(value)),
+    out: (kind, data) =>
+      this.mapSchemeId(kind, data, (value) => this.listDocuments().find((doc) => doc.id === value)?.path ?? value),
+  };
+
+  private mapSchemeId(kind: string, data: unknown, map: (value: string) => string): unknown {
+    if (kind !== CALL_FUNCTION_NAME || !isRecord(data) || typeof data.schemeId !== 'string') return data;
+    return { ...data, schemeId: map(data.schemeId) };
+  }
+
+  private resolveDocumentReference(value: string): string {
+    const documents = this.listDocuments();
+    const trimmed = value.trim();
+    const withJson = trimmed.endsWith('.json') ? trimmed : `${trimmed}.json`;
+    const found =
+      documents.find((doc) => doc.id === trimmed) ??
+      documents.find((doc) => doc.path === withJson) ??
+      documents.find((doc) => doc.name === trimmed);
+    return found?.id ?? value;
+  }
 
   listDocuments(): readonly IJsonFileDocument[] {
     const { store } = this.deps;

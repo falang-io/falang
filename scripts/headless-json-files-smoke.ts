@@ -106,6 +106,13 @@ const assertRun = (
   assert(lastCheck, 'no check_project call');
   assert(lastCheck.ok && lastCheck.content === '{"ok":true}', `project still has errors: ${JSON.stringify(lastCheck)}`);
 
+  // call-function written with the file path is stored with the document id, and read back as the path.
+  const main = store.documents.find((doc) => doc.name === 'main');
+  const call = main && store.getScheme(main.id).rootNode?.children[1].children[1];
+  assert(call?.name === 'call-function', 'main does not call helper');
+  assert((call.data as { schemeId?: string }).schemeId === helperDocumentId, 'schemeId was not resolved to the id');
+  assert(!toolNames.has('create_document'), 'json session offered create_document');
+
   // The early-return branch was moved off slot 0 (first-child-out rule) and the if's side flipped.
   const helper = store.getScheme(helperDocumentId);
   const ifNode = helper.rootNode?.children[1].children[1];
@@ -113,15 +120,17 @@ const assertRun = (
   assert(ifNode.children[0].out === null && ifNode.children[1].out?.name === 'return', 'early return not on slot 1');
 };
 
+/** A call of the helper as the model writes it: by file path (stored as the document id). */
+const CALL_HELPER = JSON.stringify({
+  data: { iconId: null, parameters: [], returnVariable: '', schemeId: 'functions/helper.json' },
+  name: 'call-function',
+});
+
 const runAgent = async (store: HeadlessWorkflowStore): Promise<void> => {
   const mainId = store.createDocument('function', 'main');
   const helperId = () => store.documents.find((doc) => doc.name === 'helper')?.id ?? '';
   const emptyBody = '"children": []';
-  const callHelper = () =>
-    JSON.stringify({
-      data: { iconId: '', parameters: [], returnVariable: '', schemeId: helperId() },
-      name: 'call-function',
-    });
+
   const script: TScriptedStep[] = [
     toolCall('list_files', {}),
     toolCall('read_file', { path: 'NODES.md' }),
@@ -142,7 +151,7 @@ const runAgent = async (store: HeadlessWorkflowStore): Promise<void> => {
     toolCall('check_project', {}),
     () =>
       toolCall('edit_file', {
-        new_string: `"data": "missingFunction()"\n        }, ${callHelper()}`,
+        new_string: `"data": "missingFunction()"\n        }, ${CALL_HELPER}`,
         old_string: '"data": "missingFunction()"\n        }',
         path: 'functions/main.json',
       }),
