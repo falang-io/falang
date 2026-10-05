@@ -4,7 +4,9 @@ export { createApp, startApp, type ICreateAppOptions } from './create-app.js';
 // Extension API: what a module passed via `createApp({ extraModules })` (e.g. the hosted edition's metering)
 // builds on. Import these from the package root, never by deep `src/…` paths, so an overlay only depends on
 // what is meant to stay stable.
+// `AdminGuard` needs `UsersService`: a module using it imports `UsersModule`.
 export { AdminGuard } from './domains/auth/auth/admin.guard.js';
+export { UsersModule } from './domains/users/users/users.module.js';
 export { CurrentUser } from './domains/auth/auth/current-user.decorator.js';
 export { JwtAuthGuard } from './domains/auth/auth/jwt-auth.guard.js';
 export type { IJwtPayloadUser } from './domains/auth/auth/jwt.strategy.js';
