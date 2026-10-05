@@ -6,7 +6,7 @@ import { testContext } from './test-utils/context.js';
 const ctx = testContext();
 const parse = (body: string, signature = 'f(x: number): Promise<number>'): INode =>
   parseFunctionFile(`export async function ${signature} {\n${body}\n}\n`, 'functions/f.ts', 'f', ctx);
-const bodyOf = (root: INode): INode[] => root.children?.[1]?.children ?? [];
+const bodyOf = (root: INode): readonly INode[] => root.children?.[1]?.children ?? [];
 const strip = (node: INode | undefined): unknown =>
   node && {
     name: node.name,

@@ -1,4 +1,4 @@
-// oxlint-disable no-console, max-lines -- the G3 table of ADR 0061's spike, printed for the ADR
+// oxlint-disable no-undefined, init-declarations, max-classes-per-file, no-map-spread, no-array-callback-reference, catch-error-name, prefer-string-raw, max-lines, no-console -- spike code (ADR 0061 (private))
 import { ProjectionError } from '@falang/code-projection';
 import { describe, expect, it } from 'vitest';
 import { WorkflowProjection } from './workflow-projection.js';

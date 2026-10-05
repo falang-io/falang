@@ -1,0 +1,133 @@
+// oxlint-disable no-non-null-assertion, require-array-join-separator, no-console -- spike smoke (ADR 0061 (private))
+/**
+ * ADR 0061 spike, G5: the in-app agent in its code interface (`agentInterface: 'code'`), headless. A scripted LLM
+ * reads the generated declarations, writes a function file and a trigger file through `CodeToolProvider`, gets a type
+ * error back and fixes it, then edits one line; the trees land in the real editor schemes (one undo group per write)
+ * and the project compiles and type-checks with the real workflow compiler. Plain Node, no browser/vitest.
+ *
+ * Run: `npx tsx scripts/headless-code-agent-smoke.ts` (part of `npm run test:headless-schemes`).
+ */
+import 'reflect-metadata';
+import { ScriptedLlmClient, type ILlmResponse, type TScriptedStep } from '@falang/agent';
+import { collectIds } from '@falang/code-projection';
+import { resolveService } from '@falang/di';
+import { TOKEN_HISTORY } from '@falang/scheme';
+import { createWorkflowAgentSession } from '../packages/workflow/client-common/src/agent/create-workflow-agent-session.js';
+import { assert, compileAndTypeCheck, HeadlessWorkflowStore } from './headless-workflow-store.js';
+
+const toolCall = (name: string, input: unknown): ILlmResponse => ({ text: '', toolCalls: [{ id: name, input, name }] });
+
+const GREET = `/**
+ * Greets the user and says how long their name is.
+ */
+export async function greet(chatId: number, name: string): Promise<number> {
+  const length = name.length;
+  if (length > 10) {
+    await supportBot.sendMessage({ chatId: chatId, text: \`What a long name, \${name}!\` });
+  } else {
+    await supportBot.sendMessage({ chatId: chatId, text: \`Hi, \${name}!\` });
+  }
+  return length;
+}
+`;
+
+const START_BROKEN = `export default supportBot.onCommand({ command: "/start" }, async (message: telegram.TelegramMessage): Promise<void> => {
+  const length = await greet(message.chat.id, message.from?.firstName ?? 'friend');
+  switch (await supportBot.askQuestion({ chatId: message.chat.id, question: \`Play a game?\`, timeout: "600" })) {
+    case "Yes": {
+      log(\`playing, name length \${length}\`);
+      break;
+    }
+    case "No": {
+      await supportBot.sendMessage({ chatId: message.chat.id, text: \`Maybe later.\` });
+      break;
+    }
+    case TIMEOUT: {
+      log(\`no answer\`);
+      break;
+    }
+  }
+});
+`;
+
+const main = async (): Promise<void> => {
+  const store = new HeadlessWorkflowStore();
+  store.saveIntegrationInstance({
+    fields: { botToken: { dev: '', prod: '' } },
+    id: 'inst-bot',
+    name: 'Support bot',
+    vendor: 'telegram',
+  });
+  const script: TScriptedStep[] = [
+    toolCall('list_files', {}),
+    toolCall('read_file', { path: 'vendors.d.ts' }),
+    toolCall('write_file', { content: GREET, path: 'functions/greet.ts' }),
+    toolCall('write_file', { content: START_BROKEN, path: 'triggers/start.ts' }),
+    toolCall('write_file', {
+      content: START_BROKEN.replace('timeout: "600"', 'timeout: "10m"'),
+      path: 'triggers/start.ts',
+    }),
+    toolCall('edit_file', { new_string: 'Hello, ${name}!', old_string: 'Hi, ${name}!', path: 'functions/greet.ts' }),
+    toolCall('finish', { message: 'Done: /start greets the user and asks to play.' }),
+  ];
+  const client = new ScriptedLlmClient(script);
+  const session = createWorkflowAgentSession({ agentInterface: 'code', focusPauseMs: 0, llmClient: client, store });
+  const greetRoot = () => store.rootOf(store.documents.find((doc) => doc.name === 'greet')!);
+  await session.run('Make /start greet the user and ask whether they want to play.', { activeDocumentId: null });
+
+  assert(session.status === 'done', `run ended ${session.status}: ${session.error}`);
+  const results = session.steps.map((step) => [step.call.name, step.result.ok] as const);
+  console.log(results.map(([name, ok]) => `${ok ? 'ok ' : 'ERR'} ${name}`).join('\n'));
+  const failed = session.steps.filter((step) => !step.result.ok);
+  assert(failed.length === 1, `exactly the "600" write should fail, got ${failed.length}`);
+  const failure = failed[0]!.result;
+  assert(
+    !failure.ok && /triggers\/start\.ts:3:\d+ .*"600"/.test(failure.error),
+    `type error not reported with file/line: ${JSON.stringify(failure)}`,
+  );
+  const toolNames = new Set(client.requests[0]?.tools.map((tool) => tool.name));
+  assert(
+    !toolNames.has('insert_nodes') && toolNames.has('write_file'),
+    'code interface must offer file tools, not node tools',
+  );
+
+  const greet = store.documents.find((doc) => doc.name === 'greet');
+  const start = store.documents.find((doc) => doc.name === 'start');
+  assert(greet?.type === 'function' && start?.type === 'trigger-function', 'documents were not created');
+  const startBody = store.rootOf(start).children?.[1];
+  assert(
+    startBody?.children?.some((node) => node.name === 'telegram-question'),
+    'trigger body has no question node',
+  );
+
+  // The edit changed one node: rerun the same edit backwards and compare ids.
+  const idsBeforeEdit = collectIds(greetRoot());
+  const scheme = store.getScheme(greet.id);
+  const history = resolveService(TOKEN_HISTORY, scheme.container);
+  history.back();
+  const afterUndo = collectIds(greetRoot());
+  const text = JSON.stringify(greetRoot());
+  assert(
+    text.includes('Hi, ${name}!') && !text.includes('Hello, ${name}!'),
+    'undo did not revert the edit as one step',
+  );
+  assert(
+    [...idsBeforeEdit].every((id) => afterUndo.has(id)),
+    'undo of an edit changed node ids',
+  );
+  history.forward();
+  console.log('ok   one undo group per write, ids kept across edit + undo');
+
+  const compiled = compileAndTypeCheck(store);
+  assert(compiled.workflows.includes('Hello, ${name}!'), 'compiled output misses the edited text');
+  console.log('ok   compile + type-check of the agent-written files');
+  store.dispose();
+};
+
+main().then(
+  () => console.log('\nAll headless code-agent checks passed'),
+  (error: unknown) => {
+    console.error('FAIL', error);
+    process.exitCode = 1;
+  },
+);

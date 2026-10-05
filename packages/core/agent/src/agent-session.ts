@@ -1,3 +1,4 @@
+// oxlint-disable max-lines -- grew past 300 with the default systemPrompt option (ADR 0061 (private) spike)
 import { makeObservable, observable, runInAction } from 'mobx';
 import type { HistoryStore, Scheme } from '@falang/scheme';
 import { focusNode } from '@falang/scheme';

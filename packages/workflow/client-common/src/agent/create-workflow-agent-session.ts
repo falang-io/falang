@@ -1,6 +1,7 @@
 import { AgentSession, ProjectDocumentsContextProvider, type ILlmClient } from '@falang/agent';
 import { ScopeVariablesContextProvider } from '@falang/typescript-agent';
 import { getIntegrationInstances } from '../integration-instances.js';
+import { getEnabledIntegrations } from '../disabled-vendors.js';
 import { REGISTERED_INTEGRATIONS } from '../integrations-registry.js';
 import { createAgentDocumentResolver } from './create-agent-document-resolver.js';
 import { DocumentToolProvider } from './document-tool-provider.js';
@@ -8,6 +9,9 @@ import { createWorkflowNodeKindFilter } from './integration-catalog.js';
 import { describeSections, folderPath } from './project-layout-context.js';
 import { IntegrationToolProvider } from './integration-tool-provider.js';
 import type { IWorkflowAgentStore } from './workflow-agent-store.js';
+import { CodeIntegrationTools } from './code/code-integration-tools.js';
+import { CODE_SYSTEM_PROMPT } from './code/code-prompt.js';
+import { CodeFilesContextProvider, CodeToolProvider } from './code/code-tool-provider.js';
 
 export interface ICreateWorkflowAgentSessionDeps {
   /** The vendor connection — the real host's is `HttpLlmClient` (the backend's `/agent/chat` proxy); a headless host passes its own. */
@@ -21,7 +25,39 @@ export interface ICreateWorkflowAgentSessionDeps {
   readonly onRunFinished?: (session: AgentSession) => void;
   /** Pause after focusing the icon about to change; `0` skips it (headless). Defaults to `AgentSession`'s own 300ms. */
   readonly focusPauseMs?: number;
+  /**
+   * How the agent edits documents: `'nodes'` (default — the node tools, what ships) or `'code'` (ADR 0061 spike: each
+   * function/trigger is a TypeScript file edited with list/read/write/edit_file).
+   */
+  readonly agentInterface?: 'nodes' | 'code';
 }
+
+/** The `'code'` interface (ADR 0061 spike): no node tools, file tools over the code projection instead. */
+const createWorkflowCodeAgentSession = (deps: ICreateWorkflowAgentSessionDeps): AgentSession => {
+  const { store } = deps;
+  const integrations = getEnabledIntegrations();
+  const session: AgentSession = new AgentSession(
+    null,
+    deps.llmClient,
+    [new CodeFilesContextProvider({ integrations, store })],
+    {
+      coreTools: [],
+      focusPauseMs: deps.focusPauseMs,
+      onRunFinished: () => deps.onRunFinished?.(session),
+      systemPrompt: CODE_SYSTEM_PROMPT,
+      toolProviders: [
+        new CodeToolProvider({
+          acquireLock: deps.acquireLock,
+          integrations,
+          onOpenDocument: deps.onOpenDocument,
+          store,
+        }),
+        new CodeIntegrationTools(new IntegrationToolProvider(store)),
+      ],
+    },
+  );
+  return session;
+};
 
 /**
  * The workflow product's one project-level `AgentSession` (ADR 0036 (private)), exactly as `WorkflowStore` builds it
@@ -35,6 +71,7 @@ export interface ICreateWorkflowAgentSessionDeps {
  */
 export const createWorkflowAgentSession = (deps: ICreateWorkflowAgentSessionDeps): AgentSession => {
   const { store } = deps;
+  if (deps.agentInterface === 'code') return createWorkflowCodeAgentSession(deps);
   const session: AgentSession = new AgentSession(
     null,
     deps.llmClient,
