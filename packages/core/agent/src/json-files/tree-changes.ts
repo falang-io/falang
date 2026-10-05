@@ -1,4 +1,5 @@
 import type { INode } from '@falang/dto';
+import { stableStringify } from './stable-json.js';
 
 /** What a write changed, by node id — the response to `write_file`/`edit_file` instead of the whole tree back. */
 export interface ITreeChanges {
@@ -26,7 +27,10 @@ const flatten = (
 
 const label = (node: INode): string => `${node.name} ${node.id}`;
 
-const sameData = (a: INode, b: INode): boolean => JSON.stringify(a.data ?? null) === JSON.stringify(b.data ?? null);
+const emptyAsNull = (value: unknown): unknown => (value === '' ? null : (value ?? null));
+
+const sameData = (a: INode, b: INode): boolean =>
+  stableStringify(emptyAsNull(a.data)) === stableStringify(emptyAsNull(b.data));
 
 /** Added/removed/modified (data changed or moved to another parent) node counts between two trees. */
 export const describeTreeChanges = (oldRoot: INode | null, newRoot: INode): ITreeChanges => {

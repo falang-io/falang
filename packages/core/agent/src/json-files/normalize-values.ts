@@ -65,7 +65,12 @@ export const orientIfs = (
 /** Merges the meta the file decides (visible keys, each `if`'s side) over whatever `preserveMeta` restored. */
 export const applyMetaOverlay = (node: INode, overlay: ReadonlyMap<string, INodeMeta>): INode => {
   const extra = overlay.get(node.id);
-  const meta = extra ? { ...node.meta, ...extra } : node.meta;
+  // Every overlaid flag defaults to `false`: a `false` for a key the node doesn't carry changes nothing, so it isn't
+  // written (an absent key and `false` compile the same; writing it would be a spurious meta edit).
+  const changes = Object.entries(extra ?? {}).filter(
+    ([key, value]) => value !== false || (node.meta && key in node.meta),
+  );
+  const meta = changes.length > 0 ? { ...node.meta, ...Object.fromEntries(changes) } : node.meta;
   return {
     ...node,
     ...(meta ? { meta } : {}),

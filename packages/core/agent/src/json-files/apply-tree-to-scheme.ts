@@ -12,6 +12,8 @@ import {
   type Scheme,
 } from '@falang/scheme';
 
+import { stableStringify } from './stable-json.js';
+
 type TOp = () => void;
 
 interface IPlan {
@@ -20,7 +22,11 @@ interface IPlan {
   readonly inserts: TOp[];
 }
 
-const same = (a: unknown, b: unknown): boolean => JSON.stringify(a ?? null) === JSON.stringify(b ?? null);
+/** An absent, `null` and `''` value are the same stored data (the serializer drops all three; a never-edited node may
+ *  hold `null` where a parsed one holds `''`) — rewriting one as another would be a spurious edit. */
+const emptyAsNull = (value: unknown): unknown => (value === '' ? null : (value ?? null));
+
+const same = (a: unknown, b: unknown): boolean => stableStringify(emptyAsNull(a)) === stableStringify(emptyAsNull(b));
 
 const plainData = (store: NodeStore): unknown => toJS(store.data);
 
