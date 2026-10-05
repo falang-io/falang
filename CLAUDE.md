@@ -251,7 +251,7 @@ Entry point: `schemeFactory({ infra, modules, document })` in `src/scheme/scheme
 Ant Design-based UI layer plugged into the scheme editor as modules. Key modules:
 
 - `ant-context-menu` — context menu service and React layer, with handler registration via `register-context-menu-handlers.ts`.
-- `ant-mods-selector` — UI for selecting node mods.
+- `ant-mods-selector` — the scheme's start/transfer mode switcher (bottom-left radio group; despite the name, not node mods). Hidden since 2026-10-05: `AntModsSelectorModule.initialize` no longer registers the layer (commented out), since drag-and-drop covers moving icons; transfer mode itself stays registered.
 - `ant-resizable-panel` — `useResizablePanelWidth(storageKey, defaultWidth, { min, max, direction })` (drag-resize state, clamped, persisted to `localStorage` on pointer-up) + `ResizeHandle` (the thin draggable divider). Used by all three hosts (`packages/workflow/client-common`, `packages/desktop/app-arduino`, `packages/desktop/app-sketch`) to make the project-tree panel and the project-level right sidebar (agent chat/version history) resizable — each host keys its own two panels with `'falang:panel-width:project-tree'`/`'falang:panel-width:right-sidebar'`. The per-tab icon-editor column (`IconEditorColumn`/the old-`Sidebar`-equivalent) stays a fixed 350px, unaffected.
 
 ### Domain packages (`text`, `typescript`)
