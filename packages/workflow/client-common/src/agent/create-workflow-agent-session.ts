@@ -1,4 +1,16 @@
-import { AgentSession, ProjectDocumentsContextProvider, type ILlmClient } from '@falang/agent';
+import {
+  AgentSession,
+  JSON_FILES_SYSTEM_PROMPT,
+  JsonFileToolProvider,
+  JsonFilesContextProvider,
+  ProjectDocumentsContextProvider,
+  type IAgentContextProvider,
+  type IAgentDocumentResolver,
+  type IAgentNodeKindFilter,
+  type IAgentToolProvider,
+  type ILlmClient,
+} from '@falang/agent';
+import type { NodesStack } from '@falang/dto';
 import { ScopeVariablesContextProvider } from '@falang/typescript-agent';
 import { getIntegrationInstances } from '../integration-instances.js';
 import { REGISTERED_INTEGRATIONS } from '../integrations-registry.js';
@@ -8,6 +20,10 @@ import { createWorkflowNodeKindFilter } from './integration-catalog.js';
 import { describeSections, folderPath } from './project-layout-context.js';
 import { IntegrationToolProvider } from './integration-tool-provider.js';
 import type { IWorkflowAgentStore } from './workflow-agent-store.js';
+import { WorkflowJsonFilesHost, type TWorkflowCheckProject } from './workflow-json-files-host.js';
+
+/** How the agent edits documents: the node tools (the product default) or whole JSON files (ADR 0062). */
+export type TWorkflowAgentInterface = 'nodes' | 'json';
 
 export interface ICreateWorkflowAgentSessionDeps {
   /** The vendor connection — the real host's is `HttpLlmClient` (the backend's `/agent/chat` proxy); a headless host passes its own. */
@@ -21,7 +37,57 @@ export interface ICreateWorkflowAgentSessionDeps {
   readonly onRunFinished?: (session: AgentSession) => void;
   /** Pause after focusing the icon about to change; `0` skips it (headless). Defaults to `AgentSession`'s own 300ms. */
   readonly focusPauseMs?: number;
+  /** `'nodes'` (default — what ships) or `'json'`: document files + `check_project` instead of the node tools. */
+  readonly agentInterface?: TWorkflowAgentInterface;
+  /** `check_project` for the `'json'` interface (compile + type-check); omitted → the tool isn't offered. */
+  readonly checkProject?: TWorkflowCheckProject;
+  /** Builds the stack of a document type with no document yet (for `NODES.md` in an empty project). */
+  readonly buildStack?: (type: string) => NodesStack | null;
 }
+
+const documentsContext = (store: IWorkflowAgentStore): IAgentContextProvider =>
+  new ProjectDocumentsContextProvider(
+    () =>
+      store.documents
+        .filter((doc) => !doc.pinned)
+        .map((doc) => ({
+          id: doc.id,
+          name: doc.name,
+          path: folderPath(doc.folderId, store.folders ?? []) ?? '',
+          type: doc.type,
+        })),
+    () => describeSections(store.folders ?? []),
+  );
+
+/**
+ * The `'json'` interface (ADR 0062): no node tools (`coreTools: []` — only `finish`/`ask_user` remain), the file tools
+ * over `WorkflowJsonFilesHost`, plus document creation/types (`DocumentToolProvider`) and integrations. A write goes
+ * through the same resolver as a node tool (lock + "ensure the tab is open"), then one undo group.
+ */
+const createJsonFilesSession = (
+  deps: ICreateWorkflowAgentSessionDeps,
+  shared: { documentResolver: IAgentDocumentResolver; focusPauseMs?: number; nodeKindFilter: IAgentNodeKindFilter },
+  integrationTools: IAgentToolProvider,
+  getSession: () => AgentSession,
+): AgentSession => {
+  const host = new WorkflowJsonFilesHost({
+    beforeWrite: (documentId) => {
+      shared.documentResolver.resolve(documentId);
+      deps.onOpenDocument?.(documentId);
+    },
+    buildStack: deps.buildStack,
+    checkProject: deps.checkProject,
+    nodeKindFilter: shared.nodeKindFilter,
+    store: deps.store,
+  });
+  return new AgentSession(null, deps.llmClient, [new JsonFilesContextProvider(host)], {
+    ...shared,
+    coreTools: [],
+    onRunFinished: () => deps.onRunFinished?.(getSession()),
+    systemPrompt: JSON_FILES_SYSTEM_PROMPT,
+    toolProviders: [new JsonFileToolProvider(host), new DocumentToolProvider(deps.store), integrationTools],
+  });
+};
 
 /**
  * The workflow product's one project-level `AgentSession` (ADR 0036 (private)), exactly as `WorkflowStore` builds it
@@ -35,38 +101,24 @@ export interface ICreateWorkflowAgentSessionDeps {
  */
 export const createWorkflowAgentSession = (deps: ICreateWorkflowAgentSessionDeps): AgentSession => {
   const { store } = deps;
-  const session: AgentSession = new AgentSession(
-    null,
-    deps.llmClient,
-    [
-      new ScopeVariablesContextProvider(),
-      new ProjectDocumentsContextProvider(
-        () =>
-          store.documents
-            .filter((doc) => !doc.pinned)
-            .map((doc) => ({
-              id: doc.id,
-              name: doc.name,
-              path: folderPath(doc.folderId, store.folders ?? []) ?? '',
-              type: doc.type,
-            })),
-        () => describeSections(store.folders ?? []),
-      ),
-    ],
-    {
-      documentResolver: createAgentDocumentResolver({
-        acquireLock: (documentId) => deps.acquireLock?.(documentId),
-        getDocument: (documentId) => store.getDocument(documentId),
-        getScheme: (documentId) => store.getScheme(documentId),
-      }),
-      focusPauseMs: deps.focusPauseMs,
-      nodeKindFilter: createWorkflowNodeKindFilter(REGISTERED_INTEGRATIONS, () =>
-        getIntegrationInstances(store.documents),
-      ),
-      onOpenDocument: (target) => deps.onOpenDocument?.(target.id),
-      onRunFinished: () => deps.onRunFinished?.(session),
-      toolProviders: [new DocumentToolProvider(store), new IntegrationToolProvider(store)],
-    },
+  const documentResolver = createAgentDocumentResolver({
+    acquireLock: (documentId) => deps.acquireLock?.(documentId),
+    getDocument: (documentId) => store.getDocument(documentId),
+    getScheme: (documentId) => store.getScheme(documentId),
+  });
+  const nodeKindFilter = createWorkflowNodeKindFilter(REGISTERED_INTEGRATIONS, () =>
+    getIntegrationInstances(store.documents),
   );
+  const shared = { documentResolver, focusPauseMs: deps.focusPauseMs, nodeKindFilter };
+  const integrationTools = new IntegrationToolProvider(store);
+  const session: AgentSession =
+    deps.agentInterface === 'json'
+      ? createJsonFilesSession(deps, shared, integrationTools, () => session)
+      : new AgentSession(null, deps.llmClient, [new ScopeVariablesContextProvider(), documentsContext(store)], {
+          ...shared,
+          onOpenDocument: (target) => deps.onOpenDocument?.(target.id),
+          onRunFinished: () => deps.onRunFinished?.(session),
+          toolProviders: [new DocumentToolProvider(store), integrationTools],
+        });
   return session;
 };

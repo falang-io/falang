@@ -76,6 +76,9 @@ export interface IAgentSessionExtraOptions {
    *  nicety so a human watches the edit land). Defaults to `FOCUS_PAUSE_MS` (300); `0` skips the sleep entirely
    *  — headless hosts (the agent tuner) pass it. */
   readonly focusPauseMs?: number;
+  /** Session-level default for `IAgentRunOptions.systemPrompt` (a run's own one wins) — e.g. the file interface's
+   *  base prompt (ADR 0062), which replaces the node tools' text for every run of the session. */
+  readonly systemPrompt?: string;
 }
 
 /**

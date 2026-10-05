@@ -101,4 +101,27 @@ describe('createWorkflowAgentSession', () => {
     expect(acquireLock).not.toHaveBeenCalled();
     expect(onOpenDocument).not.toHaveBeenCalled();
   });
+
+  it("'json' interface: file tools + providers instead of the node tools, and the file prompt", async () => {
+    const client = new ScriptedLlmClient([finish()]);
+    const session = createWorkflowAgentSession({
+      agentInterface: 'json',
+      checkProject: () => Promise.resolve([]),
+      llmClient: client,
+      store: buildStore(),
+    });
+
+    await session.run('hello', { activeDocumentId: 'doc-1' });
+
+    const names = client.requests[0].tools.map((tool) => tool.name);
+    expect(names).toEqual(
+      expect.arrayContaining(['list_files', 'read_file', 'write_file', 'edit_file', 'check_project', 'finish']),
+    );
+    expect(names).toEqual(expect.arrayContaining(['create_trigger_document', 'search_integrations']));
+    for (const nodeTool of ['get_tree', 'get_node_kinds', 'insert_node', 'insert_nodes', 'set_data', 'delete_node']) {
+      expect(names).not.toContain(nodeTool);
+    }
+    expect(client.requests[0].system).toContain('JSON file');
+    expect(client.requests[0].system).toContain('functions/Telegram/sendGreeting.json open in the editor');
+  });
 });
