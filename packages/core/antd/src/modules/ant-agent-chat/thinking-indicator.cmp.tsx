@@ -69,7 +69,7 @@ export const ThinkingIndicator: React.FC<{ readonly agentSession: AgentSession }
   const lastStep = steps.at(-1);
   const vars = {
     '--falang-thinking-a': token.colorPrimary,
-    '--falang-thinking-b': token.colorInfo === token.colorPrimary ? token.colorSuccess : token.colorInfo,
+    '--falang-thinking-b': token.purple,
     '--falang-thinking-text': token.colorTextSecondary,
     '--falang-thinking-border': token.colorPrimaryBorder,
     '--falang-thinking-bg': token.colorPrimaryBg,
