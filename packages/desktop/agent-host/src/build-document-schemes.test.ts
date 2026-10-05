@@ -17,7 +17,7 @@ const historyOf = (scheme: { container: Parameters<typeof resolveService>[1] }):
 };
 
 describe('buildSketchDocumentScheme', () => {
-  it('registers HistoryModule only for agent-capable types and defaults the root from the node kind', () => {
+  it('registers HistoryModule for every document type and defaults the root from the node kind', () => {
     registerGlobalTokens();
     const container = createSketchProjectContainer('logic');
     const fn = buildSketchDocumentScheme({
@@ -32,7 +32,7 @@ describe('buildSketchDocumentScheme', () => {
       expect(fn.rootNode?.name).toBe('function');
       expect(historyOf(fn)).not.toBeNull();
       expect(structure.rootNode?.name).toBe('objects-structure');
-      expect(historyOf(structure)).toBeNull();
+      expect(historyOf(structure)).not.toBeNull();
     } finally {
       fn.dispose();
       structure.dispose();
