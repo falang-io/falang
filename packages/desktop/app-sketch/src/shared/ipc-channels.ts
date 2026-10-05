@@ -50,7 +50,10 @@ export const IPC = {
   // Print / export to PDF (ADR 0048 (private)).
   menuExportPdf: 'menu:export-pdf',
   printToPdf: 'print:to-pdf',
-  menuSaveDocument: 'menu:save-document',
+  menuUndo: 'menu:undo',
+  menuRedo: 'menu:redo',
+  /** Renderer → main: the open project (or none), so `main` can rebuild the menu with the right items. */
+  menuSetContext: 'menu:set-context',
   menuOpenExportConfig: 'menu:open-export-config',
   menuExportCode: 'menu:export-code',
   menuExportCodeDocuments: 'menu:export-code-documents',

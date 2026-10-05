@@ -47,3 +47,12 @@ export {
   type TDriverToolScope,
 } from './arduino/driver-tool-provider.js';
 export { DevicesToolProvider, type IDevicesToolHost } from './arduino/devices-tool-provider.js';
+export {
+  classifyUndoTarget,
+  installUndoRedo,
+  matchUndoKey,
+  type IFocusedElementLike,
+  type IUndoKeyEventLike,
+  type IUndoRedoDeps,
+  type TUndoTarget,
+} from './undo-routing.js';

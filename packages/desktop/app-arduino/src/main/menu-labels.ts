@@ -6,7 +6,6 @@ interface IMenuLabels {
   openProject: string;
   recentProjects: string;
   noRecentProjects: string;
-  save: string;
   close: string;
   quit: string;
   sketch: string;
@@ -42,7 +41,6 @@ const EN: IMenuLabels = {
   openProject: 'Open Project…',
   recentProjects: 'Recent Projects',
   noRecentProjects: 'No recent projects',
-  save: 'Save',
   close: 'Close',
   quit: 'Quit',
   sketch: 'Sketch',
@@ -76,7 +74,6 @@ const RU: IMenuLabels = {
   openProject: 'Открыть проект…',
   recentProjects: 'Недавние проекты',
   noRecentProjects: 'Нет недавних проектов',
-  save: 'Сохранить',
   close: 'Закрыть',
   quit: 'Выйти',
   sketch: 'Скетч',

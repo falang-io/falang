@@ -3,10 +3,12 @@ import { IPC } from '../shared/ipc-channels.js';
 import { listRecentProjects } from './recent-projects.js';
 import { getLanguage } from './settings.js';
 import { MENU_LABELS, resolveMenuLanguage } from './menu-labels.js';
+import { getMenuContext, getProjectMenuAvailability } from './menu-context.js';
 
 export const buildApplicationMenu = async (mainWindow: BrowserWindow): Promise<void> => {
   const [recentProjects, language] = await Promise.all([listRecentProjects(), getLanguage()]);
   const l = MENU_LABELS[resolveMenuLanguage(language)];
+  const available = getProjectMenuAvailability(getMenuContext().projectType);
 
   const fileMenu: MenuItemConstructorOptions = {
     label: l.file,
@@ -33,12 +35,6 @@ export const buildApplicationMenu = async (mainWindow: BrowserWindow): Promise<v
       },
       { type: 'separator' },
       {
-        label: l.save,
-        accelerator: 'CmdOrCtrl+S',
-        click: () => mainWindow.webContents.send(IPC.menuSaveDocument),
-      },
-      { type: 'separator' },
-      {
         role: process.platform === 'darwin' ? 'close' : 'quit',
         label: process.platform === 'darwin' ? l.close : l.quit,
       },
@@ -47,35 +43,43 @@ export const buildApplicationMenu = async (mainWindow: BrowserWindow): Promise<v
 
   const projectMenu: MenuItemConstructorOptions = {
     label: l.project,
+    visible: available.hasProject,
+    // Items that need an open project are hidden (not disabled) while none is open — the renderer reports the open
+    // project's type (`IPC.menuSetContext`) and `main` rebuilds the menu.
     submenu: [
       {
         label: l.exportConfig,
+        visible: available.logicExport,
         click: () => mainWindow.webContents.send(IPC.menuOpenExportConfig),
       },
       {
         label: l.exportCode,
         accelerator: 'CmdOrCtrl+Shift+E',
+        visible: available.logicExport,
         click: () => mainWindow.webContents.send(IPC.menuExportCode),
       },
       {
         label: l.exportPdf,
+        visible: available.hasProject,
         click: () => mainWindow.webContents.send(IPC.menuExportPdf),
       },
-      { type: 'separator' },
+      { type: 'separator', visible: available.hasProject },
       // Separate from "Export Code" above (the `logic` domain's export, gated on its own
-      // configuration): a `code`-only project has nothing configured there and would show an
-      // irrelevant "No export targets configured" warning if the two were folded into one item.
+      // configuration): a `simple-code`-only project has nothing configured there.
       {
         label: l.exportCodeDocuments,
+        visible: available.codeExport,
         click: () => mainWindow.webContents.send(IPC.menuExportCodeDocuments),
       },
-      { type: 'separator' },
+      { type: 'separator', visible: available.codeExport },
       {
         label: l.versionHistory,
+        visible: available.hasProject,
         click: () => mainWindow.webContents.send(IPC.menuToggleVersionHistory),
       },
       {
         label: l.agentPanel,
+        visible: available.hasProject,
         click: () => mainWindow.webContents.send(IPC.menuToggleAgent),
       },
     ],
@@ -84,8 +88,22 @@ export const buildApplicationMenu = async (mainWindow: BrowserWindow): Promise<v
   const editMenu: MenuItemConstructorOptions = {
     label: l.edit,
     submenu: [
-      { role: 'undo', label: l.undo },
-      { role: 'redo', label: l.redo },
+      // Custom items, not `role: 'undo'/'redo'`: the renderer decides between a text editor's own undo and the active
+      // scheme's history (`installUndoRedo` in `@falang/desktop-agent-host`). `registerAccelerator: false` keeps the
+      // keystroke out of the menu (it reaches the page, where the focused editor or the canvas handler takes it) so one
+      // keypress is never undone twice; the accelerator is shown for information only.
+      {
+        label: l.undo,
+        accelerator: 'CmdOrCtrl+Z',
+        registerAccelerator: false,
+        click: () => mainWindow.webContents.send(IPC.menuUndo),
+      },
+      {
+        label: l.redo,
+        accelerator: process.platform === 'darwin' ? 'Shift+Cmd+Z' : 'Ctrl+Y',
+        registerAccelerator: false,
+        click: () => mainWindow.webContents.send(IPC.menuRedo),
+      },
       { type: 'separator' },
       { role: 'cut', label: l.cut },
       { role: 'copy', label: l.copy },
