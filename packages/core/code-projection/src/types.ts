@@ -68,9 +68,10 @@ export interface IParser {
   /** Statements of a block/single statement → child nodes of `containerName` (jumps resolved, trailing jump not yet folded into `out`). */
   statements(body: ts.Statement | readonly ts.Statement[], frame?: TJumpFrameKind): INode[];
   /** `case` clauses of a switch-like statement → `[caseExpression, statements]`, with the terminating `break;` removed. */
+  /** `test` is `null` for `default:`. */
   cases(
     block: ts.CaseBlock,
-  ): { readonly test: ts.Expression; readonly clause: ts.CaseClause; readonly nodes: INode[] }[];
+  ): { readonly test: ts.Expression | null; readonly clause: ts.CaseOrDefaultClause; readonly nodes: INode[] }[];
   typeOf(node: ts.TypeNode): TVariableInfo;
 }
 

@@ -15,7 +15,13 @@ interface IFrame {
 
 type TItem =
   | { readonly kind: 'comment'; readonly text: string; readonly pos: number; readonly isLine: boolean }
-  | { readonly kind: 'directive'; readonly name: string; readonly count: number; readonly pos: number }
+  | {
+      readonly kind: 'directive';
+      readonly name: string;
+      readonly count: number;
+      readonly pos: number;
+      readonly end: number;
+    }
   | { readonly kind: 'statement'; readonly statement: ts.Statement };
 
 /** A `/*@name N*\/` directive comment — marks a statement whose canonical code form would parse as another kind. */
@@ -83,11 +89,6 @@ export class Parser implements IParser {
     return this.dedent(this.source.text.slice(start, node.end), start).trim().replace(/;$/, '');
   }
 
-  private rangeText(from: ts.Node, to: ts.Node): string {
-    const start = from.getStart(this.source);
-    return this.dedent(this.source.text.slice(start, to.end), start).trim().replace(/;$/, '');
-  }
-
   templateBody(node: ts.Expression): string {
     if (ts.isNoSubstitutionTemplateLiteral(node) || ts.isTemplateExpression(node)) {
       const start = node.getStart(this.source);
@@ -152,6 +153,7 @@ export class Parser implements IParser {
         if (directive) {
           items.push({
             count: Number(directive[2] ?? '1'),
+            end: range.end,
             kind: 'directive',
             name: directive[1] ?? '',
             pos: range.pos,
@@ -242,7 +244,8 @@ export class Parser implements IParser {
         const last = grouped.at(-1);
         if (!first || !last) this.failAt(item.pos, '`/*@action*/` must be followed by a statement');
         nodes.push({
-          data: ts.isEmptyStatement(first) && grouped.length === 1 ? '' : this.rangeText(first, last),
+          // Everything between the directive and the last grouped statement — comments inside the action included.
+          data: this.dedent(this.source.text.slice(item.end, last.end), item.end).trim().replace(/;$/, '').trim(),
           id: this.newId(),
           name: 'action',
         });
@@ -587,21 +590,15 @@ export class Parser implements IParser {
   private switchStatement(statement: ts.SwitchStatement): INode {
     const options = this.cases(statement.caseBlock).map(({ test, nodes }) => ({
       children: nodes,
-      data: this.text(test),
+      data: test ? this.text(test) : 'default',
       id: this.newId(),
       name: 'switch-option',
     }));
     return { children: options, data: this.text(statement.expression), id: this.newId(), name: 'switch' };
   }
 
-  cases(block: ts.CaseBlock): { test: ts.Expression; clause: ts.CaseClause; nodes: INode[] }[] {
+  cases(block: ts.CaseBlock): { test: ts.Expression | null; clause: ts.CaseOrDefaultClause; nodes: INode[] }[] {
     return block.clauses.map((clause) => {
-      if (ts.isDefaultClause(clause)) {
-        this.fail(
-          clause,
-          '`default:` is not supported: list every case, or handle the other values with `if` before the switch.',
-        );
-      }
       let statements: readonly ts.Statement[] = clause.statements;
       let end = clause.statements.end;
       const only = statements[0];
@@ -623,12 +620,16 @@ export class Parser implements IParser {
       ) {
         this.fail(
           clause,
-          `\`case ${clause.expression.getText(this.source)}:\` must end with \`break;\` (or return/throw/continue) — fall-through to the next case is not supported.`,
+          `\`${ts.isDefaultClause(clause) ? 'default' : `case ${clause.expression.getText(this.source)}`}:\` must end with \`break;\` (or return/throw/continue) — fall-through to the next case is not supported.`,
         );
       }
       this.frames.push({ kind: 'switch' });
       try {
-        return { clause, nodes: this.buildNodes(this.collectItems(statements, end)).nodes, test: clause.expression };
+        return {
+          clause,
+          nodes: this.buildNodes(this.collectItems(statements, end)).nodes,
+          test: ts.isDefaultClause(clause) ? null : clause.expression,
+        };
       } finally {
         this.frames.pop();
       }

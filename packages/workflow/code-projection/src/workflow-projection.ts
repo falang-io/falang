@@ -13,6 +13,7 @@ import {
   type IMatchStats,
   type IProjectionContext,
 } from '@falang/code-projection';
+import type ts from 'typescript';
 import { isValidFunctionName, type INode } from '@falang/dto';
 import type { TVariableInfo } from '@falang/typescript-dto';
 import {
@@ -35,6 +36,13 @@ export interface IProjectedFile {
   readonly path: string;
   readonly writable: boolean;
   readonly documentId?: string;
+}
+
+export interface IWriteOptions {
+  /** `false` skips the type check (round-trip measurements; an agent's write is always checked). */
+  readonly typeCheck?: boolean;
+  /** The tree to match against instead of the document's current one. */
+  readonly oldRoot?: INode;
 }
 
 export interface IWriteResult {
@@ -121,6 +129,11 @@ export class WorkflowProjection {
           .map((file) => file.path)
           .join(', ')}`,
       );
+    return this.projectDocument(doc);
+  }
+
+  /** A function/trigger document (or a modified copy of one) as file text. */
+  projectDocument(doc: IWorkflowProjectDocument): string {
     return doc.type === 'function'
       ? projectFunctionFile(this.rootOf(doc), doc.name, this.ctx)
       : projectTriggerFile(this.rootOf(doc), this.model, this.ctx);
@@ -160,7 +173,7 @@ export class WorkflowProjection {
   }
 
   /** Runs the write pipeline. Throws `ProjectionError` (every diagnostic, with file/line) on any failure. */
-  writeFile(path: string, text: string): IWriteResult {
+  writeFile(path: string, text: string, options: IWriteOptions = {}): IWriteResult {
     const match = /^(functions|triggers)\/([^/]+)\.ts$/.exec(path);
     if (!match) {
       const readOnly = (READ_ONLY_FILES as readonly string[]).includes(path);
@@ -179,26 +192,30 @@ export class WorkflowProjection {
     const type = dir === FUNCTIONS_DIR ? 'function' : 'trigger-function';
     const existing = this.findDocument(path);
     if (!existing) this.assertNewName(path, name);
-    const oldRoot = existing ? this.rootOf(existing) : undefined;
+    const oldRoot = options.oldRoot ?? (existing ? this.rootOf(existing) : undefined);
 
-    const returnValueType = this.implicitReturnType(text);
-    const check = typeCheckFile(this.checkFiles(path, text, returnValueType), path, {
-      ignoreCodes: returnValueType ? IMPLICIT_RETURN_CODES : undefined,
-    });
-    if (check.diagnostics.length > 0) throw new ProjectionError(check.diagnostics.slice(0, 20));
-
-    const ctx: IProjectionContext = {
-      ...this.ctx,
-      inferType: (declaration) => {
-        try {
-          return parseTypeText(inferredTypeText(check.checker, declaration), this.model.types);
-        } catch (error) {
-          if (error instanceof TypeTextError) return;
-          throw error;
-        }
-      },
-    };
-    const parsed = this.parse(type, check.source.text, path, name, ctx);
+    let ctx: IProjectionContext = this.ctx;
+    let input: string | ts.SourceFile = text;
+    if (options.typeCheck !== false) {
+      const returnValueType = this.implicitReturnType(text);
+      const check = typeCheckFile(this.checkFiles(path, text, returnValueType), path, {
+        ignoreCodes: returnValueType ? IMPLICIT_RETURN_CODES : undefined,
+      });
+      if (check.diagnostics.length > 0) throw new ProjectionError(check.diagnostics.slice(0, 20));
+      input = check.source;
+      ctx = {
+        ...this.ctx,
+        inferType: (declaration) => {
+          try {
+            return parseTypeText(inferredTypeText(check.checker, declaration), this.model.types);
+          } catch (error) {
+            if (error instanceof TypeTextError) return;
+            throw error;
+          }
+        },
+      };
+    }
+    const parsed = this.parse(type, input, path, name, ctx);
     const document = { file: path, id: existing?.id ?? 'new', name };
     const { root, stats } = oldRoot
       ? matchAndValidate(oldRoot, parsed, this.model.stack, document)
@@ -216,7 +233,7 @@ export class WorkflowProjection {
 
   private parse(
     type: 'function' | 'trigger-function',
-    text: string,
+    text: string | ts.SourceFile,
     path: string,
     name: string,
     ctx: IProjectionContext,

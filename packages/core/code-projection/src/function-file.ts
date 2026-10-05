@@ -95,8 +95,9 @@ export const parseReturnType = (parser: Parser, node: ts.TypeNode | undefined): 
 };
 
 /** Fails with every syntax error of the file, or returns the parsed source. */
-export const parseSourceOrFail = (fileName: string, text: string): ts.SourceFile => {
-  const source = createSourceFile(fileName, text);
+export const parseSourceOrFail = (fileName: string, text: string | ts.SourceFile): ts.SourceFile => {
+  // A caller that type-checked the file passes the program's own SourceFile, so checker lookups (inferred types) work.
+  const source = typeof text === 'string' ? createSourceFile(fileName, text) : text;
   const syntax = syntaxDiagnostics(source, fileName);
   if (syntax.length > 0) throw new ProjectionError(syntax);
   return source;
@@ -120,7 +121,7 @@ const isEmptyExport = (statement: ts.Statement): boolean =>
 
 /** `functions/<name>.ts` text → a fresh `function` root (new ids everywhere — the matcher restores them). */
 export const parseFunctionFile = (
-  text: string,
+  text: string | ts.SourceFile,
   fileName: string,
   expectedName: string,
   ctx: IProjectionContext,

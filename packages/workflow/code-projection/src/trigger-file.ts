@@ -67,7 +67,7 @@ export const projectTriggerFile = (root: INode, model: WorkflowModel, ctx: IProj
 
 /** `triggers/<name>.ts` → a fresh `trigger-function` root. */
 export const parseTriggerFile = (
-  text: string,
+  text: string | ts.SourceFile,
   fileName: string,
   model: WorkflowModel,
   ctx: IProjectionContext,

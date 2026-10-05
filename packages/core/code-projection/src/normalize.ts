@@ -26,8 +26,15 @@ export const normalizeData = (value: unknown, key?: string): unknown => {
   return value;
 };
 
+const emptyToUndefined = (value: unknown): unknown =>
+  value === '' ||
+  value === null ||
+  (value && typeof value === 'object' && !Array.isArray(value) && Object.keys(value).length === 0)
+    ? undefined
+    : value;
+
 export const dataEquals = (a: unknown, b: unknown): boolean =>
-  JSON.stringify(normalizeData(a)) === JSON.stringify(normalizeData(b));
+  JSON.stringify(emptyToUndefined(normalizeData(a))) === JSON.stringify(emptyToUndefined(normalizeData(b)));
 
 const outLevelOf = (node: INode): number => (typeof node.meta?.outLevel === 'number' ? node.meta.outLevel : 1);
 
@@ -47,7 +54,9 @@ export const canonicalize = (node: INode): unknown => {
   if (node.name === 'while' && node.meta?.trueIsMain === true && typeof data === 'string') data = negate(data);
   return {
     name: node.name,
-    ...(data === undefined || (typeof data === 'object' && data && Object.keys(data).length === 0) ? {} : { data }),
+    ...(data === undefined || data === '' || (typeof data === 'object' && data && Object.keys(data).length === 0)
+      ? {}
+      : { data }),
     ...(outLevel > 1 ? { outLevel } : {}),
     ...(children.length > 0 ? { children: children.map((child) => canonicalize(child)) } : {}),
     ...(node.mods && node.mods.length > 0 ? { mods: node.mods.map((mod) => canonicalize(mod)) } : {}),

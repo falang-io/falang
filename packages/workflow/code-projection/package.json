@@ -21,6 +21,7 @@
     "typescript": "^6.0.2"
   },
   "devDependencies": {
+    "@falang/logic-e2e-tests": "*",
     "@falang/workflow-compiler": "*",
     "@falang/workflow-integrations-files": "*",
     "@falang/workflow-integrations-openai": "*",

@@ -249,7 +249,8 @@ export class Projector implements IProjector {
       const body = this.list(statements);
       const terminator = last && JUMP_KINDS.has(last.name) ? '' : 'break;';
       const content = [body, terminator].filter((part) => part !== '').join('\n');
-      return `case ${test}: {\n${indent(content)}\n}`;
+      // A `switch-option` whose value is `default` is the default branch (the logic constructor compiles it so).
+      return `${test === 'default' ? 'default' : `case ${test}`}: {\n${indent(content)}\n}`;
     } finally {
       this.frames.pop();
     }
@@ -269,7 +270,10 @@ export class Projector implements IProjector {
   private action(text: string): string {
     const trimmed = text.trim();
     const directive = needsActionDirective(trimmed, this.ctx);
-    const statement = trimmed === '' ? ';' : (/[;}]$/.test(trimmed) ? trimmed : `${trimmed};`);
+    const lastLine = trimmed.split('\n').at(-1) ?? '';
+    // A trailing `// comment` would swallow the `;`: put it on its own line.
+    const terminator = lastLine.includes('//') ? '\n;' : ';';
+    const statement = trimmed === '' ? ';' : /[;}]$/.test(trimmed) ? trimmed : `${trimmed}${terminator}`;
     if (directive === 0) return statement;
     return `/*@action${directive > 1 ? ` ${directive}` : ''}*/ ${statement}`;
   }

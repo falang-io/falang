@@ -109,9 +109,9 @@ export class IntegrationExtension implements IStatementExtension {
     const argument =
       properties.length === 0
         ? ''
-        : (oneLine.length <= 80 && !oneLine.includes('\n')
+        : oneLine.length <= 80 && !oneLine.includes('\n')
           ? oneLine
-          : `{\n${properties.map((prop) => `  ${prop.replaceAll('\n', '\n  ')},`).join('\n')}\n}`);
+          : `{\n${properties.map((prop) => `  ${prop.replaceAll('\n', '\n  ')},`).join('\n')}\n}`;
     const receiver = this.receiver(entry.integration.vendor, credentialField ? str(data[credentialField.name]) : '');
     return `await ${receiver}.${method}${typeArgument}(${argument})`;
   }
@@ -277,9 +277,11 @@ export class IntegrationExtension implements IStatementExtension {
       parser.fail(statement, `\`${descriptor.name}\` options with typed data are not supported in code yet.`);
     }
     const values = this.readFields(read.entry, read.instanceId, read.call, parser);
-    const options = parser.cases(statement.caseBlock).map(({ test, nodes }) => {
+    const options = parser.cases(statement.caseBlock).map(({ test, nodes, clause }) => {
       let data: { label: string; fixed?: true };
-      if (ts.isIdentifier(test) && test.text === TIMEOUT_CONSTANT) {
+      if (!test) {
+        parser.fail(clause, 'A question has no `default:` branch: one `case` per button label.');
+      } else if (ts.isIdentifier(test) && test.text === TIMEOUT_CONSTANT) {
         if (!descriptor.timeoutField) parser.fail(test, `\`${descriptor.name}\` has no timeout.`);
         data = { fixed: true, label: TIMEOUT_OPTION_LABEL };
       } else if (ts.isStringLiteralLike(test)) {

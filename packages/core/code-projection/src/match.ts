@@ -6,12 +6,16 @@ import { JUMP_KINDS, withOut } from './projector.js';
 /** Meta keys whose value is part of the code (the parser derives them); every other meta key is layout, kept from the old node. */
 const SEMANTIC_META = ['trueOnRight', 'trueIsMain', 'outLevel'] as const;
 
+/** Values a semantic meta key has when it's absent — an old explicit default survives an absent new value. */
+const SEMANTIC_DEFAULTS: Readonly<Record<string, unknown>> = { outLevel: 1, trueIsMain: false, trueOnRight: false };
+
 const mergeMeta = (oldMeta: INodeMeta | undefined, newMeta: INodeMeta | undefined): INodeMeta | undefined => {
   const merged: Record<string, unknown> = { ...oldMeta };
-  for (const key of SEMANTIC_META) delete merged[key];
   for (const key of SEMANTIC_META) {
     const value = (newMeta as Record<string, unknown> | undefined)?.[key];
+    const oldValue = (oldMeta as Record<string, unknown> | undefined)?.[key];
     if (value !== undefined) merged[key] = value;
+    else if (oldValue !== undefined && oldValue !== SEMANTIC_DEFAULTS[key]) delete merged[key];
   }
   return Object.keys(merged).length > 0 ? (merged as INodeMeta) : undefined;
 };
@@ -148,6 +152,12 @@ export class TreeMatcher {
       if (current.out) {
         out = mapped.pop();
         children = mapped;
+        // Keep a jump that was stored as a plain last statement where it was (the code can't tell the two apart).
+        const oldLast = oldNode.children?.at(-1);
+        if (out && !oldNode.out && oldLast?.id === out.id) {
+          children = [...mapped, out];
+          out = undefined;
+        }
       } else {
         children = mapped;
       }
@@ -160,8 +170,9 @@ export class TreeMatcher {
       ...(out ? { out } : {}),
     };
     const meta = mergeMeta(oldNode.meta, current.meta);
-    const { meta: _dropped, ...withoutMeta } = current;
-    const data = dataEquals(oldNode.data, current.data) ? oldNode.data : current.data;
+    const { meta: _dropped, data: _replaced, ...withoutMeta } = current;
+    // The stored tree omits empty data (`getNodeStoreDto`), the validator wants it: keep the old text only when it exists.
+    const data = oldNode.data !== undefined && dataEquals(oldNode.data, current.data) ? oldNode.data : current.data;
     return {
       ...withoutMeta,
       ...(data === undefined ? {} : { data }),
