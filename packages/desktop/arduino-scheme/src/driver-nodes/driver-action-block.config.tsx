@@ -1,7 +1,7 @@
 import type React from 'react';
 import { resolveService } from '@falang/di';
 import type { IBlockConfig, IBlockEditorFactoryParams, IBlockView, TBlockEditorView } from '@falang/scheme';
-import { CELL_SIZE_2, EditorType, useService } from '@falang/scheme';
+import { CELL_SIZE_2, EditorType, getGlobalI18n, useService } from '@falang/scheme';
 import {
   collectScopeVariables,
   ExpressionBlockEditorStore,
@@ -17,6 +17,7 @@ import { observer } from 'mobx-react-lite';
 import { action, observable, makeObservable } from 'mobx';
 import type { IDriverActionDescriptor, IDriverFieldDescriptor } from '@falang/desktop-arduino-dto/src/driver-config.js';
 import { TOKEN_DRIVER_REGISTRY } from './driver-registry-token.js';
+import type { DriverRegistryStore } from './driver-registry.store.js';
 
 type TDriverActionData = Readonly<Record<string, string>>;
 
@@ -31,7 +32,8 @@ const fieldValueView = (field: IDriverFieldDescriptor, value = ''): React.ReactN
 /** Shared by every `driver-action::…` node kind (see `driver-node-name.ts`) — the field list and code shape come from the node's own `IDriverActionDescriptor`, resolved by node name via `TOKEN_DRIVER_REGISTRY`, the same "one generic block, per-node descriptor lookup" shape `@falang/workflow-scheme`'s `IntegrationActionBlockComponent`/`IntegrationActionEditorStore` use for per-vendor action nodes. */
 const DriverActionBlockComponent: IBlockView<TDriverActionData> = observer(({ data, icon }) => {
   const registry = useService(TOKEN_DRIVER_REGISTRY);
-  const resolved = registry.findAction(icon.name);
+  // `language` is observable — reading it here re-renders the block when the UI language changes.
+  const resolved = registry.localized(getGlobalI18n().language).findAction(icon.name);
   if (!resolved || !data) return <div>&nbsp;</div>;
   return (
     <TypeScriptBlockContainer>
@@ -55,6 +57,8 @@ const DriverActionBlockComponent: IBlockView<TDriverActionData> = observer(({ da
 
 class DriverActionBlockEditorStore extends ExpressionBlockEditorStore<TDriverActionData> {
   readonly driverAction: IDriverActionDescriptor;
+  private readonly registry: DriverRegistryStore;
+  private readonly nodeName: string;
   readonly values = observable.map<string, string>();
   readonly variableStore: NewVariableStore | undefined;
   /** One per "string"-kind field — lets the field's value contain a real, scope-checked `${expr}` interpolation, the same mechanism `@falang/typescript-scheme`'s `log` node uses (see ADR 0023 (private)'s driver actions ADR). */
@@ -66,6 +70,8 @@ class DriverActionBlockEditorStore extends ExpressionBlockEditorStore<TDriverAct
     const resolved = registry.findAction(params.icon.name);
     if (!resolved) throw new Error(`No driver action registered for node "${params.icon.name}"`);
     this.driverAction = resolved.action;
+    this.registry = registry;
+    this.nodeName = params.icon.name;
 
     for (const field of this.driverAction.fields) {
       const value = params.data[field.name] ?? field.default ?? '';
@@ -88,6 +94,11 @@ class DriverActionBlockEditorStore extends ExpressionBlockEditorStore<TDriverAct
       }
     }
     makeObservable(this);
+  }
+
+  /** The action with labels/option labels in `language` — controls and stored values keep using the base `driverAction`. */
+  localizedAction(language: string): IDriverActionDescriptor {
+    return this.registry.localized(language).findAction(this.nodeName)?.action ?? this.driverAction;
   }
 
   @action setFieldValue(name: string, value: string): void {
@@ -156,7 +167,7 @@ const DriverActionBlockEditorComponent: TBlockEditorView<DriverActionBlockEditor
   <TypeScriptBlockContainer>
     <table className="ts-table ts-table--fixed">
       <tbody>
-        {editor.driverAction.fields.map((field) => (
+        {editor.localizedAction(getGlobalI18n().language).fields.map((field) => (
           <tr key={field.name}>
             <td>
               <div className="ts-label">{field.label}</div>

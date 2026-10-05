@@ -1,3 +1,4 @@
+import { tl } from '../locales/arduino-t.js';
 import type { IBlockConfig, IBlockEditorFactoryParams, IBlockView, TBlockEditorView } from '@falang/scheme';
 import { BlockEditorStore, CELL_SIZE_2, EditorType } from '@falang/scheme';
 import { TypeScriptBlockContainer } from '@falang/typescript-scheme';
@@ -13,7 +14,8 @@ import type { ISingleNumberActionData } from '@falang/desktop-arduino-dto/src/ar
  * the node *name* (not this shared data shape) to pick which builtin to call.
  */
 export interface ISingleNumberActionBlockOptions {
-  readonly label: string;
+  /** Key under `label.` in `locales/*.json`. */
+  readonly labelKey: string;
   readonly min?: number;
 }
 
@@ -26,7 +28,7 @@ const SingleNumberActionBlockComponent = (label: string): IBlockView<ISingleNumb
           <tbody>
             <tr>
               <td>
-                <div className="ts-label">{label}</div>
+                <div className="ts-label">{tl(label)}</div>
               </td>
               <td>
                 <div className="ts-input-value">{data.value}</div>
@@ -66,7 +68,7 @@ const SingleNumberActionBlockEditorComponent = (
         <tbody>
           <tr>
             <td>
-              <div className="ts-label">{label}</div>
+              <div className="ts-label">{tl(label)}</div>
             </td>
             <td>
               <input
@@ -83,7 +85,7 @@ const SingleNumberActionBlockEditorComponent = (
     </TypeScriptBlockContainer>
   ));
 
-export const createSingleNumberActionBlockConfig = ({ label, min }: ISingleNumberActionBlockOptions) =>
+export const createSingleNumberActionBlockConfig = ({ labelKey: label, min }: ISingleNumberActionBlockOptions) =>
   ({
     view: SingleNumberActionBlockComponent(label),
     minHeight: CELL_SIZE_2,

@@ -4,6 +4,7 @@ export * from './pin-node-configs.js';
 export * from './arduino-function-nodes.js';
 export * from './arduino-function-node-configs.js';
 export * from './driver-config.js';
+export * from './driver-localize.js';
 export * from './driver-node-name.js';
 export * from './driver-node-configs.js';
 export * from './driver-registry.js';

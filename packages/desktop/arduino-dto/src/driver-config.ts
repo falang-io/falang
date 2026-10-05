@@ -81,6 +81,30 @@ const driverDeviceDescriptorZod = zod.object({
 });
 export type IDriverDeviceDescriptor = zod.infer<typeof driverDeviceDescriptorZod>;
 
+/**
+ * Optional UI translation of one driver (ADR 0023 (private) follow-up): English stays in the base config, `locales`
+ * overlays user-visible text per language code (`ru`, `de`, …). Every key is optional — a missing entry falls back to
+ * the base text. Keys must name things that exist (`parseDriverConfig` rejects unknown action ids, field names and
+ * option values). LLM-facing `notes` are deliberately not translatable. See `driver-localize.ts` for the overlay.
+ */
+const localeFieldZod = zod.object({
+  label: zod.string().min(1).optional(),
+  /** Select option value → translated label. */
+  options: zod.record(zod.string(), zod.string().min(1)).optional(),
+});
+const localeFieldsZod = zod.record(zod.string(), localeFieldZod);
+const driverLocaleZod = zod.object({
+  label: zod.string().min(1).optional(),
+  actions: zod
+    .record(zod.string(), zod.object({ label: zod.string().min(1).optional(), fields: localeFieldsZod.optional() }))
+    .optional(),
+  device: zod.object({ fields: localeFieldsZod.optional() }).optional(),
+});
+export type IDriverLocale = zod.infer<typeof driverLocaleZod>;
+export type IDriverLocaleField = zod.infer<typeof localeFieldZod>;
+
+export const LOCALE_CODE_PATTERN = /^[a-z]{2,3}(-[A-Za-z0-9]+)?$/;
+
 export const driverConfigZod = zod.object({
   id: kebabCaseZod,
   label: zod.string().min(1),
@@ -94,6 +118,10 @@ export const driverConfigZod = zod.object({
   actions: zod.array(driverActionDescriptorZod).min(1),
   device: driverDeviceDescriptorZod.optional(),
   notes: notesZod.optional(),
+  /** Language code → UI translation overlay, see `driverLocaleZod`. */
+  locales: zod
+    .record(zod.string().regex(LOCALE_CODE_PATTERN, 'must be a language code like "ru"'), driverLocaleZod)
+    .optional(),
 });
 export type IDriverConfig = zod.infer<typeof driverConfigZod>;
 
@@ -149,6 +177,37 @@ const validateDeviceFields = (device: IDriverDeviceDescriptor): void => {
   }
 };
 
+const validateLocaleFields = (
+  localeFields: Readonly<Record<string, IDriverLocaleField>> | undefined,
+  fields: readonly IDriverFieldDescriptor[],
+  context: string,
+): void => {
+  for (const [name, localized] of Object.entries(localeFields ?? {})) {
+    const field = fields.find((candidate) => candidate.name === name);
+    if (!field) throw new DriverConfigValidationError(`${context}: unknown field "${name}"`);
+    for (const value of Object.keys(localized.options ?? {})) {
+      if (!field.options?.some((option) => option.value === value)) {
+        throw new DriverConfigValidationError(`${context}: field "${name}" has no option "${value}"`);
+      }
+    }
+  }
+};
+
+/** Every id/name/value a `locales` entry mentions must exist in the base config — catches typos in translations. */
+const validateLocales = (config: IDriverConfig): void => {
+  for (const [lang, locale] of Object.entries(config.locales ?? {})) {
+    for (const [actionId, localizedAction] of Object.entries(locale.actions ?? {})) {
+      const action = config.actions.find((candidate) => candidate.id === actionId);
+      if (!action) throw new DriverConfigValidationError(`locales.${lang}: unknown action "${actionId}"`);
+      validateLocaleFields(localizedAction.fields, action.fields, `locales.${lang}.actions.${actionId}`);
+    }
+    if (locale.device) {
+      if (!config.device) throw new DriverConfigValidationError(`locales.${lang}: driver has no "device" section`);
+      validateLocaleFields(locale.device.fields, config.device.fields, `locales.${lang}.device`);
+    }
+  }
+};
+
 /** Parses and validates a `driver.config.json` payload — throws `DriverConfigValidationError` (structural zod failures are wrapped into the same type) on anything malformed, so a caller (the registry loader) can skip one bad driver without crashing the app. */
 export const parseDriverConfig = (json: unknown): IDriverConfig => {
   const result = driverConfigZod.safeParse(json);
@@ -163,5 +222,6 @@ export const parseDriverConfig = (json: unknown): IDriverConfig => {
     validateSelectOptions(result.data.device.fields, 'device');
     validateTemplatePlaceholders(result.data.device.setupTemplate, result.data.device.fields, 'device');
   }
+  validateLocales(result.data);
   return result.data;
 };

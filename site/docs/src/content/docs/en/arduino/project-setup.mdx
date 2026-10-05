@@ -70,8 +70,10 @@ head:
     address. Adding either emits its own setup call (initializing the display) right after the pin modes.
   </li>
   <li>
-    A driver only needs to declare a device section to show up in this list — most of the bundled drivers (DHT, HC-SR04,
-    servo, the RGB strip) are action-only today and don't appear here; only the two LCD1602 drivers do so far.
+    Every bundled driver declares a device section, so all of them show up in this list (DHT: data pin and sensor;
+    HC-SR04: trig and echo pins; servo: pin; RGB strip: data pin and length; LCD1602: address or pins). The icon menu
+    lists a driver's actions only while the project has at least one device of that driver — add the device here first,
+    then insert its actions.
   </li>
   <li>
     Any driver behind a device instance is included in the build automatically — its source files and its{' '}

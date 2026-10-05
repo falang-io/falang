@@ -1,0 +1,34 @@
+{
+  "arduino-scheme": {
+    "group": {
+      "arduino": "Arduino",
+      "device": "Устройство"
+    },
+    "title": {
+      "pin-write-digital": "Записать цифровой пин",
+      "pin-write-analog": "Записать аналоговый пин (ШИМ)",
+      "pin-read-digital": "Прочитать цифровой пин",
+      "pin-read-analog": "Прочитать аналоговый пин",
+      "delay": "Задержка",
+      "delay-microseconds": "Задержка (микросекунды)",
+      "random-seed": "Инициализация random",
+      "serial-begin": "Serial: начать",
+      "serial-print": "Serial: вывод",
+      "serial-println": "Serial: вывод со строкой",
+      "millis": "Миллисекунды (millis)",
+      "micros": "Микросекунды (micros)",
+      "random": "Случайное число"
+    },
+    "label": {
+      "pin": "пин",
+      "value": "значение",
+      "var": "переменная",
+      "call": "вызов",
+      "max": "максимум",
+      "delay-ms": "задержка (мс)",
+      "delay-us": "задержка (мкс)",
+      "seed": "seed",
+      "baud": "скорость"
+    }
+  }
+}

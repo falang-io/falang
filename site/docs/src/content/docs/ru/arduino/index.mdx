@@ -22,10 +22,10 @@ head:
       arduino-cli
     </a>
     — через него приложение компилирует и загружает скетч; в комплект он не входит. Приложение ищет его в{' '}
-    <code>PATH</code>, в обычных местах установки (Homebrew на macOS, <code>Program Files\Arduino CLI</code> на
-    Windows, <code>~/.local/bin</code> на Linux) и внутри установленной Arduino IDE 2, в которую он встроен. Чтобы
-    указать копию в другом месте, запустите приложение с переменной окружения <code>FALANG_ARDUINO_CLI</code>, равной
-    полному пути к нему. Если найти его не удалось, об этом скажет диалог <b>«Сборка и загрузка»</b>.
+    <code>PATH</code>, в обычных местах установки (Homebrew на macOS, <code>Program Files\Arduino CLI</code> на Windows,{' '}
+    <code>~/.local/bin</code> на Linux) и внутри установленной Arduino IDE 2, в которую он встроен. Чтобы указать копию
+    в другом месте, запустите приложение с переменной окружения <code>FALANG_ARDUINO_CLI</code>, равной полному пути к
+    нему. Если найти его не удалось, об этом скажет диалог <b>«Сборка и загрузка»</b>.
   </li>
   <li>
     Ядро для вашей платы, один раз через arduino-cli: <code>arduino-cli core install arduino:avr</code> для Uno, Nano и
@@ -49,8 +49,8 @@ head:
 #### Иконки
 
 <p>
-  В схеме есть обычные иконки и специальные для Arduino — они собраны в группе <b>«Интеграции»</b> меню вставки.
-  Заголовки специальных иконок пока только на английском.
+  В схеме есть обычные иконки и специальные для Arduino — они собраны в группах <b>«Arduino»</b> (пины и встроенные
+  функции) и <b>«Устройство»</b> (действия устройств, добавленных в <code>Devices</code>) меню вставки.
 </p>
 <ul>
   <li>
@@ -67,9 +67,9 @@ head:
     не иконкой.
   </li>
   <li>
-    <b>Встроенные функции</b>: <b>Delay</b>, <b>Delay (microseconds)</b>, <b>Millis</b>, <b>Micros</b>,{' '}
-    <b>Random</b>, <b>Random seed</b>, <b>Serial begin</b>, <b>Serial print</b>, <b>Serial println</b>. Их аргументы —
-    фиксированные числа; чтобы вывести переменную, напишите <code>Serial.println(x)</code> в действии.
+    <b>Встроенные функции</b>: <b>Delay</b>, <b>Delay (microseconds)</b>, <b>Millis</b>, <b>Micros</b>, <b>Random</b>,{' '}
+    <b>Random seed</b>, <b>Serial begin</b>, <b>Serial print</b>, <b>Serial println</b>. Их аргументы — фиксированные
+    числа; чтобы вывести переменную, напишите <code>Serial.println(x)</code> в действии.
   </li>
   <li>
     <b>Действия драйверов</b> — по иконке на каждое действие каждого установленного драйвера, с заголовком
@@ -89,20 +89,20 @@ head:
     <b>Servo</b> — <i>Set angle</i> (пин, 0–180°).
   </li>
   <li>
-    <b>DHT11 / DHT22</b> — <i>Read temperature (°C)</i>, <i>Read humidity (%RH)</i>; при ошибке чтения результат —
-    NaN. Между чтениями нужно 1–2 секунды.
+    <b>DHT11 / DHT22</b> — <i>Read temperature (°C)</i>, <i>Read humidity (%RH)</i>; при ошибке чтения результат — NaN.
+    Между чтениями нужно 1–2 секунды.
   </li>
   <li>
     Ультразвуковой датчик <b>HC-SR04</b> — <i>Read distance (cm)</i>; −1 при таймауте.
   </li>
   <li>
-    <b>LCD1602 (I2C)</b> и <b>LCD1602 (Parallel)</b> — <i>Clear display</i>, <i>Print text</i> (столбец, строка и
-    текст; в текст можно вставлять выражения как <code>{'${…}'}</code>). Добавьте дисплей в документ{' '}
-    <code>Devices</code>, чтобы он инициализировался при старте.
+    <b>LCD1602 (I2C)</b> и <b>LCD1602 (Parallel)</b> — <i>Clear display</i>, <i>Print text</i> (столбец, строка и текст;
+    в текст можно вставлять выражения как <code>{'${…}'}</code>). Добавьте дисплей в документ <code>Devices</code>,
+    чтобы он инициализировался при старте.
   </li>
   <li>
-    <b>Адресная RGB-лента (WS2812/NeoPixel)</b> — <i>Set pixel color</i> и <i>Show</i> (отправить цвета на ленту).
-    Нужна библиотека Adafruit NeoPixel.
+    <b>Адресная RGB-лента (WS2812/NeoPixel)</b> — <i>Set pixel color</i> и <i>Show</i> (отправить цвета на ленту). Нужна
+    библиотека Adafruit NeoPixel.
   </li>
 </ul>
 <p>В скетч копируются только те драйверы, которые в нём действительно используются.</p>
@@ -142,6 +142,6 @@ head:
 
 <p>
   <a href="../ai-agent/">ИИ-агент</a> (<b>Скетч → Агент</b>), история версий (<b>Скетч → История версий</b>),{' '}
-  <a href="../pdf-export/">экспорт в PDF</a> и <a href="../coding-agents/">агенты для программирования</a> работают
-  так же, как в основном приложении Falang.
+  <a href="../pdf-export/">экспорт в PDF</a> и <a href="../coding-agents/">агенты для программирования</a> работают так
+  же, как в основном приложении Falang.
 </p>

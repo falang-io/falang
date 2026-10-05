@@ -10,3 +10,6 @@
  * table (see `servo-driver.cpp`).
  */
 void servo_set_angle(uint8_t pin, uint8_t angle);
+
+/** Device setup (called from `setup()` for a `Devices` entry): attaches the servo on `pin` ahead of the first `servo_set_angle`. */
+void servo_init(uint8_t pin);

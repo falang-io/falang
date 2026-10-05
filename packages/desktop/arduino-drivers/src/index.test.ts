@@ -15,4 +15,23 @@ describe('BUNDLED_DRIVERS_DIR', () => {
       'servo',
     ]);
   });
+
+  it('every bundled driver is connectable as a device and has a complete Russian translation', async () => {
+    const registry = await loadDriverRegistryFromDirs([BUNDLED_DRIVERS_DIR]);
+    for (const { config } of registry.drivers) {
+      expect(config.device, `${config.id} has a device section`).toBeDefined();
+      const ru = config.locales?.ru;
+      expect(ru?.label, `${config.id} label`).toBeTruthy();
+      for (const action of config.actions) {
+        const localized = ru?.actions?.[action.id];
+        expect(localized?.label, `${config.id}/${action.id} label`).toBeTruthy();
+        for (const field of action.fields) {
+          expect(localized?.fields?.[field.name]?.label, `${config.id}/${action.id}.${field.name}`).toBeTruthy();
+        }
+      }
+      for (const field of config.device?.fields ?? []) {
+        expect(ru?.device?.fields?.[field.name]?.label, `${config.id} device.${field.name}`).toBeTruthy();
+      }
+    }
+  });
 });

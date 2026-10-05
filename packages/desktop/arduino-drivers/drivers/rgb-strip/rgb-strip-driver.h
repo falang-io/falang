@@ -24,3 +24,6 @@
  */
 void rgbstrip_set_pixel_color(uint8_t pin, uint16_t numLeds, uint16_t index, uint8_t r, uint8_t g, uint8_t b);
 void rgbstrip_show(uint8_t pin, uint16_t numLeds);
+
+/** Device setup (called from `setup()` for a `Devices` entry): creates the strip of `numLeds` pixels on `pin` and `begin()`s it. */
+void rgbstrip_init(uint8_t pin, uint16_t numLeds);
