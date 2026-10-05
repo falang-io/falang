@@ -68,6 +68,7 @@ export class AgentSession {
   private readonly nodeKindFilter?: IAgentNodeKindFilter;
   private readonly coreToolAllowlist: ReadonlySet<string> | null;
   private readonly focusPauseMs: number;
+  private readonly defaultSystemPrompt?: string;
   private askOffered = true;
   private abortController: AbortController | null = null;
   /** One undo group per document touched this run (ADR 0034), opened lazily, closed by `closeOpenGroups`. */
@@ -89,6 +90,7 @@ export class AgentSession {
     this.nodeKindFilter = extra.nodeKindFilter;
     this.coreToolAllowlist = extra.coreTools ? new Set(extra.coreTools) : null;
     this.focusPauseMs = extra.focusPauseMs ?? FOCUS_PAUSE_MS;
+    this.defaultSystemPrompt = extra.systemPrompt;
     makeObservable(this);
   }
 
@@ -271,7 +273,12 @@ export class AgentSession {
     return {
       activeDocumentId,
       offerAskUser: policy.offered,
-      system: buildSystemPrompt(context, this.contextProviders, policy, options.systemPrompt),
+      system: buildSystemPrompt(
+        context,
+        this.contextProviders,
+        policy,
+        options.systemPrompt ?? this.defaultSystemPrompt,
+      ),
     };
   }
 

@@ -62,6 +62,26 @@ const fileOf = (doc: IWorkflowProjectDocument): string | undefined => {
   return undefined;
 };
 
+/** Extra advice for globals an agent reaches for out of habit. */
+const NAME_HINTS: Readonly<Record<string, string>> = {
+  console: 'Use log(`…`) to write to the run log.',
+  fetch:
+    'There is no fetch in a workflow: call an integration instance from integrations.ts (e.g. an http-request one).',
+  require: 'No imports: integration instances, project functions and types are global.',
+  setInterval: 'A workflow cannot use timers: use a schedule trigger.',
+  setTimeout: 'A workflow cannot sleep with setTimeout: use a question with a timeout, or a schedule trigger.',
+};
+
+const withHint = (diagnostic: ICodeDiagnostic): ICodeDiagnostic => {
+  const name = /Cannot find name '(\w+)'/.exec(diagnostic.message)?.[1];
+  const hint = name ? NAME_HINTS[name] : undefined;
+  if (!hint) return diagnostic;
+  const message = diagnostic.message
+    .replace(/ Do you need to change your target library\?.*$/s, '.')
+    .replace(/\.\.$/, '.');
+  return { ...diagnostic, message: `${message} ${hint}` };
+};
+
 const referencesReturnValue = (text: string): boolean => /\breturnValue\b/.test(text);
 
 /** TS2366 "Function lacks ending return statement": the compiler adds `return returnValue;` itself. */
@@ -197,11 +217,14 @@ export class WorkflowProjection {
     let ctx: IProjectionContext = this.ctx;
     let input: string | ts.SourceFile = text;
     if (options.typeCheck !== false) {
+      // Structure first (unsupported constructs, falang rules — cheap, and the errors an agent can't learn from tsc),
+      // then types; a declaration without an annotation is fine at this stage.
+      this.parse(type, text, path, name, { ...this.ctx, inferType: () => ({ type: 'any' }) });
       const returnValueType = this.implicitReturnType(text);
       const check = typeCheckFile(this.checkFiles(path, text, returnValueType), path, {
         ignoreCodes: returnValueType ? IMPLICIT_RETURN_CODES : undefined,
       });
-      if (check.diagnostics.length > 0) throw new ProjectionError(check.diagnostics.slice(0, 20));
+      if (check.diagnostics.length > 0) throw new ProjectionError(check.diagnostics.slice(0, 20).map(withHint));
       input = check.source;
       ctx = {
         ...this.ctx,

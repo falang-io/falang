@@ -105,6 +105,12 @@ export const parseSourceOrFail = (fileName: string, text: string | ts.SourceFile
 
 /** The one top-level declaration a projected file must consist of (comments around it are fine). */
 export const singleTopLevelStatement = (parser: Parser, source: ts.SourceFile, expected: string): ts.Statement => {
+  const imported = source.statements.find(
+    (statement) => ts.isImportDeclaration(statement) || ts.isImportEqualsDeclaration(statement),
+  );
+  if (imported) {
+    parser.fail(imported, 'No imports: integration instances, project functions, types and built-ins are all global.');
+  }
   const statements = source.statements.filter((statement) => !isEmptyExport(statement));
   const [first, extra] = statements;
   if (!first) parser.fail(source, `The file is empty: it must contain ${expected}.`);
