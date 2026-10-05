@@ -1,3 +1,4 @@
+import { tl } from '../locales/arduino-t.js';
 import type { IBlockConfig, IBlockEditorFactoryParams, IBlockView, TBlockEditorView } from '@falang/scheme';
 import { CELL_SIZE_2, EditorType } from '@falang/scheme';
 import {
@@ -19,7 +20,7 @@ const PinReadBlockComponent: IBlockView<IPinReadData> = observer(({ data }) => {
         <tbody>
           <tr>
             <td>
-              <div className="ts-label">pin</div>
+              <div className="ts-label">{tl('pin')}</div>
             </td>
             <td>
               <div className="ts-input-value">{data.pin}</div>
@@ -27,7 +28,7 @@ const PinReadBlockComponent: IBlockView<IPinReadData> = observer(({ data }) => {
           </tr>
           <tr>
             <td>
-              <div className="ts-label">var</div>
+              <div className="ts-label">{tl('var')}</div>
             </td>
             <td>
               <div className="ts-input-value">{data.variable || <>&nbsp;</>}</div>
@@ -76,7 +77,7 @@ const PinReadBlockEditorComponent: TBlockEditorView<PinReadBlockEditorStore> = o
       <tbody>
         <tr>
           <td>
-            <div className="ts-label">pin</div>
+            <div className="ts-label">{tl('pin')}</div>
           </td>
           <td>
             <input
@@ -90,7 +91,7 @@ const PinReadBlockEditorComponent: TBlockEditorView<PinReadBlockEditorStore> = o
         </tr>
         <tr>
           <td>
-            <div className="ts-label">var</div>
+            <div className="ts-label">{tl('var')}</div>
           </td>
           <td>
             <NewVariableEditingComponent store={editor.variableStore} autoFocus={false} />

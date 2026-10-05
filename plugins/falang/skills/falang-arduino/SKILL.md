@@ -41,7 +41,9 @@ Each bundled device driver contributes one node kind per action, named
 action's field names (every field, including numeric/select ones, is encoded as a string — this is
 template substitution into C++ source, not a typed value). Call `get_node_kinds('function')` for
 the exact field list/defaults of whichever driver is actually installed in the project; the five
-bundled drivers as of this writing:
+bundled drivers as of this writing (the in-app icon menu lists a driver's actions only once the
+`Devices` document has an instance of that driver — every bundled driver has a `device` section — but
+any driver's node kind can still be inserted by name):
 
 | driver id     | label                         | action id          | fields (all string-valued)                             | produces           |
 | ------------- | ----------------------------- | ------------------ | ------------------------------------------------------ | ------------------ |
@@ -81,7 +83,9 @@ instead of pasting raw C++ into `action` strings — it becomes pickable icons a
    (`int`/`float`/`bool`/`string`). Fill in `notes` on every action. If the part needs initialisation in `setup()`
    (an I2C address, a pin), add a `device` section with `fields` and a `setupTemplate` — the user then lists it in
    `Devices` (that is the only way `setup` initialises it). Exact format: `references/driver-format.md`; a complete
-   working example (a BMP280 on I2C): `references/examples/bmp280.falang-driver.json`.
+   working example (a BMP280 on I2C): `references/examples/bmp280.falang-driver.json`. Optionally add `locales`
+   (`{ "ru": { label, actions: { <id>: { label, fields: { <name>: { label, options } } } }, device: { fields } } }`) so the
+   UI shows translated labels; `notes` stay English.
 4. `validate_driver({ bundle, scope: 'project' })` and fix every error — it type-checks the templates, checks name
    collisions and compiles a synthetic sketch with `arduino-cli` for the project board (a missing core/library is only
    a warning). Then `set_driver` with the same bundle (scope `project`: the driver lives in the project's

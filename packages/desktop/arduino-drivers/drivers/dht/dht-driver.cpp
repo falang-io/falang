@@ -59,3 +59,8 @@ float dht_read_humidity(uint8_t pin, uint8_t sensorType) {
   if (sensorType == 0) return (float)data[0]; // DHT11: integer %RH.
   return (((uint16_t)data[0] << 8) | data[1]) / 10.0f; // DHT22: tenths of a %RH.
 }
+
+void dht_init(uint8_t pin, uint8_t sensorType) {
+  (void)sensorType;
+  pinMode(pin, INPUT_PULLUP);
+}

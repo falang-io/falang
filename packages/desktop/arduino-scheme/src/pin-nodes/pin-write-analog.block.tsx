@@ -1,3 +1,4 @@
+import { tl } from '../locales/arduino-t.js';
 import type { IBlockConfig, IBlockEditorFactoryParams, IBlockView, TBlockEditorView } from '@falang/scheme';
 import { BlockEditorStore, CELL_SIZE_2, EditorType } from '@falang/scheme';
 import { TypeScriptBlockContainer } from '@falang/typescript-scheme';
@@ -15,7 +16,7 @@ const PinWriteAnalogBlockComponent: IBlockView<IPinWriteAnalogData> = observer((
         <tbody>
           <tr>
             <td>
-              <div className="ts-label">pin</div>
+              <div className="ts-label">{tl('pin')}</div>
             </td>
             <td>
               <div className="ts-input-value">~{data.pin}</div>
@@ -23,7 +24,7 @@ const PinWriteAnalogBlockComponent: IBlockView<IPinWriteAnalogData> = observer((
           </tr>
           <tr>
             <td>
-              <div className="ts-label">value</div>
+              <div className="ts-label">{tl('value')}</div>
             </td>
             <td>
               <div className="ts-input-value">{data.value} / 255</div>
@@ -63,7 +64,7 @@ const PinWriteAnalogBlockEditorComponent: TBlockEditorView<PinWriteAnalogBlockEd
       <tbody>
         <tr>
           <td>
-            <div className="ts-label">pin</div>
+            <div className="ts-label">{tl('pin')}</div>
           </td>
           <td>
             <input
@@ -77,7 +78,7 @@ const PinWriteAnalogBlockEditorComponent: TBlockEditorView<PinWriteAnalogBlockEd
         </tr>
         <tr>
           <td>
-            <div className="ts-label">value</div>
+            <div className="ts-label">{tl('value')}</div>
           </td>
           <td>
             <input

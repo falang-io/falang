@@ -29,6 +29,7 @@ import {
 import type { ArduinoProjectStore } from '../arduino-project-store.js';
 import { DevicesDocumentStore } from '../devices-document-store.js';
 import { getDriverConfigs, getDriverScopeSuffix } from '@falang/desktop-arduino-scheme';
+import { localizeDriverConfig } from '@falang/desktop-arduino-dto/src/driver-localize.js';
 import { appTheme } from '../theme.js';
 
 const { Title, Text } = Typography;
@@ -113,15 +114,18 @@ export const DevicesEditor: React.FC<Props> = observer(({ store, documentId }) =
       document,
       drivers: getDriverConfigs(),
       onChange: (data) => store.setDevicesDocumentData(documentId, data),
+      getLanguage: () => getGlobalI18n().language,
     });
   }, [store, documentId, reloadVersion]);
 
   if (!editor) return null;
 
+  // Driver/field/option labels in the current UI language (`language` is observable, so a switch re-renders this).
+  const language = getGlobalI18n().language;
   const addDeviceMenu: MenuProps = {
     items: editor.deviceDrivers.map((driver) => ({
       key: driver.id,
-      label: `${driver.label}${getDriverScopeSuffix(driver.id)}`,
+      label: `${localizeDriverConfig(driver, language).label}${getDriverScopeSuffix(driver.id, language)}`,
     })),
     onClick: ({ key }) => editor.addDevice(key),
   };
@@ -222,7 +226,8 @@ export const DevicesEditor: React.FC<Props> = observer(({ store, documentId }) =
           <Empty description={t('desktop-app-arduino:devices-editor.no-devices')} />
         ) : (
           editor.devices.map((device: IDeviceInstance) => {
-            const driver = editor.drivers.find((candidate) => candidate.id === device.driverId);
+            const baseDriver = editor.drivers.find((candidate) => candidate.id === device.driverId);
+            const driver = baseDriver && localizeDriverConfig(baseDriver, language);
             return (
               <Card
                 key={device.id}

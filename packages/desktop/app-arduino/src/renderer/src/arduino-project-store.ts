@@ -206,6 +206,15 @@ export class ArduinoProjectStore {
           setDevices: (data) => this.setDevicesFromAgent(data),
         }),
       ],
+      nodeKindFilter: {
+        isListed: (name) => {
+          const parsed = parseDriverActionNodeName(name);
+          return !parsed || this.getConnectedDriverIds().has(parsed.driverId);
+        },
+        hiddenNote:
+          'Actions of devices that are not connected are not listed. Add the device to the Devices document ' +
+          '(set_devices) to list its actions; nodes of any driver can still be inserted by name.',
+      },
       onOpenDocument: (id) => this.ensureAgentDocumentOpen(id),
     });
     this.disposeFunctionsRegistrySync = autorun(() => {
@@ -564,6 +573,14 @@ export class ArduinoProjectStore {
     this.adoptLibraryDriversIfReferenced(data.devices.map((device) => device.driverId));
   }
 
+  /**
+   * Driver ids with at least one instance in the `Devices` document. Read on every menu build (and by the agent's node-kind
+   * filter), so adding or removing a device changes the "Device" palette group at once, without rebuilding any scheme.
+   */
+  getConnectedDriverIds(): ReadonlySet<string> {
+    return new Set(this.getDevicesDocumentData().devices.map((device) => device.driverId));
+  }
+
   /** The `Devices` document's current data (empty when it has none yet or it fails to parse). */
   getDevicesDocumentData(): IDevicesDocumentData {
     const doc = this.documents.find((candidate) => candidate.type === DEVICES_DOCUMENT_TYPE);
@@ -913,6 +930,7 @@ export class ArduinoProjectStore {
       doc,
       parentContainer: this.container,
       historyStore: this.carriedHistories.get(doc.id),
+      getConnectedDriverIds: () => this.getConnectedDriverIds(),
       extraModules: [new DebuggerModule({ session: this.debugSession, documentId: doc.id })],
     });
     scheme.events.subscribeEvent(EVENT_NODE_INSERTED, ({ node }) => {
