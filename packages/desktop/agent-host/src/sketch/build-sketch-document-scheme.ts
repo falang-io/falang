@@ -1,6 +1,7 @@
 import type { DependencyContainer } from '@falang/di';
 import type { INode } from '@falang/dto';
 import {
+  CopyPasteModule,
   createNodeStoreFromNode,
   HistoryModule,
   setRootNodeForScheme,
@@ -22,6 +23,12 @@ export interface IBuildSketchDocumentSchemeParams {
   readonly parentContainer: DependencyContainer;
   /** Host-only modules — added before the history module. */
   readonly extraModules?: readonly IModule[];
+  /**
+   * The project's `falang.json` `type` (`text`, `logic`, `simple-code-<language>`): with it the scheme gets
+   * `CopyPasteModule` (icons copied with this project type and the document type, pasted only into the same pair).
+   * Omitted → no copy/paste (headless hosts).
+   */
+  readonly projectType?: string;
 }
 
 /**
@@ -35,6 +42,9 @@ export const buildSketchDocumentScheme = (params: IBuildSketchDocumentSchemePara
   const config = SKETCH_DOCUMENT_TYPES[doc.type];
   const extraModules: IModule[] = [...(params.extraModules ?? [])];
   if (isAgentCapableDocumentType('sketch', doc.type)) extraModules.push(new HistoryModule());
+  if (typeof params.projectType === 'string') {
+    extraModules.push(new CopyPasteModule({ projectType: params.projectType, documentType: doc.type }));
+  }
   const scheme = config.buildScheme({
     id: doc.id,
     name: doc.name,

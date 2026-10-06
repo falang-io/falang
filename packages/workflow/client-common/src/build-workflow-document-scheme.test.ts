@@ -1,8 +1,19 @@
-import { container } from '@falang/di';
-import { TOKEN_HISTORY, registerGlobalTokens } from '@falang/scheme';
+import { container, resolveService } from '@falang/di';
+import { CMD_INSERT_NODE, TOKEN_COPY_PASTE, TOKEN_HISTORY, registerGlobalTokens } from '@falang/scheme';
 import { afterEach, describe, expect, it } from 'vitest';
-import { buildWorkflowDocumentScheme } from './build-workflow-document-scheme.js';
+import {
+  buildWorkflowDocumentScheme,
+  canPasteBetweenWorkflowDocuments,
+  WORKFLOW_PROJECT_TYPE,
+} from './build-workflow-document-scheme.js';
 import type { Scheme } from '@falang/scheme';
+
+const bodyOf = (scheme: Scheme) => {
+  const body = scheme.rootNode?.children.find((child) => child.name.endsWith('-body'));
+  if (!body) throw new Error('no body');
+  return body;
+};
+const at = (documentType: string, projectType = WORKFLOW_PROJECT_TYPE) => ({ projectType, documentType });
 
 describe('buildWorkflowDocumentScheme', () => {
   const schemes: Scheme[] = [];
@@ -60,5 +71,35 @@ describe('buildWorkflowDocumentScheme', () => {
     expect(scheme.rootNode?.id).toBe('root-1');
     expect(scheme.nodes.getNodeSafe('a1')?.data).toBe('x = 1');
     expect(rootAtCallback).toBeNull();
+  });
+
+  it('copies icons between function and trigger-function documents with fresh ids, never into a structure', () => {
+    const fn = build('function');
+    const trigger = build('trigger-function', { doc: { id: 'd3', name: 'onMessage', type: 'trigger-function' } });
+    const structure = build('objects-structure', { doc: { id: 'd4', name: 'T', type: 'objects-structure' } });
+    const action = { ...fn.infra.structure.factory('action'), data: 'x = 1' };
+    fn.commands.dispatchCommand(CMD_INSERT_NODE, { parentId: bodyOf(fn).id, index: 0, node: action });
+
+    const source = resolveService(TOKEN_COPY_PASTE, fn.container);
+    expect(source.origin).toEqual({ projectType: WORKFLOW_PROJECT_TYPE, documentType: 'function' });
+    expect(source.getCopyIds(action.id)).toEqual([action.id]);
+    expect(source.copy([action.id])?.documentType).toBe('function');
+
+    const target = resolveService(TOKEN_COPY_PASTE, trigger.container);
+    const triggerBody = bodyOf(trigger);
+    const [pasted] = target.paste(triggerBody.id, 0);
+    expect(pasted).toBeDefined();
+    expect(pasted).not.toBe(action.id);
+    expect(trigger.nodes.getNode(pasted).data).toBe('x = 1');
+
+    expect(resolveService(TOKEN_COPY_PASTE, structure.container).getPastePayload()).toBeNull();
+  });
+
+  it('canPasteBetweenWorkflowDocuments: same type, or function ↔ trigger-function, within one project type', () => {
+    expect(canPasteBetweenWorkflowDocuments(at('function'), at('trigger-function'))).toBe(true);
+    expect(canPasteBetweenWorkflowDocuments(at('trigger-function'), at('function'))).toBe(true);
+    expect(canPasteBetweenWorkflowDocuments(at('objects-structure'), at('objects-structure'))).toBe(true);
+    expect(canPasteBetweenWorkflowDocuments(at('function'), at('objects-structure'))).toBe(false);
+    expect(canPasteBetweenWorkflowDocuments(at('function', 'logic'), at('function'))).toBe(false);
   });
 });

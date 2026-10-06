@@ -807,7 +807,7 @@ export class DesktopProjectStore {
     // whichever scheme it touches — `buildSketchDocumentScheme` adds `HistoryModule` for every agent-capable type
     // (`function`, every `simple-code-*` language; not `contour`/`text-function`/`mind-tree` or the `*-structure`
     // editors, mirroring the workflow product's own function-document scoping — ADR 0026 (private)).
-    const scheme = buildSketchDocumentScheme({ doc, parentContainer: this.container });
+    const scheme = buildSketchDocumentScheme({ doc, parentContainer: this.container, projectType: this.projectType });
     // No types-registry update here, unlike an earlier version: `doc.root`'s reassignment by the sync is itself the MobX
     // trigger the project-wide `disposeTypesRegistrySync` autorun (see the constructor) reacts to — the same "no per-tab
     // path, only the project-wide sync" posture `syncFunctionsRegistry`/`syncExternalApiRegistry` already use.

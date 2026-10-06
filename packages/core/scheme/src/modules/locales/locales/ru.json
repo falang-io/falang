@@ -22,6 +22,8 @@
   },
   "menu": {
     "delete": "Удалить",
+    "copy": "Копировать",
+    "paste": "Вставить",
     "group-action": "Действие",
     "group-arrays": "Массивы",
     "group-condition": "Условие",

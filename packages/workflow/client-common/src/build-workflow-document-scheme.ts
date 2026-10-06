@@ -1,6 +1,8 @@
 import {
+  CopyPasteModule,
   createNodeStoreFromNode,
   HistoryModule,
+  type ICopyPasteOrigin,
   setRootNodeForScheme,
   type IModule,
   type ITheme,
@@ -36,10 +38,25 @@ export interface IBuildWorkflowDocumentSchemeParams {
   readonly onSchemeCreated?: (scheme: Scheme) => void;
 }
 
+/** The project type a workflow scheme copies icons from / pastes them into (`CopyPasteModule`). */
+export const WORKFLOW_PROJECT_TYPE = 'workflow';
+
+const FUNCTION_LIKE_TYPES: ReadonlySet<string> = new Set(['function', TRIGGER_FUNCTION_NAME]);
+
+/**
+ * Copy/paste between workflow documents: the same document type, or `function` ↔ `trigger-function` — both share one
+ * node stack and their bodies take the same statements (the module still checks every pasted kind against the target).
+ */
+export const canPasteBetweenWorkflowDocuments = (source: ICopyPasteOrigin, target: ICopyPasteOrigin): boolean =>
+  source.projectType === target.projectType &&
+  (source.documentType === target.documentType ||
+    (FUNCTION_LIKE_TYPES.has(source.documentType) && FUNCTION_LIKE_TYPES.has(target.documentType)));
+
 /**
  * The workflow product's per-document `Scheme`, exactly as `WorkflowStore.buildScheme` builds it: the workflow function
  * factory for `function`/`trigger-function` documents (every registered integration's node kinds), the objects-structure
- * factory otherwise, `HistoryModule` for every agent-editable type (one agent request = one undo group per document), and
+ * factory otherwise, `HistoryModule` for every agent-editable type (one agent request = one undo group per document),
+ * `CopyPasteModule` (icon copy/paste via the context menus, `canPasteBetweenWorkflowDocuments`), and
  * the document's stored root or its node kind's factory default. The host keeps what is host-specific — the
  * `EVENT_ONCHANGE` autosave subscription, the magic-host registration (`onSchemeCreated`), debug/run modules (`extraModules`).
  *
@@ -54,6 +71,13 @@ export const buildWorkflowDocumentScheme = (params: IBuildWorkflowDocumentScheme
   // (one agent request = one undo group per document touched) — registered per agent-editable scheme (`objects-structure`
   // too, since 2026-09-27), unlike `AgentModule` itself, which hosts no longer use.
   if (isAgentEditableType(doc.type)) extraModules.push(new HistoryModule());
+  extraModules.push(
+    new CopyPasteModule({
+      projectType: WORKFLOW_PROJECT_TYPE,
+      documentType: doc.type,
+      canPasteFrom: canPasteBetweenWorkflowDocuments,
+    }),
+  );
   const scheme = isFunctionDoc
     ? workflowFunctionalSchemeFactory({
         id: doc.id,

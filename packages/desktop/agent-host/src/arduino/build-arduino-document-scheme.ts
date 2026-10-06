@@ -1,6 +1,7 @@
 import type { DependencyContainer } from '@falang/di';
 import type { INode } from '@falang/dto';
 import {
+  CopyPasteModule,
   createNodeStoreFromNode,
   HistoryModule,
   type HistoryStore,
@@ -24,13 +25,20 @@ export interface IBuildArduinoDocumentSchemeParams {
 /**
  * `app-arduino`'s per-document `Scheme`, exactly as `ArduinoProjectStore.buildScheme` builds it: `arduinoSchemeFactory`
  * (the pin / built-in-function / driver-action node kinds on top of the typescript `function` set), `HistoryModule` on every
- * scheme document (one agent request = one undo group per document touched), and the stored root or the `function` node
+ * scheme document (one agent request = one undo group per document touched), `CopyPasteModule`, and the stored root or the `function` node
  * kind's default. Every Arduino document that has a scheme is a `function` tree; the `Devices` document never reaches here.
  * The host keeps the `EVENT_ONCHANGE` autosave/sync subscription.
  */
+/** The project/document type an Arduino scheme copies icons with (`CopyPasteModule`): every scheme document is a `function`. */
+export const ARDUINO_COPY_PASTE_ORIGIN = { projectType: 'arduino', documentType: 'function' } as const;
+
 export const buildArduinoDocumentScheme = (params: IBuildArduinoDocumentSchemeParams): Scheme => {
   const { doc } = params;
-  const extraModules: IModule[] = [...(params.extraModules ?? []), new HistoryModule({ store: params.historyStore })];
+  const extraModules: IModule[] = [
+    ...(params.extraModules ?? []),
+    new HistoryModule({ store: params.historyStore }),
+    new CopyPasteModule(ARDUINO_COPY_PASTE_ORIGIN),
+  ];
   const scheme = arduinoSchemeFactory({
     id: doc.id,
     name: doc.name,
