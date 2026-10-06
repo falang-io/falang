@@ -1,3 +1,4 @@
+import { tl } from '../locales/arduino-t.js';
 import type { IBlockConfig, IBlockEditorFactoryParams, IBlockView, TBlockEditorView } from '@falang/scheme';
 import { CELL_SIZE_2, EditorType } from '@falang/scheme';
 import {
@@ -25,7 +26,7 @@ const ZeroArgReadBlockComponent = (functionLabel: string): IBlockView<IZeroArgRe
           <tbody>
             <tr>
               <td>
-                <div className="ts-label">call</div>
+                <div className="ts-label">{tl('call')}</div>
               </td>
               <td>
                 <div className="ts-input-value">{functionLabel}</div>
@@ -33,7 +34,7 @@ const ZeroArgReadBlockComponent = (functionLabel: string): IBlockView<IZeroArgRe
             </tr>
             <tr>
               <td>
-                <div className="ts-label">var</div>
+                <div className="ts-label">{tl('var')}</div>
               </td>
               <td>
                 <div className="ts-input-value">{data.variable || <>&nbsp;</>}</div>
@@ -73,7 +74,7 @@ const ZeroArgReadBlockEditorComponent = (functionLabel: string): TBlockEditorVie
         <tbody>
           <tr>
             <td>
-              <div className="ts-label">call</div>
+              <div className="ts-label">{tl('call')}</div>
             </td>
             <td>
               <div className="ts-input-value">{functionLabel}</div>
@@ -81,7 +82,7 @@ const ZeroArgReadBlockEditorComponent = (functionLabel: string): TBlockEditorVie
           </tr>
           <tr>
             <td>
-              <div className="ts-label">var</div>
+              <div className="ts-label">{tl('var')}</div>
             </td>
             <td>
               <NewVariableEditingComponent store={editor.variableStore} autoFocus={false} />

@@ -23,16 +23,21 @@ describe('MagicRunStore', () => {
   // oxlint-disable-next-line init-declarations
   let client: ScriptedLlmClient;
   let allowQuestions = true;
+  let finishedRuns = 0;
   const setup = (script: TScriptedStep[], body = [magicNode('m', [], 'send a greeting')]) => {
     scheme = buildMagicScheme(body);
     client = new ScriptedLlmClient(script);
     allowQuestions = true;
+    finishedRuns = 0;
     store = new MagicRunStore({
       createContextProviders: () => [],
       createLlmClient: () => client,
       createToolProviders: () => [],
       getAllowQuestions: () => allowQuestions,
       getScheme: (documentId) => (documentId === 'doc' ? scheme : null),
+      onRunFinished: () => {
+        finishedRuns += 1;
+      },
     });
   };
   const status = (nodeId = 'm') => store.getState('doc', nodeId).status;
@@ -133,6 +138,22 @@ describe('MagicRunStore', () => {
     await settled('idle');
     expect(children()).toEqual(['a = 1']);
     expect(JSON.stringify(client.requests[1].messages[0])).toContain('send a greeting');
+  });
+
+  it('reports every finished run, successful or failed', async () => {
+    setup([
+      () => {
+        throw new Error('vendor down');
+      },
+      fill([act('a = 1')], 'n'),
+      finish('ok'),
+    ]);
+    store.startGenerate('doc', 'm');
+    await settled('failed');
+    expect(finishedRuns).toBe(1);
+    store.retry('doc', 'm');
+    await settled('idle');
+    expect(finishedRuns).toBe(2);
   });
 
   it('finishing without filling is a failure', async () => {

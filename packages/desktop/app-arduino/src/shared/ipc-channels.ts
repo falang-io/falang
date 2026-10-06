@@ -44,7 +44,10 @@ export const IPC = {
   versioningRestore: 'versioning:restore',
   menuNewProject: 'menu:new-project',
   menuOpenProject: 'menu:open-project',
-  menuSaveDocument: 'menu:save-document',
+  menuUndo: 'menu:undo',
+  menuRedo: 'menu:redo',
+  /** Renderer → main: the open project (or none), so `main` can rebuild the menu with the right items. */
+  menuSetContext: 'menu:set-context',
   menuOpenBuildPanel: 'menu:open-build-panel',
   menuOpenSettings: 'menu:open-settings',
   menuOpenVersioningSettings: 'menu:open-versioning-settings',

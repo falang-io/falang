@@ -3,6 +3,7 @@ import { useEffect } from 'react';
 import { observer } from 'mobx-react-lite';
 import { ConfigProvider } from 'antd';
 import { getGlobalI18n } from '@falang/scheme';
+import { installUndoRedo } from '@falang/desktop-agent-host';
 import './locales/register-desktop-locales.js';
 import { navigationStore } from './navigation-store.js';
 import { openExistingProject } from './project-actions.js';
@@ -44,6 +45,24 @@ export const App: React.FC = observer(() => {
       unsubscribeLanguageSettings();
     };
   }, []);
+
+  // The native menu's project-dependent items (and, in `app-sketch`, the export items per project type) follow the
+  // open project — `main` can't know it on its own, so it is reported here, including the back-to-welcome case.
+  const menuProjectType = navigationStore.openProjectDir ? 'arduino' : null;
+  useEffect(() => {
+    globalThis.falang.menu.setContext({ projectType: menuProjectType });
+  }, [menuProjectType]);
+
+  // Edit → Undo/Redo and Ctrl+Z on the canvas: text editors undo their own text, otherwise the active document's history.
+  useEffect(
+    () =>
+      installUndoRedo({
+        getHistory: () => getActiveProjectStore()?.getActiveHistory() ?? null,
+        onMenuUndo: globalThis.falang.menu.onUndo,
+        onMenuRedo: globalThis.falang.menu.onRedo,
+      }),
+    [],
+  );
 
   // `main`'s graceful-close flow (see `main/index.ts`/`graceful-close.ts`) — the window's `close`
   // was just intercepted and is waiting on this ack before it actually closes, so every branch must

@@ -33,6 +33,7 @@ export class DbAgentUsageSink implements IAgentUsageSink {
   async afterCall(ctx: IAgentUsageAfterCallContext): Promise<void> {
     await this.repository.save(
       this.repository.create({
+        cachedPromptTokens: ctx.usage?.cachedPromptTokens ?? null,
         completionTokens: ctx.usage?.completionTokens ?? null,
         durationMs: Math.round(ctx.durationMs),
         model: ctx.model,

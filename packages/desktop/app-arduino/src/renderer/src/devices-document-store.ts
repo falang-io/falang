@@ -1,4 +1,5 @@
 import { action, makeObservable, observable, toJS } from 'mobx';
+import { localizeDriverConfig } from '@falang/desktop-arduino-dto/src/driver-localize.js';
 import type { IDriverConfig } from '../../shared/driver-config.js';
 import {
   DevicesDocumentValidationError,
@@ -16,6 +17,7 @@ export interface IDevicesDocumentStoreParams {
   readonly drivers: readonly IDriverConfig[];
   /** Called with a plain (non-observable) snapshot after every mutation — see `emitChange` below. */
   readonly onChange: (data: IDevicesDocumentData) => void;
+  readonly getLanguage?: () => string;
 }
 
 /** Parses a document's raw `data`, falling back to empty data (plus an error message) rather than
@@ -47,6 +49,8 @@ const parseDevicesDataOrFallback = (
 export class DevicesDocumentStore {
   readonly drivers: readonly IDriverConfig[];
   private readonly onChange: (data: IDevicesDocumentData) => void;
+  /** UI language for a new device's default name (it is user data afterwards and stays as typed). */
+  private readonly getLanguage: () => string;
 
   @observable.shallow pins: IDevicePinConfig[];
   @observable.shallow devices: IDeviceInstance[];
@@ -58,6 +62,7 @@ export class DevicesDocumentStore {
   constructor(params: IDevicesDocumentStoreParams) {
     this.drivers = params.drivers;
     this.onChange = params.onChange;
+    this.getLanguage = params.getLanguage ?? (() => 'en');
     // `document.data` is a MobX-observable proxy (from `ArduinoProjectStore.documents`); zod throws on its Symbol keys.
     const parsed = parseDevicesDataOrFallback(toJS(params.document.data));
     this.pins = [...parsed.data.pins];
@@ -107,7 +112,12 @@ export class DevicesDocumentStore {
     if (!driver?.device) return;
     const initialParams: Record<string, string> = {};
     for (const field of driver.device.fields) initialParams[field.name] = field.default ?? '';
-    this.devices.push({ id: generateUuid(), driverId, name: driver.label, params: initialParams });
+    this.devices.push({
+      id: generateUuid(),
+      driverId,
+      name: localizeDriverConfig(driver, this.getLanguage()).label,
+      params: initialParams,
+    });
     this.emitChange();
   }
 

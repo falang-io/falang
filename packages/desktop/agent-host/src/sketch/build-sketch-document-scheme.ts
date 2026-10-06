@@ -8,7 +8,6 @@ import {
   type IModule,
   type Scheme,
 } from '@falang/scheme';
-import { isAgentCapableDocumentType } from '../agent-capable-documents.js';
 import { SKETCH_DOCUMENT_TYPES, type SketchDocumentType } from './document-types.js';
 
 export interface IBuildSketchDocumentSchemeParams {
@@ -33,15 +32,14 @@ export interface IBuildSketchDocumentSchemeParams {
 
 /**
  * `app-sketch`'s per-document `Scheme`, exactly as `DesktopProjectStore.buildScheme` builds it: the document type's own
- * scheme factory, `HistoryModule` for every agent-capable type (one agent request = one undo group per document touched —
- * the project's one `AgentSession` needs it, ADR 0009/0036 (private)), and the stored root or its node kind's factory
+ * scheme factory, `HistoryModule` for every document type (Edit → Undo/Redo work everywhere; for agent-capable types one agent
+ * request is also one undo group per document touched — the project's one `AgentSession` needs it, ADR 0009/0036 (private)), `CopyPasteModule` when `projectType` is given, and the stored root or its node kind's factory
  * default. The host keeps what is host-specific: the `EVENT_ONCHANGE` autosave/sync subscription and tab navigation.
  */
 export const buildSketchDocumentScheme = (params: IBuildSketchDocumentSchemeParams): Scheme => {
   const { doc } = params;
   const config = SKETCH_DOCUMENT_TYPES[doc.type];
-  const extraModules: IModule[] = [...(params.extraModules ?? [])];
-  if (isAgentCapableDocumentType('sketch', doc.type)) extraModules.push(new HistoryModule());
+  const extraModules: IModule[] = [...(params.extraModules ?? []), new HistoryModule()];
   if (typeof params.projectType === 'string') {
     extraModules.push(new CopyPasteModule({ projectType: params.projectType, documentType: doc.type }));
   }

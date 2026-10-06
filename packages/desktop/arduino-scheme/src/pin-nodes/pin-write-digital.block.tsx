@@ -1,3 +1,4 @@
+import { tl } from '../locales/arduino-t.js';
 import type React from 'react';
 import type { IBlockConfig, IBlockEditorFactoryParams, IBlockView, TBlockEditorView } from '@falang/scheme';
 import { BlockEditorStore, CELL_SIZE_2, EditorType } from '@falang/scheme';
@@ -28,7 +29,7 @@ const PinWriteDigitalBlockComponent: IBlockView<IPinWriteDigitalData> = observer
         <tbody>
           <tr>
             <td>
-              <div className="ts-label">pin</div>
+              <div className="ts-label">{tl('pin')}</div>
             </td>
             <td>
               <div className="ts-input-value">D{data.pin}</div>
@@ -36,7 +37,7 @@ const PinWriteDigitalBlockComponent: IBlockView<IPinWriteDigitalData> = observer
           </tr>
           <tr>
             <td>
-              <div className="ts-label">value</div>
+              <div className="ts-label">{tl('value')}</div>
             </td>
             <td>
               <div className="ts-input-value">
@@ -80,7 +81,7 @@ const PinWriteDigitalBlockEditorComponent: TBlockEditorView<PinWriteDigitalBlock
         <tbody>
           <tr>
             <td>
-              <div className="ts-label">pin</div>
+              <div className="ts-label">{tl('pin')}</div>
             </td>
             <td>
               <input
@@ -94,7 +95,7 @@ const PinWriteDigitalBlockEditorComponent: TBlockEditorView<PinWriteDigitalBlock
           </tr>
           <tr>
             <td>
-              <div className="ts-label">value</div>
+              <div className="ts-label">{tl('value')}</div>
             </td>
             <td>
               <TsSelect

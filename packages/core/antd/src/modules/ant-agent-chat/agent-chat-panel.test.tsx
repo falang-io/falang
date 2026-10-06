@@ -1,5 +1,6 @@
 import { renderToStaticMarkup } from 'react-dom/server';
 import { createElement } from 'react';
+import { runInAction } from 'mobx';
 import { describe, expect, it } from 'vitest';
 import {
   AgentModule,
@@ -174,5 +175,26 @@ describe('AgentChatPanel clarifying questions', () => {
     expect(html).toContain('chat bot');
     expect(html).toContain('Email');
     expect(html).toMatch(/<textarea[^>]*disabled/);
+  });
+});
+
+describe('AgentChatPanel running turn', () => {
+  it('shows the thinking animation for the pending request and no model tag without a model', async () => {
+    const { agentSession, store } = await failedSetup();
+    runInAction(() => {
+      store.pendingRequest = 'build a bot';
+    });
+    const html = render({
+      agentSession,
+      store,
+      history: null,
+      getActiveDocumentId: () => null,
+      configured: true,
+      configuredLoading: false,
+    });
+    expect(html).toContain('build a bot');
+    expect(html).toContain('data-testid="agent-thinking"');
+    expect(html).toContain('falang-agent-thinking__dot');
+    expect(html).not.toContain('>m<');
   });
 });

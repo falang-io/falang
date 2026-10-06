@@ -20,3 +20,6 @@
  */
 float dht_read_temperature(uint8_t pin, uint8_t sensorType);
 float dht_read_humidity(uint8_t pin, uint8_t sensorType);
+
+/** Device setup (called from `setup()` for a `Devices` entry): idles the data line high via the pull-up. `sensorType` is accepted for symmetry with the read functions. */
+void dht_init(uint8_t pin, uint8_t sensorType);

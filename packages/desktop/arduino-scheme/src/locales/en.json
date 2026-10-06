@@ -1,0 +1,34 @@
+{
+  "arduino-scheme": {
+    "group": {
+      "arduino": "Arduino",
+      "device": "Device"
+    },
+    "title": {
+      "pin-write-digital": "Set digital pin",
+      "pin-write-analog": "Set analog pin (PWM)",
+      "pin-read-digital": "Read digital pin",
+      "pin-read-analog": "Read analog pin",
+      "delay": "Delay",
+      "delay-microseconds": "Delay (microseconds)",
+      "random-seed": "Random seed",
+      "serial-begin": "Serial begin",
+      "serial-print": "Serial print",
+      "serial-println": "Serial println",
+      "millis": "Millis",
+      "micros": "Micros",
+      "random": "Random"
+    },
+    "label": {
+      "pin": "pin",
+      "value": "value",
+      "var": "var",
+      "call": "call",
+      "max": "max",
+      "delay-ms": "delay (ms)",
+      "delay-us": "delay (us)",
+      "seed": "seed",
+      "baud": "baud"
+    }
+  }
+}

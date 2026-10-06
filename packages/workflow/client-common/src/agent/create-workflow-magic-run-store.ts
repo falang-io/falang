@@ -28,6 +28,8 @@ export interface ICreateWorkflowMagicRunStoreDeps {
   readonly getAllowQuestions: () => boolean;
   /** Pause after focusing the icon about to change; `0` skips it (headless). */
   readonly focusPauseMs?: number;
+  /** Called after every finished magic run (see `IMagicRunDeps.onRunFinished`). */
+  readonly onRunFinished?: () => void;
 }
 
 /**
@@ -45,6 +47,7 @@ export const createWorkflowMagicRunStore = (deps: ICreateWorkflowMagicRunStoreDe
     focusPauseMs: deps.focusPauseMs,
     getAllowQuestions: deps.getAllowQuestions,
     getScheme: (documentId) => getMagicHostScheme(store, documentId),
+    onRunFinished: deps.onRunFinished,
     nodeKindFilter: createWorkflowNodeKindFilter(REGISTERED_INTEGRATIONS, () =>
       getIntegrationInstances(store.documents),
     ),

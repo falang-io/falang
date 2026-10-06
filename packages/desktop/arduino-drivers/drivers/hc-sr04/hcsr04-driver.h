@@ -8,3 +8,6 @@
  * sensor's real ~4m max), the same "one real sentinel value" approach `dht-driver.h` takes with `NAN`.
  */
 float hcsr04_read_distance(uint8_t trigPin, uint8_t echoPin);
+
+/** Device setup (called from `setup()` for a `Devices` entry): configures the trigger and echo pins. */
+void hcsr04_init(uint8_t trigPin, uint8_t echoPin);

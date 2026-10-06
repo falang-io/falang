@@ -6,6 +6,7 @@ import {
   PIN_WRITE_ANALOG,
   PIN_WRITE_DIGITAL,
 } from '@falang/desktop-arduino-dto/src/pin-nodes.js';
+import { nodeTitleKey } from '../locales/arduino-t.js';
 import { pinNodeConfigs } from './pin-node-configs.js';
 import { pinWriteDigitalBlockConfig } from './pin-write-digital.block.js';
 import { pinWriteAnalogBlockConfig } from './pin-write-analog.block.js';
@@ -18,8 +19,8 @@ import { pinReadBlockConfig } from './pin-read.block.js';
  * know Arduino pins exist.
  */
 export const pinNodesIconsGroup = new IconsGroup(new NodesGroup(pinNodeConfigs), {
-  [PIN_WRITE_DIGITAL]: getSimpleIconNodeConfig(pinWriteDigitalBlockConfig, 'Set digital pin'),
-  [PIN_WRITE_ANALOG]: getSimpleIconNodeConfig(pinWriteAnalogBlockConfig, 'Set analog pin (PWM)'),
-  [PIN_READ_DIGITAL]: getSimpleIconNodeConfig(pinReadBlockConfig, 'Read digital pin'),
-  [PIN_READ_ANALOG]: getSimpleIconNodeConfig(pinReadBlockConfig, 'Read analog pin'),
+  [PIN_WRITE_DIGITAL]: getSimpleIconNodeConfig(pinWriteDigitalBlockConfig, nodeTitleKey(PIN_WRITE_DIGITAL)),
+  [PIN_WRITE_ANALOG]: getSimpleIconNodeConfig(pinWriteAnalogBlockConfig, nodeTitleKey(PIN_WRITE_ANALOG)),
+  [PIN_READ_DIGITAL]: getSimpleIconNodeConfig(pinReadBlockConfig, nodeTitleKey(PIN_READ_DIGITAL)),
+  [PIN_READ_ANALOG]: getSimpleIconNodeConfig(pinReadBlockConfig, nodeTitleKey(PIN_READ_ANALOG)),
 });

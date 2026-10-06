@@ -702,14 +702,14 @@ export class DesktopProjectStore {
   }
 
   /** Shared by `agentDocumentResolver`, `getAgentActiveDocumentId`, `agentCapableDocumentSummaries`,
-   *  and `buildScheme`'s `HistoryModule` scoping — `function` or any `simple-code-*` language. */
+   *  — `function` or any `simple-code-*` language. */
   private isAgentCapableDocument(doc: DesktopDocument): boolean {
     return isAgentCapableDocumentType('sketch', doc.type);
   }
 
   /**
    * The active document's `HistoryStore` (resolved from its scheme's own container), or `null` when
-   * there's no active document or its scheme has no `HistoryModule` registered — ADR 0036 §2/§3.
+   * there's no active document (every scheme document type registers `HistoryModule`) — ADR 0036 §2/§3.
    * Deliberately independent of `getAgentHome()`: Undo/Redo in the agent panel follow whichever
    * document is on screen, not just an agent-capable one.
    */
@@ -803,10 +803,9 @@ export class DesktopProjectStore {
   }
 
   private buildScheme(doc: DesktopDocument): Scheme {
-    // One request from the project's single `AgentSession` (see the `agentSession` field above) is one undo group on
-    // whichever scheme it touches — `buildSketchDocumentScheme` adds `HistoryModule` for every agent-capable type
-    // (`function`, every `simple-code-*` language; not `contour`/`text-function`/`mind-tree` or the `*-structure`
-    // editors, mirroring the workflow product's own function-document scoping — ADR 0026 (private)).
+    // `buildSketchDocumentScheme` adds `HistoryModule` to every document type (Edit → Undo/Redo work everywhere); one
+    // request from the project's single `AgentSession` (see the `agentSession` field above) is one undo group on
+    // whichever agent-capable scheme it touches.
     const scheme = buildSketchDocumentScheme({ doc, parentContainer: this.container, projectType: this.projectType });
     // No types-registry update here, unlike an earlier version: `doc.root`'s reassignment by the sync is itself the MobX
     // trigger the project-wide `disposeTypesRegistrySync` autorun (see the constructor) reacts to — the same "no per-tab
