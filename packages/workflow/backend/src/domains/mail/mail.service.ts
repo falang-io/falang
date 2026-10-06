@@ -1,5 +1,6 @@
 import { Inject, Injectable, Logger } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
+import { mailTotal } from '../metrics/metrics.js';
 
 export interface IMailMessage {
   readonly from: string;
@@ -43,6 +44,7 @@ export class MailService {
   /** Never throws: a missing transport or a delivery error is logged and reported as `{ sent: false }`. */
   async send(input: ISendMailInput): Promise<{ sent: boolean }> {
     if (!this.transport) {
+      mailTotal.inc({ result: 'skipped' });
       this.logger.warn(`SMTP_URL is not set; mail "${input.subject}" was not sent`);
       return { sent: false };
     }
@@ -54,8 +56,10 @@ export class MailService {
         text: input.text,
         ...(typeof input.html === 'string' ? { html: input.html } : {}),
       });
+      mailTotal.inc({ result: 'sent' });
       return { sent: true };
     } catch (error) {
+      mailTotal.inc({ result: 'failed' });
       this.logger.error(
         `Sending mail "${input.subject}" failed: ${error instanceof Error ? error.message : 'unknown'}`,
       );

@@ -2,6 +2,7 @@ import { BadGatewayException, Inject, Injectable, Logger, Optional, Precondition
 import { ConfigService } from '@nestjs/config';
 import { AgentSettingsService } from '../admin/app-settings/agent-settings.service.js';
 import { ProjectsService } from '../projects/projects/projects.service.js';
+import { agentChatCallsTotal, agentChatDuration, agentChatTokensTotal } from '../metrics/metrics.js';
 import type { IAgentChatResult } from './agent-chat.types.js';
 import type { AgentChatRequestDto } from './dto/agent-chat-request.dto.js';
 import {
@@ -62,14 +63,30 @@ export class AgentChatService {
 
     const resolved = await this.agentSettings.resolve();
     if (!resolved) {
+      agentChatCallsTotal.inc({ result: 'rejected' });
       throw new PreconditionFailedException('AI agent is not configured — ask an administrator');
     }
 
     const usageCtx = { model: resolved.model, projectId, userId: ownerId };
     // Anything thrown here (e.g. a cloud sink's HttpException(402)) reaches the client unchanged.
-    await this.usageSink.beforeCall(usageCtx);
+    try {
+      await this.usageSink.beforeCall(usageCtx);
+    } catch (error) {
+      agentChatCallsTotal.inc({ result: 'rejected' });
+      throw error;
+    }
     const startedAt = Date.now();
-    const result = await this.callVendor(resolved, body);
+    const result = await this.callVendor(resolved, body).catch((error: unknown) => {
+      agentChatCallsTotal.inc({ result: 'vendor_error' });
+      agentChatDuration.observe({}, (Date.now() - startedAt) / 1000);
+      throw error;
+    });
+    agentChatCallsTotal.inc({ result: 'ok' });
+    agentChatDuration.observe({}, (Date.now() - startedAt) / 1000);
+    if (result.usage) {
+      agentChatTokensTotal.inc({ kind: 'prompt' }, result.usage.promptTokens);
+      agentChatTokensTotal.inc({ kind: 'completion' }, result.usage.completionTokens);
+    }
     try {
       await this.usageSink.afterCall({ ...usageCtx, durationMs: Date.now() - startedAt, usage: result.usage ?? null });
     } catch (error) {

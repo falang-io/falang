@@ -158,3 +158,14 @@ TEMPORAL_SERVER_CONFIG=server.yaml TEMPORAL_TENANT_ISOLATION=per-project \\
   пути отвечают 404. Не открывайте внутренний порт в интернет: укажите его в <code>BACKEND_INTERNAL_URL</code> этих
   сервисов (внутри кластера — через ClusterIP Service).
 </p>
+
+#### Логи и метрики
+<p>
+  <code>LOG_FORMAT=json</code> включает вывод логов backend по одному JSON-объекту на строку (уровень, время, контекст,
+  сообщение и — внутри HTTP-запроса — <code>requestId</code>, то же значение приходит в ответе в заголовке
+  <code>x-request-id</code>; входящий <code>x-request-id</code> до 128 безопасных символов используется как есть). По
+  умолчанию — читаемый текст. <code>LOG_LEVEL</code> необязательно фильтрует: один уровень (<code>warn</code> — это warn
+  и выше) или список через запятую. <code>GET /internal/metrics</code> на внутреннем порту отдаёт метрики Prometheus
+  (процесс, Node.js, HTTP-запросы по шаблону маршрута, сборки, runner-поды, вызовы AI-агента); аутентификации нет, так
+  что держите этот порт закрытым.
+</p>

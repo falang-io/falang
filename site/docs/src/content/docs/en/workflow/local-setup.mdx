@@ -154,3 +154,14 @@ TEMPORAL_SERVER_CONFIG=server.yaml TEMPORAL_TENANT_ISOLATION=per-project \\
   port to the internet: point <code>BACKEND_INTERNAL_URL</code> of those services at it (inside a cluster, a ClusterIP
   Service).
 </p>
+
+#### Logs and metrics
+<p>
+  <code>LOG_FORMAT=json</code> makes the backend write one JSON object per line (level, timestamp, context, message and,
+  inside an HTTP request, <code>requestId</code> — the same value the response carries in <code>x-request-id</code>; an
+  incoming <code>x-request-id</code> of up to 128 safe characters is reused). The default is human-readable text.
+  <code>LOG_LEVEL</code> optionally filters: one level (<code>warn</code> means warn and above) or a comma-separated
+  list. <code>GET /internal/metrics</code> on the internal port exposes Prometheus metrics (process, Node.js, HTTP
+  requests by route template, builds, runner pods, AI agent calls); there is no authentication, so keep that port
+  private.
+</p>

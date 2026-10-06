@@ -2,6 +2,7 @@
 import { fork } from 'node:child_process';
 import { existsSync } from 'node:fs';
 import { join, resolve } from 'node:path';
+import { buildWorkerQueueLength, buildWorkersActive } from '../../metrics/metrics.js';
 import type { IBuildJob, TBuildJobResult } from './build-job.js';
 import type { TBuildWorkerReply } from './build-worker.js';
 
@@ -50,13 +51,20 @@ const buildChildEnv = (): NodeJS.ProcessEnv => {
 const waiters: (() => void)[] = [];
 let running = 0;
 
+const publishPoolMetrics = (): void => {
+  buildWorkersActive.set(running);
+  buildWorkerQueueLength.set(waiters.length);
+};
+
 const acquire = async (): Promise<void> => {
   if (running < readPositiveInt('BUILD_WORKER_CONCURRENCY', DEFAULT_CONCURRENCY)) {
     running += 1;
+    publishPoolMetrics();
     return;
   }
   await new Promise<void>((resolveWaiter) => {
     waiters.push(resolveWaiter);
+    publishPoolMetrics();
   });
 };
 
@@ -68,6 +76,7 @@ const release = (): void => {
   } else {
     running -= 1;
   }
+  publishPoolMetrics();
 };
 
 const runOnce = (job: IBuildJob, options: IBuildWorkerOptions): Promise<TBuildJobResult> =>

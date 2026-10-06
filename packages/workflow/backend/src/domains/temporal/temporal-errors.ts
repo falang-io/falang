@@ -1,5 +1,6 @@
 // oxlint-disable no-undefined -- `undefined` is the honest "this error carries no gRPC code" value here.
 import type { Logger } from '@nestjs/common';
+import { temporalPermissionDeniedTotal } from '../metrics/metrics.js';
 
 export const GRPC_DEADLINE_EXCEEDED = 4;
 export const GRPC_NOT_FOUND = 5;
@@ -32,6 +33,7 @@ export const isPermissionDenied = (error: unknown): boolean => {
  */
 export const reportIfPermissionDenied = (logger: Pick<Logger, 'error'>, context: string, error: unknown): boolean => {
   if (!isPermissionDenied(error)) return false;
+  temporalPermissionDeniedTotal.inc();
   logger.error(
     `[security] Temporal denied a request (${context}): ${error instanceof Error ? error.message : String(error)}`,
   );

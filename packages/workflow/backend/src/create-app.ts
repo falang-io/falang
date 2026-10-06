@@ -10,6 +10,9 @@ import { AppModule, type TAppImport } from './app.module.js';
 import { RunnerProcessManager } from './domains/build/build/runner-process-manager.js';
 import { validateSecrets } from './config/validate-secrets.js';
 import { McpService } from './domains/mcp/mcp.service.js';
+import { httpMetricsMiddleware } from './observability/http-metrics.js';
+import { createAppLogger } from './observability/json-logger.js';
+import { requestIdMiddleware } from './observability/request-context.js';
 import { portSplitMiddleware } from './port-split.js';
 
 export interface ICreateAppOptions {
@@ -89,7 +92,12 @@ export const createApp = async (options: ICreateAppOptions = {}): Promise<NestEx
   // whatever `@Body()` already parsed — see that controller's `dispatch()` doc comment and
   // ADR 0017 (private)'s "A real gap found along the way".
   validateSecrets();
-  const app = await NestFactory.create<NestExpressApplication>(rootModule, { rawBody: true });
+  // `LOG_FORMAT=json` → one JSON object per line (with the request id inside a request); `LOG_LEVEL` filters — ADR 0060 (private).
+  const logger = createAppLogger();
+  const app = await NestFactory.create<NestExpressApplication>(rootModule, {
+    rawBody: true,
+    ...(logger ? { logger } : {}),
+  });
   // No cookie-based session is used (auth is a bearer token the client attaches itself), so a
   // permissive CORS policy doesn't expose anything origin-specific.
   app.enableCors();
@@ -100,6 +108,10 @@ export const createApp = async (options: ICreateAppOptions = {}): Promise<NestEx
   // counters add up fast). Bumped globally rather than per-route: every other body on this API is
   // small (workflow node trees, credential fields), so this only ever matters for that endpoint.
   app.useBodyParser('json', { limit: '15mb' });
+  // Before every route (including the raw `/mcp` mount below): the request id (response header + async-local
+  // context for the JSON logger) and the HTTP request counter/histogram.
+  app.use(requestIdMiddleware);
+  app.use(httpMetricsMiddleware);
   // Before every route (including the raw `/mcp` mount below): `/internal/*` must be unreachable on the public port.
   if (typeof options.internalPort === 'number') {
     app.use(portSplitMiddleware(options.internalPort));
