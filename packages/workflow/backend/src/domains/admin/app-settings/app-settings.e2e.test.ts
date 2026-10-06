@@ -47,6 +47,7 @@ describe('app settings / agent config (/admin/settings/agent, /agent/settings)',
         baseUrl: null,
         model: null,
         hasApiKey: false,
+        interface: 'json',
         updatedAt: null,
       });
     });
@@ -102,6 +103,27 @@ describe('app settings / agent config (/admin/settings/agent, /agent/settings)',
       });
     });
 
+    it('stores the agent interface, keeps it when omitted, 400s an invalid value, resets on DELETE', async () => {
+      const adminToken = await login(app);
+      const put = (body: object) =>
+        request(app.getHttpServer()).put('/admin/settings/agent').set(auth(adminToken)).send(body);
+      const base = { baseUrl: 'https://api.example.com', model: 'm', apiKey: 'sk' };
+
+      const first = await put({ ...base, interface: 'nodes' });
+      expect(first.body.interface).toBe('nodes');
+      const second = await put({ baseUrl: base.baseUrl, model: 'm2' });
+      expect(second.body.interface).toBe('nodes');
+      const invalid = await put({ ...base, interface: 'code' });
+      expect(invalid.status).toBe(400);
+      const userToken = await registerUser('alice');
+      const status = await request(app.getHttpServer()).get('/agent/settings').set(auth(userToken));
+      expect(status.body.interface).toBe('nodes');
+
+      await request(app.getHttpServer()).delete('/admin/settings/agent').set(auth(adminToken)).expect(204);
+      const after = await request(app.getHttpServer()).get('/admin/settings/agent').set(auth(adminToken));
+      expect(after.body.interface).toBe('json');
+    });
+
     it('400s a PUT with no apiKey and none stored yet', async () => {
       const adminToken = await login(app);
 
@@ -130,6 +152,7 @@ describe('app settings / agent config (/admin/settings/agent, /agent/settings)',
         baseUrl: null,
         model: null,
         hasApiKey: false,
+        interface: 'json',
         updatedAt: null,
       });
     });
@@ -142,7 +165,7 @@ describe('app settings / agent config (/admin/settings/agent, /agent/settings)',
 
       const before = await request(app.getHttpServer()).get('/agent/settings').set(auth(userToken));
       expect(before.status).toBe(200);
-      expect(before.body).toEqual({ configured: false, model: null });
+      expect(before.body).toEqual({ configured: false, model: null, interface: 'json' });
 
       await request(app.getHttpServer())
         .put('/admin/settings/agent')
@@ -152,7 +175,7 @@ describe('app settings / agent config (/admin/settings/agent, /agent/settings)',
 
       const after = await request(app.getHttpServer()).get('/agent/settings').set(auth(userToken));
       expect(after.status).toBe(200);
-      expect(after.body).toEqual({ configured: true, model: 'gpt-test' });
+      expect(after.body).toEqual({ configured: true, model: 'gpt-test', interface: 'json' });
     });
 
     it('401s an unauthenticated request', async () => {

@@ -10,6 +10,8 @@ export class AgentSettingsStore {
   @observable configured = false;
   @observable loading = true;
   @observable model: string | null = null;
+  /** How the agent edits documents; `'json'` until the status loads (ADR 0062 (private)). */
+  @observable agentInterface: 'json' | 'nodes' = 'json';
 
   private disposed = false;
 
@@ -21,9 +23,9 @@ export class AgentSettingsStore {
   async load(): Promise<void> {
     try {
       const status = await workflowApi.getAgentSettings();
-      this.apply(status.configured, status.model);
+      this.apply(status.configured, status.model, status.interface === 'nodes' ? 'nodes' : 'json');
     } catch {
-      this.apply(false, null);
+      this.apply(false, null, 'json');
     }
   }
 
@@ -31,10 +33,11 @@ export class AgentSettingsStore {
     this.disposed = true;
   }
 
-  @action private apply(configured: boolean, model: string | null): void {
+  @action private apply(configured: boolean, model: string | null, agentInterface: 'json' | 'nodes'): void {
     if (this.disposed) return;
     this.configured = configured;
     this.model = model;
+    this.agentInterface = agentInterface;
     this.loading = false;
   }
 }

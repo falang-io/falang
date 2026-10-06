@@ -3,13 +3,14 @@ import { useEffect, useState } from 'react';
 import { observer } from 'mobx-react-lite';
 import { action, makeObservable, observable, runInAction } from 'mobx';
 import { getGlobalI18n } from '@falang/scheme';
-import { Button, Form, Input, Popconfirm, Tag, Typography, message } from 'antd';
+import { Button, Form, Input, Popconfirm, Select, Tag, Typography, message } from 'antd';
 import { adminApi, type IAdminAgentSettings } from '../admin-api.js';
 
 interface IFormValues {
   baseUrl: string;
   model: string;
   apiKey: string;
+  interface: 'json' | 'nodes';
 }
 
 /** Mirrors `OAuthCredentialsPageStore` — a local, per-mount MobX store for `AgentSettingsPage`. */
@@ -44,7 +45,7 @@ class AgentSettingsPageStore {
     }
   }
 
-  @action async save(input: { baseUrl: string; model: string; apiKey?: string }): Promise<boolean> {
+  @action async save(input: { baseUrl: string; model: string; apiKey?: string; interface: 'json' | 'nodes' }): Promise<boolean> {
     this.isSaving = true;
     try {
       const settings = await adminApi.upsertAgentSettings(input);
@@ -100,7 +101,7 @@ export const AgentSettingsPage: React.FC = observer(() => {
   // after a reset). The API key is deliberately never round-tripped back into the field.
   useEffect(() => {
     if (settings) {
-      form.setFieldsValue({ baseUrl: settings.baseUrl ?? '', model: settings.model ?? '', apiKey: '' });
+      form.setFieldsValue({ baseUrl: settings.baseUrl ?? '', model: settings.model ?? '', apiKey: '', interface: settings.interface });
     }
     // oxlint-disable-next-line exhaustive-deps -- `form` is a stable antd form instance.
   }, [settings]);
@@ -110,6 +111,7 @@ export const AgentSettingsPage: React.FC = observer(() => {
     const saved = await store.save({
       baseUrl: values.baseUrl,
       model: values.model,
+      interface: values.interface,
       // oxlint-disable-next-line no-undefined -- `apiKey` must be omitted (not sent as `''`) to keep the stored key.
       apiKey: values.apiKey || undefined,
     });
@@ -137,7 +139,7 @@ export const AgentSettingsPage: React.FC = observer(() => {
         form={form}
         layout="vertical"
         disabled={store.isLoading}
-        initialValues={{ baseUrl: settings?.baseUrl ?? '', model: settings?.model ?? '', apiKey: '' }}
+        initialValues={{ baseUrl: settings?.baseUrl ?? '', model: settings?.model ?? '', apiKey: '', interface: settings?.interface ?? 'json' }}
       >
         <Form.Item
           name="baseUrl"
@@ -152,6 +154,14 @@ export const AgentSettingsPage: React.FC = observer(() => {
           rules={[{ required: true }]}
         >
           <Input placeholder="gpt-4o-mini" />
+        </Form.Item>
+        <Form.Item name="interface" label={t('workflow-client-admin:agent-settings-page.interface-label')}>
+          <Select
+            options={[
+              { value: 'json', label: t('workflow-client-admin:agent-settings-page.interface-json') },
+              { value: 'nodes', label: t('workflow-client-admin:agent-settings-page.interface-nodes') },
+            ]}
+          />
         </Form.Item>
         <Form.Item
           name="apiKey"

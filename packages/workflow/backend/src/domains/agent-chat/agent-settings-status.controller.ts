@@ -4,6 +4,7 @@ import { AgentSettingsService } from '../admin/app-settings/agent-settings.servi
 export interface IAgentSettingsStatusResponse {
   readonly configured: boolean;
   readonly model: string | null;
+  readonly interface: 'json' | 'nodes';
 }
 
 /**
@@ -22,6 +23,6 @@ export class AgentSettingsStatusController {
   @Get()
   async get(): Promise<IAgentSettingsStatusResponse> {
     const status = await this.agentSettings.getStatus();
-    return { configured: status.configured, model: status.model };
+    return { configured: status.configured, model: status.model, interface: status.interface };
   }
 }
