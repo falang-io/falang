@@ -1,0 +1,98 @@
+---
+title: Run journal
+description: The per-run log the platform keeps for every workflow execution — what is recorded automatically, how to read it, how long it is kept and how to stop it storing texts
+head:
+  - tag: meta
+    attrs:
+      name: keywords
+      content: 'run journal, log, workflow, execution, errors, retention'
+---
+
+<p>
+  The <b>run journal</b> is a log the platform keeps for every execution (run) of a workflow. It answers "what
+  happened in this run?" without you having to draw anything for it: what started the run, what the AI was asked and
+  answered, what the bot said, what the user pressed, and what went wrong.
+</p>
+
+#### What is recorded
+
+<p>Most entries are written automatically — you don't add icons for them and can't switch them off:</p>
+<ul>
+  <li><b>Trigger</b> — the event that started the run (for example the incoming Telegram message or webhook payload).</li>
+  <li>
+    <b>AI</b> — every call to an AI model: the prompt, the answer (or the option a choice node picked), the model that
+    was used and the token usage.
+  </li>
+  <li>
+    <b>Message</b> — what the scenario sent out: Telegram messages and files, and the questions it asked with their
+    buttons.
+  </li>
+  <li>
+    <b>User input</b> — an accepted answer (a button pressed, a task resolved), or a timeout when nobody answered in
+    time.
+  </li>
+  <li>
+    <b>Warnings and errors</b> — input the scenario ignored (for example a press on an old, already answered
+    button), a step that failed (every failed attempt is listed, also the ones that were retried successfully
+    afterwards), a run that ended with an error, and input that could not be delivered to the run at all.
+  </li>
+  <li>
+    <b>Log</b> — what you write yourself with the <b>log</b> icon. Its text goes into the journal as an ordinary
+    <i>Info</i> entry attached to that icon (the log icon has no levels).
+  </li>
+</ul>
+<p>
+  Only the built-in integrations are described this way. Actions from the ActivePieces catalog are not journaled while
+  they work, but if one of them fails, the failed attempt appears as an error entry like any other step's failure.
+</p>
+
+#### Where to see it
+
+<ul>
+  <li>
+    <b>Project → Runs</b>, then open a run: the details drawer opens on the <b>Journal</b> tab (the default). The other
+    tabs hold <b>Input &amp; result</b> and the engine's own <b>Temporal events</b>.
+  </li>
+  <li>
+    Each row shows the time, the kind, the level and the icon that produced the entry; click the icon's name to open
+    its document and highlight it on the canvas. Expand a row to see the details — the prompt and answer as text, the
+    rest as JSON.
+  </li>
+  <li>
+    Filter by <b>Kinds</b> and <b>Level</b>, or switch on <b>Errors only</b> to see just what went wrong.
+  </li>
+  <li>
+    For a chat bot, <b>Whole conversation</b> shows the journal of all runs in that chat together (every Telegram chat
+    is one conversation, continued by new runs over time); <b>This run only</b> switches back.
+  </li>
+  <li>
+    When you press <b>Run</b> in the editor, the live side panel shows the same journal as it grows.
+  </li>
+</ul>
+<p>
+  Entries are written in the background so they never slow a run down — they appear a second or two after the event
+  happens. The journal also outlives the engine's own run history: a run that the engine has already forgotten can
+  still be read from its journal.
+</p>
+
+#### How long it is kept
+
+<p>
+  Entries are deleted after <b>14 days</b>, separately counted for dev-stand and published (prod) runs. A project's
+  entries are deleted together with the project. If you run Falang yourself, set
+  <code>RUN_JOURNAL_RETENTION_DAYS_DEV</code> and <code>RUN_JOURNAL_RETENTION_DAYS_PROD</code> on the backend to change
+  the number of days (both default to 14).
+</p>
+
+#### Don't store texts
+
+<p>
+  A journal can contain what your customers wrote and what the AI answered. To keep that out of it, open
+  <b>Project → Run journal</b> and switch off <b>Store texts (prompts, answers, messages)</b>. From then on new entries
+  keep only metadata — kind, icon, model, sizes, error type — and are marked "texts not stored". Error messages are
+  kept, shortened. Entries that were already stored are not rewritten; they simply expire with the retention period.
+</p>
+<p>
+  Very long texts are cut to a reasonable size in any case (marked "truncated"), and files are recorded as references,
+  never as content.
+</p>

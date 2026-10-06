@@ -101,6 +101,7 @@ export default defineConfig({
             'workflow/administration',
             'workflow/integration-proxy',
             'workflow/debugging',
+            'workflow/run-journal',
             'workflow/versioning',
           ],
         },

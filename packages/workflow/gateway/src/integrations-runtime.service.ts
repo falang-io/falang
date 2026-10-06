@@ -5,6 +5,7 @@ import { Logger, type OnModuleDestroy, type OnModuleInit } from '@nestjs/common'
 import type { IIntegrationBackendHandle, IWorkflowIntegration } from '@falang/workflow-integrations-common';
 import type { IIntegrationCredentialInstance, IIntegrationsDiscoveryPort } from './discovery-port.js';
 import type { IFileUploadPort } from './file-upload-port.js';
+import type { IRunJournalProblemPort } from './run-journal-problem-port.js';
 import type { IScheduleClientPort } from './schedule-client.js';
 import type { TSignalWorkflowWithStart } from './signal-workflow.js';
 
@@ -137,6 +138,7 @@ export class IntegrationsRuntimeService implements OnModuleInit, OnModuleDestroy
   private readonly activatedProjects: Record<TEnv, Set<string>> = { dev: new Set(), prod: new Set() };
   private stopped = false;
   private ensureRunnerRunning: TEnsureRunnerRunning | undefined;
+  private runJournal: IRunJournalProblemPort | undefined;
 
   constructor(params: IIntegrationsRuntimeParams) {
     this.integrations = params.integrations;
@@ -220,6 +222,15 @@ export class IntegrationsRuntimeService implements OnModuleInit, OnModuleDestroy
    */
   setEnsureRunnerRunning(ensureRunnerRunning: TEnsureRunnerRunning): void {
     this.ensureRunnerRunning = ensureRunnerRunning;
+  }
+
+  /**
+   * Installs the run journal's backend-side writer (ADR 0059 (private) §2c) — a post-construction setter for the same
+   * reason as `setEnsureRunnerRunning` (the journal lives in `backend`, which depends on this service). Without it
+   * undeliverable input is just not journaled and `ctx.reportJournalProblem` is a no-op.
+   */
+  setRunJournal(runJournal: IRunJournalProblemPort): void {
+    this.runJournal = runJournal;
   }
 
   /**
@@ -458,10 +469,12 @@ export class IntegrationsRuntimeService implements OnModuleInit, OnModuleDestroy
           intervalHandles.push(handle);
         },
         signalWorkflow: async (signal) => {
+          const wake: { error?: unknown } = {};
           if (this.ensureRunnerRunning) {
             try {
               await this.ensureRunnerRunning({ projectId: target.projectId, env: target.env, taskQueue });
             } catch (error) {
+              wake.error = error;
               // Best-effort: fall through to signaling anyway — no worse than the pre-wake status quo.
               this.logger.error(
                 `ensureRunnerRunning failed for ${target.vendor}/${target.credentialId}/${target.env}`,
@@ -469,12 +482,24 @@ export class IntegrationsRuntimeService implements OnModuleInit, OnModuleDestroy
               );
             }
           }
-          await this.signalWorkflowWithStart({
-            ...signal,
-            taskQueue,
-            projectId: target.projectId,
-          });
+          try {
+            await this.signalWorkflowWithStart({
+              ...signal,
+              taskQueue,
+              projectId: target.projectId,
+            });
+          } catch (error) {
+            await this.reportUndeliverable(target, signal, error, wake);
+            throw error;
+          }
         },
+        reportJournalProblem: (report) =>
+          this.recordJournalProblem({
+            ...report,
+            projectId: target.projectId,
+            env: target.env,
+            vendor: target.vendor,
+          }),
         getDocumentsByType: (type) => this.discovery.getDocumentsByType(target.projectId, type),
         getInternalProjectToken: () => {
           if (!this.getInternalProjectToken) {
@@ -504,6 +529,43 @@ export class IntegrationsRuntimeService implements OnModuleInit, OnModuleDestroy
       onRunnerResume: onRunnerResume && (() => inVendor(() => onRunnerResume.call(backendHandle))),
       webhookKeys,
       intervalHandles,
+    });
+  }
+
+  /** Never throws — a broken journal must not change what the caller sees. */
+  private async recordJournalProblem(params: Parameters<IRunJournalProblemPort['recordProblem']>[0]): Promise<void> {
+    if (!this.runJournal) return;
+    try {
+      await this.runJournal.recordProblem(params);
+    } catch (error) {
+      this.logger.error('Failed to record a run journal problem', error instanceof Error ? error.stack : error);
+    }
+  }
+
+  /** A signal that failed to reach Temporal (or a pod that could not be woken first) reaches no workflow — journal it on the workflow id with no run (ADR 0059 (private) §2c). */
+  private async reportUndeliverable(
+    target: IKnownTarget,
+    signal: { readonly workflowId: string; readonly signalName: string; readonly signalArgs: readonly unknown[] },
+    error: unknown,
+    wake: { readonly error?: unknown },
+  ): Promise<void> {
+    const reason = error instanceof Error ? error.message : String(error);
+    await this.recordJournalProblem({
+      projectId: target.projectId,
+      env: target.env,
+      vendor: target.vendor,
+      workflowId: signal.workflowId,
+      runId: null,
+      level: 'warn',
+      message: `Undeliverable input: ${reason}`,
+      data: {
+        errorType: error instanceof Error ? error.constructor.name : typeof error,
+        signal: signal.signalName,
+        payload: signal.signalArgs.length === 1 ? signal.signalArgs[0] : signal.signalArgs,
+        ...('error' in wake
+          ? { wakeError: wake.error instanceof Error ? wake.error.message : String(wake.error) }
+          : {}),
+      },
     });
   }
 

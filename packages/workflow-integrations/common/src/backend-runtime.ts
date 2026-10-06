@@ -175,6 +175,25 @@ export interface IIntegrationBackendContext {
    * ADR 0038 (private) §2/§5.
    */
   uploadFile(source: ReadableStream<Uint8Array> | Uint8Array, meta: IUploadFileMeta): Promise<IFileRefLike>;
+  /**
+   * Writes a run-journal entry (`kind: 'error'`, default level `warn`) for input this vendor's ingress received but
+   * could not hand to any workflow — a button press with no bound trigger function, say (ADR 0059 (private) §2c).
+   * `workflowId` is the one the input would have targeted; `runId` is `null` when no run exists. The host adds the
+   * project, env and vendor, applies the project's text policy and never throws. Optional so a host (or test double)
+   * that has no journal still works — callers use `ctx.reportJournalProblem?.(…)`.
+   */
+  reportJournalProblem?(report: IJournalProblemReport): Promise<void>;
+}
+
+/** Params of `IIntegrationBackendContext.reportJournalProblem`. */
+export interface IJournalProblemReport {
+  readonly workflowId: string;
+  readonly runId?: string | null;
+  readonly documentId?: string | null;
+  readonly nodeId?: string | null;
+  readonly message: string;
+  readonly data?: Record<string, unknown> | null;
+  readonly level?: 'info' | 'warn' | 'error';
 }
 
 /**

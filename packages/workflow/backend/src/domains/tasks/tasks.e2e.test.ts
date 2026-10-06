@@ -14,6 +14,9 @@ import { ProjectTokenModule } from '../internal-auth/project-token.module.js';
 import { ProjectTokenService } from '../internal-auth/project-token.service.js';
 import { Document } from '../projects/documents/document.entity.js';
 import { Folder } from '../projects/folders/folder.entity.js';
+import { RunJournalEntry } from '../run-journal/run-journal-entry.entity.js';
+import { RunJournalModule } from '../run-journal/run-journal.module.js';
+import { RunJournalService } from '../run-journal/run-journal.service.js';
 import { Project } from '../projects/projects/project.entity.js';
 import { ProjectsModule } from '../projects/projects/projects.module.js';
 import { ProjectsService } from '../projects/projects/projects.service.js';
@@ -65,24 +68,26 @@ describe('tasks (e2e)', () => {
           database: ':memory:',
           dropSchema: true,
           synchronize: true,
-          entities: [User, Project, Folder, Document, Task],
+          entities: [User, Project, Folder, Document, Task, RunJournalEntry],
         }),
         TypeOrmModule.forFeature([Task]),
         UsersModule,
         AuthModule,
         ProjectsModule,
         ProjectTokenModule,
+        RunJournalModule,
       ],
       controllers: [TasksController, InternalTasksController],
       providers: [
         { provide: APP_GUARD, useClass: JwtAuthGuard },
         {
           provide: TasksService,
-          inject: [getRepositoryToken(Task), ProjectsService],
-          useFactory: (tasks: Repository<Task>, projectsService: ProjectsService) =>
+          inject: [getRepositoryToken(Task), ProjectsService, RunJournalService],
+          useFactory: (tasks: Repository<Task>, projectsService: ProjectsService, journal: RunJournalService) =>
             new TasksService({
               tasks,
               projectsService,
+              journal,
               ensureRunnerRunning: (...args) => ensureRunnerRunning(...args) as Promise<void>,
               signalWorkflow: (...args) => signalWorkflow(...args) as Promise<void>,
             }),
@@ -225,6 +230,23 @@ describe('tasks (e2e)', () => {
     expect(resolved.status).toBe(200);
     expect(resolved.body.status).toBe('orphaned');
     expect(resolved.body.orphanReason).toBe('workflow not found');
+
+    // The orphaned resolution leaves a journal entry on that run (ADR 0059 (private) §2c), readable by the owner.
+    const journal = await request(app.getHttpServer())
+      .get(`/projects/${projectId}/workflows/wf-1/journal`)
+      .set(auth(token));
+    expect(journal.status).toBe(200);
+    expect(journal.body.entries).toHaveLength(1);
+    expect(journal.body.entries[0]).toMatchObject({
+      workflowId: 'wf-1',
+      runId: 'run-1',
+      nodeId: 'node-orphan',
+      kind: 'error',
+      level: 'warn',
+      env: 'dev',
+      vendor: 'tasks',
+    });
+    expect(journal.body.entries[0].data).toMatchObject({ errorType: 'WorkflowNotFoundError', answer: 'Approve' });
 
     // Second task: internal close (a timeout branch) transitions open -> expired, then no-ops.
     const expiring = await internalCreate(projectId, projectToken, { nodeId: 'node-expiring' });

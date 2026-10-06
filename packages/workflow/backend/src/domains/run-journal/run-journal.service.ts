@@ -1,5 +1,11 @@
+import { randomUUID } from 'node:crypto';
+import {
+  IntegrationsRuntimeService,
+  type IRunJournalProblemParams,
+  type IRunJournalProblemPort,
+} from '@falang/workflow-gateway';
 import type { IRunJournalSettings } from '@falang/workflow-dto';
-import { Inject, Injectable } from '@nestjs/common';
+import { Inject, Injectable, Logger, Optional, type OnModuleInit } from '@nestjs/common';
 import { ProjectsService } from '../projects/projects/projects.service.js';
 import type { IngestRunJournalDto } from './dto/ingest-run-journal.dto.js';
 import { DEFAULT_JOURNAL_LIMIT } from './dto/list-run-journal.dto.js';
@@ -13,16 +19,60 @@ export interface IJournalListQuery {
 }
 
 @Injectable()
-export class RunJournalService {
+export class RunJournalService implements IRunJournalProblemPort, OnModuleInit {
+  private readonly logger = new Logger(RunJournalService.name);
   private readonly store: IRunJournalStore;
   private readonly projectsService: ProjectsService;
+  private readonly gatewayRuntime: IntegrationsRuntimeService | undefined;
 
   constructor(
     @Inject(RUN_JOURNAL_STORE) store: IRunJournalStore,
     @Inject(ProjectsService) projectsService: ProjectsService,
+    @Optional() @Inject(IntegrationsRuntimeService) gatewayRuntime?: IntegrationsRuntimeService,
   ) {
     this.store = store;
     this.projectsService = projectsService;
+    this.gatewayRuntime = gatewayRuntime;
+  }
+
+  /** Hands the gateway its writer for input that reaches no workflow (ADR 0059 (private) §2c). */
+  onModuleInit(): void {
+    this.gatewayRuntime?.setRunJournal(this);
+  }
+
+  /**
+   * Backend-side producer (ADR 0059 (private) §2c): one `error` entry for a problem that happened before any workflow
+   * saw the input. Goes through the same normalisation as runner entries (text policy, size limits) and never throws.
+   */
+  async recordProblem(params: IRunJournalProblemParams): Promise<void> {
+    try {
+      const storeTexts = await this.projectsService.getJournalStoreTexts(params.projectId);
+      if (storeTexts === null) return;
+      const rows = prepareJournalEntries(
+        [
+          {
+            workflowId: params.workflowId,
+            runId: params.runId ?? null,
+            sourceKey: `b:${randomUUID()}`,
+            kind: 'error',
+            level: params.level ?? 'warn',
+            message: params.message,
+            data: params.data ?? null,
+            documentId: params.documentId ?? null,
+            nodeId: params.nodeId ?? null,
+            vendor: params.vendor ?? null,
+            ts: Date.now(),
+          },
+        ],
+        { projectId: params.projectId, env: params.env, buildId: null, storeTexts },
+      );
+      await this.store.append(rows);
+    } catch (error) {
+      this.logger.error(
+        `Failed to record a run journal problem for project ${params.projectId}`,
+        error instanceof Error ? error.stack : error,
+      );
+    }
   }
 
   /** Applies the project's text policy and the size limits, then stores (idempotently). A vanished project's entries are dropped. */
