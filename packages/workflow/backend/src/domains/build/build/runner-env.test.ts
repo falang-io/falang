@@ -1,9 +1,29 @@
 // oxlint-disable no-undefined -- test fixtures: explicit "no value" fixtures, fake-timer scaffolding and long per-case suites.
 import { describe, expect, it } from 'vitest';
-import { buildRunnerEnv } from './runner-env.js';
+import { buildRunnerEnv, parseRunnerLogFormat, parseRunnerMetricsPort } from './runner-env.js';
 import type { IRunnerProcessManagerParams } from './runner-process-manager.js';
 
 describe('buildRunnerEnv', () => {
+  describe('observability (ADR 0060 (private))', () => {
+    const call = { taskQueue: 'q', projectId: 'p', internalProjectToken: 't', workflowEnv: 'dev' as const };
+    it('adds RUNNER_METRICS_PORT and LOG_FORMAT only when configured', () => {
+      const env = buildRunnerEnv({ runnerMetricsPort: 9464, runnerLogFormat: 'json' } as IRunnerProcessManagerParams, call);
+      expect(env.RUNNER_METRICS_PORT).toBe('9464');
+      expect(env.LOG_FORMAT).toBe('json');
+      const bare = buildRunnerEnv({} as IRunnerProcessManagerParams, call);
+      expect(Object.keys(bare)).not.toContain('RUNNER_METRICS_PORT');
+      expect(Object.keys(bare)).not.toContain('LOG_FORMAT');
+    });
+    it('parses the env values', () => {
+      expect(parseRunnerMetricsPort('9464')).toBe(9464);
+      expect(parseRunnerMetricsPort('abc')).toBeUndefined();
+      expect(parseRunnerMetricsPort('0')).toBeUndefined();
+      expect(parseRunnerMetricsPort('')).toBeUndefined();
+      expect(parseRunnerLogFormat('json')).toBe('json');
+      expect(parseRunnerLogFormat('weird')).toBeUndefined();
+    });
+  });
+
   it('never puts the shared activepieces service secret into a runner pod, even when it is configured', () => {
     process.env.ACTIVEPIECES_SERVICE_SECRET = 'shared-secret';
     try {

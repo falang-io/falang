@@ -1,5 +1,5 @@
-// oxlint-disable no-console
 import v8 from 'node:v8';
+import { log } from './log.js';
 import { pushCoverage } from './push-coverage.js';
 import { readRunnerConfigFromEnv } from './runner-config.js';
 import { startRunner } from './start-runner.js';
@@ -39,14 +39,14 @@ const flushAndPushCoverage = async (): Promise<void> => {
       internalProjectToken: runnerConfig.internalProjectToken,
     });
   } catch (error) {
-    console.error('Workflow runner failed to push coverage on shutdown:', error);
+    log.error('Workflow runner failed to push coverage on shutdown', error);
   }
 };
 
 /** Process entry point: one runner process per workflow definition/version (see ADR 0002 (private)). */
 startRunner(runnerConfig)
   .catch((error: unknown) => {
-    console.error('Workflow runner exited with an error:', error);
+    log.error('Workflow runner exited with an error', error);
     process.exitCode = 1;
   })
   .finally(flushAndPushCoverage);

@@ -223,6 +223,26 @@ describe('RunnerProcessManager', () => {
     expect(envOf(client.deployments.get('workflow-1'), 'TELEGRAM_API_BASE_URL')).toBeUndefined();
   });
 
+  it('exposes a named metrics container port and env only when runnerMetricsPort is set (ADR 0060 (private))', async () => {
+    const { manager, client } = createManager({ runnerMetricsPort: 9464, runnerLogFormat: 'json' });
+    await manager.start({ taskQueue: 'workflow-1', projectId: 'p', internalProjectToken: 't', workflowEnv: 'prod' });
+    const deployment = client.deployments.get('workflow-1');
+    const container = deployment?.spec?.template?.spec?.containers?.[0];
+    expect(container?.ports).toEqual([{ name: 'metrics', containerPort: 9464, protocol: 'TCP' }]);
+    expect(envOf(deployment, 'RUNNER_METRICS_PORT')).toBe('9464');
+    expect(envOf(deployment, 'LOG_FORMAT')).toBe('json');
+    expect(deployment?.spec?.template?.metadata?.labels?.['app.kubernetes.io/name']).toBe('workflow-runner');
+    expect(deployment?.spec?.template?.metadata?.labels?.['falang.dev/project-id']).toBe('p');
+  });
+
+  it('adds no metrics port or env without runnerMetricsPort (ADR 0060 (private))', async () => {
+    const bare = createManager();
+    await bare.manager.start({ taskQueue: 'workflow-2', projectId: 'p', internalProjectToken: 't', workflowEnv: 'dev' });
+    const plain = bare.client.deployments.get('workflow-2')?.spec?.template?.spec?.containers?.[0];
+    expect(plain?.ports).toBeUndefined();
+    expect(envOf(bare.client.deployments.get('workflow-2'), 'RUNNER_METRICS_PORT')).toBeUndefined();
+  });
+
   it('includes MEDIA_SERVICE_URL only when configured on the manager', async () => {
     const { manager, client } = createManager({ mediaServiceUrl: 'http://media:4200' });
 

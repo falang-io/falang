@@ -30,6 +30,7 @@ import { InternalCoverageController } from './internal-coverage.controller.js';
 import { createK8sDeploymentsClient } from './k8s-deployments-client.js';
 import { ProjectVersion } from './project-version.entity.js';
 import { RUNNER_IDLE_TIMEOUT_MS, RunnerIdleSweepService } from './runner-idle-sweep.service.js';
+import { parseRunnerLogFormat, parseRunnerMetricsPort } from './runner-env.js';
 import { RunnerProcessManager } from './runner-process-manager.js';
 import { ScheduleWakeService } from './schedule-wake.service.js';
 import { terminateRunningExecutionsWith, type ITerminatableWorkflowHandle } from './terminate-running-executions.js';
@@ -286,6 +287,9 @@ const createTerminateRunningExecutions = (graceMs: number, tenancy: ITemporalTen
           // `MEDIA_SERVICE_URL` for pods, same reasoning as `RUNNER_ACTIVEPIECES_SERVICE_URL`/
           // `RUNNER_TELEGRAM_API_BASE_URL` above.
           mediaServiceUrl: config.get<string>('RUNNER_MEDIA_SERVICE_URL') ?? config.get<string>('MEDIA_SERVICE_URL'),
+          // ADR 0060 (private): the runner's Prometheus port and log format.
+          runnerMetricsPort: parseRunnerMetricsPort(config.get<string>('RUNNER_METRICS_PORT')),
+          runnerLogFormat: parseRunnerLogFormat(config.get<string>('RUNNER_LOG_FORMAT') ?? config.get<string>('LOG_FORMAT')),
           // Not a connection target (see `IRunnerProcessManagerParams.backendPublicUrl`'s doc
           // comment) — no docker-network/`kind` mismatch to work around, so no `RUNNER_*` override.
           backendPublicUrl: config.get<string>('BACKEND_PUBLIC_URL'),
