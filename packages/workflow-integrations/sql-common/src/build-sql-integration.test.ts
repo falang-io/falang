@@ -98,5 +98,12 @@ describe('buildSqlActions', () => {
         'await sqliteQuery("c1", "select 1", []);',
       );
     });
+
+    it('query: the declared result type is applied to the assigned rows (the activity returns unknown[])', () => {
+      const query = actions.find((action) => action.name.endsWith('-query'));
+      expect(
+        query?.emit({ credentialId: '"c1"', params: '', result: '', resultVariable: 'rows', sql: '"select 1"' }),
+      ).toBe('const rows = (await sqliteQuery("c1", "select 1", [])) as any[];');
+    });
   });
 });

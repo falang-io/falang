@@ -1,9 +1,3 @@
-// oxlint-disable no-console
-/**
- * The in-memory `IWorkflowAgentStore` the headless workflow smoke tests share: `WorkflowStore` with the network,
- * IndexedDB and tabs taken out — documents live in memory, schemes are the real ones (`buildWorkflowDocumentScheme`),
- * synced back into `doc.data` on every change like the editor does.
- */
 import 'reflect-metadata';
 import { ScriptedLlmClient } from '@falang/agent';
 import { container as rootContainer, resolveService, type DependencyContainer } from '@falang/di';
@@ -29,7 +23,11 @@ import {
 import { buildTriggerFunctionDocument } from '../packages/workflow/client-common/src/trigger-function-document.js';
 import type { DocumentType, WorkflowDocument } from '../packages/workflow/client-common/src/workflow-types.js';
 
-/** `WorkflowStore` with the network, IndexedDB and tabs taken out: documents live in memory, schemes are the real ones. */
+/**
+ * The in-memory `IWorkflowAgentStore` the headless agent smokes run against: `WorkflowStore` with the network,
+ * IndexedDB and tabs taken out — documents live in memory, schemes are the editor's real ones. Shared by
+ * `headless-agent-smoke.ts` and `headless-code-agent-smoke.ts`.
+ */
 export class HeadlessWorkflowStore implements IWorkflowAgentStore {
   readonly documents: WorkflowDocument[] = [];
   readonly vendorData = { byInstance: new Map<string, IApiVendorData>() };
@@ -126,24 +124,34 @@ export const assert: (condition: unknown, message: string) => asserts condition 
   if (!condition) throw new Error(message);
 };
 
-/** The compiler's input: every function/trigger-function document with its current tree. */
-const compileInput = (store: HeadlessWorkflowStore) => {
+/** Compiles every function/trigger document with the real workflow compiler and type-checks the result. */
+export const compileAndTypeCheck = (store: HeadlessWorkflowStore): { workflows: string; activities: string } => {
   const documents = store.documents
     .filter((doc) => doc.type === 'function' || doc.type === 'trigger-function')
     .map((doc) => ({ id: doc.id, name: doc.name, root: store.rootOf(doc), type: doc.type }));
-  return {
+  const compiled = compileProject({
     documents: documents as unknown as ICompileProjectParams['documents'],
     integrations: REGISTERED_INTEGRATIONS,
     trackPosition: true,
-  };
+  });
+  const errors = typeCheckProject(compiled.workflows, compiled.activities);
+  assert(errors.length === 0, `generated code does not type-check:\n${JSON.stringify(errors, null, 2)}`);
+  return compiled;
 };
 
 /** `compileProject` + `typeCheckProject`'s diagnostics (a compile exception becomes one unattributed diagnostic). */
 export const checkProject = (
   store: HeadlessWorkflowStore,
 ): { documentId?: string; nodeId?: string; message: string }[] => {
+  const documents = store.documents
+    .filter((doc) => doc.type === 'function' || doc.type === 'trigger-function')
+    .map((doc) => ({ id: doc.id, name: doc.name, root: store.rootOf(doc), type: doc.type }));
   try {
-    const compiled = compileProject(compileInput(store));
+    const compiled = compileProject({
+      documents: documents as unknown as ICompileProjectParams['documents'],
+      integrations: REGISTERED_INTEGRATIONS,
+      trackPosition: true,
+    });
     return typeCheckProject(compiled.workflows, compiled.activities).map((error) => {
       const diagnostic: { documentId?: string; nodeId?: string; message: string } = { message: error.message };
       if (error.documentId) diagnostic.documentId = error.documentId;
@@ -153,11 +161,4 @@ export const checkProject = (
   } catch (error) {
     return [{ message: error instanceof Error ? error.message : String(error) }];
   }
-};
-
-export const compileAndTypeCheck = (store: HeadlessWorkflowStore): { workflows: string; activities: string } => {
-  const compiled = compileProject(compileInput(store));
-  const errors = typeCheckProject(compiled.workflows, compiled.activities);
-  assert(errors.length === 0, `generated code does not type-check:\n${JSON.stringify(errors, null, 2)}`);
-  return compiled;
 };

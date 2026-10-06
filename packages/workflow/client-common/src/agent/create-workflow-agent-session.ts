@@ -13,6 +13,7 @@ import {
 import type { NodesStack } from '@falang/dto';
 import { ScopeVariablesContextProvider } from '@falang/typescript-agent';
 import { getIntegrationInstances } from '../integration-instances.js';
+import { getEnabledIntegrations } from '../disabled-vendors.js';
 import { REGISTERED_INTEGRATIONS } from '../integrations-registry.js';
 import { createAgentDocumentResolver } from './create-agent-document-resolver.js';
 import { DocumentToolProvider } from './document-tool-provider.js';
@@ -20,10 +21,13 @@ import { createWorkflowNodeKindFilter } from './integration-catalog.js';
 import { describeSections, folderPath } from './project-layout-context.js';
 import { IntegrationToolProvider } from './integration-tool-provider.js';
 import type { IWorkflowAgentStore } from './workflow-agent-store.js';
+import { CodeIntegrationTools } from './code/code-integration-tools.js';
+import { CODE_SYSTEM_PROMPT } from './code/code-prompt.js';
+import { CodeFilesContextProvider, CodeToolProvider, describeInstanceForCode } from './code/code-tool-provider.js';
 import { WorkflowJsonFilesHost, type TWorkflowCheckProject } from './workflow-json-files-host.js';
 
 /** How the agent edits documents: the node tools (the product default) or whole JSON files (ADR 0062). */
-export type TWorkflowAgentInterface = 'nodes' | 'json';
+export type TWorkflowAgentInterface = 'nodes' | 'code' | 'json';
 
 export interface ICreateWorkflowAgentSessionDeps {
   /** The vendor connection — the real host's is `HttpLlmClient` (the backend's `/agent/chat` proxy); a headless host passes its own. */
@@ -44,6 +48,36 @@ export interface ICreateWorkflowAgentSessionDeps {
   /** Builds the stack of a document type with no document yet (for `NODES.md` in an empty project). */
   readonly buildStack?: (type: string) => NodesStack | null;
 }
+
+/** The `'code'` interface (ADR 0061 spike): no node tools, file tools over the code projection instead. */
+const createWorkflowCodeAgentSession = (deps: ICreateWorkflowAgentSessionDeps): AgentSession => {
+  const { store } = deps;
+  const integrations = getEnabledIntegrations();
+  const session: AgentSession = new AgentSession(
+    null,
+    deps.llmClient,
+    [new CodeFilesContextProvider({ integrations, store })],
+    {
+      coreTools: [],
+      focusPauseMs: deps.focusPauseMs,
+      onRunFinished: () => deps.onRunFinished?.(session),
+      systemPrompt: CODE_SYSTEM_PROMPT,
+      toolProviders: [
+        new CodeToolProvider({
+          acquireLock: deps.acquireLock,
+          checkProject: deps.checkProject,
+          integrations,
+          onOpenDocument: deps.onOpenDocument,
+          store,
+        }),
+        new CodeIntegrationTools(new IntegrationToolProvider(store), (instanceId) =>
+          describeInstanceForCode(store, integrations, instanceId),
+        ),
+      ],
+    },
+  );
+  return session;
+};
 
 const documentsContext = (store: IWorkflowAgentStore): IAgentContextProvider =>
   new ProjectDocumentsContextProvider(
@@ -106,6 +140,7 @@ const createJsonFilesSession = (
  */
 export const createWorkflowAgentSession = (deps: ICreateWorkflowAgentSessionDeps): AgentSession => {
   const { store } = deps;
+  if (deps.agentInterface === 'code') return createWorkflowCodeAgentSession(deps);
   const documentResolver = createAgentDocumentResolver({
     acquireLock: (documentId) => deps.acquireLock?.(documentId),
     getDocument: (documentId) => store.getDocument(documentId),
