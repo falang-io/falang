@@ -20,12 +20,13 @@ export const appendOut = (node: INode): readonly INode[] =>
  * when it returns one — `undefined` (never called at all, or called but returning nothing for this
  * particular option, e.g. a `void`-typed option) is treated the same as omitting it entirely. Shared
  * by `node-emitters.ts`'s `emitSwitch`, `question-emitters.ts`, and `choice-emitters.ts` — all three
- * compile the same "one case per child, discriminant → branch" shape.
+ * compile the same "one case per child, discriminant → branch" shape. `getCaseValue` returning `null` makes that
+ * option the `default:` branch.
  */
 export const buildSwitchCases = (
   options: readonly INode[],
   compile: TCompileChildren,
-  getCaseValue: (option: INode) => string,
+  getCaseValue: (option: INode) => string | null,
   buildCasePrefix?: (option: INode) => string | undefined,
 ): string =>
   options
@@ -35,6 +36,6 @@ export const buildSwitchCases = (
       const body = compile(appendOut(option));
       const combined = [prefix, body].filter(Boolean).join('\n');
       const caseContent = combined === '' ? 'break;' : `${combined}\nbreak;`;
-      return `case ${value}: {\n${indentLines(caseContent)}\n}`;
+      return `${value === null ? 'default' : `case ${value}`}: {\n${indentLines(caseContent)}\n}`;
     })
     .join('\n');
