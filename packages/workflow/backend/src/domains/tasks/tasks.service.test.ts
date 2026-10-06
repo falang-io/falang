@@ -1,3 +1,4 @@
+// oxlint-disable max-lines -- one `describe` per `TasksService` method, over the default cap by the orphan-journal cases.
 import { randomUUID } from 'node:crypto';
 import { BadRequestException, ConflictException, NotFoundException } from '@nestjs/common';
 import { WorkflowNotFoundError } from '@temporalio/client';
@@ -252,6 +253,37 @@ describe('TasksService.resolve', () => {
 
     expect(result.status).toBe('orphaned');
     expect(result.orphanReason).toBe('workflow not found');
+  });
+
+  it('journals an orphaned resolution on its run', async () => {
+    const recordProblem = vi.fn(() => Promise.resolve());
+    const { service, signalWorkflow } = makeService({ journal: { recordProblem } });
+    const { taskId } = await service.createOrGet('p1', createInput());
+    signalWorkflow.mockImplementation(() =>
+      Promise.reject(new WorkflowNotFoundError('workflow not found', 'wf-1', 'run-1')),
+    );
+
+    await service.resolve('owner-1', taskId, { answer: 'Approve' }, 'user-1');
+
+    expect(recordProblem).toHaveBeenCalledWith(
+      expect.objectContaining({
+        projectId: 'p1',
+        env: 'dev',
+        workflowId: 'wf-1',
+        runId: 'run-1',
+        nodeId: 'node-1',
+        level: 'warn',
+        data: expect.objectContaining({ errorType: 'WorkflowNotFoundError', taskId, answer: 'Approve' }),
+      }),
+    );
+  });
+
+  it('does not journal a task resolution that was delivered', async () => {
+    const recordProblem = vi.fn(() => Promise.resolve());
+    const { service } = makeService({ journal: { recordProblem } });
+    const { taskId } = await service.createOrGet('p1', createInput());
+    await service.resolve('owner-1', taskId, { answer: 'Approve' }, 'user-1');
+    expect(recordProblem).not.toHaveBeenCalled();
   });
 
   it('reopens the task and rethrows on any other signal failure', async () => {

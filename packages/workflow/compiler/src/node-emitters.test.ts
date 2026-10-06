@@ -3,7 +3,8 @@ import { describe, expect, it } from 'vitest';
 import { compileStatements } from './node-emitters.js';
 
 /** A `log` node's `data` is plain message text, compiled as a template literal — `${expr}` is real interpolation. */
-const logStatement = (message: string): string => `await logActivity(\`${message}\`);`;
+const logStatement = (message: string): string =>
+  `__falangJournal({ kind: 'log', level: 'info', message: \`${message}\` });`;
 
 describe('compileStatements', () => {
   it('compiles create-var into a typed let declaration initialized with the type default', () => {
@@ -48,7 +49,7 @@ describe('compileStatements', () => {
         '// icon-start:if:if1',
         'if (total > 0) {',
         '  // icon-start:log:l1',
-        '  await logActivity(`a\\nb`);',
+        "  __falangJournal({ kind: 'log', level: 'info', message: `a\\nb` });",
         '  // icon-end:log:l1',
         '}',
         '// icon-end:if:if1',
@@ -71,11 +72,11 @@ describe('compileStatements', () => {
         '// icon-start:if:if1',
         'if (total > 0) {',
         '  // icon-start:log:l1',
-        '  await logActivity(`total`);',
+        "  __falangJournal({ kind: 'log', level: 'info', message: `total` });",
         '  // icon-end:log:l1',
         '} else {',
         '  // icon-start:log:l2',
-        '  await logActivity(`none`);',
+        "  __falangJournal({ kind: 'log', level: 'info', message: `none` });",
         '  // icon-end:log:l2',
         '}',
         '// icon-end:if:if1',
@@ -98,7 +99,7 @@ describe('compileStatements', () => {
         '// icon-start:if:if1',
         'if (total > 0) {',
         '  // icon-start:log:l1',
-        '  await logActivity(`total`);',
+        "  __falangJournal({ kind: 'log', level: 'info', message: `total` });",
         '  // icon-end:log:l1',
         '}',
         '// icon-end:if:if1',
@@ -137,7 +138,7 @@ describe('compileStatements', () => {
         '  // icon-start:if:if2',
         '  if (b) {',
         '    // icon-start:log:l1',
-        '    await logActivity(`a`);',
+        "    __falangJournal({ kind: 'log', level: 'info', message: `a` });",
         '    // icon-end:log:l1',
         '  }',
         '  // icon-end:if:if2',
@@ -162,11 +163,11 @@ describe('compileStatements', () => {
         '// icon-start:if:if1',
         'if (a) {',
         '  // icon-start:log:l1',
-        '  await logActivity(`first`);',
+        "  __falangJournal({ kind: 'log', level: 'info', message: `first` });",
         '  // icon-end:log:l1',
         '} else {',
         '  // icon-start:log:l2',
-        '  await logActivity(`second`);',
+        "  __falangJournal({ kind: 'log', level: 'info', message: `second` });",
         '  // icon-end:log:l2',
         '}',
         '// icon-end:if:if1',
@@ -190,11 +191,11 @@ describe('compileStatements', () => {
         '// icon-start:if:if1',
         'if (a) {',
         '  // icon-start:log:l2',
-        '  await logActivity(`second`);',
+        "  __falangJournal({ kind: 'log', level: 'info', message: `second` });",
         '  // icon-end:log:l2',
         '} else {',
         '  // icon-start:log:l1',
-        '  await logActivity(`first`);',
+        "  __falangJournal({ kind: 'log', level: 'info', message: `first` });",
         '  // icon-end:log:l1',
         '}',
         '// icon-end:if:if1',

@@ -1,3 +1,4 @@
+export * from './activity-journal.js';
 export * from './compile-activities.js';
 export * from './compile-errors.js';
 export * from './compile-function.js';
@@ -5,6 +6,7 @@ export * from './compile-project.js';
 export * from './compile-trigger-function.js';
 export * from './debug-runtime.js';
 export * from './integration-emitters.js';
+export * from './journal-runtime.js';
 export * from './node-compile-error.js';
 export * from './parse-compiled-markers.js';
 export * from './position-runtime.js';

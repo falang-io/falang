@@ -33,10 +33,10 @@ describe('compileStatements — magic node (ADR 0046 (private))', () => {
       [
         '// icon-start:magic:m1',
         '// icon-start:log:l1',
-        'await logActivity(`a`);',
+        "__falangJournal({ kind: 'log', level: 'info', message: `a` });",
         '// icon-end:log:l1',
         '// icon-start:log:l2',
-        'await logActivity(`b`);',
+        "__falangJournal({ kind: 'log', level: 'info', message: `b` });",
         '// icon-end:log:l2',
         '// icon-end:magic:m1',
       ].join('\n'),
@@ -49,7 +49,7 @@ describe('compileStatements — magic node (ADR 0046 (private))', () => {
 
   it("appends the container's own out after the children", () => {
     const code = compileStatements([magic([log('l1', 'a')], { id: 'r1', name: 'return', data: '' })]);
-    expect(code.indexOf('logActivity')).toBeLessThan(code.indexOf('return'));
+    expect(code.indexOf('__falangJournal')).toBeLessThan(code.indexOf('return'));
     expect(code).toContain('icon-start:return:r1');
   });
 

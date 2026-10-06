@@ -117,7 +117,8 @@
       "magic-insert": "Magic insert",
       "magic-insert-tooltip": "A click on a valence point inserts a magic node: describe the step in words and the agent builds it",
       "magic-insert-disabled": "Magic insert needs the AI agent to be configured by an administrator",
-      "project-menu": "Project"
+      "project-menu": "Project",
+      "run-journal": "Run journal"
     },
     "run-function-modal": {
       "title": "Run function",
@@ -287,7 +288,13 @@
       "event-history": "Event history",
       "event-id": "ID",
       "event-time": "Time",
-      "event-type": "Event type"
+      "event-type": "Event type",
+      "tab-journal": "Journal",
+      "tab-io": "Input & result",
+      "tab-events": "Temporal events",
+      "whole-conversation": "Whole conversation",
+      "this-run-only": "This run only",
+      "journal-unavailable": "The journal can't be loaded for this run."
     },
     "run-panel": {
       "loading": "Loading…",
@@ -301,7 +308,8 @@
       "position-unknown-failure": "Failed — no position recorded (built before position tracking?)",
       "position-finished": "Finished",
       "document-missing": "(document no longer exists)",
-      "history": "Event history"
+      "history": "Event history",
+      "journal": "Journal"
     },
     "runs-drawer": {
       "title": "Runs of this project",
@@ -477,6 +485,32 @@
       "cancel": "Cancel",
       "run": "Run",
       "debug": "Debug"
+    },
+    "run-journal": {
+      "kind-log": "Log",
+      "kind-trigger": "Trigger",
+      "kind-user-input": "User input",
+      "kind-ai": "AI",
+      "kind-message-out": "Message",
+      "kind-error": "Error",
+      "level-info": "Info",
+      "level-warn": "Warning",
+      "level-error": "Error",
+      "filter-kind": "Kinds",
+      "filter-level": "Level",
+      "errors-only": "Errors only",
+      "empty": "No journal entries yet",
+      "no-match": "No entries match the filters",
+      "load-more": "Load more",
+      "texts-stripped": "texts not stored",
+      "truncated": "truncated"
+    },
+    "run-journal-settings": {
+      "title": "Run journal",
+      "store-texts": "Store texts (prompts, answers, messages)",
+      "hint": "When off, new entries keep only metadata (kind, node, model, sizes, errors). Entries already stored are not rewritten.",
+      "failed-to-load": "Failed to load settings",
+      "failed-to-save": "Failed to save settings"
     }
   },
   "version-history": {

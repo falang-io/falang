@@ -21,3 +21,15 @@ export {
 export type { IAgentChatUsage } from './domains/agent-chat/agent-chat.types.js';
 export { AgentUsage } from './domains/agent-chat/agent-usage.entity.js';
 export { DbAgentUsageSink, type IAgentUsageTotals } from './domains/agent-chat/db-agent-usage-sink.js';
+export {
+  RUN_JOURNAL_STORE,
+  RunJournalModule,
+  prepareJournalEntries,
+  type IRunJournalStore,
+  type IRunJournalEntryDto,
+  type IRunJournalEntryInput,
+  type IRunJournalRow,
+  type TJournalEnv,
+  type TJournalKind,
+  type TJournalLevel,
+} from './domains/run-journal/index.js';

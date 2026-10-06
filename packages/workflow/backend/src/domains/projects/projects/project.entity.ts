@@ -49,4 +49,12 @@ export class Project {
    */
   @Column({ name: 'prod_build_id', type: 'varchar', nullable: true })
   prodBuildId!: string | null;
+
+  /**
+   * Run journal text policy (ADR 0059 (private) §6): when `false`, the journal ingest strips content
+   * (prompts, answers, message texts, payloads) and keeps only metadata. Owner-editable via
+   * `PUT /projects/:id/journal-settings`.
+   */
+  @Column({ name: 'journal_store_texts', type: 'boolean', default: true })
+  journalStoreTexts!: boolean;
 }

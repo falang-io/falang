@@ -1,3 +1,4 @@
+// oxlint-disable max-lines -- the descriptor contract lives in one file; ADR 0059 (private) added the journal specs.
 import type { TVariableInfo } from '@falang/typescript-dto';
 import type { TRegisterIntegrationBackend } from './backend-runtime.js';
 import type { IBackendEgress, IFieldOptionsContext } from './field-options-context.js';
@@ -102,6 +103,21 @@ export interface IFieldConfig {
  * identifier the compiled `trigger-function` binds the signal payload to (e.g. `message`) — see
  * `@falang/workflow-compiler`'s `compileTriggerFunction`.
  */
+/**
+ * What the run journal (ADR 0059 (private)) records about one activity call. An explicit allowlist —
+ * never "all arguments": credentials, headers, connection strings and file bodies must not leak.
+ * `args` names parameters of `activitySignature`; the compiler exports the name -> spec map as
+ * `__falangActivityJournal` (plus `__falangActivityParams`, the ordered parameter names) and the
+ * runner's wrapper copies the selected arguments, the result and the duration into one journal entry.
+ */
+export interface IActivityJournalSpec {
+  readonly kind: 'ai' | 'message-out';
+  /** Parameter names (from `activitySignature`) copied into the entry's `data`. */
+  readonly args: readonly string[];
+  /** Copy the result into `data.result` (default `true`). */
+  readonly result?: boolean;
+}
+
 export interface ITriggerDescriptor {
   readonly name: string;
   readonly label: string;
@@ -133,6 +149,12 @@ export interface ITriggerDescriptor {
   readonly contextFields?: readonly IFieldConfig[];
   /** How the payload reaches the compiled workflow — `'signal'` (default, today's `defineSignal`/`condition()` shape) or `'start'` for a trigger that can only ever *start* a workflow, never signal one (e.g. a Temporal Schedule): the payload is then the compiled function's first argument, no signal/wait. */
   readonly delivery?: 'signal' | 'start';
+  /**
+   * Run-journal line (ADR 0059 (private)) for the `trigger` entry: the body of a TypeScript template
+   * literal evaluated right after the payload is received, with `scopeVariableName` in scope (e.g.
+   * Telegram: `${message.text}`). Absent = the trigger's `name`.
+   */
+  readonly journalMessage?: string;
 }
 
 export interface IActionDescriptor {
@@ -155,6 +177,8 @@ export interface IActionDescriptor {
   readonly activitySignature: string;
   /** Temporal registration/retry options for this action's activity — see `IActivityOptions`. Absent = today's local-activity/10s/SDK-default behavior. */
   readonly activityOptions?: IActivityOptions;
+  /** Run-journal spec for this action's activity — see `IActivityJournalSpec`. Absent = no entry on success. */
+  readonly journal?: IActivityJournalSpec;
   /** Type of the variable declared by this action's `kind: 'new-variable'` field (e.g. `call-ai-text`'s `resultVariable`) — same signature as `IFieldConfig.expectedType`. Absent means that variable is typed `any`. */
   readonly resultType?: TVariableInfo | ((fields: Readonly<Record<string, string>>) => TVariableInfo | undefined);
 }
@@ -201,6 +225,8 @@ export interface IQuestionDescriptor extends IQuestionDescriptorExtensions {
   readonly resolveActivityCode: string;
   /** Temporal registration/retry options applied to both the ask and resolve activities of this question — see `IActivityOptions`. Absent = today's local-activity/10s/SDK-default behavior. */
   readonly activityOptions?: IActivityOptions;
+  /** Run-journal spec for the ASK activity (the question as the bot said it) — see `IActivityJournalSpec`. */
+  readonly journal?: IActivityJournalSpec;
 }
 
 /**
@@ -235,6 +261,8 @@ export interface IChoiceDescriptor {
   readonly activityCode: string;
   /** Temporal registration/retry options for this choice's activity — see `IActivityOptions`. Absent = today's local-activity/10s/SDK-default behavior. */
   readonly activityOptions?: IActivityOptions;
+  /** Run-journal spec for this choice's activity — see `IActivityJournalSpec`. */
+  readonly journal?: IActivityJournalSpec;
 }
 
 export interface IWorkflowIntegration {

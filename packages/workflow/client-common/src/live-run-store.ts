@@ -1,6 +1,7 @@
 import { eventTracker } from './analytics/event-tracker.js';
 import { action, computed, makeObservable, observable, runInAction } from 'mobx';
 import type { IExecutionLocation, IExecutionPositionSource } from '@falang/scheme';
+import { RunJournalStore } from './run-journal-store.js';
 import {
   workflowApi,
   type IApiWorkflowPosition,
@@ -26,6 +27,8 @@ export interface ILiveRunStoreHooks {
 const POSITION_POLL_MS = 1000;
 const HISTORY_POLL_MS = 2000;
 /** Temporal statuses that mean "still open" — everything else is terminal, so polling stops after one last fetch. */
+/** Journal entries are written asynchronously (~1–2 s late) — after the run closes, keep polling this many more times. */
+const JOURNAL_TAIL_POLLS = 2;
 const OPEN_STATUSES = new Set(['RUNNING']);
 
 /**
@@ -44,11 +47,14 @@ export class LiveRunStore implements IExecutionPositionSource {
   /** Failure of the last start attempt (build failed, backend unreachable, …) — build *compile* errors go through `ProjectSync.buildErrors` instead. */
   @observable startError: string | null = null;
   @observable pollError: string | null = null;
+  /** The watched run's journal (ADR 0059 (private)), polled incrementally with `after=<last id>`; `null` while nothing is watched. */
+  @observable journal: RunJournalStore | null = null;
 
   private readonly projectId: string;
   private readonly hooks: ILiveRunStoreHooks;
   private positionTimer: ReturnType<typeof setTimeout> | null = null;
   private historyTimer: ReturnType<typeof setTimeout> | null = null;
+  private journalTimer: ReturnType<typeof setTimeout> | null = null;
   /** Bumped by every `watch`/`unwatch`, so a poll answer that lands after the watched run changed is dropped. */
   private generation = 0;
 
@@ -137,8 +143,16 @@ export class LiveRunStore implements IExecutionPositionSource {
     this.position = null;
     this.detail = null;
     this.pollError = null;
+    this.journal?.dispose();
+    this.journal = new RunJournalStore({
+      kind: 'run',
+      projectId: this.projectId,
+      workflowId: run.workflowId,
+      runId: run.runId,
+    });
     this.pollPosition(this.generation);
     this.pollHistory(this.generation);
+    this.pollJournal(this.generation, JOURNAL_TAIL_POLLS);
   }
 
   @action unwatch(): void {
@@ -148,6 +162,8 @@ export class LiveRunStore implements IExecutionPositionSource {
     this.position = null;
     this.detail = null;
     this.pollError = null;
+    this.journal?.dispose();
+    this.journal = null;
   }
 
   dispose(): void {
@@ -159,6 +175,8 @@ export class LiveRunStore implements IExecutionPositionSource {
     if (this.historyTimer) clearTimeout(this.historyTimer);
     this.positionTimer = null;
     this.historyTimer = null;
+    if (this.journalTimer) clearTimeout(this.journalTimer);
+    this.journalTimer = null;
   }
 
   private async pollPosition(generation: number): Promise<void> {
@@ -199,5 +217,21 @@ export class LiveRunStore implements IExecutionPositionSource {
       // Best-effort — `pollPosition` is the one that surfaces errors; history simply retries.
     }
     this.historyTimer = setTimeout(() => this.pollHistory(generation), HISTORY_POLL_MS);
+  }
+
+  /** Incremental journal poll on the history cadence; after the run closes, a couple more polls catch late async entries. */
+  private async pollJournal(generation: number, tailLeft: number): Promise<void> {
+    const journal = this.journal;
+    if (!journal || generation !== this.generation) return;
+    await journal.fetchNew();
+    if (generation !== this.generation) return;
+    const status = this.position?.status ?? this.detail?.status ?? null;
+    const closed = status !== null && !OPEN_STATUSES.has(status);
+    let nextTail = tailLeft;
+    if (closed) {
+      if (tailLeft <= 0) return;
+      nextTail = tailLeft - 1;
+    }
+    this.journalTimer = setTimeout(() => this.pollJournal(generation, nextTail), HISTORY_POLL_MS);
   }
 }

@@ -6,6 +6,7 @@ import { getGlobalI18n, type TFunction } from '@falang/scheme';
 import type { IApiWorkflowPosition, IApiWorkflowRunEvent } from '../api-client.js';
 import { useWorkflowStore } from '../workflow-store-context.js';
 import { TerminateRunButton } from './terminate-run-button.js';
+import { RunJournalList } from './run-journal-list.js';
 
 const styles: Record<string, React.CSSProperties> = {
   root: { display: 'flex', flexDirection: 'column', gap: 8, color: '#cdd6f4', fontSize: 12, minHeight: 0 },
@@ -16,6 +17,7 @@ const styles: Record<string, React.CSSProperties> = {
   position: { display: 'flex', flexDirection: 'column', gap: 2 },
   frame: { paddingLeft: 8, borderLeft: '2px solid #45475a' },
   mono: { fontFamily: 'ui-monospace, monospace', fontSize: 11 },
+  journal: { maxHeight: 360, overflow: 'auto' },
   history: { flex: 1, minHeight: 0, overflow: 'auto' },
 };
 
@@ -107,6 +109,24 @@ export const RunPanel: React.FC = observer(() => {
       </div>
 
       {position?.failureMessage && <Alert type="error" showIcon message={position.failureMessage} />}
+
+      {liveRun.journal && (
+        <>
+          <span style={styles.label}>{t('client:run-panel.journal')}</span>
+          <div style={styles.journal}>
+            <RunJournalList
+              store={liveRun.journal}
+              compact
+              resolveNode={(documentId, nodeId) =>
+                store.getDocument(documentId) ? nodeLabel(documentId, nodeId) : null
+              }
+              onJumpToNode={(documentId, nodeId) => {
+                if (store.getDocument(documentId)) store.jumpToNode(documentId, nodeId);
+              }}
+            />
+          </div>
+        </>
+      )}
 
       <span style={styles.label}>{t('client:run-panel.history')}</span>
       <div style={styles.history}>

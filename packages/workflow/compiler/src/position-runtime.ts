@@ -1,3 +1,6 @@
+import { POSITION_STACK_EXPORT } from '@falang/workflow-dto';
+import { JOURNAL_FN } from './journal-runtime.js';
+
 /**
  * Execution-position tracking for compiled workflows — see ADR 0022 (private).
  *
@@ -64,7 +67,9 @@ export const POSITION_RUNTIME_IMPORTS = ['ApplicationFailure', 'defineQuery', 'i
 /** The runtime itself — plain TS, type-checked by `typeCheckProject` like the rest of the module. */
 export const POSITION_RUNTIME_CODE = [
   'interface __FalangPositionFrame { documentId: string; nodeId: string | null }',
-  'const __falangPositionStack: __FalangPositionFrame[] = [];',
+  // Exported (an array, not a function, so Temporal never treats it as a workflow type) for the
+  // generated journal interceptor module — see `journal-runtime.ts`.
+  `export const ${POSITION_STACK_EXPORT}: __FalangPositionFrame[] = [];`,
   `const __falangPositionQuery = defineQuery<__FalangPositionFrame[]>('${POSITION_QUERY_NAME}');`,
   'const __falangSnapshot = (): __FalangPositionFrame[] => __falangPositionStack.map((frame) => ({ ...frame }));',
   `const ${POSITION_ENTER_FN} = (documentId: string): void => {`,
@@ -80,6 +85,17 @@ export const POSITION_RUNTIME_CODE = [
   '};',
   `const ${POSITION_FAILURE_FN} = (error: unknown): unknown => {`,
   '  if (__falangPositionStack.length !== 1 || isCancellation(error)) return error;',
+  // Run journal (ADR 0059 (private) §2a): the failure as the author's run ends, before the wrapper below is thrown.
+  `  ${JOURNAL_FN}({`,
+  "    kind: 'error',",
+  "    level: 'error',",
+  '    message: error instanceof Error ? error.message : String(error),',
+  '    data: {',
+  '      position: __falangSnapshot(),',
+  '      errorType: error instanceof Error ? error.name : typeof error,',
+  '      ...(error instanceof Error && error.cause instanceof Error ? { cause: error.cause.message } : {}),',
+  '    },',
+  '  });',
   '  return ApplicationFailure.create({',
   '    message: error instanceof Error ? error.message : String(error),',
   `    type: '${POSITION_FAILURE_TYPE}',`,

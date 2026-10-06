@@ -63,11 +63,12 @@ const createCollectingLogger = (): { readonly logger: Logger; readonly errors: s
   return { logger, errors };
 };
 
-const runTemporalBundler = async (workflowsPath: string): Promise<string> => {
+const runTemporalBundler = async (workflowsPath: string, interceptorModules: readonly string[]): Promise<string> => {
   const { logger, errors } = createCollectingLogger();
   try {
     const { code } = await temporalBundleWorkflowCode({
       workflowsPath,
+      ...(interceptorModules.length > 0 ? { workflowInterceptorModules: [...interceptorModules] } : {}),
       logger,
       webpackConfigHook: (config) => {
         const withTs = includeBuildDirInTsRule(config, dirname(workflowsPath));
@@ -101,11 +102,18 @@ const runTemporalBundler = async (workflowsPath: string): Promise<string> => {
  * a run's position stack showed a frame pushed by a *different* trigger's execution. The bundle is
  * checked afterwards so a future webpack/SDK change fails the build instead of shipping that.
  *
+ * `interceptorModules` (absolute paths, inside the same build directory so the swc rule compiles them)
+ * become the bundle's `workflowInterceptorModules` — the generated run-journal interceptor (ADR 0059
+ * (private) §2b, `JOURNAL_INTERCEPTORS_MODULE`) is the only one today.
+ *
  * On failure the thrown error carries webpack's own error output (the module and line that failed),
  * since the build runs in a child process whose logs are otherwise lost.
  */
-export const bundleWorkflowCode = async (workflowsPath: string): Promise<string> => {
-  const code = await runTemporalBundler(workflowsPath);
+export const bundleWorkflowCode = async (
+  workflowsPath: string,
+  interceptorModules: readonly string[] = [],
+): Promise<string> => {
+  const code = await runTemporalBundler(workflowsPath, interceptorModules);
   assertIsolatedModuleCache(code);
   return code;
 };

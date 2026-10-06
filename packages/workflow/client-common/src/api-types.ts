@@ -197,6 +197,38 @@ export interface IApiWorkflowRunSummary {
   readonly version: string;
 }
 
+export type TApiRunJournalKind = 'log' | 'trigger' | 'user-input' | 'ai' | 'message-out' | 'error';
+export type TApiRunJournalLevel = 'info' | 'warn' | 'error';
+
+/** One run-journal row (ADR 0059 (private)). */
+export interface IApiRunJournalEntry {
+  /** bigint as a string — the `after` cursor. */
+  readonly id: string;
+  readonly workflowId: string;
+  readonly runId: string | null;
+  readonly env: 'dev' | 'prod';
+  readonly kind: TApiRunJournalKind;
+  readonly level: TApiRunJournalLevel;
+  readonly message: string;
+  readonly data: Record<string, unknown> | null;
+  readonly documentId: string | null;
+  readonly nodeId: string | null;
+  readonly vendor: string | null;
+  readonly truncated: boolean;
+  readonly textsStripped: boolean;
+  /** ISO timestamp. */
+  readonly ts: string;
+}
+
+export interface IApiRunJournalPage {
+  readonly entries: IApiRunJournalEntry[];
+  readonly hasMore: boolean;
+}
+
+export interface IApiRunJournalSettings {
+  readonly storeTexts: boolean;
+}
+
 export interface IApiWorkflowRunFilters {
   readonly projectId?: string;
   readonly workflowName?: string;

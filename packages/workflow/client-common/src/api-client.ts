@@ -38,6 +38,8 @@ import type {
   IApiTask,
   IApiUser,
   IApiVendorData,
+  IApiRunJournalPage,
+  IApiRunJournalSettings,
   IApiWorkflowPosition,
   IApiWorkflowRunDetail,
   IApiWorkflowRunFilters,
@@ -51,6 +53,19 @@ export { ApiCompileErrorsError, type IApiCompileError, type IApiCompileErrorFile
 export { DocumentLockedError } from './api-document-lock-error.js';
 export { AgentQuotaError } from './agent/agent-quota-error.js';
 export * from './api-types.js';
+
+export interface IJournalPageParams {
+  readonly after?: string;
+  readonly limit?: number;
+}
+
+const journalQuery = (params: IJournalPageParams): string => {
+  const search = new URLSearchParams();
+  if (typeof params.after === 'string') search.set('after', params.after);
+  if (typeof params.limit === 'number') search.set('limit', String(params.limit));
+  const text = search.toString();
+  return text ? `?${text}` : '';
+};
 
 const BACKEND_URL: string = import.meta.env.VITE_BACKEND_URL ?? 'http://localhost:4000';
 
@@ -389,6 +404,26 @@ export const workflowApi = {
 
   getWorkflowRunDetail: (workflowId: string, runId: string) =>
     request<IApiWorkflowRunDetail>(`/workflow-runs/${workflowId}/${runId}`),
+
+  /** Run journal (ADR 0059 (private)) — one run, entries after the `after` cursor (last seen id). */
+  getRunJournal: (projectId: string, workflowId: string, runId: string, params: IJournalPageParams = {}) =>
+    request<IApiRunJournalPage>(
+      `/projects/${projectId}/runs/${encodeURIComponent(workflowId)}/${encodeURIComponent(runId)}/journal${journalQuery(params)}`,
+    ),
+
+  /** Every run of one workflow id (plus its run-less entries) — a Telegram chat's whole conversation. */
+  getWorkflowJournal: (projectId: string, workflowId: string, params: IJournalPageParams = {}) =>
+    request<IApiRunJournalPage>(
+      `/projects/${projectId}/workflows/${encodeURIComponent(workflowId)}/journal${journalQuery(params)}`,
+    ),
+
+  getJournalSettings: (projectId: string) => request<IApiRunJournalSettings>(`/projects/${projectId}/journal-settings`),
+
+  setJournalSettings: (projectId: string, settings: IApiRunJournalSettings) =>
+    request<IApiRunJournalSettings>(`/projects/${projectId}/journal-settings`, {
+      method: 'PUT',
+      body: JSON.stringify(settings),
+    }),
 
   /** Backs any `kind: 'select'` field's `loadOptions` (e.g. `call-ai-text`'s `model`) — see `TOKEN_FIELD_OPTIONS_PROVIDER`. */
   loadIntegrationFieldOptions: (projectId: string, credentialId: string, actionName: string, fieldName: string) =>

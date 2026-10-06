@@ -55,7 +55,7 @@ describe('openaiIntegration', () => {
       result: '{"type":"string"}',
       resultVariable: 'aiReply',
     });
-    expect(emitted).toBe("const aiReply = await callAiText('cred-1', 'gpt-4o-mini', `hello`, []);");
+    expect(emitted).toBe("const aiReply = (await callAiText('cred-1', 'gpt-4o-mini', `hello`, [])).text;");
   });
 
   it('emit() passes a non-empty attachments expression through verbatim', () => {
@@ -67,7 +67,7 @@ describe('openaiIntegration', () => {
       result: '{"type":"string"}',
       resultVariable: 'aiReply',
     });
-    expect(emitted).toBe("const aiReply = await callAiText('cred-1', 'gpt-4o-mini', `hello`, myFiles);");
+    expect(emitted).toBe("const aiReply = (await callAiText('cred-1', 'gpt-4o-mini', `hello`, myFiles)).text;");
   });
 
   it('emit() omits the assignment when resultVariable is empty (never edited)', () => {
@@ -91,7 +91,7 @@ describe('openaiIntegration', () => {
       result: '',
       resultVariable: 'aiReply',
     });
-    expect(emitted).toBe("const aiReply = await callAiText('cred-1', 'gpt-4o-mini', `hello`, []);");
+    expect(emitted).toBe("const aiReply = (await callAiText('cred-1', 'gpt-4o-mini', `hello`, [])).text;");
   });
 
   it('emit() throws a clear error for a struct result — compiler struct resolution not implemented yet', () => {
@@ -245,7 +245,7 @@ describe('openaiIntegration', () => {
     it('activityCode wraps the schema under a top-level "result" object and unwraps the response', () => {
       expect(choice?.activityCode).toContain('properties: { result: schema }');
       expect(choice?.activityCode).toContain('json_schema');
-      expect(choice?.activityCode).toContain('return parsed.result;');
+      expect(choice?.activityCode).toContain('...parsed.result');
     });
 
     it('activityCode builds an array content only when attachments are present, plain string otherwise', () => {

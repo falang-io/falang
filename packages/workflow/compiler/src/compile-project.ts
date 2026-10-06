@@ -14,6 +14,7 @@ import {
   groupActivityProxyEntries,
 } from './activity-proxy-groups.js';
 import { buildChoiceEmitters } from './choice-emitters.js';
+import { collectActivityJournal } from './activity-journal.js';
 import { collectIntegrationActivityCode, compileActivities } from './compile-activities.js';
 import type { ICompileError } from './compile-errors.js';
 import { ProjectCompileError } from './compile-errors.js';
@@ -24,6 +25,7 @@ import {
   type ITriggerFunctionBodyData,
 } from './compile-trigger-function.js';
 import { DEBUG_RUNTIME_CODE, DEBUG_RUNTIME_IMPORTS } from './debug-runtime.js';
+import { buildJournalRuntimeCode, JOURNAL_RUNTIME_IMPORTS } from './journal-runtime.js';
 import { buildIntegrationEmitters } from './integration-emitters.js';
 import type { IDebugEmitOptions, TResolveFunctionName } from './node-emitters.js';
 import { NodeCompileError } from './node-compile-error.js';
@@ -62,7 +64,8 @@ export interface ICompileProjectParams {
 }
 
 /**
- * `logActivity` (used by `log` nodes, see node-emitters.ts) and the activity-backed actions of every
+ * `logActivity` (kept for versions published before `log` moved to the run-journal sink, ADR 0059
+ * (private) §8 — no compiled call site uses it any more) and the activity-backed actions of every
  * vendor the project uses (e.g. `telegramSendMessage`, see `selectUsedIntegrations`; plus
  * `runActivepiecesAction` when an `activepieces-action` node exists) are proxied once at module
  * scope, grouped by their `activityOptions` (see `groupActivityProxyEntries`) — one `proxyLocalActivities`/
@@ -98,6 +101,9 @@ const buildWorkflowPreamble = (
     imports.add('CancellationScope');
     imports.add('isCancellation');
   }
+  // The run-journal sink is always compiled in: the `log` icon and the trigger/question entries call it
+  // (ADR 0059 (private)), with or without position tracking.
+  for (const name of JOURNAL_RUNTIME_IMPORTS) imports.add(name);
   if (trackPosition) for (const name of POSITION_RUNTIME_IMPORTS) imports.add(name);
   if (debug) for (const name of DEBUG_RUNTIME_IMPORTS) imports.add(name);
   return [
@@ -105,6 +111,8 @@ const buildWorkflowPreamble = (
     '',
     groups.map((group) => buildActivityProxyGroupCode(group)).join('\n\n'),
     ...(trackPosition ? ['', POSITION_RUNTIME_CODE] : []),
+    '',
+    buildJournalRuntimeCode(trackPosition),
     ...(debug ? ['', DEBUG_RUNTIME_CODE] : []),
   ].join('\n');
 };
@@ -252,6 +260,7 @@ export const compileProject = ({
   const activities = compileActivities(extraActivityCode, {
     includeActivepiecesAction: used.usesActivepiecesAction,
     activityVendors: collectActivityVendors(used.integrations),
+    activityJournal: collectActivityJournal(used.integrations),
   });
 
   // Each document's block is wrapped in its own `doc-start`/`doc-end` marker (see

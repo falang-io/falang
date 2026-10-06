@@ -32,15 +32,39 @@ export const __falangActivityVendors: Record<string, string> = {
   httpRequest: 'http-request',
 };
 
+export const __falangActivityJournal: Record<string, { kind: string; args: string[]; result?: boolean }> = {};
+export const __falangActivityParams: Record<string, string[]> = {};
+
 "
 `;
 
 exports[`compileProject snapshot (pre-P1 baseline, no activityOptions) > compiles a project spanning log + telegram + openai + http-request, one function and one trigger-function > workflows 1`] = `
-"import { condition, defineSignal, proxyLocalActivities, setHandler } from '@temporalio/workflow';
+"import { condition, defineSignal, proxyLocalActivities, proxySinks, setHandler } from '@temporalio/workflow';
 
 const { logActivity, telegramSendMessage, callAiText, httpRequest } = proxyLocalActivities<{ logActivity(message: string): Promise<string>; telegramSendMessage(credentialId: string, chatId: string, text: string): Promise<void>; callAiText(credentialId: string, prompt: string): Promise<string>; httpRequest(url: string): Promise<{ status: number; body: string }> }>({
   startToCloseTimeout: '10 seconds',
 });
+
+const { falangJournal } = proxySinks<{ falangJournal: { append(entry: unknown): void } }>();
+interface __FalangJournalEntry {
+  kind: 'log' | 'trigger' | 'user-input' | 'ai' | 'message-out' | 'error';
+  level: 'info' | 'warn' | 'error';
+  message: string;
+  data?: Record<string, unknown>;
+  documentId?: string;
+  nodeId?: string;
+  vendor?: string;
+}
+let __falangJournalSeq = 0;
+const __falangJournal = (entry: __FalangJournalEntry): void => {
+  try {
+    const position = {};
+    __falangJournalSeq += 1;
+    falangJournal.append({ ...position, ...entry, seq: __falangJournalSeq, ts: Date.now() });
+  } catch {
+    // The journal never fails a workflow.
+  }
+};
 
 // doc-start:summarize:doc-helper
 export async function summarize(): Promise<void> {
@@ -48,7 +72,7 @@ export async function summarize(): Promise<void> {
   const summary = await callAiText("cred-openai", \`\\\`Summarize this\\\`\`);
   // icon-end:call-ai-text:ai1
   // icon-start:log:log1
-  await logActivity(\`summary\`);
+  __falangJournal({ kind: 'log', level: 'info', message: \`summary\` });
   // icon-end:log:log1
 }
 // doc-end:summarize:doc-helper
@@ -64,6 +88,7 @@ export async function onMessage(): Promise<void> {
     hasSignal = true;
   });
   await condition(() => hasSignal);
+  __falangJournal({ kind: 'trigger', level: 'info', message: \`telegram-trigger\`, data: { payload: message } });
   // icon-start:call-function:call1
   await summarize();
   // icon-end:call-function:call1

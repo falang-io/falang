@@ -1,3 +1,4 @@
+// oxlint-disable max-lines -- over the default cap by the run-journal reports for unroutable input (ADR 0059 (private) §2c).
 import { TRIGGER_FUNCTION_BODY_NAME, TRIGGER_FUNCTION_NAME } from '@falang/workflow-dto';
 import type {
   IIntegrationBackendContext,
@@ -140,6 +141,12 @@ const selectTriggerFunctionForCallback = (
   return remembered || selectPrimaryTriggerFunction(documents);
 };
 
+/**
+ * Input that matches no bound trigger function has no workflow to belong to, but a journal entry needs a workflow id —
+ * `tg-unbound-<chatId>` keeps it per chat, shown in that conversation's journal view (ADR 0059 (private) §2c).
+ */
+const unboundWorkflowId = (chatId: number): string => `tg-unbound-${chatId}`;
+
 const handleMessage = async (
   ctx: IIntegrationBackendContext,
   message: ITelegramRawMessage,
@@ -151,7 +158,15 @@ const handleMessage = async (
 
   const triggerFunctionDocuments = await findBoundTriggerFunctions(ctx);
   const triggerFunction = selectTriggerFunctionForMessage(triggerFunctionDocuments, message);
-  if (!triggerFunction) return;
+  if (!triggerFunction) {
+    await ctx.reportJournalProblem?.({
+      workflowId: unboundWorkflowId(chatId),
+      level: 'info',
+      message: 'Ignored a message: no trigger function is bound to this bot for it',
+      data: { errorType: 'NoBoundTrigger', signal: TELEGRAM_SIGNAL_NAME, payload: toTelegramMessage(message) },
+    });
+    return;
+  }
   chatTriggerFunctions.set(chatId, triggerFunction.id);
 
   // Resolved eagerly, before signalling, so the compiled workflow just reads `message.photo`/etc. and
@@ -205,7 +220,19 @@ const handleCallbackQuery = async (
 
   const triggerFunctionDocuments = await findBoundTriggerFunctions(ctx);
   const triggerFunction = selectTriggerFunctionForCallback(triggerFunctionDocuments, chatId, chatTriggerFunctions);
-  if (!triggerFunction) return;
+  if (!triggerFunction) {
+    await ctx.reportJournalProblem?.({
+      workflowId: unboundWorkflowId(chatId),
+      level: 'warn',
+      message: 'Ignored a button press: no trigger function is bound to this bot to receive it',
+      data: {
+        errorType: 'NoBoundTrigger',
+        signal: TELEGRAM_QUESTION_ANSWER_SIGNAL_NAME,
+        payload: { messageId: String(callbackQuery.message?.message_id), value: callbackQuery.data },
+      },
+    });
+    return;
+  }
 
   await ctx.signalWorkflow({
     workflowId: `tg-${triggerFunction.id}-${chatId}`,

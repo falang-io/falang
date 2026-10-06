@@ -86,7 +86,7 @@ describe('compileProject — workflowInfo import (delivery: "start")', () => {
     });
 
     expect(importLine(result.workflows)).toBe(
-      "import { condition, defineSignal, proxyLocalActivities, setHandler } from '@temporalio/workflow';",
+      "import { condition, defineSignal, proxyLocalActivities, proxySinks, setHandler } from '@temporalio/workflow';",
     );
   });
 
@@ -97,7 +97,7 @@ describe('compileProject — workflowInfo import (delivery: "start")', () => {
     });
 
     expect(importLine(result.workflows)).toBe(
-      "import { condition, defineSignal, proxyLocalActivities, setHandler, workflowInfo } from '@temporalio/workflow';",
+      "import { condition, defineSignal, proxyLocalActivities, proxySinks, setHandler, workflowInfo } from '@temporalio/workflow';",
     );
   });
 
@@ -111,7 +111,7 @@ describe('compileProject — workflowInfo import (delivery: "start")', () => {
     });
 
     expect(importLine(result.workflows)).toBe(
-      "import { condition, defineSignal, proxyLocalActivities, setHandler, workflowInfo } from '@temporalio/workflow';",
+      "import { condition, defineSignal, proxyLocalActivities, proxySinks, setHandler, workflowInfo } from '@temporalio/workflow';",
     );
   });
 });

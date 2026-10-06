@@ -112,7 +112,7 @@ describe('compileProject with activityOptions', () => {
     });
 
     expect(result.workflows).toContain(
-      "import { condition, defineSignal, proxyActivities, proxyLocalActivities, setHandler } from '@temporalio/workflow';",
+      "import { condition, defineSignal, proxyActivities, proxyLocalActivities, proxySinks, setHandler } from '@temporalio/workflow';",
     );
     expect(result.workflows).toContain(
       [

@@ -15,3 +15,4 @@ export * from './resolve-integration-labels.js';
 export * from './duration.js';
 export * from './question-extensions.js';
 export * from './question-scope-contributor.js';
+export * from './ai-result-type.js';
