@@ -9,8 +9,44 @@ const str = (params: Record<string, unknown> | null, key: string): string =>
 const num = (params: Record<string, unknown> | null, key: string): string =>
   params && typeof params[key] === 'number' ? String(params[key]) : `?${key}`;
 
+/** A step line a host can translate: `agent-chat:<key>` with `values` interpolated, `text` the English fallback. */
+export interface IToolCallStepText {
+  readonly key: string;
+  readonly values: Readonly<Record<string, string>>;
+  readonly text: string;
+}
+
+/**
+ * The file tools' step lines (ADR 0062 (private) — the agent edits documents as JSON files) as translatable keys.
+ * `null` for every other tool (their lines are English-only, `describeToolCall`).
+ */
+export const describeFileToolCall = (call: ILlmToolCall): IToolCallStepText | null => {
+  const params = asRecord(call.input);
+  const path = str(params, 'path');
+  switch (call.name) {
+    case 'list_files': {
+      return { key: 'step-list-files', text: 'Listed the project files', values: {} };
+    }
+    case 'read_file': {
+      return { key: 'step-read-file', text: `Read ${path}`, values: { path } };
+    }
+    case 'write_file': {
+      return { key: 'step-write-file', text: `Wrote ${path}`, values: { path } };
+    }
+    case 'edit_file': {
+      return { key: 'step-edit-file', text: `Edited ${path}`, values: { path } };
+    }
+    case 'check_project': {
+      return { key: 'step-check-project', text: 'Checked the project (compile + type check)', values: {} };
+    }
+    default: {
+      return null;
+    }
+  }
+};
+
 const describeOther = (call: ILlmToolCall, params: Record<string, unknown> | null): string =>
-  call.name === 'ask_user' ? `Asked: ${str(params, 'question')}` : call.name;
+  call.name === 'ask_user' ? `Asked: ${str(params, 'question')}` : (describeFileToolCall(call)?.text ?? call.name);
 
 /** A short, human-readable one-liner for a tool call — what the agent chat's step trace shows instead of the
  *  bare tool name, e.g. "Insert 'action' into n3 at index 2" rather than just "insert_node". */
