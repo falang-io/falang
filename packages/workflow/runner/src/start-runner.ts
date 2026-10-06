@@ -6,6 +6,7 @@ import {
   installEgressRouting,
   type IEgressConfigPoller,
 } from '@falang/workflow-egress';
+import { installRunnerRuntime } from './install-runtime.js';
 import { fetchArtifact } from './fetch-artifact.js';
 import { loadCjsModuleFromSource } from './load-cjs-module-from-source.js';
 import type { IRunnerConfig } from './runner-config.js';
@@ -26,6 +27,8 @@ const EGRESS_CONFIG_READY_TIMEOUT_MS = 5000;
  * the pre-k8s version of this function, which read `workflowsPath`/`activitiesPath` off local disk.
  */
 export const startRunner = async (config: IRunnerConfig): Promise<void> => {
+  // Metrics/JSON logs of the SDK (ADR 0060 (private)); has to precede every connection/Worker.
+  installRunnerRuntime();
   // Tokenless in `shared` mode, otherwise authenticated for this project's namespace only and kept fresh — see `temporal-connection.ts`.
   const temporal = await connectRunnerToTemporal(config);
 
