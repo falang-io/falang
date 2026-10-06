@@ -95,7 +95,8 @@ test.describe('run journal', () => {
     await page.goto('/');
     await openProjectViaUI(page, projectName);
     await clickProjectMenuItem(page, 'Run journal');
-    await expect(page.getByTestId('run-journal-settings-modal')).toBeVisible();
+    // antd puts `data-testid` on the zero-size modal root, so assert the dialog and its switch instead.
+    await expect(page.getByRole('dialog')).toBeVisible();
     await expect(page.getByTestId('run-journal-store-texts')).toBeVisible();
   });
 });

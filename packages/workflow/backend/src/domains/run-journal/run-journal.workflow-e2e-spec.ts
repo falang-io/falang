@@ -244,13 +244,16 @@ describe('run journal (workflow tier)', () => {
       await sendMessage(ids.botToken, 4003, 'trigger a failure', 300);
       const run = await waitForNewRun(token, projectId, new Set());
       const entries = await waitForJournal(token, projectId, run.workflowId, (list) =>
-        list.some((entry) => entry.kind === 'error' && entry.level === 'error'),
+        list.some((entry) => entry.kind === 'error'),
       );
 
       expect(entries.some((entry) => entry.kind === 'trigger')).toBe(true);
-      const errors = entries.filter((entry) => entry.kind === 'error' && entry.level === 'error');
+      // ADR 0059 §2b: a failed attempt Temporal will retry is a `warn` (the failure stays retryable here — no
+      // `maximumAttempts` — so the run's final `error`-level entry never arrives); each attempt gets its own entry.
+      const errors = entries.filter((entry) => entry.kind === 'error');
       expect(errors.length).toBeGreaterThanOrEqual(1);
       for (const error of errors) {
+        expect(error.level).toBe('warn');
         expect(error.documentId).toBe(documentId);
         expect(error.nodeId).toBe(NODE_IDS.ai);
         expect(error.message.length).toBeGreaterThan(0);
