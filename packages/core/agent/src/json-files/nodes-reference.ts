@@ -2,7 +2,7 @@ import type { INodeConfig, NodesStack } from '@falang/dto';
 import { zod } from '@falang/dto';
 import { describeNodeKind, describeNodeKinds, getAllowedChildNames } from '@falang/mcp-core';
 import { visibleMetaKeys } from './project-node-tree.js';
-import { templateFieldsOf } from './template-fields.js';
+import { templateFieldsOf, templateFieldsOfKind } from './template-fields.js';
 
 /** One document type a reference covers: where its files live and which kind is its root. */
 export interface INodesReferenceDocumentType {
@@ -57,7 +57,7 @@ const describeData = (cfg: INodeConfig, stack: NodesStack): string => {
   if (!cfg.data) return 'no data';
   const schema = describeNodeKind(cfg.name, stack).dataSchema ?? {};
   const templates = new Set(templateFieldsOf(cfg.name, stack));
-  if (schema.type === 'string') return 'data: string';
+  if (schema.type === 'string') return templateFieldsOfKind(cfg.name, stack).whole ? 'data: string (template)' : 'data: string';
   if (schema.type === 'boolean' || schema.type === 'number') return `data: ${String(schema.type)}`;
   const properties = schema.properties as Record<string, unknown> | undefined;
   if (schema.type === 'object' && properties) {

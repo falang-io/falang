@@ -10,11 +10,14 @@ import {
 } from '@falang/agent';
 import { isValidFunctionName, type IProjectTreeFolder, type NodesStack } from '@falang/dto';
 import { OBJECTS_STRUCTURE_NAME } from '@falang/typescript-dto';
+import type { IWorkflowIntegration } from '@falang/workflow-integrations-common';
 import { findSectionFolder, sectionForDocumentType, TRIGGER_FUNCTION_NAME } from '@falang/workflow-dto';
 import { findDocumentNameConflict } from '../document-names.js';
 import { getIntegrationInstances } from '../integration-instances.js';
 import { isAgentEditableType } from './create-agent-document-resolver.js';
 import type { IWorkflowAgentStore } from './workflow-agent-store.js';
+import { syncOptionsFromChildren } from './question-options.js';
+import { REGISTERED_INTEGRATIONS } from '../integrations-registry.js';
 
 /** File-system section per document type — the ADR 0055 sections, lower-cased. */
 const SECTION_DIR: Readonly<Record<string, string>> = {
@@ -40,6 +43,8 @@ export interface IWorkflowJsonFilesHostDeps {
   /** Lock + open tab before a write (the same callbacks the node tools' resolver uses). */
   readonly beforeWrite?: (documentId: string) => void;
   readonly checkProject?: TWorkflowCheckProject;
+  /** Vendors whose question/choice headers are re-derived from their branches on write; defaults to every registered one. */
+  readonly integrations?: readonly IWorkflowIntegration[];
   /** Builds the stack of a document type that has no document yet (a throwaway scheme on the project container). */
   readonly buildStack?: (type: string) => NodesStack | null;
 }
@@ -103,11 +108,13 @@ export class WorkflowJsonFilesHost implements IJsonFilesHost {
   checkProject?: () => Promise<readonly IJsonFilesDiagnostic[]>;
 
   /** `call-function.schemeId` (a document id in storage) shown as the called document's file path; on write a path
-   *  (with or without `.json`), a document name or an id all resolve back to the id. */
+   *  (with or without `.json`), a document name or an id all resolve back to the id. A question/choice header's
+   *  `options` are re-derived from its branches on write (`syncOptionsFromChildren`). */
   readonly dataMapping: IJsonDataMapping = {
     in: (kind, data) => this.mapSchemeId(kind, data, (value) => this.resolveDocumentReference(value)),
     out: (kind, data) =>
       this.mapSchemeId(kind, data, (value) => this.listDocuments().find((doc) => doc.id === value)?.path ?? value),
+    normalize: (node) => syncOptionsFromChildren(node, this.deps.integrations ?? REGISTERED_INTEGRATIONS),
   };
 
   private mapSchemeId(kind: string, data: unknown, map: (value: string) => string): unknown {

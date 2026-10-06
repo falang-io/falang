@@ -69,6 +69,11 @@ export const readSchemeTree = (scheme: Scheme): INode | null =>
 export interface IJsonDataMapping {
   out(kind: string, data: unknown): unknown;
   in(kind: string, data: unknown): unknown;
+  /**
+   * Runs on every written node (a raw file node, after `in` ran on the whole tree, before validation) and may rewrite
+   * its `data` from its children — e.g. a header field the editor keeps in sync with the child branches.
+   */
+  normalize?(node: Record<string, unknown>): void;
 }
 
 const project = (node: INode, mapping?: IJsonDataMapping): INode => {

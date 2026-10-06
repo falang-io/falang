@@ -1,6 +1,6 @@
 import type { INode, INodeMeta, NodesStack } from '@falang/dto';
 import { IF_NODE_NAME, isThenOnRight, visibleMetaKeys } from './project-node-tree.js';
-import { templateFieldsOf } from './template-fields.js';
+import { normalizeTemplateBody, templateFieldsOfKind } from './template-fields.js';
 import { isRecord } from './normalize-structure.js';
 
 /** Step 3 of the write pipeline (ADR 0062 §2.2): the normalisations the agent should not have to know. */
@@ -12,17 +12,17 @@ export const walkRaw = (node: Record<string, unknown>, fn: (node: Record<string,
   if (isRecord(node.out)) walkRaw(node.out, fn);
 };
 
-/** Template-literal fields written with surrounding backticks (the compiler adds its own) — strip them. */
-export const stripTemplateBackticks = (node: Record<string, unknown>, stack: NodesStack): void => {
-  const fields = templateFieldsOf(node.name as string, stack);
-  if (fields.length === 0 || !isRecord(node.data)) return;
-  for (const field of fields) {
+/** Template-literal fields (ADR 0062 §3): stray surrounding backticks stripped, a literal `\\n` in the text made a line break. */
+export const normalizeTemplateFields = (node: Record<string, unknown>, stack: NodesStack): void => {
+  const fields = templateFieldsOfKind(node.name as string, stack);
+  if (fields.whole) {
+    if (typeof node.data === 'string') node.data = normalizeTemplateBody(node.data);
+    return;
+  }
+  if (fields.properties.length === 0 || !isRecord(node.data)) return;
+  for (const field of fields.properties) {
     const value = node.data[field];
-    if (typeof value === 'string') {
-      const trimmed = value.trim();
-      if (trimmed.length >= 2 && trimmed.startsWith('`') && trimmed.endsWith('`'))
-        node.data[field] = trimmed.slice(1, -1);
-    }
+    if (typeof value === 'string') node.data[field] = normalizeTemplateBody(value);
   }
 };
 

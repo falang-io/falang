@@ -8,7 +8,7 @@ import {
   normalizeStructure,
   type IStructureContext,
 } from './normalize-structure.js';
-import { applyMetaOverlay, orientIfs, stripTemplateBackticks, takeVisibleMeta, walkRaw } from './normalize-values.js';
+import { applyMetaOverlay, orientIfs, normalizeTemplateFields, takeVisibleMeta, walkRaw } from './normalize-values.js';
 import type { IJsonDataMapping } from './project-node-tree.js';
 import { describeTreeChanges, type ITreeChanges } from './tree-changes.js';
 import { describeJsonError, formatValidationError } from './write-errors.js';
@@ -62,7 +62,7 @@ const validateTree = (params: IPrepareDocumentWriteParams, rawRoot: unknown): { 
 
 /**
  * ADR 0062 §2.2: file text → a validated tree ready to apply. Parse → ids/structure → normalisations (template
- * backticks, `if` orientation, hidden meta) → `NodesStack.parseDocument` (every structural rule incl. first-child-`out`)
+ * bodies, `if` orientation, hidden meta) → `NodesStack.parseDocument` (every structural rule incl. first-child-`out`)
  * → `preserveMeta` (layout back by id) → the `if` sides on top. Pure; nothing is written on any error.
  */
 export const prepareDocumentWrite = (params: IPrepareDocumentWriteParams): TPrepareDocumentWriteResult => {
@@ -98,9 +98,11 @@ export const prepareDocumentWrite = (params: IPrepareDocumentWriteParams): TPrep
   const overlay = new Map<string, INodeMeta>();
   walkRaw(rawRoot, (node) => {
     if (params.dataMapping && 'data' in node) node.data = params.dataMapping.in(node.name as string, node.data);
-    stripTemplateBackticks(node, stack);
+    normalizeTemplateFields(node, stack);
     takeVisibleMeta(node, overlay);
   });
+  const normalize = params.dataMapping?.normalize?.bind(params.dataMapping);
+  if (normalize) walkRaw(rawRoot, normalize);
   const sides = new Map<string, boolean>();
   orientIfs(rawRoot, oldById, sides);
   for (const [id, trueOnRight] of sides) overlay.set(id, { ...overlay.get(id), trueOnRight });
