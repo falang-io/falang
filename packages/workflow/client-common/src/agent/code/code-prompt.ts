@@ -21,5 +21,10 @@ export const CODE_SYSTEM_PROMPT = [
   'A write is type-checked; on an error nothing is saved and you get every problem as file:line:column — fix and write ' +
     'again. Use edit_file for small changes. If an integration instance you need does not exist, create it with ' +
     'create_integration_instance (search_integrations finds the vendor) and tell the user to fill in its credentials.',
+  'Types: annotate with string, number, boolean, arrays and the interfaces from types/ and vendors.d.ts; int32/float64 ' +
+    'are for declarations only (never inside expressions or `as` casts). An object shape needs an interface: write it ' +
+    'in types/<Name>.ts (`interface GameState { … }`) and use the name. Call an integration only as a statement of its own ' +
+    '(`const reply = await ai.callAiText({ … });`), never inside another expression or as a reassignment.',
+  'After each write the whole project is compiled; a write that breaks it is undone and you get the errors.',
   'Finish every run by calling `finish` with a direct, first-person reply to the user.',
 ].join('\n\n');

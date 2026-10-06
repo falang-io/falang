@@ -11,7 +11,12 @@ import { IntegrationToolProvider } from './integration-tool-provider.js';
 import type { IWorkflowAgentStore } from './workflow-agent-store.js';
 import { CodeIntegrationTools } from './code/code-integration-tools.js';
 import { CODE_SYSTEM_PROMPT } from './code/code-prompt.js';
-import { CodeFilesContextProvider, CodeToolProvider, describeInstanceForCode } from './code/code-tool-provider.js';
+import {
+  CodeFilesContextProvider,
+  CodeToolProvider,
+  describeInstanceForCode,
+  type TCodeCheckProject,
+} from './code/code-tool-provider.js';
 
 export interface ICreateWorkflowAgentSessionDeps {
   /** The vendor connection — the real host's is `HttpLlmClient` (the backend's `/agent/chat` proxy); a headless host passes its own. */
@@ -30,6 +35,8 @@ export interface ICreateWorkflowAgentSessionDeps {
    * function/trigger is a TypeScript file edited with list/read/write/edit_file).
    */
   readonly agentInterface?: 'nodes' | 'code';
+  /** Real compile + type check of the project (headless: compileProject + typeCheckProject); the code interface undoes a write that breaks it. */
+  readonly checkProject?: TCodeCheckProject;
 }
 
 /** The `'code'` interface (ADR 0061 spike): no node tools, file tools over the code projection instead. */
@@ -48,6 +55,7 @@ const createWorkflowCodeAgentSession = (deps: ICreateWorkflowAgentSessionDeps): 
       toolProviders: [
         new CodeToolProvider({
           acquireLock: deps.acquireLock,
+          checkProject: deps.checkProject,
           integrations,
           onOpenDocument: deps.onOpenDocument,
           store,

@@ -144,6 +144,61 @@ const runFromScratch = async (): Promise<void> => {
   store.dispose();
 };
 
+/** compileProject + typeCheckProject over the store, attributed to documents — what a host passes as `checkProject`. */
+const checkProjectOf =
+  (store: HeadlessWorkflowStore) => (): Promise<{ documentId?: string; nodeId?: string; message: string }[]> => {
+    try {
+      compileAndTypeCheck(store);
+      return Promise.resolve([]);
+    } catch (error) {
+      const text = error instanceof Error ? error.message : String(error);
+      try {
+        return Promise.resolve(
+          JSON.parse(text.slice(text.indexOf('['))) as { documentId?: string; nodeId?: string; message: string }[],
+        );
+      } catch {
+        return Promise.resolve([{ message: text }]);
+      }
+    }
+  };
+
+/** The projection accepts code the real compiler rejects (an int32 cast inside an expression): the write is undone. */
+const runCompilerGate = async (): Promise<void> => {
+  const store = new HeadlessWorkflowStore();
+  const good = 'export async function total(x: number): Promise<number> {\n  return x + 1;\n}\n';
+  const bad =
+    'export async function total(x: number): Promise<number> {\n  const y = (x + 1) as int32;\n  return y;\n}\n';
+  const client = new ScriptedLlmClient([
+    toolCall('write_file', { content: good, path: 'functions/total.ts' }),
+    toolCall('write_file', { content: bad, path: 'functions/total.ts' }),
+    toolCall('finish', { message: 'done' }),
+  ]);
+  const session = createWorkflowAgentSession({
+    agentInterface: 'code',
+    checkProject: checkProjectOf(store),
+    focusPauseMs: 0,
+    llmClient: client,
+    store,
+  });
+  await session.run('total', { activeDocumentId: null });
+  const [first, second] = session.steps;
+  assert(first?.result.ok, `the valid write failed: ${JSON.stringify(first?.result)}`);
+  assert(
+    second && !second.result.ok && /int32/.test(second.result.error) && /nothing was saved/.test(second.result.error),
+    `the compiler gate did not reject: ${JSON.stringify(second?.result)}`,
+  );
+  const total = store.documents.find((doc) => doc.name === 'total');
+  assert(
+    total &&
+      JSON.stringify(store.rootOf(total)).includes('x + 1') &&
+      !JSON.stringify(store.rootOf(total)).includes('int32'),
+    'the rejected write was not undone',
+  );
+  compileAndTypeCheck(store);
+  console.log('ok   compiler gate: a write the real compiler rejects is undone and reported on its statement');
+  store.dispose();
+};
+
 const main = async (): Promise<void> => {
   const store = new HeadlessWorkflowStore();
   store.saveIntegrationInstance({
@@ -217,6 +272,7 @@ const main = async (): Promise<void> => {
   console.log('ok   compile + type-check of the agent-written files');
   store.dispose();
   await runFromScratch();
+  await runCompilerGate();
 };
 
 main().then(

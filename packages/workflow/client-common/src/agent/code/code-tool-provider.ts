@@ -1,4 +1,4 @@
-// oxlint-disable no-undefined, init-declarations, max-classes-per-file, no-map-spread, no-array-callback-reference, catch-error-name, prefer-string-raw, max-lines, no-console, complexity, no-non-null-assertion, no-use-before-define, require-array-join-separator -- spike code (ADR 0061 (private))
+// oxlint-disable no-undefined, consistent-function-scoping, init-declarations, max-classes-per-file, no-map-spread, no-array-callback-reference, catch-error-name, prefer-string-raw, max-lines, no-console, complexity, no-non-null-assertion, no-use-before-define, require-array-join-separator -- spike code (ADR 0061 (private))
 import type {
   IAgentContextProvider,
   IAgentToolProvider,
@@ -71,7 +71,13 @@ export const CODE_TOOLS: readonly ILlmToolDefinition[] = [
   },
 ];
 
+/** A compile + type check of the project as it is now (the real workflow compiler) — `compileProject` +
+ *  `typeCheckProject` in a headless host, a backend call in the editor. Errors carry the document/node they came from. */
+export type TCodeCheckProject = () => Promise<readonly { documentId?: string; nodeId?: string; message: string }[]>;
+
 export interface ICodeToolProviderDeps {
+  /** When set, every write is compiled with the real compiler after it is applied and undone if this document fails. */
+  readonly checkProject?: TCodeCheckProject;
   readonly store: IWorkflowAgentStore;
   readonly integrations: readonly IWorkflowIntegration[];
   /** The host's document lock (ADR 0034), taken before a document is changed. */
@@ -121,7 +127,7 @@ export class CodeToolProvider implements IAgentToolProvider {
     return buildProjection(this.deps.store, this.deps.integrations);
   }
 
-  execute(call: ILlmToolCall): TToolExecutionResult {
+  async execute(call: ILlmToolCall): Promise<TToolExecutionResult> {
     const input = asRecord(call.input) ?? {};
     const path = typeof input.path === 'string' ? input.path.trim() : '';
     try {
@@ -140,10 +146,10 @@ export class CodeToolProvider implements IAgentToolProvider {
         }
         case 'write_file': {
           if (typeof input.content !== 'string') return fail('write_file: `content` must be the file text');
-          return this.write(path, input.content);
+          return await this.write(path, input.content);
         }
         case 'edit_file': {
-          return this.edit(path, input);
+          return await this.edit(path, input);
         }
         default: {
           return fail(`Unknown tool: ${call.name}`);
@@ -155,7 +161,7 @@ export class CodeToolProvider implements IAgentToolProvider {
     }
   }
 
-  private edit(path: string, input: Record<string, unknown>): TToolExecutionResult {
+  private edit(path: string, input: Record<string, unknown>): Promise<TToolExecutionResult> | TToolExecutionResult {
     const oldString = input.old_string;
     const newString = input.new_string;
     if (typeof oldString !== 'string' || typeof newString !== 'string' || oldString === '') {
@@ -176,17 +182,55 @@ export class CodeToolProvider implements IAgentToolProvider {
     );
   }
 
-  private write(path: string, content: string): TToolExecutionResult {
+  private async write(path: string, content: string): Promise<TToolExecutionResult> {
     const projection = this.projection();
     const result = projection.writeFile(path, content);
     const documentId = result.documentId ?? this.create(result);
     this.deps.onOpenDocument?.(documentId);
     this.deps.acquireLock?.(documentId);
     const oldRoot = projection.findDocument(path)?.root ?? undefined;
-    this.apply(this.deps.store.getScheme(documentId), result.root, oldRoot ?? undefined, Boolean(result.documentId));
+    const scheme = this.deps.store.getScheme(documentId);
+    const applied = this.apply(scheme, result.root, oldRoot ?? undefined, Boolean(result.documentId));
+    const rejected = await this.compileCheck(path, documentId, result.root, projection);
+    if (rejected) {
+      if (applied) this.undo(scheme);
+      return fail(rejected);
+    }
     const stored = this.projection().readFile(path);
     const summary = `Saved ${path}${result.documentId ? '' : ' (new document)'}: ${result.stats.kept + result.stats.fresh} nodes, ${result.stats.fresh} new.`;
     return ok(stored.trim() === content.trim() ? summary : `${summary} The file is stored as:\n${stored}`);
+  }
+
+  /** The real compiler's verdict on this document after the write: an error text (the write is then undone) or null. */
+  private async compileCheck(
+    path: string,
+    documentId: string,
+    root: INode,
+    projection: WorkflowProjection,
+  ): Promise<string | null> {
+    if (!this.deps.checkProject) return null;
+    const diagnostics = await this.deps.checkProject();
+    const own = diagnostics.filter((diagnostic) => diagnostic.documentId === documentId);
+    if (own.length === 0) return null;
+    const find = (node: INode, id: string): INode | undefined => {
+      if (node.id === id) return node;
+      for (const child of [...(node.children ?? []), ...(node.out ? [node.out] : [])]) {
+        const hit = find(child, id);
+        if (hit) return hit;
+      }
+      return undefined;
+    };
+    const lines = own.slice(0, 10).map((diagnostic) => {
+      const node = diagnostic.nodeId ? find(root, diagnostic.nodeId) : undefined;
+      const where = node ? ` in \`${projection.describeNode(node)}\`` : '';
+      return `${path}${where}: ${diagnostic.message.replace(/^Line \d+: /, '')}`;
+    });
+    return `${lines.join('\n')}\nThe compiled workflow does not type-check, so nothing was saved. Fix these and write the file again.`;
+  }
+
+  private undo(scheme: Scheme): void {
+    if (!scheme.container.isRegistered(TOKEN_HISTORY, true)) return;
+    resolveService(TOKEN_HISTORY, scheme.container).back();
   }
 
   private create(result: IWriteResult): string {
@@ -197,7 +241,9 @@ export class CodeToolProvider implements IAgentToolProvider {
   }
 
   /** Puts `root` into the live scheme: one undo group, through the commands every edit uses. */
-  private apply(scheme: Scheme, root: INode, oldRoot: INode | undefined, existed: boolean): void {
+  /** Returns whether anything was changed (an unchanged write leaves no undo step to take back). */
+  private apply(scheme: Scheme, root: INode, oldRoot: INode | undefined, existed: boolean): boolean {
+    let changed = false;
     const live = scheme.rootNode;
     if (!live) throw new Error('The document has no tree');
     const history = scheme.container.isRegistered(TOKEN_HISTORY, true)
@@ -209,9 +255,11 @@ export class CodeToolProvider implements IAgentToolProvider {
         if (!target) return;
         if (JSON.stringify(target.data ?? null) !== JSON.stringify(part.data ?? null)) {
           scheme.commands.dispatchCommand(CMD_SET_DATA, { data: part.data, id: target.id });
+          changed = true;
         }
         if (index !== 1) return;
         if (existed && sameBody(oldRoot?.children?.[1], part)) return;
+        changed = true;
         for (const child of target.children.map((node) => node.id))
           scheme.commands.dispatchCommand(CMD_DELETE_NODE, { id: child });
         for (const [position, node] of (part.children ?? []).entries()) {
@@ -221,6 +269,7 @@ export class CodeToolProvider implements IAgentToolProvider {
     };
     if (history) history.runGrouped(run);
     else run();
+    return changed;
   }
 }
 

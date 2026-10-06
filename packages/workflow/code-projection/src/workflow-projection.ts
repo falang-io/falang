@@ -160,6 +160,16 @@ export class WorkflowProjection {
     return this.projectDocument(doc);
   }
 
+  /** The first line of a node's code — how a compiler error on that node is shown to the agent. */
+  describeNode(node: INode): string {
+    try {
+      const line = new Projector(this.ctx).statement(node).split('\n')[0] ?? node.name;
+      return line.length > 120 ? `${line.slice(0, 117)}…` : line;
+    } catch {
+      return node.name;
+    }
+  }
+
   /** A function/trigger document (or a modified copy of one) as file text. */
   projectDocument(doc: IWorkflowProjectDocument): string {
     if (doc.type === 'objects-structure') return projectTypesFile(this.rootOf(doc), this.model.types);
