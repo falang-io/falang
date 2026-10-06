@@ -24,7 +24,11 @@ describe('compileStatements — debug instrumentation (ADR 0021 (private))', () 
   it('is off by default: no `debug` argument emits no `__falangDebug` call', () => {
     const node: INode = { id: 'l1', name: 'log', data: 'hi' };
     expect(compileStatements([node])).toBe(
-      ['// icon-start:log:l1', 'await logActivity(`hi`);', '// icon-end:log:l1'].join('\n'),
+      [
+        '// icon-start:log:l1',
+        "__falangJournal({ kind: 'log', level: 'info', message: `hi` });",
+        '// icon-end:log:l1',
+      ].join('\n'),
     );
   });
 
@@ -35,7 +39,7 @@ describe('compileStatements — debug instrumentation (ADR 0021 (private))', () 
       [
         '// icon-start:log:l1',
         'await __falangDebug.trace(0, () => ({}));',
-        'await logActivity(`hi`);',
+        "__falangJournal({ kind: 'log', level: 'info', message: `hi` });",
         '// icon-end:log:l1',
       ].join('\n'),
     );
@@ -59,7 +63,7 @@ describe('compileStatements — debug instrumentation (ADR 0021 (private))', () 
         '// icon-end:create-var:v1',
         '// icon-start:log:l1',
         'await __falangDebug.trace(1, () => ({ total }));',
-        'await logActivity(`x`);',
+        "__falangJournal({ kind: 'log', level: 'info', message: `x` });",
         '// icon-end:log:l1',
       ].join('\n'),
     );
@@ -88,13 +92,13 @@ describe('compileStatements — debug instrumentation (ADR 0021 (private))', () 
         'for (const x of items) {',
         '  // icon-start:log:l1',
         '  await __falangDebug.trace(0, () => ({ x }));',
-        '  await logActivity(`x`);',
+        "  __falangJournal({ kind: 'log', level: 'info', message: `x` });",
         '  // icon-end:log:l1',
         '}',
         '// icon-end:foreach:fe1',
         '// icon-start:log:l2',
         'await __falangDebug.trace(2, () => ({}));',
-        'await logActivity(`y`);',
+        "__falangJournal({ kind: 'log', level: 'info', message: `y` });",
         '// icon-end:log:l2',
       ].join('\n'),
     );
@@ -117,7 +121,7 @@ describe('compileStatements — debug instrumentation (ADR 0021 (private))', () 
         'if (true) {',
         '  // icon-start:log:l1',
         '  await __falangDebug.trace(0, () => ({}));',
-        '  await logActivity(`x`);',
+        "  __falangJournal({ kind: 'log', level: 'info', message: `x` });",
         '  // icon-end:log:l1',
         '}',
         '// icon-end:if:if1',
@@ -133,7 +137,7 @@ describe('compileStatements — debug instrumentation (ADR 0021 (private))', () 
         '// icon-start:log:l1',
         '__falangAt("l1");',
         'await __falangDebug.trace(0, () => ({}));',
-        'await logActivity(`hi`);',
+        "__falangJournal({ kind: 'log', level: 'info', message: `hi` });",
         '// icon-end:log:l1',
       ].join('\n'),
     );

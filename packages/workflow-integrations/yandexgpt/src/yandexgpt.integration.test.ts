@@ -31,7 +31,7 @@ describe('yandexgptIntegration', () => {
       prompt: '`Hello`',
       resultVariable: 'answer',
     });
-    expect(emitted).toBe("const answer = await yandexgptCallText('cred-1', 'yandexgpt/latest', `Hello`);");
+    expect(emitted).toBe("const answer = (await yandexgptCallText('cred-1', 'yandexgpt/latest', `Hello`)).text;");
   });
 
   it('emit() omits the assignment when resultVariable is empty (node created but not yet configured)', () => {

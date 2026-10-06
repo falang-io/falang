@@ -1,3 +1,4 @@
+import { buildJournalRuntimeCode } from './journal-runtime.js';
 import type { INode, IProjectDocument } from '@falang/dto';
 import type { IWorkflowIntegration } from '@falang/workflow-integrations-common';
 import { describe, expect, it } from 'vitest';
@@ -30,7 +31,8 @@ describe('compileProject — position tracking (ADR 0022 (private))', () => {
     const result = compileProject({
       documents: [functionDocument('doc-a', 'greet', functionNode('doc-a', [{ id: 'l1', name: 'log', data: 'hi' }]))],
     });
-    expect(result.workflows).not.toContain('__falang');
+    expect(result.workflows).not.toContain('__falangAt');
+    expect(result.workflows).not.toContain('__falangPositionStack');
     expect(result.workflows).not.toContain('defineQuery');
   });
 
@@ -50,13 +52,15 @@ describe('compileProject — position tracking (ADR 0022 (private))', () => {
 
     expect(result.workflows).toBe(
       [
-        "import { ApplicationFailure, condition, defineQuery, defineSignal, isCancellation, proxyLocalActivities, setHandler } from '@temporalio/workflow';",
+        "import { ApplicationFailure, condition, defineQuery, defineSignal, isCancellation, proxyLocalActivities, proxySinks, setHandler } from '@temporalio/workflow';",
         '',
         'const { logActivity } = proxyLocalActivities<{ logActivity(message: string): Promise<string> }>({',
         "  startToCloseTimeout: '10 seconds',",
         '});',
         '',
         POSITION_RUNTIME_CODE,
+        '',
+        buildJournalRuntimeCode(true),
         '',
         '// doc-start:processOrder:doc-caller',
         'export async function processOrder(): Promise<void> {',
@@ -80,7 +84,7 @@ describe('compileProject — position tracking (ADR 0022 (private))', () => {
         '  try {',
         '    // icon-start:log:l2',
         '    __falangAt("l2");',
-        '    await logActivity(`calc`);',
+        "    __falangJournal({ kind: 'log', level: 'info', message: `calc` });",
         '    // icon-end:log:l2',
         '  } catch (error) {',
         '    throw __falangFailure(error);',
@@ -107,7 +111,7 @@ describe('compileProject — position tracking (ADR 0022 (private))', () => {
         'if (true) {',
         '  // icon-start:log:l1',
         '  __falangAt("l1");',
-        '  await logActivity(`x`);',
+        "  __falangJournal({ kind: 'log', level: 'info', message: `x` });",
         '  // icon-end:log:l1',
         '}',
         '// icon-end:if:if1',
@@ -164,7 +168,9 @@ describe('compileProject — position tracking (ADR 0022 (private))', () => {
     const lines = code.split('\n');
     expect(lines[1]).toBe('  __falangEnter("doc-t");');
     expect(lines[2]).toBe('  try {');
-    expect(code).toContain('    await condition(() => hasSignal);\n    // icon-start:log:l1\n    __falangAt("l1");');
+    expect(code).toContain(
+      "    await condition(() => hasSignal);\n    __falangJournal({ kind: 'trigger', level: 'info', message: `on-thing`, data: { payload: thing } });\n    // icon-start:log:l1\n    __falangAt(\"l1\");",
+    );
     expect(lines.slice(-6)).toEqual([
       '  } catch (error) {',
       '    throw __falangFailure(error);',

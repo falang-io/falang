@@ -1,4 +1,6 @@
+import { ACTIVITY_JOURNAL_EXPORT, ACTIVITY_PARAMS_EXPORT, ACTIVITY_VENDORS_EXPORT } from '@falang/workflow-dto';
 import type { IWorkflowIntegration } from '@falang/workflow-integrations-common';
+import type { IActivityJournalMetadata } from './activity-journal.js';
 
 const LOG_ACTIVITY_CODE = [
   "import { log } from '@temporalio/activity';",
@@ -65,6 +67,9 @@ const RUN_ACTIVEPIECES_ACTION_CODE = [
   '  return data.result;',
   '};',
 ].join('\n');
+
+/** `JSON.stringify` with single-quoted strings (matches `__falangActivityVendors`'s style) — only ever fed identifier-like names/kinds, never arbitrary text. */
+const toSingleQuoted = (value: unknown): string => JSON.stringify(value).replaceAll('"', "'");
 
 const IMPORT_LINE_START = /^import\b/;
 
@@ -156,6 +161,8 @@ export const compileActivities = (
     readonly includeActivepiecesAction?: boolean;
     /** Activity name -> vendor; when given, exported as `__falangActivityVendors` (read by the runner's egress routing). */
     readonly activityVendors?: Readonly<Record<string, string>>;
+    /** Run-journal metadata (`collectActivityJournal`); when given, exported as `__falangActivityJournal`/`__falangActivityParams` (read by the runner's journal wrapper). */
+    readonly activityJournal?: IActivityJournalMetadata;
   } = {},
 ): string => {
   const blocks = [
@@ -180,7 +187,17 @@ export const compileActivities = (
     const lines = Object.entries(options.activityVendors).map(
       ([name, vendor]) => `  ${name}: ${JSON.stringify(vendor).replaceAll('"', "'")},`,
     );
-    bodies.push(['export const __falangActivityVendors: Record<string, string> = {', ...lines, '};'].join('\n'));
+    bodies.push([`export const ${ACTIVITY_VENDORS_EXPORT}: Record<string, string> = {`, ...lines, '};'].join('\n'));
+  }
+  if (options.activityJournal) {
+    const { journal, params } = options.activityJournal;
+    bodies.push(
+      [
+        `export const ${ACTIVITY_JOURNAL_EXPORT}: Record<string, { kind: string; args: string[]; result?: boolean }> = ` +
+          `${toSingleQuoted(journal)};`,
+        `export const ${ACTIVITY_PARAMS_EXPORT}: Record<string, string[]> = ${toSingleQuoted(params)};`,
+      ].join('\n'),
+    );
   }
   return [...(hoistedImports.length > 0 ? [hoistedImports.join('\n')] : []), ...bodies, ''].join('\n\n');
 };

@@ -11,9 +11,12 @@ import { fetchArtifact } from './fetch-artifact.js';
 import { loadCjsModuleFromSource } from './load-cjs-module-from-source.js';
 import type { IRunnerConfig } from './runner-config.js';
 import { connectRunnerToTemporal } from './temporal-connection.js';
-import { wrapActivitiesWithEgressVendor } from './wrap-activities.js';
+import { envFromTaskQueue, JournalBuffer } from './journal-buffer.js';
+import { buildJournalWorkerOptions } from './journal-sink.js';
+import { buildRunnerActivities } from './runner-activities.js';
 
 const EGRESS_CONFIG_READY_TIMEOUT_MS = 5000;
+const JOURNAL_SHUTDOWN_FLUSH_MS = 5000;
 
 /**
  * Starts a Temporal Worker for a single compiled workflow. Per
@@ -41,8 +44,21 @@ export const startRunner = async (config: IRunnerConfig): Promise<void> => {
   // Filename only needs to be a plausible absolute path inside this image's own node_modules
   // resolution tree — never actually read from disk — so `require('@temporalio/activity')` inside
   // the loaded activities resolves against the runner image's pre-baked `node_modules`.
-  const activities = wrapActivitiesWithEgressVendor(
+  // Run journal (ADR 0059): only when backend's URL is known, like egress routing.
+  const journal = config.backendUrl
+    ? new JournalBuffer({
+        backendUrl: config.backendUrl,
+        projectId: config.projectId,
+        projectToken: config.internalProjectToken,
+        env: envFromTaskQueue(config.taskQueue),
+        buildId: config.buildId ?? null,
+        // oxlint-disable-next-line no-console
+        onError: (message, error) => console.warn(message, error),
+      })
+    : null;
+  const activities = buildRunnerActivities(
     loadCjsModuleFromSource(activitiesSource, '/app/activities.js') as object,
+    journal,
   );
 
   const workerOptions: WorkerOptions = {
@@ -50,6 +66,7 @@ export const startRunner = async (config: IRunnerConfig): Promise<void> => {
     taskQueue: config.taskQueue,
     workflowBundle: { code: workflowBundle },
     activities,
+    ...(journal ? buildJournalWorkerOptions(journal) : {}),
   };
   if (temporal) {
     workerOptions.connection = temporal.connection;
@@ -100,6 +117,11 @@ export const startRunner = async (config: IRunnerConfig): Promise<void> => {
     const worker = await Worker.create(workerOptions);
     await worker.run();
   } finally {
+    if (journal) {
+      // The Worker has shut down gracefully by now; deliver what is still queued before the process exits.
+      await journal.flush(JOURNAL_SHUTDOWN_FLUSH_MS);
+      journal.dispose();
+    }
     routing?.dispose();
     poller?.dispose();
     await temporal?.close();

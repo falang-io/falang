@@ -1,3 +1,5 @@
+// oxlint-disable max-lines -- whole-module expectations include the journal runtime preamble (ADR 0059 (private)).
+import { buildJournalRuntimeCode } from './journal-runtime.js';
 import type { INode, IProjectDocument } from '@falang/dto';
 import type { IWorkflowIntegration } from '@falang/workflow-integrations-common';
 import { describe, expect, it } from 'vitest';
@@ -41,11 +43,13 @@ describe('compileProject', () => {
 
     expect(result.workflows).toBe(
       [
-        "import { condition, defineSignal, proxyLocalActivities, setHandler } from '@temporalio/workflow';",
+        "import { condition, defineSignal, proxyLocalActivities, proxySinks, setHandler } from '@temporalio/workflow';",
         '',
         'const { logActivity } = proxyLocalActivities<{ logActivity(message: string): Promise<string> }>({',
         "  startToCloseTimeout: '10 seconds',",
         '});',
+        '',
+        ...buildJournalRuntimeCode(false).split('\n'),
         '',
         '// doc-start:processOrder:doc-caller',
         'export async function processOrder(): Promise<void> {',
@@ -53,7 +57,7 @@ describe('compileProject', () => {
         '  const shippingCost = await calculateShipping("eu");',
         '  // icon-end:call-function:c1',
         '  // icon-start:log:l1',
-        '  await logActivity(`shippingCost`);',
+        "  __falangJournal({ kind: 'log', level: 'info', message: `shippingCost` });",
         '  // icon-end:log:l1',
         '}',
         '// doc-end:processOrder:doc-caller',
@@ -61,7 +65,7 @@ describe('compileProject', () => {
         '// doc-start:calculateShipping:doc-callee',
         'export async function calculateShipping(): Promise<void> {',
         '  // icon-start:log:l2',
-        '  await logActivity(`calc`);',
+        "  __falangJournal({ kind: 'log', level: 'info', message: `calc` });",
         '  // icon-end:log:l2',
         '}',
         '// doc-end:calculateShipping:doc-callee',
@@ -109,11 +113,13 @@ describe('compileProject', () => {
 
     expect(result.workflows).toBe(
       [
-        "import { condition, defineSignal, proxyLocalActivities, setHandler } from '@temporalio/workflow';",
+        "import { condition, defineSignal, proxyLocalActivities, proxySinks, setHandler } from '@temporalio/workflow';",
         '',
         'const { logActivity } = proxyLocalActivities<{ logActivity(message: string): Promise<string> }>({',
         "  startToCloseTimeout: '10 seconds',",
         '});',
+        '',
+        ...buildJournalRuntimeCode(false).split('\n'),
         '',
         '// doc-start:consumer:doc-consumer',
         'export async function consumer(): Promise<void> {',
@@ -152,16 +158,18 @@ describe('compileProject', () => {
 
     expect(result.workflows).toBe(
       [
-        "import { condition, defineSignal, proxyLocalActivities, setHandler } from '@temporalio/workflow';",
+        "import { condition, defineSignal, proxyLocalActivities, proxySinks, setHandler } from '@temporalio/workflow';",
         '',
         'const { logActivity } = proxyLocalActivities<{ logActivity(message: string): Promise<string> }>({',
         "  startToCloseTimeout: '10 seconds',",
         '});',
         '',
+        ...buildJournalRuntimeCode(false).split('\n'),
+        '',
         '// doc-start:run:doc-caller',
         'export async function run(): Promise<void> {',
         '  // icon-start:log:l1',
-        '  await logActivity(`hi`);',
+        "  __falangJournal({ kind: 'log', level: 'info', message: `hi` });",
         '  // icon-end:log:l1',
         '}',
         '// doc-end:run:doc-caller',
@@ -245,11 +253,13 @@ describe('compileProject with integrations', () => {
 
     expect(result.workflows).toBe(
       [
-        "import { condition, defineSignal, proxyLocalActivities, setHandler } from '@temporalio/workflow';",
+        "import { condition, defineSignal, proxyLocalActivities, proxySinks, setHandler } from '@temporalio/workflow';",
         '',
         'const { logActivity, telegramSendMessage } = proxyLocalActivities<{ logActivity(message: string): Promise<string>; telegramSendMessage(credentialId: string, chatId: string, text: string): Promise<void> }>({',
         "  startToCloseTimeout: '10 seconds',",
         '});',
+        '',
+        ...buildJournalRuntimeCode(false).split('\n'),
         '',
         '// doc-start:onMessage:doc-trigger',
         'export async function onMessage(): Promise<void> {',
@@ -262,6 +272,7 @@ describe('compileProject with integrations', () => {
         '    hasSignal = true;',
         '  });',
         '  await condition(() => hasSignal);',
+        "  __falangJournal({ kind: 'trigger', level: 'info', message: `telegram-trigger`, data: { payload: message } });",
         '  // icon-start:telegram-send-message:send1',
         '  await telegramSendMessage("cred-1", message.chat.id, `hi`);',
         '  // icon-end:telegram-send-message:send1',

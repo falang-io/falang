@@ -1,5 +1,5 @@
 import { BadRequestException, ConflictException, NotFoundException } from '@nestjs/common';
-import { isNamespaceNotFoundError } from '@falang/workflow-gateway';
+import { isNamespaceNotFoundError, type IRunJournalProblemPort } from '@falang/workflow-gateway';
 import { WorkflowNotFoundError } from '@temporalio/client';
 import { In, type QueryDeepPartialEntity, type Repository } from 'typeorm';
 import type { ProjectsService } from '../projects/projects/projects.service.js';
@@ -27,6 +27,8 @@ export interface ITasksServiceParams {
   /** `BuildService.ensureRunnerRunning`, bound — see `tasks.module.ts`. Narrowed to a plain closure, the same reasoning `RunsService`'s own DI-light constructor gives, so this stays trivially unit-testable. */
   readonly ensureRunnerRunning: (projectId: string, env: 'dev' | 'prod', taskQueue: string) => Promise<void>;
   readonly signalWorkflow: TSignalWorkflow;
+  /** Run journal writer (ADR 0059 (private) §2c) — an orphaned resolution leaves an `error` entry on its run. Optional. */
+  readonly journal?: IRunJournalProblemPort;
 }
 
 const validateAnswerData = (option: ITaskOption, data: unknown): void => {
@@ -77,12 +79,14 @@ export class TasksService {
   private readonly projectsService: Pick<ProjectsService, 'list' | 'getOwnedProject'>;
   private readonly ensureRunnerRunning: (projectId: string, env: 'dev' | 'prod', taskQueue: string) => Promise<void>;
   private readonly signalWorkflow: TSignalWorkflow;
+  private readonly journal: IRunJournalProblemPort | undefined;
 
   constructor(params: ITasksServiceParams) {
     this.tasks = params.tasks;
     this.projectsService = params.projectsService;
     this.ensureRunnerRunning = params.ensureRunnerRunning;
     this.signalWorkflow = params.signalWorkflow;
+    this.journal = params.journal;
   }
 
   /**
@@ -200,6 +204,23 @@ export class TasksService {
     } catch (error) {
       if (error instanceof WorkflowNotFoundError || isNamespaceNotFoundError(error)) {
         await this.tasks.update({ id: row.id }, { status: 'orphaned', orphanReason: (error as Error).message });
+        await this.journal?.recordProblem({
+          projectId: row.projectId,
+          env: row.env,
+          workflowId: row.workflowId,
+          runId: row.runId,
+          vendor: 'tasks',
+          nodeId: row.nodeId,
+          level: 'warn',
+          message: `Task answer undeliverable: the run is gone (${(error as Error).message})`,
+          data: {
+            errorType: (error as Error).constructor.name,
+            signal: HUMAN_TASK_ANSWER_SIGNAL_NAME,
+            taskId: row.id,
+            answer: input.answer,
+            ...(option.dataType === 'void' ? {} : { answerData: input.data }),
+          },
+        });
       } else {
         const reopenedFields = {
           status: 'open',

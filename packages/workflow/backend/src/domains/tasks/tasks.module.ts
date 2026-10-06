@@ -5,6 +5,8 @@ import type { Repository } from 'typeorm';
 import { BuildModule } from '../build/build/build.module.js';
 import { BuildService } from '../build/build/build.service.js';
 import { ProjectTokenModule } from '../internal-auth/project-token.module.js';
+import { RunJournalModule } from '../run-journal/run-journal.module.js';
+import { RunJournalService } from '../run-journal/run-journal.service.js';
 import { Project } from '../projects/projects/project.entity.js';
 import { ProjectsModule } from '../projects/projects/projects.module.js';
 import { ProjectsService } from '../projects/projects/projects.service.js';
@@ -26,7 +28,13 @@ export const SIGNAL_WORKFLOW = Symbol('SIGNAL_WORKFLOW');
  * routes' ownership checks (`TasksController`, via `TasksService`).
  */
 @Module({
-  imports: [TypeOrmModule.forFeature([Task, Project]), ProjectsModule, ProjectTokenModule, BuildModule],
+  imports: [
+    TypeOrmModule.forFeature([Task, Project]),
+    ProjectsModule,
+    ProjectTokenModule,
+    BuildModule,
+    RunJournalModule,
+  ],
   controllers: [TasksController, InternalTasksController],
   providers: [
     {
@@ -36,12 +44,13 @@ export const SIGNAL_WORKFLOW = Symbol('SIGNAL_WORKFLOW');
     },
     {
       provide: TasksService,
-      inject: [getRepositoryToken(Task), ProjectsService, BuildService, SIGNAL_WORKFLOW],
+      inject: [getRepositoryToken(Task), ProjectsService, BuildService, SIGNAL_WORKFLOW, RunJournalService],
       useFactory: (
         tasks: Repository<Task>,
         projectsService: ProjectsService,
         buildService: BuildService,
         signalWorkflow: TSignalWorkflow,
+        journal: RunJournalService,
       ) =>
         new TasksService({
           tasks,
@@ -49,6 +58,7 @@ export const SIGNAL_WORKFLOW = Symbol('SIGNAL_WORKFLOW');
           ensureRunnerRunning: (projectId, env, taskQueue) =>
             buildService.ensureRunnerRunning(projectId, env, taskQueue),
           signalWorkflow,
+          journal,
         }),
     },
   ],

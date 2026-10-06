@@ -27,6 +27,7 @@ const makeService = (scheduleClient: { deleteAllForProject: ReturnType<typeof vi
     '/tmp/build',
     {},
     { removeProjectFiles: stub('files.remove') },
+    { deleteProject: stub('journal.delete') },
   ] as unknown as TArgs;
   return { service: new BuildService(...args), order };
 };

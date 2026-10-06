@@ -30,7 +30,7 @@ describe('gigachatIntegration', () => {
       prompt: '`hello`',
       resultVariable: 'reply',
     });
-    expect(emitted).toBe("const reply = await gigachatCallText('cred-1', 'GigaChat', `hello`);");
+    expect(emitted).toBe("const reply = (await gigachatCallText('cred-1', 'GigaChat', `hello`)).text;");
   });
 
   it('emit() omits the assignment when resultVariable is empty (never edited)', () => {

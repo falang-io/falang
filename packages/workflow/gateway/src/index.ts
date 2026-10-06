@@ -6,3 +6,4 @@ export * from './temporal-tenancy.js';
 export * from './integrations-runtime.service.js';
 export * from './integration-webhook.controller.js';
 export * from './gateway.module.js';
+export * from './run-journal-problem-port.js';

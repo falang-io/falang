@@ -13,6 +13,7 @@ import { temporal } from '@temporalio/proto';
 import { DebugController } from '../debug/debug.controller.js';
 import { DebugService } from '../debug/debug.service.js';
 import { createDebugService } from '../debug/workflow-debug-client-impl.js';
+import { RunJournalModule } from '../../run-journal/run-journal.module.js';
 import { FilesModule } from '../../files/files.module.js';
 import { IntegrationsModule } from '../../integrations/integrations.module.js';
 import { ProjectTokenModule } from '../../internal-auth/project-token.module.js';
@@ -210,6 +211,8 @@ const createTerminateRunningExecutions = (graceMs: number, tenancy: ITemporalTen
     // ADR 0038 (private) §2) — `FilesModule` doesn't import
     // `BuildModule` back, so this creates no cycle.
     FilesModule,
+    // `BuildService.deleteProject` also deletes the project's run journal entries (ADR 0059 (private) §7).
+    RunJournalModule,
     // Per-owner `maxConcurrentProdVersions` (see `BuildService.getMaxConcurrentProdVersions`).
     UserLimitsModule,
     // Publish auto-commits the working copy before compiling (ADR 0025 (private),
@@ -282,7 +285,8 @@ const createTerminateRunningExecutions = (graceMs: number, tenancy: ITemporalTen
           // needed wherever a runner pod can't reach the same address `backend` itself would use
           // (e.g. the e2e stack's Telegram mock, only resolvable from inside `backend`'s own
           // network by its docker-internal name).
-          telegramApiBaseUrl: config.get<string>('RUNNER_TELEGRAM_API_BASE_URL') ?? config.get<string>('TELEGRAM_API_BASE_URL'),
+          telegramApiBaseUrl:
+            config.get<string>('RUNNER_TELEGRAM_API_BASE_URL') ?? config.get<string>('TELEGRAM_API_BASE_URL'),
           // See ADR 0041 (private). `RUNNER_MEDIA_SERVICE_URL` overrides
           // `MEDIA_SERVICE_URL` for pods, same reasoning as `RUNNER_ACTIVEPIECES_SERVICE_URL`/
           // `RUNNER_TELEGRAM_API_BASE_URL` above.

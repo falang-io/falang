@@ -11,12 +11,14 @@ import {
   FilePdfOutlined,
   FolderOutlined,
   HistoryOutlined,
+  ProfileOutlined,
   UnorderedListOutlined,
 } from '@ant-design/icons';
 import { getGlobalI18n } from '@falang/scheme';
 import { useWorkflowStore } from '../workflow-store-context.js';
 import { useProjectExport } from './export-buttons.cmp.js';
 import { CodeViewerModal } from './code-viewer-modal.js';
+import { RunJournalSettingsModal } from './run-journal-settings-modal.js';
 import { ProjectRunsDrawer } from './project-runs-drawer.js';
 import { useRunningCount } from './use-running-count.js';
 
@@ -46,6 +48,7 @@ export const ProjectMenu: React.FC<IProjectMenuProps> = observer(({ buttonStyle,
   const projectExport = useProjectExport();
   const [codeViewerOpen, setCodeViewerOpen] = useState(false);
   const [runsOpen, setRunsOpen] = useState(false);
+  const [journalSettingsOpen, setJournalSettingsOpen] = useState(false);
   const runningCount = useRunningCount(store.projectId, store.liveRun.position?.status ?? null);
 
   const items: MenuProps['items'] = [
@@ -78,6 +81,12 @@ export const ProjectMenu: React.FC<IProjectMenuProps> = observer(({ buttonStyle,
       icon: <UnorderedListOutlined />,
       label: withMark(t('client:toolbar.runs'), false, runningCount),
       onClick: () => setRunsOpen(true),
+    },
+    {
+      key: 'run-journal-settings',
+      icon: <ProfileOutlined />,
+      label: t('client:toolbar.run-journal'),
+      onClick: () => setJournalSettingsOpen(true),
     },
     { type: 'divider' },
     {
@@ -112,6 +121,11 @@ export const ProjectMenu: React.FC<IProjectMenuProps> = observer(({ buttonStyle,
       </Dropdown>
       {projectExport.exportError && <span style={errorStyle}>{projectExport.exportError}</span>}
       <CodeViewerModal projectId={store.projectId} open={codeViewerOpen} onClose={() => setCodeViewerOpen(false)} />
+      <RunJournalSettingsModal
+        projectId={store.projectId}
+        open={journalSettingsOpen}
+        onClose={() => setJournalSettingsOpen(false)}
+      />
       <ProjectRunsDrawer open={runsOpen} onClose={() => setRunsOpen(false)} />
     </>
   );

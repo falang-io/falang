@@ -50,6 +50,8 @@ export const humanTaskQuestion: IQuestionDescriptor = {
   answerScope: { variableName: 'task', type: taskTypeInfo(), perOptionData: true },
   answerSignalName: HUMAN_TASK_ANSWER_SIGNAL_NAME,
   askActivitySignature: ASK_ACTIVITY_SIGNATURE,
+  // Run journal (ADR 0059 (private)): the task as the owner will see it (title, text, options) — never the payload/attachments.
+  journal: { kind: 'message-out', args: ['title', 'description', 'options'] },
   // TS source emitted verbatim into activities.ts — see `sharedActivityCode` below for the
   // `Context`/`tasksInternalRequest` this (and `humanTaskClose`) rely on.
   askActivityCode: [
@@ -65,7 +67,7 @@ export const humanTaskQuestion: IQuestionDescriptor = {
     '  if (!workflowExecution) {',
     "    throw new Error('humanTaskAsk must be called from within a workflow');",
     '  }',
-    '  const response = await tasksInternalRequest(\'\', {',
+    "  const response = await tasksInternalRequest('', {",
     '    workflowId: workflowExecution.workflowId,',
     '    runId: workflowExecution.runId,',
     '    taskQueue: info.taskQueue,',
@@ -81,7 +83,7 @@ export const humanTaskQuestion: IQuestionDescriptor = {
     '    options: JSON.parse(options) as unknown[],',
     '  });',
     '  if (!response.ok) {',
-    "    throw new Error(`humanTaskAsk: failed to create task: ${response.status} ${await response.text()}`);",
+    '    throw new Error(`humanTaskAsk: failed to create task: ${response.status} ${await response.text()}`);',
     '  }',
     '  const data = (await response.json()) as { taskId: string };',
     '  return { messageId: data.taskId };',
@@ -103,7 +105,7 @@ export const humanTaskQuestion: IQuestionDescriptor = {
     'export const humanTaskClose = async (messageId: string, reason: string): Promise<void> => {',
     '  const response = await tasksInternalRequest(`/${messageId}/close`, { status: reason });',
     '  if (!response.ok) {',
-    "    throw new Error(`humanTaskClose: failed to close task ${messageId}: ${response.status} ${await response.text()}`);",
+    '    throw new Error(`humanTaskClose: failed to close task ${messageId}: ${response.status} ${await response.text()}`);',
     '  }',
     '};',
   ].join('\n'),
@@ -137,7 +139,7 @@ export const tasksIntegration: IWorkflowIntegration = {
   sharedActivityCode: [
     "import { Context } from '@temporalio/activity';",
     '',
-    "// Overridable so e2e tests can point this at a mock instead of the real backend — same",
+    '// Overridable so e2e tests can point this at a mock instead of the real backend — same',
     '// BACKEND_INTERNAL_URL/INTERNAL_PROJECT_TOKEN/PROJECT_ID contract every internal-API-calling',
     "// vendor uses (see @falang/workflow-integrations-files's own activity-helpers.ts).",
     'const tasksInternalRequest = async (path: string, body: unknown): Promise<Response> => {',

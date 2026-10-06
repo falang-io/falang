@@ -52,7 +52,10 @@ export const RunsPage: React.FC = observer(() => {
   const [loading, setLoading] = useState(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [filters, setFilters] = useState<IApiWorkflowRunFilters>({});
-  const [selectedRun, setSelectedRun] = useState<Pick<IApiWorkflowRunSummary, 'workflowId' | 'runId'> | null>(null);
+  const [selectedRun, setSelectedRun] = useState<Pick<
+    IApiWorkflowRunSummary,
+    'workflowId' | 'runId' | 'projectId'
+  > | null>(null);
 
   const loadFacets = useCallback(() => {
     // Best-effort: a failure here only means filter dropdowns show no options — `loadDisplayed`

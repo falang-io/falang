@@ -51,6 +51,7 @@ const callAiImageAction: IActionDescriptor = {
       fields.resultVariable,
     ),
   activitySignature: `callAiImage(credentialId: string, model: string, prompt: string, size: string): Promise<${FILE_REF_TYPE}>`,
+  journal: { kind: 'ai', args: ['model', 'prompt', 'size'] },
   // `response_format: 'b64_json'` is OpenAI's own shape — some OpenAI-*compatible* servers reject the
   // field entirely (400). Retried once without it; if the server then answers with a `url` instead of
   // `b64_json`, that URL is downloaded directly rather than treated as a second vendor quirk to guard.
@@ -126,6 +127,7 @@ const callAiTranscribeAction: IActionDescriptor = {
       fields.resultVariable,
     ),
   activitySignature: `callAiTranscribe(credentialId: string, file: ${FILE_REF_TYPE}, model: string, language: string): Promise<string>`,
+  journal: { kind: 'ai', args: ['model', 'language'] },
   // Multipart via `FormData`/`Blob` — Node's own `fetch` (undici) builds the boundary/`Content-Type`
   // header itself; setting one manually would drop the boundary parameter and break the upload.
   activityCode: [

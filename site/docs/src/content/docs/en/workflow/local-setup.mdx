@@ -128,6 +128,11 @@ TEMPORAL_SERVER_CONFIG=server.yaml TEMPORAL_TENANT_ISOLATION=per-project \\
     <code>TEMPORAL_NAMESPACE_RETENTION_DAYS</code> — how long finished executions are kept in each project's namespace
     (default 7). <code>TEMPORAL_TLS=true</code> — if your Temporal frontend terminates TLS.
   </li>
+  <li>
+    <code>RUN_JOURNAL_RETENTION_DAYS_DEV</code> / <code>RUN_JOURNAL_RETENTION_DAYS_PROD</code> — how many days the
+    <a href="../run-journal/">run journal</a> keeps entries of dev-stand and published runs (both default 14; the
+    journal outlives the engine's own run history).
+  </li>
 </ul>
 <p>
   A deleted project's namespace is removed by the backend about a day after the project is deleted. Switching an

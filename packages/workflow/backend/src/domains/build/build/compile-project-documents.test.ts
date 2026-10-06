@@ -106,7 +106,8 @@ describe('compileProjectDocuments', () => {
     };
 
     const result = compileProjectDocuments([document], [], { trackPosition: false });
-    expect(result.workflows).not.toContain('__falang');
+    expect(result.workflows).not.toContain('__falangAt');
+    expect(result.workflows).not.toContain('__falangEnter');
   });
 
   it('rejects with a 400 carrying both the per-document errors and the partial generated files', () => {

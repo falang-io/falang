@@ -16,6 +16,7 @@ import type { Repository } from 'typeorm';
 import { UserLimitsService } from '../../admin/user-limits/user-limits.service.js';
 import { FilesService } from '../../files/files.service.js';
 import { ActivepiecesCatalogService } from '../../integrations/activepieces-catalog.service.js';
+import { RUN_JOURNAL_STORE, type IRunJournalStore } from '../../run-journal/run-journal-store.js';
 import { ProjectTokenService } from '../../internal-auth/project-token.service.js';
 import { DocumentsService } from '../../projects/documents/documents.service.js';
 import { ProjectsService } from '../../projects/projects/projects.service.js';
@@ -98,6 +99,7 @@ export class BuildService implements OnModuleInit, OnApplicationBootstrap {
   private readonly outputDir: string;
   private readonly userLimits: UserLimitsService;
   private readonly filesService: FilesService;
+  private readonly runJournal: IRunJournalStore;
 
   constructor(
     @Inject(DocumentsService) documentsService: DocumentsService,
@@ -115,6 +117,7 @@ export class BuildService implements OnModuleInit, OnApplicationBootstrap {
     @Inject(BUILD_OUTPUT_DIR) outputDir: string,
     @Inject(UserLimitsService) userLimits: UserLimitsService,
     @Inject(FilesService) filesService: FilesService,
+    @Inject(RUN_JOURNAL_STORE) runJournal: IRunJournalStore,
   ) {
     this.documentsService = documentsService;
     this.projectsService = projectsService;
@@ -131,6 +134,7 @@ export class BuildService implements OnModuleInit, OnApplicationBootstrap {
     this.outputDir = outputDir;
     this.userLimits = userLimits;
     this.filesService = filesService;
+    this.runJournal = runJournal;
   }
 
   /**
@@ -170,10 +174,14 @@ export class BuildService implements OnModuleInit, OnApplicationBootstrap {
       return [];
     });
     const legacyProd = new Set(
-      running.filter((runner) => runner.env === 'prod' && !prodProjects.has(runner.projectId)).map((runner) => runner.projectId),
+      running
+        .filter((runner) => runner.env === 'prod' && !prodProjects.has(runner.projectId))
+        .map((runner) => runner.projectId),
     );
     const adopted = await Promise.all(
-      Array.from(legacyProd, async (projectId) => ((await this.projectsService.setProdEnabled(projectId, true)) ? projectId : null)),
+      Array.from(legacyProd, async (projectId) =>
+        (await this.projectsService.setProdEnabled(projectId, true)) ? projectId : null,
+      ),
     );
     for (const projectId of adopted) if (projectId) prodProjects.add(projectId);
     for (const projectId of prodProjects) this.gatewayRuntime.resumeProjectIntegrations(projectId, 'prod');
@@ -469,7 +477,12 @@ export class BuildService implements OnModuleInit, OnApplicationBootstrap {
   async activate(projectId: string, ownerId: string, versionNumber: number): Promise<void> {
     const version = await this.getOwnedVersion(projectId, ownerId, versionNumber);
     const taskQueue = prodTaskQueue(projectId);
-    await startAndRouteProdVersion(this.routeProdVersionDeps(projectId, taskQueue), projectId, taskQueue, version.buildId);
+    await startAndRouteProdVersion(
+      this.routeProdVersionDeps(projectId, taskQueue),
+      projectId,
+      taskQueue,
+      version.buildId,
+    );
     await this.projectsService.setProdBuildId(projectId, version.buildId);
     await this.turnProdOn(projectId);
   }
@@ -501,7 +514,12 @@ export class BuildService implements OnModuleInit, OnApplicationBootstrap {
     if (!version) throw new NotFoundException(`Project "${projectId}" has no published versions`);
 
     const taskQueue = prodTaskQueue(projectId);
-    await startAndRouteProdVersion(this.routeProdVersionDeps(projectId, taskQueue), projectId, taskQueue, version.buildId);
+    await startAndRouteProdVersion(
+      this.routeProdVersionDeps(projectId, taskQueue),
+      projectId,
+      taskQueue,
+      version.buildId,
+    );
     await this.projectsService.setProdBuildId(projectId, version.buildId);
     await this.turnProdOn(projectId);
   }
@@ -597,7 +615,10 @@ export class BuildService implements OnModuleInit, OnApplicationBootstrap {
     // Timers must stop firing now, not when the (24 h-delayed, ADR 0057 (private)) namespace sweep
     // finally deletes the project's Temporal namespace. Best-effort: Temporal being down must not block deletion.
     await this.scheduleClient.deleteAllForProject(projectId).catch((error: unknown) => {
-      this.logger.error(`Failed to delete schedules of deleted project ${projectId}`, error instanceof Error ? error.stack : error);
+      this.logger.error(
+        `Failed to delete schedules of deleted project ${projectId}`,
+        error instanceof Error ? error.stack : error,
+      );
     });
 
     await this.versions.delete({ projectId });
@@ -605,6 +626,7 @@ export class BuildService implements OnModuleInit, OnApplicationBootstrap {
     // cascade would clean up the `files` rows regardless, but never the S3 objects (see
     // ADR 0038 (private) §2).
     await this.filesService.removeProjectFiles(projectId);
+    await this.runJournal.deleteProject(projectId);
     await this.projectsService.delete(projectId, ownerId);
   }
 }
