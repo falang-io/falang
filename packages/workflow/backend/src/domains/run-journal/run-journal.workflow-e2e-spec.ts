@@ -25,7 +25,7 @@ import {
   waitForNewRun,
   waitForQuestionMessageId,
   waitForSentText,
-} from './run-journal-e2e-helpers.js';
+} from '../../test-utils/run-journal-e2e-helpers.js';
 
 /**
  * Run journal (ADR 0059 (private) §4 "Verification"), workflow tier: a real Telegram bot (trigger -> log ->

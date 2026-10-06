@@ -3,7 +3,7 @@ import { TOKEN_HISTORY, type Scheme } from '@falang/scheme';
 import { TOKEN_MAGIC_HOST } from '@falang/workflow-scheme/src/magic/magic-host.js';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { FILL_MAGIC_NODE_TOOL, MagicToolProvider } from './magic-tool-provider.js';
-import { actionNode, buildMagicScheme, magicNode } from './magic-test-helpers.js';
+import { actionNode, buildMagicScheme, magicNode } from './magic-run-test-harness.js';
 
 const call = (input: unknown) => ({ id: 'c', input, name: FILL_MAGIC_NODE_TOOL });
 const childIds = (scheme: Scheme, id: string) => scheme.nodes.getNode(id).children.map((child) => child.id);

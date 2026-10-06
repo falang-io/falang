@@ -3,7 +3,7 @@ import type { Scheme } from '@falang/scheme';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import type { WorkflowDocument } from '../workflow-types.js';
 import { createWorkflowMagicRunStore, getMagicHostScheme } from './create-workflow-magic-run-store.js';
-import { buildMagicScheme, magicNode } from './magic-test-helpers.js';
+import { buildMagicScheme, magicNode } from './magic-run-test-harness.js';
 import type { IWorkflowAgentStore } from './workflow-agent-store.js';
 
 const toolCall = (name: string, input: unknown): ILlmResponse => ({ text: '', toolCalls: [{ id: name, input, name }] });

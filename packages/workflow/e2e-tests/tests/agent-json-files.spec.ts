@@ -117,19 +117,22 @@ test.describe('agent JSON files', () => {
 
       // Visible on the canvas and saved through the tab's autosave.
       await expect(page.locator('.block-container').getByText('Hello from the agent')).toBeVisible();
-      await waitForCondition(
-        async () => (await fetchBodyLogMessages(api, projectId, mainId)).includes('Hello from the agent'),
-        20_000,
-      );
+      await waitForCondition(async () => {
+        const messages = await fetchBodyLogMessages(api, projectId, mainId);
+        return messages.includes('Hello from the agent');
+      }, 20_000);
 
       // Every file write is one undo step: the first Undo reverts the edit, the second the write that added the log.
       await agentPanel.getByRole('button', { name: 'Undo' }).click();
-      await waitForCondition(
-        async () => (await fetchBodyLogMessages(api, projectId, mainId)).join() === broken,
-        20_000,
-      );
+      await waitForCondition(async () => {
+        const messages = await fetchBodyLogMessages(api, projectId, mainId);
+        return messages.join(',') === broken;
+      }, 20_000);
       await agentPanel.getByRole('button', { name: 'Undo' }).click();
-      await waitForCondition(async () => (await fetchBodyLogMessages(api, projectId, mainId)).length === 0, 20_000);
+      await waitForCondition(async () => {
+        const messages = await fetchBodyLogMessages(api, projectId, mainId);
+        return messages.length === 0;
+      }, 20_000);
       await expect(page.locator('.block-container').getByText('Hello from the agent')).toHaveCount(0);
     } finally {
       await api.delete('/admin/settings/agent').catch(() => {

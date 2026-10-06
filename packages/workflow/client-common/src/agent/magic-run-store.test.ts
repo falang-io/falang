@@ -4,7 +4,7 @@ import { resolveService } from '@falang/di';
 import { CMD_INSERT_NODE, TOKEN_HISTORY, type Scheme } from '@falang/scheme';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { MagicRunStore, MAGIC_MAX_STEPS } from './magic-run-store.js';
-import { actionNode, buildMagicScheme, magicNode } from './magic-test-helpers.js';
+import { actionNode, buildMagicScheme, magicNode } from './magic-run-test-harness.js';
 
 const toolCall = (name: string, input: unknown, id = name): ILlmResponse => ({
   text: '',

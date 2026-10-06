@@ -15,11 +15,14 @@ import { isSerialMonitorSupported, monitorPort, sttyArgs } from './monitor-port.
  * previous stand-in, isn't a tty at all — `tty.ReadStream` would fall back to a different, shared-fd
  * path there and never exercise the real one). What this still can't verify is the actual UART
  * behavior (baud rate, DTR reset) — see `monitor-port.ts`'s doc comment for what was only ever
- * confirmed against a real Uno.
+ * confirmed against a real Uno. The slave is put into raw mode by the helper itself: `stty` is faked
+ * below, and a default-mode slave echoes (ECHO/ICANON/ONLCR) on its own, which under load interleaves
+ * with the helper's echo (seen as `pingping\n`).
  */
 const PTY_HELPER = `
-import os, pty, sys, select
+import os, pty, sys, select, tty
 master, slave = pty.openpty()
+tty.setraw(slave)
 sys.stdout.write(os.ttyname(slave) + "\\n"); sys.stdout.flush()
 while True:
     ready, _, _ = select.select([master, sys.stdin.fileno()], [], [])

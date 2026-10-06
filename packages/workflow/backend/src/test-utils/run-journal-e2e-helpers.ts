@@ -3,21 +3,21 @@ import type { IRunJournalEntry, IRunJournalPage } from '@falang/workflow-dto';
 import { openaiIntegration } from '@falang/workflow-integrations-openai';
 import { telegramIntegration } from '@falang/workflow-integrations-telegram';
 import { getTelegramCalls } from '@falang/workflow-mocks';
-import type { IProjectExportPayload } from '../projects/export/project-export.service.js';
+import type { IProjectExportPayload } from '../domains/projects/export/project-export.service.js';
 import {
   WORKFLOW_E2E_MOCKS_URL,
   WORKFLOW_E2E_RUNNER_MOCKS_URL,
   workflowE2eApi,
   workflowE2eAuth,
   workflowE2eWaitForValue,
-} from '../../test-utils/workflow-e2e-client.js';
+} from './workflow-e2e-client.js';
 import {
   buildCallAiTextNode,
   buildTelegramQuestionNode,
   buildTelegramSendMessageNode,
   buildTriggerFunctionRootNode,
   buildLogNode,
-} from '../../test-utils/workflow-e2e-fixtures.js';
+} from './workflow-e2e-fixtures.js';
 
 /** Helpers of `run-journal.workflow-e2e-spec.ts` (ADR 0059 (private) §4) — split out to stay under the per-file line cap. */
 
