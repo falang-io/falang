@@ -33,6 +33,7 @@ import { Document } from './domains/projects/documents/document.entity.js';
 import { DocumentsModule } from './domains/projects/documents/documents.module.js';
 import { ProjectExportModule } from './domains/projects/export/project-export.module.js';
 import { FoldersModule } from './domains/projects/folders/folders.module.js';
+import { MetricsModule } from './domains/metrics/metrics.module.js';
 import { HealthModule } from './domains/health/health.module.js';
 import { Project } from './domains/projects/projects/project.entity.js';
 import { ProjectsModule } from './domains/projects/projects/projects.module.js';
@@ -102,6 +103,7 @@ const buildBuiltInImports = (extraMigrations: readonly TAppMigration[] = []): TA
   EgressRoutingModule,
   IntegrationsModule,
   HealthModule,
+  MetricsModule,
   RunsModule,
   TasksModule,
   RunJournalModule,

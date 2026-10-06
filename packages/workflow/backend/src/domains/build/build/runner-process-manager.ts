@@ -70,6 +70,10 @@ export interface IRunnerProcessManagerParams {
    * on local `kind`).
    */
   readonly mediaServiceUrl?: string;
+  /** ADR 0060 (private): port of the Temporal SDK's Prometheus endpoint inside a runner pod (`RUNNER_METRICS_PORT`). Set => the pod gets the env var and a container port named `metrics`; the scrape finds it by that name. */
+  readonly runnerMetricsPort?: number;
+  /** ADR 0060 (private): `json` makes the runner log one JSON object per line (`RUNNER_LOG_FORMAT`, else `LOG_FORMAT`); unset/`text` = unchanged. */
+  readonly runnerLogFormat?: 'json' | 'text';
   /**
    * The public URL vendors redirect back to on `/oauth2/callback/:vendor` — needed by a runner pod's
    * OAuth2 refresh activity (`resolveOAuth2AccessToken`) for vendors whose refresh grant also
@@ -316,6 +320,9 @@ export class RunnerProcessManager {
               {
                 name: 'runner',
                 image: this.params.runnerImage,
+                ...(this.params.runnerMetricsPort
+                  ? { ports: [{ name: 'metrics', containerPort: this.params.runnerMetricsPort, protocol: 'TCP' }] }
+                  : {}),
                 env: Object.entries(env).map(([envName, value]) => ({ name: envName, value })),
                 resources: {
                   requests: { cpu: '100m', memory: '128Mi' },

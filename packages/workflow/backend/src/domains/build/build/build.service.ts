@@ -22,6 +22,7 @@ import { DocumentsService } from '../../projects/documents/documents.service.js'
 import { ProjectsService } from '../../projects/projects/projects.service.js';
 import { VersioningService } from '../../projects/versioning/versioning.service.js';
 import { toApiSchedule, type IApiSchedule } from './api-schedule.js';
+import { registerRunnerPodsMetric } from './runner-pods-metrics.js';
 import { buildArtifact, cleanupOrphanedBuildDirs, typeCheckInWorker } from './build-artifact.js';
 import {
   compileProjectStructure,
@@ -146,6 +147,7 @@ export class BuildService implements OnModuleInit, OnApplicationBootstrap {
   onModuleInit(): void {
     // A crashed previous process may have left per-build directories behind (`buildArtifact` cleans up in `finally`).
     cleanupOrphanedBuildDirs(this.outputDir);
+    registerRunnerPodsMetric(this.runnerProcessManager);
     const deps = this.ensureRunnerDeps();
     this.gatewayRuntime.setEnsureRunnerRunning((params) =>
       ensureRunnerRunning(deps, params.projectId, params.env, params.taskQueue),

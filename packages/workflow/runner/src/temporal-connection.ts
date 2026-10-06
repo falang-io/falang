@@ -1,4 +1,5 @@
 import { NativeConnection, type NativeConnectionOptions } from '@temporalio/worker';
+import { log } from './log.js';
 import type { IRunnerConfig } from './runner-config.js';
 import { fetchTemporalToken, TemporalTokenRefresher, type ITemporalToken } from './temporal-token-refresher.js';
 
@@ -31,13 +32,11 @@ const defaultDeps: IRunnerTemporalConnectionDeps<NativeConnection> = {
   // A Worker whose token lapsed degrades silently (nothing new executes, the process lives on), so
   // end the process and let the Deployment restart the pod with a fresh token.
   onFatal: (error) => {
-    // oxlint-disable-next-line no-console
-    console.error('Workflow runner cannot keep its Temporal token fresh, exiting:', error);
+    log.error('Workflow runner cannot keep its Temporal token fresh, exiting', error);
     // oxlint-disable-next-line unicorn/no-process-exit -- ending the process is the point: the Deployment restarts the pod.
     process.exit(1);
   },
-  // oxlint-disable-next-line no-console
-  log: (message) => console.log(message),
+  log: (message) => log.info(message),
 };
 
 export interface IRunnerTemporalHandle<TConnection extends IRunnerTemporalConnection> {

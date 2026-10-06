@@ -1,3 +1,4 @@
+// oxlint-disable no-undefined -- config parsers: `undefined` is the "not configured" value of the optional manager params.
 import type { IRunnerProcessManagerParams } from './runner-process-manager.js';
 
 interface IRunnerEnvCallParams {
@@ -46,6 +47,18 @@ export const buildRunnerEnv = (
   if (managerParams.telegramApiBaseUrl) env.TELEGRAM_API_BASE_URL = managerParams.telegramApiBaseUrl;
   if (managerParams.mediaServiceUrl) env.MEDIA_SERVICE_URL = managerParams.mediaServiceUrl;
   if (managerParams.backendPublicUrl) env.BACKEND_PUBLIC_URL = managerParams.backendPublicUrl;
+  if (managerParams.runnerMetricsPort) env.RUNNER_METRICS_PORT = String(managerParams.runnerMetricsPort);
+  if (managerParams.runnerLogFormat) env.LOG_FORMAT = managerParams.runnerLogFormat;
   if (managerParams.coverageEnabled) env.NODE_V8_COVERAGE = '/tmp';
   return env;
 };
+
+/** `RUNNER_METRICS_PORT` -> a valid TCP port, else `undefined` (no metrics). */
+export const parseRunnerMetricsPort = (raw: string | undefined): number | undefined => {
+  const port = Number(raw);
+  return Number.isInteger(port) && port > 0 && port < 65_536 ? port : undefined;
+};
+
+/** `RUNNER_LOG_FORMAT`/`LOG_FORMAT` -> `json`/`text`, anything else `undefined`. */
+export const parseRunnerLogFormat = (raw: string | undefined): 'json' | 'text' | undefined =>
+  raw === 'json' || raw === 'text' ? raw : undefined;

@@ -11,6 +11,7 @@ import {
   type TUserStatus,
   type User,
 } from '../../users/users/user.entity.js';
+import { activationsTotal } from '../../metrics/metrics.js';
 import { UsersService } from '../../users/users/users.service.js';
 
 export interface IAdminUser {
@@ -127,6 +128,7 @@ export class AdminUsersService {
     const password = this.usersService.generatePassword();
     await this.usersService.setPassword(user.id, password);
     await this.usersService.markActivated(user.id);
+    activationsTotal.inc();
     const content = accountActivatedMail(user.language, {
       login: user.username,
       password,

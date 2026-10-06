@@ -1,5 +1,6 @@
 import { BadRequestException, ConflictException, Inject, Injectable, Logger } from '@nestjs/common';
 import { AuthTokensService } from '../auth-tokens/auth-tokens.service.js';
+import { emailVerificationsTotal } from '../../metrics/metrics.js';
 import { MailService } from '../../mail/mail.service.js';
 import {
   confirmEmailMail,
@@ -86,7 +87,10 @@ export class AccountService {
     const user = userId ? await this.usersService.findById(userId) : null;
     if (!user) throw new BadRequestException('Invalid or expired token');
     const alreadyVerified = user.emailVerifiedAt !== null;
-    if (!alreadyVerified) await this.usersService.markEmailVerified(user.id);
+    if (!alreadyVerified) {
+      await this.usersService.markEmailVerified(user.id);
+      emailVerificationsTotal.inc();
+    }
     if (user.activatedAt) return { status: 'active' };
     if (!alreadyVerified) await this.notifyAdmins(user);
     return { status: 'pending_activation' };

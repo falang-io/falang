@@ -36,6 +36,7 @@ import { ResetPasswordDto } from './dto/reset-password.dto.js';
 import { VerifyEmailDto } from './dto/verify-email.dto.js';
 // oxlint-disable-next-line consistent-type-imports
 import { LoginDto } from './dto/login.dto.js';
+import { signupsTotal } from '../../metrics/metrics.js';
 // oxlint-disable-next-line consistent-type-imports
 import { RegisterDto } from './dto/register.dto.js';
 // oxlint-disable-next-line consistent-type-imports
@@ -140,6 +141,7 @@ export class AuthController {
         automationInterest: body.automationInterest,
         termsAcceptedAt,
       });
+      signupsTotal.inc({ mode });
       res.status(HttpStatus.ACCEPTED);
       return result;
     }
@@ -147,6 +149,7 @@ export class AuthController {
     const result = await this.authService.register(body.username, body.password, termsAcceptedAt, body.email ?? null);
     const user = body.email ? await this.usersService.findById(result.user.id) : null;
     if (user) await this.account.sendVerification(user, { respectCooldown: false });
+    signupsTotal.inc({ mode });
     res.status(HttpStatus.CREATED);
     return result;
   }

@@ -3,6 +3,7 @@ import { join } from 'node:path';
 import { BadRequestException } from '@nestjs/common';
 import type { IDebugMap } from '@falang/debug';
 import type { ICompileError } from '@falang/workflow-compiler';
+import { buildDuration, buildsTotal } from '../../metrics/metrics.js';
 import { runBuildWorker, type IBuildWorkerOptions } from './build-worker-pool.js';
 import { toGeneratedFiles } from './compile-project-documents.js';
 
@@ -91,12 +92,17 @@ export const buildArtifact = async (
 ): Promise<IWorkflowArtifact> => {
   mkdirSync(outputDir, { recursive: true });
   const workDir = mkdtempSync(join(outputDir, BUILD_DIR_PREFIX));
+  const stopTimer = buildDuration.startTimer();
+  let outcome: 'ok' | 'error' = 'error';
   try {
     const result = await runBuildWorker({ workflows, activities, workDir, bundle: true }, workerOptions);
     if (result.kind === 'errors') throw failedToCompile(result.errors, workflows, activities);
     if (result.kind !== 'built') throw new Error('Build process finished without producing an artifact');
+    outcome = 'ok';
     return { workflowBundle: result.workflowBundle, activitiesSource: result.activitiesSource };
   } finally {
+    stopTimer();
+    buildsTotal.inc({ result: outcome });
     rmSync(workDir, { recursive: true, force: true });
   }
 };
