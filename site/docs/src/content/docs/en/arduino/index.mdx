@@ -24,12 +24,12 @@ head:
     installed — the app uses it to compile and upload, it is not bundled. The app looks for it on <code>PATH</code>, in
     the usual install locations (Homebrew on macOS, <code>Program Files\Arduino CLI</code> on Windows,{' '}
     <code>~/.local/bin</code> on Linux) and inside an installed Arduino IDE 2, which ships its own copy. To use a copy
-    somewhere else, start the app with the <code>FALANG_ARDUINO_CLI</code> environment variable set to its full path.
-    If it can't be found, the <b>Build &amp; Upload</b> dialog says so.
+    somewhere else, start the app with the <code>FALANG_ARDUINO_CLI</code> environment variable set to its full path. If
+    it can't be found, the <b>Build &amp; Upload</b> dialog says so.
   </li>
   <li>
-    The core for your board, installed once with arduino-cli: <code>arduino-cli core install arduino:avr</code> for
-    Uno, Nano and Mega, <code>esp32:esp32</code> for ESP32.
+    The core for your board, installed once with arduino-cli: <code>arduino-cli core install arduino:avr</code> for Uno,
+    Nano and Mega, <code>esp32:esp32</code> for ESP32.
   </li>
   <li>
     For the RGB strip driver only: <code>arduino-cli lib install "Adafruit NeoPixel"</code>. The other bundled drivers
@@ -40,22 +40,25 @@ head:
 #### Projects
 
 <p>
-  <b>File → New Project…</b> asks for a name, a folder and a board — Arduino Uno, Nano, Nano (old bootloader), Mega
-  2560 or ESP32 Dev Module. Every project has three fixed documents: <code>setup</code>, <code>loop</code> and{' '}
+  <b>File → New Project…</b> asks for a name, a folder and a board — Arduino Uno, Nano, Nano (old bootloader), Mega 2560
+  or ESP32 Dev Module. Every project has three fixed documents: <code>setup</code>, <code>loop</code> and{' '}
   <code>Devices</code>; any other scheme you add is a helper function you can call from them. See{' '}
   <a href="./project-setup/">Project setup</a> for the board binding and the <code>Devices</code> document.
 </p>
 
 #### Icons
 
-<p>A scheme offers the usual icons plus Arduino-specific ones, which are in the <b>Integrations</b> group of the insert menu.</p>
+<p>
+  A scheme offers the usual icons plus Arduino-specific ones, which are in the <b>Arduino</b> group of the insert menu
+  (pins and built-in functions) and the <b>Device</b> group (actions of the devices added in <code>Devices</code>).
+</p>
 <ul>
   <li>
     <b>Standard icons</b> — new variable, action, function call, if, switch, loops (for each, from/to, while, cycle) and
     exits (break, continue, return). Expressions are written in a TypeScript-like syntax limited to what compiles to
     C++, with Arduino's own functions and constants available: <code>digitalRead</code>, <code>analogWrite</code>,{' '}
-    <code>millis</code>, <code>map</code>, <code>constrain</code>, <code>HIGH</code>/<code>LOW</code>,{' '}
-    <code>A0</code>…<code>A7</code> and so on.
+    <code>millis</code>, <code>map</code>, <code>constrain</code>, <code>HIGH</code>/<code>LOW</code>, <code>A0</code>…
+    <code>A7</code> and so on.
   </li>
   <li>
     <b>Pins</b>: <b>Set digital pin</b> (pin number and a HIGH/LOW switch), <b>Set analog pin (PWM)</b> (a 0–255
@@ -64,9 +67,9 @@ head:
     with an icon.
   </li>
   <li>
-    <b>Built-in functions</b>: <b>Delay</b>, <b>Delay (microseconds)</b>, <b>Millis</b>, <b>Micros</b>,{' '}
-    <b>Random</b>, <b>Random seed</b>, <b>Serial begin</b>, <b>Serial print</b>, <b>Serial println</b>. Their arguments
-    are fixed numbers; to print a variable, write <code>Serial.println(x)</code> in an action.
+    <b>Built-in functions</b>: <b>Delay</b>, <b>Delay (microseconds)</b>, <b>Millis</b>, <b>Micros</b>, <b>Random</b>,{' '}
+    <b>Random seed</b>, <b>Serial begin</b>, <b>Serial print</b>, <b>Serial println</b>. Their arguments are fixed
+    numbers; to print a variable, write <code>Serial.println(x)</code> in an action.
   </li>
   <li>
     <b>Driver actions</b> — one icon per action of each installed driver, titled "&lt;driver&gt;: &lt;action&gt;", for
@@ -94,8 +97,8 @@ head:
   </li>
   <li>
     <b>LCD1602 (I2C)</b> and <b>LCD1602 (Parallel)</b> — <i>Clear display</i>, <i>Print text</i> (column, row and text;
-    the text can include expressions as <code>{'${…}'}</code>). Add the display in the <code>Devices</code> document
-    so it is initialized at startup.
+    the text can include expressions as <code>{'${…}'}</code>). Add the display in the <code>Devices</code> document so
+    it is initialized at startup.
   </li>
   <li>
     <b>Addressable RGB strip (WS2812/NeoPixel)</b> — <i>Set pixel color</i> and <i>Show</i> (push the colors to the
@@ -107,8 +110,8 @@ head:
 #### Your own drivers
 
 <p>
-  You can add your own device drivers — per project, or in a personal library shared by all your projects — and
-  manage them from <b>Sketch → Drivers…</b>. See <a href="./drivers/">Custom device drivers</a>.
+  You can add your own device drivers — per project, or in a personal library shared by all your projects — and manage
+  them from <b>Sketch → Drivers…</b>. See <a href="./drivers/">Custom device drivers</a>.
 </p>
 
 #### Build &amp; Upload

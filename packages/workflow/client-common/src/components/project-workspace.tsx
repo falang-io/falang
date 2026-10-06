@@ -18,6 +18,7 @@ import { MagicEditorModal } from './magic-editor-modal.js';
 import { ProjectRightSidebar } from './project-right-sidebar.js';
 import { Sidebar } from './sidebar.js';
 import { TasksPage } from './tasks-page.js';
+import { ServerActivityBar } from './server-activity-bar.js';
 import { Toolbar } from './toolbar.js';
 
 const styles = {
@@ -198,6 +199,7 @@ export const ProjectWorkspace: React.FC<Props> = observer(({ projectId }) => {
     <WorkflowStoreContext value={store}>
       <div style={styles.root}>
         <Toolbar />
+        <ServerActivityBar />
         <div style={styles.body}>
           <div style={{ ...styles.projectTree, width: treeWidth }}>
             <ProjectTree />

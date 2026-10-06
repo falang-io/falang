@@ -19,6 +19,8 @@ export interface IBuildArduinoDocumentSchemeParams {
   readonly extraModules?: readonly IModule[];
   /** The undo stack of a previous scheme of the same document (same node ids) to continue — see `HistoryModule`. */
   readonly historyStore?: HistoryStore;
+  /** Driver ids with an instance in the project's `Devices` document — the "Device" menu group lists only their actions. Omit to list all. */
+  readonly getConnectedDriverIds?: () => ReadonlySet<string> | undefined;
 }
 
 /**
@@ -35,6 +37,7 @@ export const buildArduinoDocumentScheme = (params: IBuildArduinoDocumentSchemePa
     id: doc.id,
     name: doc.name,
     parentContainer: params.parentContainer,
+    getConnectedDriverIds: params.getConnectedDriverIds,
     extraModules,
   });
   const rootNode = doc.root ?? scheme.infra.structure.factory('function');

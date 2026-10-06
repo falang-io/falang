@@ -27,6 +27,7 @@ A driver is one JSON document (`*.falang-driver.json`, the shape `validate_drive
 | `actions` | array of object | yes | at least 1 item(s) |
 | `device` | object | no |  |
 | `notes` | string | no |  |
+| `locales` | map of string → object | no |  |
 
 ### bundle.config.actions[]
 
@@ -329,6 +330,97 @@ A driver is one JSON document (`*.falang-driver.json`, the shape `validate_drive
         "notes": {
           "type": "string",
           "minLength": 1
+        },
+        "locales": {
+          "type": "object",
+          "propertyNames": {
+            "type": "string",
+            "pattern": "^[a-z]{2,3}(-[A-Za-z0-9]+)?$"
+          },
+          "additionalProperties": {
+            "type": "object",
+            "properties": {
+              "label": {
+                "type": "string",
+                "minLength": 1
+              },
+              "actions": {
+                "type": "object",
+                "propertyNames": {
+                  "type": "string"
+                },
+                "additionalProperties": {
+                  "type": "object",
+                  "properties": {
+                    "label": {
+                      "type": "string",
+                      "minLength": 1
+                    },
+                    "fields": {
+                      "type": "object",
+                      "propertyNames": {
+                        "type": "string"
+                      },
+                      "additionalProperties": {
+                        "type": "object",
+                        "properties": {
+                          "label": {
+                            "type": "string",
+                            "minLength": 1
+                          },
+                          "options": {
+                            "type": "object",
+                            "propertyNames": {
+                              "type": "string"
+                            },
+                            "additionalProperties": {
+                              "type": "string",
+                              "minLength": 1
+                            }
+                          }
+                        },
+                        "additionalProperties": false
+                      }
+                    }
+                  },
+                  "additionalProperties": false
+                }
+              },
+              "device": {
+                "type": "object",
+                "properties": {
+                  "fields": {
+                    "type": "object",
+                    "propertyNames": {
+                      "type": "string"
+                    },
+                    "additionalProperties": {
+                      "type": "object",
+                      "properties": {
+                        "label": {
+                          "type": "string",
+                          "minLength": 1
+                        },
+                        "options": {
+                          "type": "object",
+                          "propertyNames": {
+                            "type": "string"
+                          },
+                          "additionalProperties": {
+                            "type": "string",
+                            "minLength": 1
+                          }
+                        }
+                      },
+                      "additionalProperties": false
+                    }
+                  }
+                },
+                "additionalProperties": false
+              }
+            },
+            "additionalProperties": false
+          }
         }
       },
       "required": [

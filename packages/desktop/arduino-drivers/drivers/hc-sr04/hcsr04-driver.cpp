@@ -18,3 +18,9 @@ float hcsr04_read_distance(uint8_t trigPin, uint8_t echoPin) {
   // distance -> divide by ~58.
   return durationUs / 58.0f;
 }
+
+void hcsr04_init(uint8_t trigPin, uint8_t echoPin) {
+  pinMode(trigPin, OUTPUT);
+  pinMode(echoPin, INPUT);
+  digitalWrite(trigPin, LOW);
+}

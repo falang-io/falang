@@ -7,7 +7,8 @@
   "sourceFiles": ["dht-driver.h", "dht-driver.cpp"],
   "declarations": [
     "declare function dht_read_temperature(pin: number, sensorType: number): number;",
-    "declare function dht_read_humidity(pin: number, sensorType: number): number;"
+    "declare function dht_read_humidity(pin: number, sensorType: number): number;",
+    "declare function dht_init(pin: number, sensorType: number): void;"
   ],
   "actions": [
     {
@@ -15,18 +16,34 @@
       "notes": "Reads the temperature in degrees Celsius into a new float variable; the sensor type (DHT11 or DHT22) must match the hardware.",
       "label": "Read temperature (°C)",
       "fields": [
-        { "name": "pin", "label": "Data pin", "kind": "pin", "default": "2" },
+        {
+          "name": "pin",
+          "label": "Data pin",
+          "kind": "pin",
+          "default": "2"
+        },
         {
           "name": "sensorType",
           "label": "Sensor",
           "kind": "select",
           "default": "1",
           "options": [
-            { "value": "0", "label": "DHT11" },
-            { "value": "1", "label": "DHT22" }
+            {
+              "value": "0",
+              "label": "DHT11"
+            },
+            {
+              "value": "1",
+              "label": "DHT22"
+            }
           ]
         },
-        { "name": "variable", "label": "Result variable", "kind": "new-variable", "default": "temperature" }
+        {
+          "name": "variable",
+          "label": "Result variable",
+          "kind": "new-variable",
+          "default": "temperature"
+        }
       ],
       "codeTemplate": "dht_read_temperature(${pin}, ${sensorType})",
       "resultType": "float"
@@ -36,21 +53,109 @@
       "notes": "Reads relative humidity in percent into a new float variable; the sensor type (DHT11 or DHT22) must match the hardware.",
       "label": "Read humidity (%RH)",
       "fields": [
-        { "name": "pin", "label": "Data pin", "kind": "pin", "default": "2" },
+        {
+          "name": "pin",
+          "label": "Data pin",
+          "kind": "pin",
+          "default": "2"
+        },
         {
           "name": "sensorType",
           "label": "Sensor",
           "kind": "select",
           "default": "1",
           "options": [
-            { "value": "0", "label": "DHT11" },
-            { "value": "1", "label": "DHT22" }
+            {
+              "value": "0",
+              "label": "DHT11"
+            },
+            {
+              "value": "1",
+              "label": "DHT22"
+            }
           ]
         },
-        { "name": "variable", "label": "Result variable", "kind": "new-variable", "default": "humidity" }
+        {
+          "name": "variable",
+          "label": "Result variable",
+          "kind": "new-variable",
+          "default": "humidity"
+        }
       ],
       "codeTemplate": "dht_read_humidity(${pin}, ${sensorType})",
       "resultType": "float"
     }
-  ]
+  ],
+  "device": {
+    "fields": [
+      {
+        "name": "pin",
+        "label": "Data pin",
+        "kind": "pin",
+        "default": "2"
+      },
+      {
+        "name": "sensorType",
+        "label": "Sensor",
+        "kind": "select",
+        "default": "1",
+        "options": [
+          {
+            "value": "0",
+            "label": "DHT11"
+          },
+          {
+            "value": "1",
+            "label": "DHT22"
+          }
+        ]
+      }
+    ],
+    "setupTemplate": "dht_init(${pin}, ${sensorType})"
+  },
+  "locales": {
+    "ru": {
+      "label": "DHT11 / DHT22 (температура/влажность)",
+      "actions": {
+        "read-temperature": {
+          "label": "Прочитать температуру (°C)",
+          "fields": {
+            "pin": {
+              "label": "Пин данных"
+            },
+            "sensorType": {
+              "label": "Датчик"
+            },
+            "variable": {
+              "label": "Переменная результата"
+            }
+          }
+        },
+        "read-humidity": {
+          "label": "Прочитать влажность (%)",
+          "fields": {
+            "pin": {
+              "label": "Пин данных"
+            },
+            "sensorType": {
+              "label": "Датчик"
+            },
+            "variable": {
+              "label": "Переменная результата"
+            }
+          }
+        }
+      },
+      "device": {
+        "fields": {
+          "pin": {
+            "label": "Пин данных"
+          },
+          "sensorType": {
+            "label": "Датчик"
+          }
+        }
+      }
+    }
+  }
 }

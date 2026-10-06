@@ -105,16 +105,10 @@ export const ProjectWorkspace: React.FC<Props> = observer(({ projectDir, project
   }, [projectDir]);
   const [isExportConfigOpen, setExportConfigOpen] = useState(false);
 
-  // These four subscriptions all no-op (return a no-op unsubscribe) while `store` is still `null`
+  // These subscriptions all no-op (return a no-op unsubscribe) while `store` is still `null`
   // — the one short window before the effect above's `setStore` lands — rather than being skipped
   // outright, so every render calls the same fixed sequence of hooks (React's own rule: hooks
   // can't be called conditionally). The `if (!store) return null` below runs *after* every hook.
-  useEffect(() => {
-    if (!store) return;
-    const unsubscribe = globalThis.falang.menu.onSaveDocument(() => store.saveAllOpenTabsNow());
-    return unsubscribe;
-  }, [store]);
-
   useEffect(() => {
     const unsubscribe = globalThis.falang.menu.onOpenExportConfig(() => setExportConfigOpen(true));
     return unsubscribe;

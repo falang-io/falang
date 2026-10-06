@@ -90,6 +90,14 @@
       "compile-errors_few": "{{count}} ошибки компиляции",
       "compile-errors_many": "{{count}} ошибок компиляции",
       "compile-errors_other": "{{count}} ошибки компиляции",
+      "server-activity": {
+        "dev-starting": "Запускаю тестовый стенд…",
+        "dev-stopping": "Останавливаю тестовый стенд…",
+        "dev-restarting": "Перезапускаю тестовый стенд…",
+        "publishing": "Публикую новую версию…",
+        "prod-starting": "Запускаю продакшен…",
+        "prod-stopping": "Останавливаю продакшен…"
+      },
       "dev-menu": {
         "label": "Тестовый стенд",
         "start": "Запустить",

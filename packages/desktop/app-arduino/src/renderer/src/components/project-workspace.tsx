@@ -96,12 +96,6 @@ export const ProjectWorkspace: React.FC<Props> = observer(({ projectDir }) => {
   const [isBuildPanelOpen, setBuildPanelOpen] = useState(false);
 
   useEffect(() => {
-    if (!store) return;
-    const unsubscribe = globalThis.falang.menu.onSaveDocument(() => store.saveAllOpenTabsNow());
-    return unsubscribe;
-  }, [store]);
-
-  useEffect(() => {
     const unsubscribe = globalThis.falang.menu.onOpenBuildPanel(() => setBuildPanelOpen(true));
     return unsubscribe;
   }, []);

@@ -7,7 +7,8 @@
   "sourceFiles": ["rgb-strip-driver.h", "rgb-strip-driver.cpp"],
   "declarations": [
     "declare function rgbstrip_set_pixel_color(pin: number, numLeds: number, index: number, r: number, g: number, b: number): void;",
-    "declare function rgbstrip_show(pin: number, numLeds: number): void;"
+    "declare function rgbstrip_show(pin: number, numLeds: number): void;",
+    "declare function rgbstrip_init(pin: number, numLeds: number): void;"
   ],
   "actions": [
     {
@@ -15,12 +16,50 @@
       "notes": "Sets one pixel's colour (r, g, b 0-255) in the strip's buffer; nothing lights up until the Show action runs.",
       "label": "Set pixel color",
       "fields": [
-        { "name": "pin", "label": "Data pin", "kind": "pin", "default": "6" },
-        { "name": "numLeds", "label": "Strip length", "kind": "number", "default": "8", "min": 1 },
-        { "name": "index", "label": "Pixel index", "kind": "number", "default": "0", "min": 0 },
-        { "name": "r", "label": "Red (0-255)", "kind": "number", "default": "255", "min": 0, "max": 255 },
-        { "name": "g", "label": "Green (0-255)", "kind": "number", "default": "0", "min": 0, "max": 255 },
-        { "name": "b", "label": "Blue (0-255)", "kind": "number", "default": "0", "min": 0, "max": 255 }
+        {
+          "name": "pin",
+          "label": "Data pin",
+          "kind": "pin",
+          "default": "6"
+        },
+        {
+          "name": "numLeds",
+          "label": "Strip length",
+          "kind": "number",
+          "default": "8",
+          "min": 1
+        },
+        {
+          "name": "index",
+          "label": "Pixel index",
+          "kind": "number",
+          "default": "0",
+          "min": 0
+        },
+        {
+          "name": "r",
+          "label": "Red (0-255)",
+          "kind": "number",
+          "default": "255",
+          "min": 0,
+          "max": 255
+        },
+        {
+          "name": "g",
+          "label": "Green (0-255)",
+          "kind": "number",
+          "default": "0",
+          "min": 0,
+          "max": 255
+        },
+        {
+          "name": "b",
+          "label": "Blue (0-255)",
+          "kind": "number",
+          "default": "0",
+          "min": 0,
+          "max": 255
+        }
       ],
       "codeTemplate": "rgbstrip_set_pixel_color(${pin}, ${numLeds}, ${index}, ${r}, ${g}, ${b})"
     },
@@ -29,10 +68,90 @@
       "notes": "Pushes the buffered pixel colours to the strip; call after one or more Set pixel color actions.",
       "label": "Show (push buffer to strip)",
       "fields": [
-        { "name": "pin", "label": "Data pin", "kind": "pin", "default": "6" },
-        { "name": "numLeds", "label": "Strip length", "kind": "number", "default": "8", "min": 1 }
+        {
+          "name": "pin",
+          "label": "Data pin",
+          "kind": "pin",
+          "default": "6"
+        },
+        {
+          "name": "numLeds",
+          "label": "Strip length",
+          "kind": "number",
+          "default": "8",
+          "min": 1
+        }
       ],
       "codeTemplate": "rgbstrip_show(${pin}, ${numLeds})"
     }
-  ]
+  ],
+  "device": {
+    "fields": [
+      {
+        "name": "pin",
+        "label": "Data pin",
+        "kind": "pin",
+        "default": "6"
+      },
+      {
+        "name": "numLeds",
+        "label": "Strip length",
+        "kind": "number",
+        "default": "8",
+        "min": 1
+      }
+    ],
+    "setupTemplate": "rgbstrip_init(${pin}, ${numLeds})"
+  },
+  "locales": {
+    "ru": {
+      "label": "Адресная RGB-лента (WS2812/NeoPixel)",
+      "actions": {
+        "set-pixel-color": {
+          "label": "Задать цвет пикселя",
+          "fields": {
+            "pin": {
+              "label": "Пин данных"
+            },
+            "numLeds": {
+              "label": "Длина ленты"
+            },
+            "index": {
+              "label": "Номер пикселя"
+            },
+            "r": {
+              "label": "Красный (0-255)"
+            },
+            "g": {
+              "label": "Зелёный (0-255)"
+            },
+            "b": {
+              "label": "Синий (0-255)"
+            }
+          }
+        },
+        "show": {
+          "label": "Показать (вывести буфер на ленту)",
+          "fields": {
+            "pin": {
+              "label": "Пин данных"
+            },
+            "numLeds": {
+              "label": "Длина ленты"
+            }
+          }
+        }
+      },
+      "device": {
+        "fields": {
+          "pin": {
+            "label": "Пин данных"
+          },
+          "numLeds": {
+            "label": "Длина ленты"
+          }
+        }
+      }
+    }
+  }
 }

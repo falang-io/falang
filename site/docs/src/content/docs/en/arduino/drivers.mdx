@@ -86,7 +86,12 @@ head:
   </li>
   <li>
     optionally <code>device</code> — fields and a <code>setupTemplate</code>: the driver can then be added in the{' '}
-    <code>Devices</code> document, which calls it once in <code>setup()</code>.
+    <code>Devices</code> document, which calls it once in <code>setup()</code>;
+  </li>
+  <li>
+    optionally <code>locales</code> — translations of the driver, action, field and select-option labels per language
+    (for example <code>"ru"</code>); anything not translated stays in English, and <code>notes</code> are never
+    translated.
   </li>
 </ul>
 <p>Required Arduino libraries are not installed automatically — install them with arduino-cli.</p>

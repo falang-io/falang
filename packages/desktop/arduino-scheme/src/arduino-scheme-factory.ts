@@ -1,16 +1,12 @@
 import type { DependencyContainer } from '@falang/di';
 import type { IModule } from '@falang/scheme';
 import { functionalSchemeFactory } from '@falang/typescript-scheme';
-import { PIN_NODE_NAMES } from '@falang/desktop-arduino-dto/src/pin-nodes.js';
-import { ARDUINO_FUNCTION_NODE_NAMES } from '@falang/desktop-arduino-dto/src/arduino-function-nodes.js';
 import { pinNodesIconsGroup } from './pin-nodes/pin-nodes-icons-group.js';
 import { arduinoFunctionsIconsGroup } from './arduino-functions/arduino-functions-icons-group.js';
 import { DriverRegistryModule } from './driver-nodes/driver-registry.module.js';
-import {
-  getDriverConfigs,
-  getDriverInsertableItems,
-  getDriverNodesIconsGroup,
-} from './driver-nodes/driver-registry-cache.js';
+import { getDriverConfigs, getDriverNodesIconsGroup } from './driver-nodes/driver-registry-cache.js';
+import { buildArduinoInsertableGroups } from './arduino-insertable-groups.js';
+import { ArduinoSchemeLocalesModule } from './locales/arduino-scheme-locales.module.js';
 
 /**
  * Every scheme this app opens gets the pin node kinds (ADR 0023 (private)'s Phase A), the
@@ -32,10 +28,22 @@ export const arduinoSchemeFactory = (params: {
   extraModules?: IModule[];
   /** Version diff view (ADR 0025 (private)) — see `versioning/build-read-only-scheme-for-diff.ts`. */
   readOnly?: boolean;
+  /**
+   * Driver ids with an instance in the project's `Devices` document, read on every menu build — the "Device" group lists
+   * only their actions (a palette filter; node kinds of every driver stay registered). Omit to list every driver.
+   */
+  getConnectedDriverIds?: () => ReadonlySet<string> | undefined;
 }) =>
   functionalSchemeFactory({
-    ...params,
+    id: params.id,
+    name: params.name,
+    parentContainer: params.parentContainer,
+    readOnly: params.readOnly,
     extraIconsGroups: [pinNodesIconsGroup, arduinoFunctionsIconsGroup, getDriverNodesIconsGroup()],
-    extraInsertableItems: [...PIN_NODE_NAMES, ...ARDUINO_FUNCTION_NODE_NAMES, ...getDriverInsertableItems()],
-    extraModules: [new DriverRegistryModule(getDriverConfigs()), ...(params.extraModules ?? [])],
+    extraInsertableGroups: buildArduinoInsertableGroups({ getConnectedDriverIds: params.getConnectedDriverIds }),
+    extraModules: [
+      new ArduinoSchemeLocalesModule(),
+      new DriverRegistryModule(getDriverConfigs()),
+      ...(params.extraModules ?? []),
+    ],
   });

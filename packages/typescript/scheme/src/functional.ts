@@ -222,15 +222,31 @@ const buildOutsMenu = (scheme: Scheme, parent: IconStore, builder: ContextMenuBu
   }
 };
 
+type TInsertableItem = string | { name: string; label?: string };
+
+/**
+ * An extra group in the valence-point "add node" menu. `groupKey` is an i18n key resolved with the scheme's `t`
+ * (e.g. `'menu:group-integrations'`); `label` is already-final text and wins over `groupKey`. An empty group is not shown.
+ */
+export interface IInsertableGroup {
+  groupKey?: string;
+  label?: string;
+  items: readonly TInsertableItem[];
+}
+
 class TypescriptFunctionalModule implements IModule {
-  private readonly extraInsertableItems: readonly (string | { name: string; label?: string })[];
+  private readonly extraInsertableItems: readonly TInsertableItem[];
+  private readonly extraInsertableGroups: () => readonly IInsertableGroup[];
   private readonly defaultInsertNodeName: () => string;
 
   constructor(
-    extraInsertableItems: readonly (string | { name: string; label?: string })[] = [],
+    extraInsertableItems: readonly TInsertableItem[] = [],
     defaultInsertNodeName: () => string = () => 'action',
+    extraInsertableGroups: (() => readonly IInsertableGroup[]) | readonly IInsertableGroup[] = [],
   ) {
     this.extraInsertableItems = extraInsertableItems;
+    this.extraInsertableGroups =
+      typeof extraInsertableGroups === 'function' ? extraInsertableGroups : () => extraInsertableGroups;
     this.defaultInsertNodeName = defaultInsertNodeName;
   }
 
@@ -255,10 +271,10 @@ class TypescriptFunctionalModule implements IModule {
     contextMenuService.registerBuilderForValencePoint(({ builder, vp, parent }) => {
       if (!checker.isWithSkewer(parent)) return;
       const t = resolveService(TOKEN_I18N, scheme.container).t;
-      const addGroup = (groupKey: string, items: (string | { name: string; label?: string })[]) => {
+      const addGroup = (groupKey: string, items: (string | { name: string; label?: string })[], isFinal = false) => {
         if (items.length === 0) return;
         builder.addForIcons({
-          group: t(groupKey),
+          group: isFinal ? groupKey : t(groupKey),
           index: vp.index,
           parentId: vp.parentId,
           items,
@@ -269,6 +285,11 @@ class TypescriptFunctionalModule implements IModule {
       addGroup('menu:group-condition', ['if', 'switch']);
       addGroup('menu:group-cycles', ['foreach', 'from-to-cycle', 'pseudo-cycle', 'while']);
       addGroup('menu:group-integrations', [...this.extraInsertableItems]);
+      // Read on every menu build, so a host's getter can reflect state that changes while the scheme is open.
+      for (const group of this.extraInsertableGroups()) {
+        const title = group.label ?? (group.groupKey ? t(group.groupKey) : '');
+        if (title) addGroup(title, [...group.items], true);
+      }
       const isLastIndex = vp.index === parent.list.iconsIds.length;
       if (isLastIndex) {
         buildOutsMenu(scheme, parent, builder);
@@ -322,6 +343,11 @@ export interface IFunctionStructureSchemeFactoryParams extends Omit<ISchemeFacto
   /** Extra node-kind names appended to the valence-point "add node" menu, alongside the built-in ones. */
   extraInsertableItems?: (string | { name: string; label?: string })[];
   /**
+   * Extra named groups in the same menu (each its own submenu), as a list or a getter read on every menu build — so a
+   * host can filter by current project state and use the current UI language. Shown after the "Integrations" group.
+   */
+  extraInsertableGroups?: (() => readonly IInsertableGroup[]) | readonly IInsertableGroup[];
+  /**
    * Name of the node kind a plain valence-point click inserts under a `children: true` parent (read on every
    * click). Defaults to `'action'`. See ADR 0046 (private) — the magic node.
    */
@@ -333,6 +359,7 @@ export const functionalSchemeFactory = ({
   extraModules,
   extraIconsGroups,
   extraInsertableItems,
+  extraInsertableGroups,
   defaultInsertNodeName,
   ...props
 }: IFunctionStructureSchemeFactoryParams) => {
@@ -354,7 +381,7 @@ export const functionalSchemeFactory = ({
       new BlockResizeModule(),
       new CoreLocalesModule(),
       new TypescriptSchemeLocalesModule(),
-      new TypescriptFunctionalModule(extraInsertableItems, defaultInsertNodeName),
+      new TypescriptFunctionalModule(extraInsertableItems, defaultInsertNodeName, extraInsertableGroups),
       ...(extraModules ?? []),
     ],
     parentContainer,

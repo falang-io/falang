@@ -23,31 +23,129 @@
       "notes": "Writes text at a column (0-15) and row (0-1); text is a TypeScript string, so interpolations like `T=${t}` work.",
       "label": "Print text",
       "fields": [
-        { "name": "col", "label": "Column (0-15)", "kind": "number", "default": "0", "min": 0, "max": 15 },
+        {
+          "name": "col",
+          "label": "Column (0-15)",
+          "kind": "number",
+          "default": "0",
+          "min": 0,
+          "max": 15
+        },
         {
           "name": "row",
           "label": "Row",
           "kind": "select",
           "default": "0",
           "options": [
-            { "value": "0", "label": "Row 1" },
-            { "value": "1", "label": "Row 2" }
+            {
+              "value": "0",
+              "label": "Row 1"
+            },
+            {
+              "value": "1",
+              "label": "Row 2"
+            }
           ]
         },
-        { "name": "text", "label": "Text", "kind": "string", "default": "Hello!" }
+        {
+          "name": "text",
+          "label": "Text",
+          "kind": "string",
+          "default": "Hello!"
+        }
       ],
       "codeTemplate": "lcd_parallel_print_text(${col}, ${row}, ${text})"
     }
   ],
   "device": {
     "fields": [
-      { "name": "rs", "label": "RS pin", "kind": "pin", "default": "8" },
-      { "name": "en", "label": "EN pin", "kind": "pin", "default": "9" },
-      { "name": "d4", "label": "D4 pin", "kind": "pin", "default": "4" },
-      { "name": "d5", "label": "D5 pin", "kind": "pin", "default": "5" },
-      { "name": "d6", "label": "D6 pin", "kind": "pin", "default": "6" },
-      { "name": "d7", "label": "D7 pin", "kind": "pin", "default": "7" }
+      {
+        "name": "rs",
+        "label": "RS pin",
+        "kind": "pin",
+        "default": "8"
+      },
+      {
+        "name": "en",
+        "label": "EN pin",
+        "kind": "pin",
+        "default": "9"
+      },
+      {
+        "name": "d4",
+        "label": "D4 pin",
+        "kind": "pin",
+        "default": "4"
+      },
+      {
+        "name": "d5",
+        "label": "D5 pin",
+        "kind": "pin",
+        "default": "5"
+      },
+      {
+        "name": "d6",
+        "label": "D6 pin",
+        "kind": "pin",
+        "default": "6"
+      },
+      {
+        "name": "d7",
+        "label": "D7 pin",
+        "kind": "pin",
+        "default": "7"
+      }
     ],
     "setupTemplate": "lcd_parallel_init(${rs}, ${en}, ${d4}, ${d5}, ${d6}, ${d7})"
+  },
+  "locales": {
+    "ru": {
+      "label": "LCD1602 (параллельный)",
+      "actions": {
+        "clear": {
+          "label": "Очистить дисплей"
+        },
+        "print-text": {
+          "label": "Вывести текст",
+          "fields": {
+            "col": {
+              "label": "Столбец (0-15)"
+            },
+            "row": {
+              "label": "Строка",
+              "options": {
+                "0": "Строка 1",
+                "1": "Строка 2"
+              }
+            },
+            "text": {
+              "label": "Текст"
+            }
+          }
+        }
+      },
+      "device": {
+        "fields": {
+          "rs": {
+            "label": "Пин RS"
+          },
+          "en": {
+            "label": "Пин EN"
+          },
+          "d4": {
+            "label": "Пин D4"
+          },
+          "d5": {
+            "label": "Пин D5"
+          },
+          "d6": {
+            "label": "Пин D6"
+          },
+          "d7": {
+            "label": "Пин D7"
+          }
+        }
+      }
+    }
   }
 }
