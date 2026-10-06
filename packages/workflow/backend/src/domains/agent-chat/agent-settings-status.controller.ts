@@ -3,14 +3,14 @@ import { AgentSettingsService } from '../admin/app-settings/agent-settings.servi
 
 export interface IAgentSettingsStatusResponse {
   readonly configured: boolean;
-  readonly model: string | null;
   readonly interface: 'json' | 'nodes';
 }
 
 /**
  * `GET /agent/settings` — any signed-in user (the global JWT guard already applies, no extra
  * guard needed), so the chat panel can show a "not configured, ask an administrator" notice
- * instead of the send button. See ADR 0031 (private).
+ * instead of the send button. See ADR 0031 (private). Only `configured` and `interface` (ADR 0062 (private) — the client builds the agent session for it): which model the
+ * agent runs on (like the base URL and key) is the operator's business and never reaches the client.
  */
 @Controller('agent/settings')
 export class AgentSettingsStatusController {
@@ -23,6 +23,6 @@ export class AgentSettingsStatusController {
   @Get()
   async get(): Promise<IAgentSettingsStatusResponse> {
     const status = await this.agentSettings.getStatus();
-    return { configured: status.configured, model: status.model, interface: status.interface };
+    return { configured: status.configured, interface: status.interface };
   }
 }

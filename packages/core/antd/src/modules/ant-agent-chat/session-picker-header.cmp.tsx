@@ -15,7 +15,7 @@ const styles: Record<string, React.CSSProperties> = {
  *  (and this file's own) size down. */
 export interface ISessionPickerHeaderProps {
   readonly store: AgentChatSessionStore;
-  readonly model: string | null;
+  readonly model?: string | null;
   /** Shows a close (×) button at the end of the row when set. */
   readonly onClose?: () => void;
 }

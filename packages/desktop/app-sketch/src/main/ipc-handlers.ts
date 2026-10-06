@@ -2,6 +2,7 @@
 import { promises as fs } from 'node:fs';
 import * as path from 'node:path';
 import { app, dialog, ipcMain, type BrowserWindow } from 'electron';
+import { setMenuContext } from './menu-context.js';
 import {
   appendTurn as appendAgentSessionTurn,
   createDocument,
@@ -258,6 +259,10 @@ export const registerIpcHandlers = (
         ),
       ),
   );
+
+  ipcMain.on(IPC.menuSetContext, (_event, context: { projectType: string | null }) => {
+    if (setMenuContext({ projectType: context?.projectType ?? null })) rebuildMenu();
+  });
 
   ipcMain.handle(IPC.recentProjectsList, () => listRecentProjects());
   ipcMain.handle(IPC.recentProjectsAdd, async (_event, projectPath: string, name: string): Promise<void> => {

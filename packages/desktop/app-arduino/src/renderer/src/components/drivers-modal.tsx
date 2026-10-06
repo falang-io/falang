@@ -4,6 +4,7 @@ import { observer } from 'mobx-react-lite';
 import { Alert, Button, Form, Input, Modal, Popconfirm, Space, Spin, Table, Tag, Tooltip, Typography } from 'antd';
 import type { ColumnsType } from 'antd/es/table';
 import { getGlobalI18n } from '@falang/scheme';
+import { localizeDriverConfig } from '@falang/desktop-arduino-dto/src/driver-localize.js';
 import { reportError } from '../../../shared/report-error.js';
 import { driversRegistry } from '../drivers-registry-store.js';
 import { driversModalStore } from '../drivers-modal-store.js';
@@ -149,7 +150,11 @@ export const DriversModal: React.FC = observer(() => {
   const disabled = store.busy !== null;
 
   const columns = (scope: TDriverScope): ColumnsType<IDriverListEntry> => [
-    { title: t('drivers:column.name'), key: 'name', render: (_value, entry) => entry.config.label },
+    {
+      title: t('drivers:column.name'),
+      key: 'name',
+      render: (_value, entry) => localizeDriverConfig(entry.config, getGlobalI18n().language).label,
+    },
     { title: t('drivers:column.id'), key: 'id', render: (_value, entry) => <Text code>{entry.config.id}</Text> },
     { title: t('drivers:column.version'), key: 'version', render: (_value, entry) => entry.config.version ?? '—' },
     {

@@ -200,7 +200,9 @@ const falangApi = {
   menu: {
     onNewProject: subscribe(IPC.menuNewProject),
     onOpenProject: subscribe(IPC.menuOpenProject) as (listener: (recentPath?: string) => void) => () => void,
-    onSaveDocument: subscribe(IPC.menuSaveDocument),
+    onUndo: subscribe(IPC.menuUndo),
+    onRedo: subscribe(IPC.menuRedo),
+    setContext: (context: { projectType: string | null }): void => ipcRenderer.send(IPC.menuSetContext, context),
     onOpenBuildPanel: subscribe(IPC.menuOpenBuildPanel),
     onOpenSettings: subscribe(IPC.menuOpenSettings),
     onOpenVersioningSettings: subscribe(IPC.menuOpenVersioningSettings),

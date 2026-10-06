@@ -25,3 +25,7 @@ Servo& servoFor(uint8_t pin) {
 void servo_set_angle(uint8_t pin, uint8_t angle) {
   servoFor(pin).write(angle);
 }
+
+void servo_init(uint8_t pin) {
+  servoFor(pin);
+}

@@ -87,6 +87,7 @@ import { TasksStore } from './tasks-store.js';
 import { TemporalDebugAdapter } from './temporal-debug-adapter.js';
 import { buildTriggerFunctionDocument } from './trigger-function-document.js';
 import { VendorDataStore } from './vendor-data-store.js';
+import { resolveServerActivity, type TServerActivity } from './server-activity.js';
 import { buildReadOnlySchemeForDiff as buildReadOnlySchemeForDiffImpl } from './versioning/build-read-only-scheme-for-diff.js';
 import { HttpVersionStore } from './versioning/http-version-store.js';
 import {
@@ -117,6 +118,11 @@ export class WorkflowStore implements IWorkflowAgentStore {
   @observable activeTabId: string | null = null;
   @observable selectedNodeId: string | null = null;
   @observable selectedDocId: string | null = null;
+  /**
+   * Incremented after every finished agent run of this project — the chat's and every magic node's. Lets an
+   * extension (`IClientExtensions.renderAgentPanelHeader`) refetch something that a turn changes, e.g. a balance.
+   */
+  @observable agentTurnsFinished = 0;
   /** The execution the editor is following, if any — see ADR 0022 (private). */
   readonly liveRun: LiveRunStore;
   /** Shared by every open scheme's `DebuggerModule` — one session per project, see ADR 0021 (private) §3. */
@@ -286,6 +292,7 @@ export class WorkflowStore implements IWorkflowAgentStore {
     this.magicRuns = createWorkflowMagicRunStore({
       createLlmClient: () => new HttpLlmClient(projectId),
       getAllowQuestions: () => this.agentChat.allowQuestions,
+      onRunFinished: () => this.noteAgentTurnFinished(),
       store: this,
     });
     this.sync = new ProjectSync(
@@ -328,6 +335,10 @@ export class WorkflowStore implements IWorkflowAgentStore {
     if (!id) return null;
     const doc = this.getDocument(id);
     return doc && !doc.pinned ? id : null;
+  }
+
+  @action noteAgentTurnFinished(): void {
+    this.agentTurnsFinished += 1;
   }
 
   @action private touchKeepAlive(id: string): void {
@@ -395,6 +406,17 @@ export class WorkflowStore implements IWorkflowAgentStore {
 
   get isProdActionLoading(): boolean {
     return this.sync.isProdActionLoading;
+  }
+
+  /** The server-side action in flight (dev start/stop/restart, publish, prod start/stop) — drives the top loading bar. */
+  get serverActivity(): TServerActivity | null {
+    return resolveServerActivity({
+      buildStatus: this.sync.buildStatus,
+      isRestarting: this.sync.isRestarting,
+      isPublishing: this.sync.isPublishing,
+      isProdActionLoading: this.sync.isProdActionLoading,
+      prodRunning: this.sync.prodRunning,
+    });
   }
 
   buildProject(): Promise<void> {
@@ -895,6 +917,7 @@ export class WorkflowStore implements IWorkflowAgentStore {
       onRunFinished: (session) => {
         this.agentLocks.releaseAll();
         eventTracker.track('agent_turn', { status: session.status });
+        this.noteAgentTurnFinished();
       },
       store: this,
     });

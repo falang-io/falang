@@ -95,3 +95,7 @@ export * from './utils/build-mods-menu.js';
 export * from './icons/side/side.icon.js';
 export * from './icons/side/side.icon.config.js';
 export * from './shapes/timer.js';
+export * from './modules/copy-paste/copy-paste.module.js';
+export * from './modules/copy-paste/copy-paste.service.js';
+export * from './modules/copy-paste/copy-paste.types.js';
+export * from './modules/copy-paste/copy-paste.utils.js';

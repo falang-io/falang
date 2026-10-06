@@ -5,19 +5,85 @@
   "notes": "HC-SR04 ultrasonic distance sensor, wired to one trigger pin and one echo pin.",
   "includes": ["hcsr04-driver.h"],
   "sourceFiles": ["hcsr04-driver.h", "hcsr04-driver.cpp"],
-  "declarations": ["declare function hcsr04_read_distance(trigPin: number, echoPin: number): number;"],
+  "declarations": [
+    "declare function hcsr04_read_distance(trigPin: number, echoPin: number): number;",
+    "declare function hcsr04_init(trigPin: number, echoPin: number): void;"
+  ],
   "actions": [
     {
       "id": "read-distance",
       "notes": "Fires one ultrasonic ping and stores the measured distance in centimetres in a new float variable.",
       "label": "Read distance (cm)",
       "fields": [
-        { "name": "trigPin", "label": "Trig pin", "kind": "pin", "default": "9" },
-        { "name": "echoPin", "label": "Echo pin", "kind": "pin", "default": "10" },
-        { "name": "variable", "label": "Result variable", "kind": "new-variable", "default": "distanceCm" }
+        {
+          "name": "trigPin",
+          "label": "Trig pin",
+          "kind": "pin",
+          "default": "9"
+        },
+        {
+          "name": "echoPin",
+          "label": "Echo pin",
+          "kind": "pin",
+          "default": "10"
+        },
+        {
+          "name": "variable",
+          "label": "Result variable",
+          "kind": "new-variable",
+          "default": "distanceCm"
+        }
       ],
       "codeTemplate": "hcsr04_read_distance(${trigPin}, ${echoPin})",
       "resultType": "float"
     }
-  ]
+  ],
+  "device": {
+    "fields": [
+      {
+        "name": "trigPin",
+        "label": "Trig pin",
+        "kind": "pin",
+        "default": "9"
+      },
+      {
+        "name": "echoPin",
+        "label": "Echo pin",
+        "kind": "pin",
+        "default": "10"
+      }
+    ],
+    "setupTemplate": "hcsr04_init(${trigPin}, ${echoPin})"
+  },
+  "locales": {
+    "ru": {
+      "label": "HC-SR04 (ультразвуковой дальномер)",
+      "actions": {
+        "read-distance": {
+          "label": "Измерить расстояние (см)",
+          "fields": {
+            "trigPin": {
+              "label": "Пин Trig"
+            },
+            "echoPin": {
+              "label": "Пин Echo"
+            },
+            "variable": {
+              "label": "Переменная результата"
+            }
+          }
+        }
+      },
+      "device": {
+        "fields": {
+          "trigPin": {
+            "label": "Пин Trig"
+          },
+          "echoPin": {
+            "label": "Пин Echo"
+          }
+        }
+      }
+    }
+  }
 }

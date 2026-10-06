@@ -282,8 +282,8 @@ export interface IApiAgentChatRequest {
 export type IApiAgentChatResult = ILlmResponse;
 
 /**
- * `GET /agent/settings` — whether an admin has configured the app-wide agent, and which model it
- * uses (never the base URL or key). See ADR 0031 (private).
+ * `GET /agent/settings` — whether an admin has configured the app-wide agent (never the model, base URL or
+ * key). See ADR 0031 (private).
  */
 /**
  * `GET /projects/:id/schedules` — one entry per Temporal Schedule reconciled for this project, dev and
@@ -309,7 +309,6 @@ export interface IApiSchedule {
 
 export interface IApiAgentSettingsStatus {
   readonly configured: boolean;
-  readonly model: string | null;
   /** How the in-app agent edits documents (ADR 0062 (private)). */
   readonly interface: 'json' | 'nodes';
 }

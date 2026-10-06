@@ -56,6 +56,10 @@ export const ProjectRightSidebar: React.FC = observer(() => {
       <div style={{ ...styles.sidebar, width }}>
         {showAgent && (
           <div style={styles.section}>
+            {extensions.renderAgentPanelHeader?.({
+              projectId: store.projectId,
+              turnsFinished: store.agentTurnsFinished,
+            })}
             <AgentChatPanel
               store={store.agentChat}
               agentSession={store.agentSession}
@@ -63,7 +67,6 @@ export const ProjectRightSidebar: React.FC = observer(() => {
               getActiveDocumentId={() => store.getAgentActiveDocumentId()}
               configured={agentSettings.configured}
               configuredLoading={agentSettings.loading}
-              model={agentSettings.model}
               onClose={() => store.toggleRightPanel('agent')}
               renderError={extensions.renderAgentQuotaNotice}
             />

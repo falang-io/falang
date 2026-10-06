@@ -324,7 +324,8 @@ head:
   Until this is configured, every user's agent chat panel shows a "not configured, ask an administrator" notice instead
   of a send button — the agent simply isn't usable yet. Editing the settings later leaves the API key field empty on
   purpose: submitting with it empty keeps the currently stored key, only the Base URL/Model change. "Reset" removes all
-  four values and disables the agent for everyone again.
+  four values and disables the agent for everyone again. Users never see these settings — not even which model the agent
+  runs on: the editor only learns whether the agent is configured and which interface it uses.
 </p>
 <p>
   This is a separate concept from the per-project "OpenAI" integration credential used by <code>call-ai-text</code>/

@@ -17,6 +17,7 @@ import { useAgentChatT } from './use-agent-chat-t.js';
 import type { AgentChatSessionStore } from './agent-chat.store.js';
 import { QuestionView } from './question-view.cmp.js';
 import { SessionPickerHeader } from './session-picker-header.cmp.js';
+import { ThinkingIndicator } from './thinking-indicator.cmp.js';
 
 const { TextArea } = Input;
 
@@ -135,16 +136,13 @@ const TurnView: React.FC<{
 
 /** The in-progress turn, driven by the live `AgentSession` passed to the panel rather than a persisted `IChatTurn` — same shape as `TurnView` once it settles. */
 const RunningTurnView: React.FC<{ readonly agentSession: AgentSession; readonly request: string }> = observer(
-  ({ agentSession, request }) => {
-    const t = useAgentChatT();
-    return (
-      <div style={styles.turn}>
-        <Typography.Text style={styles.request}>{request}</Typography.Text>
-        <StepsCollapse steps={agentSession.steps} />
-        <Tag color="processing">{t('agent-chat:thinking')}</Tag>
-      </div>
-    );
-  },
+  ({ agentSession, request }) => (
+    <div style={styles.turn}>
+      <Typography.Text style={styles.request}>{request}</Typography.Text>
+      <StepsCollapse steps={agentSession.steps} />
+      <ThinkingIndicator agentSession={agentSession} />
+    </div>
+  ),
 );
 
 export interface IAgentChatPanelProps {
@@ -165,7 +163,9 @@ export interface IAgentChatPanelProps {
   readonly getActiveDocumentId: () => string | null;
   readonly configured: boolean;
   readonly configuredLoading: boolean;
-  readonly model: string | null;
+  /** The model name shown as a tag in the header — desktop hosts, whose user configures it; the workflow client
+   *  never knows it and omits the prop. */
+  readonly model?: string | null;
   /** Optional host hook: given the original thrown value of a failed turn / send, return a node to show instead of the
    *  plain error text (replaces it, since it is meant as the full notice), or `null` for the default text. */
   readonly renderError?: (error: unknown) => ReactNode | null;

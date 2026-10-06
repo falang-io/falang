@@ -30,3 +30,7 @@ void rgbstrip_set_pixel_color(uint8_t pin, uint16_t numLeds, uint16_t index, uin
 void rgbstrip_show(uint8_t pin, uint16_t numLeds) {
   stripFor(pin, numLeds)->show();
 }
+
+void rgbstrip_init(uint8_t pin, uint16_t numLeds) {
+  stripFor(pin, numLeds);
+}

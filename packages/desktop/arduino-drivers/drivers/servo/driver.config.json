@@ -5,17 +5,68 @@
   "notes": "Hobby servo motor on one PWM-capable pin.",
   "includes": ["servo-driver.h"],
   "sourceFiles": ["servo-driver.h", "servo-driver.cpp"],
-  "declarations": ["declare function servo_set_angle(pin: number, angle: number): void;"],
+  "declarations": [
+    "declare function servo_set_angle(pin: number, angle: number): void;",
+    "declare function servo_init(pin: number): void;"
+  ],
   "actions": [
     {
       "id": "set-angle",
       "notes": "Moves the servo to an angle in degrees (0-180).",
       "label": "Set angle",
       "fields": [
-        { "name": "pin", "label": "Pin", "kind": "pin", "default": "9" },
-        { "name": "angle", "label": "Angle (0-180)", "kind": "number", "default": "90", "min": 0, "max": 180 }
+        {
+          "name": "pin",
+          "label": "Pin",
+          "kind": "pin",
+          "default": "9"
+        },
+        {
+          "name": "angle",
+          "label": "Angle (0-180)",
+          "kind": "number",
+          "default": "90",
+          "min": 0,
+          "max": 180
+        }
       ],
       "codeTemplate": "servo_set_angle(${pin}, ${angle})"
     }
-  ]
+  ],
+  "device": {
+    "fields": [
+      {
+        "name": "pin",
+        "label": "Pin",
+        "kind": "pin",
+        "default": "9"
+      }
+    ],
+    "setupTemplate": "servo_init(${pin})"
+  },
+  "locales": {
+    "ru": {
+      "label": "Сервопривод",
+      "actions": {
+        "set-angle": {
+          "label": "Установить угол",
+          "fields": {
+            "pin": {
+              "label": "Пин"
+            },
+            "angle": {
+              "label": "Угол (0-180)"
+            }
+          }
+        }
+      },
+      "device": {
+        "fields": {
+          "pin": {
+            "label": "Пин"
+          }
+        }
+      }
+    }
+  }
 }

@@ -23,18 +23,36 @@
       "notes": "Writes text at a column (0-15) and row (0-1); text is a TypeScript string, so interpolations like `T=${t}` work.",
       "label": "Print text",
       "fields": [
-        { "name": "col", "label": "Column (0-15)", "kind": "number", "default": "0", "min": 0, "max": 15 },
+        {
+          "name": "col",
+          "label": "Column (0-15)",
+          "kind": "number",
+          "default": "0",
+          "min": 0,
+          "max": 15
+        },
         {
           "name": "row",
           "label": "Row",
           "kind": "select",
           "default": "0",
           "options": [
-            { "value": "0", "label": "Row 1" },
-            { "value": "1", "label": "Row 2" }
+            {
+              "value": "0",
+              "label": "Row 1"
+            },
+            {
+              "value": "1",
+              "label": "Row 2"
+            }
           ]
         },
-        { "name": "text", "label": "Text", "kind": "string", "default": "Hello!" }
+        {
+          "name": "text",
+          "label": "Text",
+          "kind": "string",
+          "default": "Hello!"
+        }
       ],
       "codeTemplate": "lcd_print_text(${col}, ${row}, ${text})"
     }
@@ -47,12 +65,56 @@
         "kind": "select",
         "default": "39",
         "options": [
-          { "value": "39", "label": "0x27" },
-          { "value": "62", "label": "0x3E" },
-          { "value": "32", "label": "0x20" }
+          {
+            "value": "39",
+            "label": "0x27"
+          },
+          {
+            "value": "62",
+            "label": "0x3E"
+          },
+          {
+            "value": "32",
+            "label": "0x20"
+          }
         ]
       }
     ],
     "setupTemplate": "lcd_init(${address})"
+  },
+  "locales": {
+    "ru": {
+      "label": "LCD1602 (I2C)",
+      "actions": {
+        "clear": {
+          "label": "Очистить дисплей"
+        },
+        "print-text": {
+          "label": "Вывести текст",
+          "fields": {
+            "col": {
+              "label": "Столбец (0-15)"
+            },
+            "row": {
+              "label": "Строка",
+              "options": {
+                "0": "Строка 1",
+                "1": "Строка 2"
+              }
+            },
+            "text": {
+              "label": "Текст"
+            }
+          }
+        }
+      },
+      "device": {
+        "fields": {
+          "address": {
+            "label": "Адрес I2C"
+          }
+        }
+      }
+    }
   }
 }

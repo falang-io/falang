@@ -19,6 +19,12 @@ describe('AdminNavigationStore', () => {
     expect(store.page).toBe('proxy');
   });
 
+  it('switches to an extension page', () => {
+    const store = new AdminNavigationStore();
+    store.setPage('ext:billing');
+    expect(store.page).toBe('ext:billing');
+  });
+
   it('switches to the agent settings page', () => {
     const store = new AdminNavigationStore();
     store.setPage('agent-settings');

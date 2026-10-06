@@ -86,6 +86,14 @@
       "terminated-executions_other": "Terminated {{count}} running executions",
       "compile-errors_one": "{{count}} compile error",
       "compile-errors_other": "{{count}} compile errors",
+      "server-activity": {
+        "dev-starting": "Starting the test stand…",
+        "dev-stopping": "Stopping the test stand…",
+        "dev-restarting": "Restarting the test stand…",
+        "publishing": "Publishing a new version…",
+        "prod-starting": "Starting production…",
+        "prod-stopping": "Stopping production…"
+      },
       "dev-menu": {
         "label": "Dev",
         "start": "Start",

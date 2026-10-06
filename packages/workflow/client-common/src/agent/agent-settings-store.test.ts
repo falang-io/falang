@@ -6,18 +6,18 @@ import { workflowApi } from '../api-client.js';
 import { AgentSettingsStore } from './agent-settings-store.js';
 
 describe('AgentSettingsStore', () => {
-  it('reads configured/model and stops loading', async () => {
-    vi.mocked(workflowApi.getAgentSettings).mockResolvedValueOnce({ configured: true, model: 'gpt', interface: 'nodes' });
+  it('reads configured/interface and stops loading', async () => {
+    vi.mocked(workflowApi.getAgentSettings).mockResolvedValueOnce({ configured: true, interface: 'nodes' });
     const store = new AgentSettingsStore();
     expect(store.loading).toBe(true);
     await store.load();
-    expect(store).toMatchObject({ configured: true, loading: false, model: 'gpt', agentInterface: 'nodes' });
+    expect(store).toMatchObject({ configured: true, loading: false, agentInterface: 'nodes' });
   });
 
   it('treats a failed request as not configured', async () => {
     vi.mocked(workflowApi.getAgentSettings).mockRejectedValueOnce(new Error('boom'));
     const store = new AgentSettingsStore();
     await store.load();
-    expect(store).toMatchObject({ configured: false, loading: false, model: null, agentInterface: 'json' });
+    expect(store).toMatchObject({ configured: false, loading: false, agentInterface: 'json' });
   });
 });

@@ -159,13 +159,13 @@ describe('app settings / agent config (/admin/settings/agent, /agent/settings)',
   });
 
   describe('GET /agent/settings', () => {
-    it('reflects { configured, model } for a regular signed-in user', async () => {
+    it('reflects { configured } (never the model) for a regular signed-in user', async () => {
       const adminToken = await login(app);
       const userToken = await registerUser('alice');
 
       const before = await request(app.getHttpServer()).get('/agent/settings').set(auth(userToken));
       expect(before.status).toBe(200);
-      expect(before.body).toEqual({ configured: false, model: null, interface: 'json' });
+      expect(before.body).toEqual({ configured: false, interface: 'json' });
 
       await request(app.getHttpServer())
         .put('/admin/settings/agent')
@@ -175,7 +175,7 @@ describe('app settings / agent config (/admin/settings/agent, /agent/settings)',
 
       const after = await request(app.getHttpServer()).get('/agent/settings').set(auth(userToken));
       expect(after.status).toBe(200);
-      expect(after.body).toEqual({ configured: true, model: 'gpt-test', interface: 'json' });
+      expect(after.body).toEqual({ configured: true, interface: 'json' });
     });
 
     it('401s an unauthenticated request', async () => {

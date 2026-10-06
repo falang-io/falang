@@ -448,7 +448,7 @@ export const workflowApi = {
       signal,
     }),
 
-  /** Whether the app-wide agent is configured, and which model it uses — see the ADR above. Any signed-in user. */
+  /** Whether the app-wide agent is configured (never which model it uses) — see the ADR above. Any signed-in user. */
   getAgentSettings: () => request<IApiAgentSettingsStatus>('/agent/settings'),
 
   /**

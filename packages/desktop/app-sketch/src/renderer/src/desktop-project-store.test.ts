@@ -491,12 +491,12 @@ describe('DesktopProjectStore — getActiveHistory', () => {
     }
   });
 
-  it('returns null for a document type with no HistoryModule (e.g. "objects-structure")', () => {
+  it('returns a HistoryStore for every document type (e.g. "objects-structure")', () => {
     setUpEmptyProject();
     const store = new DesktopProjectStore('/fake/project', 'logic');
     try {
       store.createDocument('objects-structure', 'MyStructures');
-      expect(store.getActiveHistory()).toBeNull();
+      expect(store.getActiveHistory()).not.toBeNull();
     } finally {
       store.dispose();
     }

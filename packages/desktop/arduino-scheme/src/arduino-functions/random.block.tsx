@@ -1,3 +1,4 @@
+import { tl } from '../locales/arduino-t.js';
 import type { IBlockConfig, IBlockEditorFactoryParams, IBlockView, TBlockEditorView } from '@falang/scheme';
 import { CELL_SIZE_2, EditorType } from '@falang/scheme';
 import {
@@ -19,7 +20,7 @@ const RandomBlockComponent: IBlockView<IRandomData> = observer(({ data }) => {
         <tbody>
           <tr>
             <td>
-              <div className="ts-label">max</div>
+              <div className="ts-label">{tl('max')}</div>
             </td>
             <td>
               <div className="ts-input-value">{data.max}</div>
@@ -27,7 +28,7 @@ const RandomBlockComponent: IBlockView<IRandomData> = observer(({ data }) => {
           </tr>
           <tr>
             <td>
-              <div className="ts-label">var</div>
+              <div className="ts-label">{tl('var')}</div>
             </td>
             <td>
               <div className="ts-input-value">{data.variable || <>&nbsp;</>}</div>
@@ -72,7 +73,7 @@ const RandomBlockEditorComponent: TBlockEditorView<RandomBlockEditorStore> = obs
       <tbody>
         <tr>
           <td>
-            <div className="ts-label">max</div>
+            <div className="ts-label">{tl('max')}</div>
           </td>
           <td>
             <input
@@ -86,7 +87,7 @@ const RandomBlockEditorComponent: TBlockEditorView<RandomBlockEditorStore> = obs
         </tr>
         <tr>
           <td>
-            <div className="ts-label">var</div>
+            <div className="ts-label">{tl('var')}</div>
           </td>
           <td>
             <NewVariableEditingComponent store={editor.variableStore} autoFocus={false} />

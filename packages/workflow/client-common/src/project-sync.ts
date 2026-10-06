@@ -62,6 +62,8 @@ export class ProjectSync {
   /** The compiled-or-partially-compiled code accompanying `buildErrors`, so the user can see it alongside the errors — see `ApiCompileErrorsError.files`. */
   @observable buildFiles: readonly IApiCompileErrorFile[] = [];
   @observable isPublishing = false;
+  /** Set for the whole stop → build sequence of `restartProject`, so the UI shows one "restarting" activity. */
+  @observable isRestarting = false;
   @observable lastPublishedVersion: IApiProjectVersion | null = null;
   @observable prodRunning = false;
   @observable hasVersions = false;
@@ -318,9 +320,16 @@ export class ProjectSync {
    */
   @action async restartProject(): Promise<void> {
     this.connectionError = null;
-    await this.stopProject();
-    if (this.buildStatus === 'error') return;
-    await this.buildProject();
+    this.isRestarting = true;
+    try {
+      await this.stopProject();
+      if (this.buildStatus === 'error') return;
+      await this.buildProject();
+    } finally {
+      runInAction(() => {
+        this.isRestarting = false;
+      });
+    }
   }
 
   @action async publishProject(): Promise<void> {

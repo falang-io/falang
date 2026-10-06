@@ -2,6 +2,7 @@ import {
   AgentSession,
   ProjectDocumentsContextProvider,
   type IAgentDocumentResolver,
+  type IAgentNodeKindFilter,
   type IAgentToolProvider,
   type ILlmClient,
 } from '@falang/agent';
@@ -61,6 +62,8 @@ export interface ICreateDesktopAgentSessionDeps {
   readonly documentResolver?: IAgentDocumentResolver;
   /** Host-defined extra tools (ADR 0054 (private) §6: the Arduino `DriverToolProvider`). */
   readonly toolProviders?: readonly IAgentToolProvider[];
+  /** Trims what `get_node_kinds` lists (never what validates) — the Arduino host hides actions of drivers with no device in `Devices`. */
+  readonly nodeKindFilter?: IAgentNodeKindFilter;
 }
 
 /**
@@ -87,6 +90,7 @@ export const createDesktopAgentSession = (deps: ICreateDesktopAgentSessionDeps):
       documentResolver: deps.documentResolver ?? createDesktopAgentDocumentResolver(product, store),
       focusPauseMs: deps.focusPauseMs,
       toolProviders: deps.toolProviders,
+      nodeKindFilter: deps.nodeKindFilter,
       // Fires before every core (node) tool call, for whichever document it targets — "ensure open", not "steal the
       // active tab" (ADR 0036 (private), "Opening a document the agent touches" amendment); the host implements that.
       onOpenDocument: (scheme) => deps.onOpenDocument?.(scheme.id),

@@ -22,6 +22,8 @@
   },
   "menu": {
     "delete": "Delete",
+    "copy": "Copy",
+    "paste": "Paste",
     "group-action": "Action",
     "group-arrays": "Arrays",
     "group-condition": "Condition",
