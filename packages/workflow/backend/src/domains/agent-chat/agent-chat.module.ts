@@ -1,7 +1,10 @@
 import { Module } from '@nestjs/common';
 import { TypeOrmModule } from '@nestjs/typeorm';
 import { AppSettingsModule } from '../admin/app-settings/app-settings.module.js';
+import { IntegrationsModule } from '../integrations/integrations.module.js';
+import { DocumentsModule } from '../projects/documents/documents.module.js';
 import { ProjectsModule } from '../projects/projects/projects.module.js';
+import { AgentCheckProjectController } from './agent-check-project.controller.js';
 import { AgentChatController } from './agent-chat.controller.js';
 import { AgentChatService } from './agent-chat.service.js';
 import { AgentSettingsStatusController } from './agent-settings-status.controller.js';
@@ -15,8 +18,8 @@ import { DbAgentUsageSink } from './db-agent-usage-sink.js';
  * metering) therefore overrides the community default without touching this module.
  */
 @Module({
-  controllers: [AgentChatController, AgentSettingsStatusController, AgentUsageController],
-  imports: [ProjectsModule, AppSettingsModule, TypeOrmModule.forFeature([AgentUsage])],
+  controllers: [AgentChatController, AgentSettingsStatusController, AgentUsageController, AgentCheckProjectController],
+  imports: [ProjectsModule, DocumentsModule, IntegrationsModule, AppSettingsModule, TypeOrmModule.forFeature([AgentUsage])],
   providers: [AgentChatService, DbAgentUsageSink],
 })
 export class AgentChatModule {}
