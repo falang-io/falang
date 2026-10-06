@@ -806,7 +806,7 @@ export class DesktopProjectStore {
     // `buildSketchDocumentScheme` adds `HistoryModule` to every document type (Edit → Undo/Redo work everywhere); one
     // request from the project's single `AgentSession` (see the `agentSession` field above) is one undo group on
     // whichever agent-capable scheme it touches.
-    const scheme = buildSketchDocumentScheme({ doc, parentContainer: this.container });
+    const scheme = buildSketchDocumentScheme({ doc, parentContainer: this.container, projectType: this.projectType });
     // No types-registry update here, unlike an earlier version: `doc.root`'s reassignment by the sync is itself the MobX
     // trigger the project-wide `disposeTypesRegistrySync` autorun (see the constructor) reacts to — the same "no per-tab
     // path, only the project-wide sync" posture `syncFunctionsRegistry`/`syncExternalApiRegistry` already use.

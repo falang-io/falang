@@ -35,6 +35,7 @@ export {
 } from './sketch/build-sketch-document-scheme.js';
 export { createSketchProjectContainer } from './sketch/create-sketch-project-container.js';
 export {
+  ARDUINO_COPY_PASTE_ORIGIN,
   buildArduinoDocumentScheme,
   type IBuildArduinoDocumentSchemeParams,
 } from './arduino/build-arduino-document-scheme.js';

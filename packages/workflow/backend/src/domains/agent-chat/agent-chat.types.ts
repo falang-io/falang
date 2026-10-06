@@ -34,6 +34,11 @@ export interface IAgentChatUsage {
   readonly promptTokens: number;
   readonly completionTokens: number;
   readonly totalTokens: number;
+  /**
+   * The part of `promptTokens` the vendor served from its prompt cache (usually billed cheaper); absent when it
+   * reported none. Always `<= promptTokens`.
+   */
+  readonly cachedPromptTokens?: number;
 }
 
 export interface IAgentChatResult {

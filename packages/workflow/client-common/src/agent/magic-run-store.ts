@@ -57,6 +57,8 @@ export interface IMagicRunDeps {
   readonly getAllowQuestions: () => boolean;
   /** Passed through to each run's `AgentSession` (`IAgentSessionExtraOptions.focusPauseMs`). */
   readonly focusPauseMs?: number;
+  /** Called after every finished run (any outcome, incl. a cancelled one) — e.g. to refresh an agent balance. */
+  readonly onRunFinished?: () => void;
 }
 
 /** "Update the steps to match the new text?" — rendered by the workspace; the store stays UI-free. */
@@ -315,15 +317,19 @@ export class MagicRunStore {
     const key = keyOf(context.documentId, context.nodeId);
     this.setState(key, { error: null, question: null, status: 'generating' });
     const { session } = context;
-    await session.run(request, {
-      activeDocumentId: context.documentId,
-      allowQuestions: this.deps.getAllowQuestions(),
-      consecutiveQuestions: context.questions,
-      focusNodeId: context.nodeId,
-      maxSteps: MAGIC_MAX_STEPS,
-      priorMessages,
-      systemPrompt: context.prompt.systemPrompt,
-    });
+    try {
+      await session.run(request, {
+        activeDocumentId: context.documentId,
+        allowQuestions: this.deps.getAllowQuestions(),
+        consecutiveQuestions: context.questions,
+        focusNodeId: context.nodeId,
+        maxSteps: MAGIC_MAX_STEPS,
+        priorMessages,
+        systemPrompt: context.prompt.systemPrompt,
+      });
+    } finally {
+      this.deps.onRunFinished?.();
+    }
     if (context.cancelled || this.contexts.get(key) !== context) return;
     if (session.status === 'awaiting-answer' && session.question) {
       this.setState(key, { error: null, question: session.question, status: 'asking' });

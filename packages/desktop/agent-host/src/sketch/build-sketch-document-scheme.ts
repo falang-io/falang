@@ -1,6 +1,7 @@
 import type { DependencyContainer } from '@falang/di';
 import type { INode } from '@falang/dto';
 import {
+  CopyPasteModule,
   createNodeStoreFromNode,
   HistoryModule,
   setRootNodeForScheme,
@@ -21,18 +22,27 @@ export interface IBuildSketchDocumentSchemeParams {
   readonly parentContainer: DependencyContainer;
   /** Host-only modules — added before the history module. */
   readonly extraModules?: readonly IModule[];
+  /**
+   * The project's `falang.json` `type` (`text`, `logic`, `simple-code-<language>`): with it the scheme gets
+   * `CopyPasteModule` (icons copied with this project type and the document type, pasted only into the same pair).
+   * Omitted → no copy/paste (headless hosts).
+   */
+  readonly projectType?: string;
 }
 
 /**
  * `app-sketch`'s per-document `Scheme`, exactly as `DesktopProjectStore.buildScheme` builds it: the document type's own
  * scheme factory, `HistoryModule` for every document type (Edit → Undo/Redo work everywhere; for agent-capable types one agent
- * request is also one undo group per document touched — the project's one `AgentSession` needs it, ADR 0009/0036 (private)), and the stored root or its node kind's factory
+ * request is also one undo group per document touched — the project's one `AgentSession` needs it, ADR 0009/0036 (private)), `CopyPasteModule` when `projectType` is given, and the stored root or its node kind's factory
  * default. The host keeps what is host-specific: the `EVENT_ONCHANGE` autosave/sync subscription and tab navigation.
  */
 export const buildSketchDocumentScheme = (params: IBuildSketchDocumentSchemeParams): Scheme => {
   const { doc } = params;
   const config = SKETCH_DOCUMENT_TYPES[doc.type];
   const extraModules: IModule[] = [...(params.extraModules ?? []), new HistoryModule()];
+  if (typeof params.projectType === 'string') {
+    extraModules.push(new CopyPasteModule({ projectType: params.projectType, documentType: doc.type }));
+  }
   const scheme = config.buildScheme({
     id: doc.id,
     name: doc.name,

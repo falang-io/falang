@@ -10,7 +10,7 @@ import {
   type IFileUploadPort,
   type IIntegrationsDiscoveryPort,
 } from '@falang/workflow-gateway';
-import type { Repository } from 'typeorm';
+import type { MigrationInterface, Repository } from 'typeorm';
 import { AdminModule } from './domains/admin/admin.module.js';
 import { AgentChatModule } from './domains/agent-chat/agent-chat.module.js';
 import { AuthModule } from './domains/auth/auth/auth.module.js';
@@ -48,12 +48,20 @@ import { UsersModule } from './domains/users/users/users.module.js';
 /** Anything Nest accepts in a module's `imports` (incl. async dynamic modules like `GatewayModule.forRootAsync`). */
 export type TAppImport = NonNullable<ModuleMetadata['imports']>[number];
 
+/** A TypeORM migration: a glob of `.ts` files (resolved like the built-in `migrations/*.ts`) or a migration class. */
+export type TAppMigration = string | (new () => MigrationInterface);
+
 export interface IAppModuleOptions {
   /** Additional Nest modules (e.g. a private "cloud" overlay) appended after every built-in domain module. */
   extraModules?: TAppImport[];
+  /**
+   * Migrations of those extra modules' own tables, run together with the built-in ones (TypeORM orders all of them by
+   * the timestamp in the class name, so an overlay migration may rely on any built-in table older than itself).
+   */
+  extraMigrations?: TAppMigration[];
 }
 
-const buildBuiltInImports = (): TAppImport[] => [
+const buildBuiltInImports = (extraMigrations: readonly TAppMigration[] = []): TAppImport[] => [
   ConfigModule.forRoot({ isGlobal: true }),
   TypeOrmModule.forRootAsync({
     imports: [ConfigModule],
@@ -71,7 +79,7 @@ const buildBuiltInImports = (): TAppImport[] => [
       // `.ts` files directly: this repo has no build step and runs everything through `tsx`
       // (see `src/data-source.ts`, used by the `npm run migration:*` CLI scripts, which points
       // at the same glob so both pick up the same files).
-      migrations: [path.join(__dirname, 'migrations', '*.ts')],
+      migrations: [path.join(__dirname, 'migrations', '*.ts'), ...extraMigrations],
       migrationsRun: true,
       synchronize: false,
     }),
@@ -146,7 +154,7 @@ const buildBuiltInImports = (): TAppImport[] => [
 ];
 
 /**
- * The application's root module. Use `AppModule.forRoot({ extraModules })` — there is no plain-module
+ * The application's root module. Use `AppModule.forRoot({ extraModules, extraMigrations })` — there is no plain-module
  * form; `createApp` is the one bootstrap path that composes it.
  */
 @Module({})
@@ -154,7 +162,7 @@ export class AppModule {
   static forRoot(options: IAppModuleOptions = {}): DynamicModule {
     return {
       module: AppModule,
-      imports: [...buildBuiltInImports(), ...(options.extraModules ?? [])],
+      imports: [...buildBuiltInImports(options.extraMigrations), ...(options.extraModules ?? [])],
       providers: [{ provide: APP_GUARD, useClass: JwtAuthGuard }],
     };
   }

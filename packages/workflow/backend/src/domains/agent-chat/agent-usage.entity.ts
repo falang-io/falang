@@ -26,6 +26,10 @@ export class AgentUsage {
   @Column({ name: 'completion_tokens', type: 'integer', nullable: true })
   completionTokens!: number | null;
 
+  /** Part of `promptTokens` served from the vendor's prompt cache; null when it reported none. */
+  @Column({ name: 'cached_prompt_tokens', type: 'integer', nullable: true })
+  cachedPromptTokens!: number | null;
+
   /** Null when the vendor sent no `usage` object. */
   @Column({ name: 'total_tokens', type: 'integer', nullable: true })
   totalTokens!: number | null;
