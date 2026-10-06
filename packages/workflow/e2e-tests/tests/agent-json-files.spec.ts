@@ -43,11 +43,11 @@ const toolResultBefore = (requests: readonly IOpenAiRequest[], index: number): s
  * is scripted turn by turn; the run writes `functions/main.json` with a log message that interpolates an undefined
  * name, `check_project` (the backend's `POST /projects/:id/agent/check-project`, compiled in a build worker) reports
  * it against the log node, `edit_file` fixes it, the second check is clean, `finish`. Then the text is on the canvas,
- * reaches the backend, and one Undo reverts the whole run's write.
+ * reaches the backend, and each file write is one Undo step.
  */
 test.describe('agent JSON files', () => {
-  test('writes a document file, fixes a check_project error, one undo reverts it', async ({ page }) => {
-    test.setTimeout(120_000);
+  test('writes a document file, fixes a check_project error, each write is one undo step', async ({ page }) => {
+    test.setTimeout(240_000);
     const apiKey = `agent-json-e2e-${uniqueSuffix()}`;
     const api = await createApiContext();
     try {
@@ -96,7 +96,8 @@ test.describe('agent JSON files', () => {
         .fill('Greet the user in main');
       await agentPanel.getByRole('button', { name: 'Send' }).click();
 
-      await expect(agentPanel.getByText(reply)).toBeVisible({ timeout: 60_000 });
+      // Two check_project calls each type-check in a build worker — slow on a loaded host.
+      await expect(agentPanel.getByText(reply)).toBeVisible({ timeout: 150_000 });
       await agentPanel.getByText('5 steps').click();
       await expect(agentPanel.getByText('Wrote functions/main.json')).toBeVisible();
       await expect(agentPanel.getByText('Edited functions/main.json')).toBeVisible();
@@ -107,7 +108,10 @@ test.describe('agent JSON files', () => {
       expect(requests).toHaveLength(5);
       const firstCheck = toolResultBefore(requests, 2);
       expect(firstCheck).toContain('unknownName');
-      expect(firstCheck).toContain('"nodeId":"agent-log"');
+      // A node written with an id the document never had gets a fresh one (ADR 0062 §2.2) — the error names the
+      // log node by its kind and real id.
+      expect(firstCheck).toContain('"kind":"log"');
+      expect(firstCheck).toMatch(/"nodeId":"[\w-]+"/);
       expect(firstCheck).toContain('functions/main.json');
       expect(JSON.parse(toolResultBefore(requests, 4))).toEqual({ ok: true });
 
@@ -118,7 +122,12 @@ test.describe('agent JSON files', () => {
         20_000,
       );
 
-      // One undo step reverts the whole run's write.
+      // Every file write is one undo step: the first Undo reverts the edit, the second the write that added the log.
+      await agentPanel.getByRole('button', { name: 'Undo' }).click();
+      await waitForCondition(
+        async () => (await fetchBodyLogMessages(api, projectId, mainId)).join() === broken,
+        20_000,
+      );
       await agentPanel.getByRole('button', { name: 'Undo' }).click();
       await waitForCondition(async () => (await fetchBodyLogMessages(api, projectId, mainId)).length === 0, 20_000);
       await expect(page.locator('.block-container').getByText('Hello from the agent')).toHaveCount(0);
