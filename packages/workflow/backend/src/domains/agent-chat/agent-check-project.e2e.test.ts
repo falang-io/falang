@@ -6,7 +6,8 @@ import type { INode } from '@falang/dto';
 import { auth, createTestApp, login } from '../../test-utils/e2e-app.js';
 
 /** `POST /projects/:id/agent/check-project` end to end (real build worker): ADR 0062 (private). */
-describe('agent check-project', () => {
+// Every case type-checks in a real build worker (a child process) — slow under a parallel full-suite run.
+describe('agent check-project', { timeout: 120_000 }, () => {
   // oxlint-disable-next-line init-declarations
   let app: INestApplication;
   // oxlint-disable-next-line init-declarations
