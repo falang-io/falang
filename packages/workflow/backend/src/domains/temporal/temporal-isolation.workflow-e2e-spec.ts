@@ -100,6 +100,23 @@ const sleep = (ms: number): Promise<void> =>
     setTimeout(resolve, ms);
   });
 
+/**
+ * Connects once Temporal accepts the backend's keys. Temporal fetches the JWKS from `backend` every 5 s
+ * (`docker/temporal/server.yaml`) and refuses every token until a fetch succeeds, so a run started right after the
+ * stack comes up was refused here — `backend`'s own `TemporalTenancyService` retries the same way.
+ */
+const connectWhenKeysLoaded = async (token: string, timeoutMs = 30_000): Promise<Connection> => {
+  const deadline = Date.now() + timeoutMs;
+  for (;;) {
+    try {
+      return await connect(token);
+    } catch (error) {
+      if (grpcCode(error) !== GRPC_PERMISSION_DENIED || Date.now() >= deadline) throw error;
+      await sleep(1000);
+    }
+  }
+};
+
 const CommandType = temporal.api.enums.v1.CommandType;
 type TCommand = temporal.api.command.v1.ICommand;
 
@@ -133,7 +150,7 @@ describe('temporal tenant isolation (workflow tier)', () => {
   };
 
   beforeAll(async () => {
-    admin = await connect(adminToken());
+    admin = await connectWhenKeysLoaded(adminToken());
     asA = await connect(projectToken(projectA));
     anonymous = await connect();
     // Namespaces are created by the privileged side (backend's TemporalTenancyService in phase 1+).
