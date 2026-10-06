@@ -9,9 +9,14 @@ head:
 ---
 
 <p>
-  The <b>AI agent</b> builds and edits your project from a plain-language description. It works through the same
-  actions you use by hand — inserting, moving and deleting nodes, changing their fields — so everything it does is
-  visible on the canvas and can be undone like any other edit.
+  The <b>AI agent</b> builds and edits your project from a plain-language description. It reads and writes each
+  document as a whole — the same tree of nodes you see on the canvas — and every change it makes lands on the canvas as
+  ordinary node edits, so it is visible right away and can be undone like any other edit.
+</p>
+<p>
+  Before it finishes, the agent checks the project the way a build does (compile and type check) and fixes the errors it
+  finds, so a reply usually comes with a project that builds. The steps under a reply show what it did: which documents
+  it read or wrote and when it checked the project.
 </p>
 
 #### Opening the agent

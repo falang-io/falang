@@ -61,7 +61,7 @@ test.describe('agent cross-document editing', () => {
       // since the chat panel reads it once per workspace mount.
       await resetOpenAiMock(MOCKS_URL, apiKey);
       const settings = await api.put('/admin/settings/agent', {
-        data: { apiKey, baseUrl: `${MOCKS_URL}/openai`, model: 'mock-model' },
+        data: { apiKey, baseUrl: `${MOCKS_URL}/openai`, interface: 'nodes', model: 'mock-model' },
       });
       expect(settings.ok()).toBeTruthy();
 
