@@ -4,12 +4,19 @@ import { AppSettingsService } from './app-settings.service.js';
 const KEY_BASE_URL = 'agent.baseUrl';
 const KEY_MODEL = 'agent.model';
 const KEY_API_KEY = 'agent.apiKey';
+const KEY_INTERFACE = 'agent.interface';
+
+/** How the in-app agent edits documents: whole JSON files (default) or the node tools (fallback). ADR 0062 (private). */
+export type TAgentInterface = 'json' | 'nodes';
+export const AGENT_INTERFACES: readonly TAgentInterface[] = ['json', 'nodes'];
+const DEFAULT_AGENT_INTERFACE: TAgentInterface = 'json';
 
 export interface IAgentSettingsStatus {
   readonly configured: boolean;
   readonly baseUrl: string | null;
   readonly model: string | null;
   readonly hasApiKey: boolean;
+  readonly interface: TAgentInterface;
   readonly updatedAt: string | null;
 }
 
@@ -24,6 +31,8 @@ export interface IUpsertAgentSettingsParams {
   readonly model: string;
   /** Omitted to keep the currently-stored key on an update — see `upsert`'s own doc comment. */
   readonly apiKey?: string;
+  /** Omitted to keep the stored value. */
+  readonly interface?: TAgentInterface;
 }
 
 /**
@@ -40,10 +49,11 @@ export class AgentSettingsService {
   }
 
   async getStatus(): Promise<IAgentSettingsStatus> {
-    const [baseUrl, model, apiKey] = await Promise.all([
+    const [baseUrl, model, apiKey, storedInterface] = await Promise.all([
       this.appSettings.get(KEY_BASE_URL),
       this.appSettings.get(KEY_MODEL),
       this.appSettings.get(KEY_API_KEY),
+      this.appSettings.get(KEY_INTERFACE),
     ]);
     const [baseUrlUpdatedAt, modelUpdatedAt, apiKeyUpdatedAt] = await Promise.all([
       this.appSettings.getUpdatedAt(KEY_BASE_URL),
@@ -62,6 +72,9 @@ export class AgentSettingsService {
       baseUrl,
       configured: Boolean(baseUrl && model && apiKey),
       hasApiKey: apiKey !== null,
+      interface: (AGENT_INTERFACES as readonly string[]).includes(storedInterface ?? '')
+        ? (storedInterface as TAgentInterface)
+        : DEFAULT_AGENT_INTERFACE,
       model,
       updatedAt,
     };
@@ -92,6 +105,7 @@ export class AgentSettingsService {
       this.appSettings.set(KEY_BASE_URL, params.baseUrl),
       this.appSettings.set(KEY_MODEL, params.model),
     ]);
+    if (typeof params.interface === 'string') await this.appSettings.set(KEY_INTERFACE, params.interface);
     return this.getStatus();
   }
 
@@ -100,6 +114,7 @@ export class AgentSettingsService {
       this.appSettings.remove(KEY_BASE_URL),
       this.appSettings.remove(KEY_MODEL),
       this.appSettings.remove(KEY_API_KEY),
+      this.appSettings.remove(KEY_INTERFACE),
     ]);
   }
 }

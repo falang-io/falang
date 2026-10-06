@@ -117,9 +117,17 @@ const emitIf = (node: INode, compile: TCompileChildren): string => {
   return `if (${condition}) {\n${indentLines(thenBody)}\n}${elseBlock}`;
 };
 
+/** A `switch-option` whose value is the bare word `default` is the `default:` branch — the logic constructor's
+ *  convention too (`cpp-control-flow-emitters.ts`); emitting `case default:` was a syntax error. */
+const SWITCH_DEFAULT_OPTION = 'default';
+
 const emitSwitch = (node: INode, compile: TCompileChildren): string => {
   const discriminant = asExpression(node.data as string);
-  const cases = buildSwitchCases(node.children ?? [], compile, (option) => asExpression(option.data as string));
+  const cases = buildSwitchCases(node.children ?? [], compile, (option) =>
+    typeof option.data === 'string' && option.data.trim() === SWITCH_DEFAULT_OPTION
+      ? null
+      : asExpression(option.data as string),
+  );
   return `switch (${discriminant}) {\n${indentLines(cases)}\n}`;
 };
 

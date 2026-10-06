@@ -9,9 +9,14 @@ head:
 ---
 
 <p>
-  The <b>AI agent</b> builds and edits your project from a plain-language description. It works through the same
-  actions you use by hand — inserting, moving and deleting nodes, changing their fields — so everything it does is
-  visible on the canvas and can be undone like any other edit.
+  The <b>AI agent</b> builds and edits your project from a plain-language description. It reads and writes each
+  document as a whole — the same tree of nodes you see on the canvas — and every change it makes lands on the canvas as
+  ordinary node edits, so it is visible right away and can be undone like any other edit.
+</p>
+<p>
+  Before it finishes, the agent checks the project the way a build does (compile and type check) and fixes the errors it
+  finds, so a reply usually comes with a project that builds. The steps under a reply show what it did: which documents
+  it read or wrote and when it checked the project.
 </p>
 
 #### Opening the agent
@@ -57,8 +62,10 @@ head:
   <li>Work in a project with no documents at all — describe what you need and it creates them as it goes.</li>
 </ul>
 <p>
-  <b>Undo.</b> One request is one undo step per document it touched. Press <b>Undo</b> in the panel (or Ctrl+Z in the
-  document) to roll the whole request back in one go. Your own manual edits made afterwards are separate steps.
+  <b>Undo.</b> Every document the agent writes is one undo step — a request that wrote the same document twice (for
+  example, once and then again to fix an error the check found) is two steps. Press <b>Undo</b> in the panel to roll
+  them back one at a time. Your own manual edits made afterwards are separate steps. (If an administrator switched the
+  agent to the node tools, one request is one undo step per document it touched.)
 </p>
 
 #### Clarifying questions
@@ -83,8 +90,7 @@ head:
     The agent asks at most <b>three questions in a row</b>; after that it decides on its own.
   </li>
   <li>
-    A question splits one request into two undo steps: the work done before the question, and the work done after your
-    answer.
+    The work done before a question and the work done after your answer are separate undo steps.
   </li>
 </ul>
 <p>

@@ -2,7 +2,7 @@ import { eventTracker } from './analytics/event-tracker.js';
 // oxlint-disable max-lines -- versioning (ADR 0025 (private)) added a handful of small fields/methods; the bulk of the new logic itself lives in `versioning/*.ts` to keep this file's growth minimal.
 import 'reflect-metadata';
 import { action, makeObservable, observable, reaction, runInAction, type IReactionDisposer } from 'mobx';
-import type { AgentSession } from '@falang/agent';
+import { readSchemeTree, type AgentSession, type IJsonFilesDiagnostic } from '@falang/agent';
 import {
   type Scheme,
   DebugSessionStore,
@@ -60,6 +60,9 @@ import { HttpLlmClient } from './agent/http-llm-client.js';
 import { IndexedDbAgentSessionStore } from './agent/indexed-db-session-store.js';
 import type { IWorkflowAgentStore } from './agent/workflow-agent-store.js';
 import { buildWorkflowDocumentScheme } from './build-workflow-document-scheme.js';
+import type { INode, NodesStack } from '@falang/dto';
+
+type TAgentInterfaceSetting = 'json' | 'nodes';
 import { subscribeWorkflowDocumentSync } from './sync-document-from-scheme.js';
 import { findDocumentNameConflict } from './document-names.js';
 import { generateUuid } from './generate-uuid.js';
@@ -137,8 +140,11 @@ export class WorkflowStore implements IWorkflowAgentStore {
    *  document's scheme got its own via `AgentModule`. `run()` always receives an explicit
    *  `activeDocumentId` (see `getAgentActiveDocumentId`, which may be `null` — the agent works fine
    *  with no document open, per the ADR's "no home document" amendment), so this session's own
-   *  `defaultScheme` stays `null`. */
-  readonly agentSession: AgentSession;
+   *  `defaultScheme` stays `null`. Since ADR 0062 (private) it is rebuilt when the admin's `agent.interface`
+   *  (`'json'` file tools, the default, or `'nodes'`) differs from the one it was built with — never mid-run. */
+  @observable.ref agentSession: AgentSession;
+  private agentSessionInterface: TAgentInterfaceSetting;
+  private readonly agentInterfaceDisposer: IReactionDisposer;
   /** Which project-level right-sidebar panel is open — replaces the old per-panel `historyPanelOpen`
    *  boolean (ADR 0036 (private) §3): at most one of Agent/History shows at a time. */
   @observable rightPanel: 'agent' | 'history' | null = null;
@@ -268,17 +274,19 @@ export class WorkflowStore implements IWorkflowAgentStore {
       allowQuestionsStorageKey: `falang:agent-allow-questions:${projectId}`,
     });
     this.agentChat.loadSessions();
-    this.agentSession = createWorkflowAgentSession({
-      acquireLock: (documentId) => this.agentLocks.acquire(documentId),
-      llmClient: new HttpLlmClient(projectId),
-      onOpenDocument: (documentId) => this.followAgentDocument(documentId),
-      onRunFinished: (session) => {
-        this.agentLocks.releaseAll();
-        eventTracker.track('agent_turn', { status: session.status });
-        this.noteAgentTurnFinished();
+    this.agentSessionInterface = this.agentSettings.agentInterface;
+    this.agentSession = this.createAgentSession(this.agentSessionInterface);
+    this.agentInterfaceDisposer = reaction(
+      () => [this.agentSettings.agentInterface, this.agentSession.status] as const,
+      ([wanted, status]) => {
+        if (wanted === this.agentSessionInterface || status === 'running') return;
+        this.agentSession.cancel();
+        this.agentSessionInterface = wanted;
+        runInAction(() => {
+          this.agentSession = this.createAgentSession(wanted);
+        });
       },
-      store: this,
-    });
+    );
     this.agentSettings.load();
     this.magicInsert = new MagicInsertSetting(authStore.currentUser?.id);
     this.magicRuns = createWorkflowMagicRunStore({
@@ -864,6 +872,7 @@ export class WorkflowStore implements IWorkflowAgentStore {
     this.scheduleStatus.dispose();
     this.tasks.dispose();
     this.vendorData.dispose();
+    this.agentInterfaceDisposer();
     this.agentSession.cancel();
     for (const scheme of this.schemes.values()) scheme.dispose();
     this.schemes.clear();
@@ -894,6 +903,52 @@ export class WorkflowStore implements IWorkflowAgentStore {
     });
     subscribeWorkflowDocumentSync(doc, scheme, this.typesRegistry, () => this.sync.scheduleSaveDocument(doc));
     return scheme;
+  }
+
+  /** The project's one agent session for the admin-chosen interface (ADR 0062 (private); `'code'` is never chosen). */
+  private createAgentSession(agentInterface: TAgentInterfaceSetting): AgentSession {
+    return createWorkflowAgentSession({
+      acquireLock: (documentId) => this.agentLocks.acquire(documentId),
+      agentInterface,
+      buildStack: (type) => this.buildDocumentStack(type),
+      checkProject: () => this.checkAgentProject(),
+      llmClient: new HttpLlmClient(this.projectId),
+      onOpenDocument: (documentId) => this.followAgentDocument(documentId),
+      onRunFinished: (session) => {
+        this.agentLocks.releaseAll();
+        eventTracker.track('agent_turn', { status: session.status });
+        this.noteAgentTurnFinished();
+      },
+      store: this,
+    });
+  }
+
+  /**
+   * The JSON interface's `check_project` (ADR 0062 (private)): the backend compiles and type-checks the project in a
+   * build worker. Every document with a live scheme sends its current tree — the editor's autosave is debounced, so the
+   * agent's last write may not be stored yet; a document without one is unchanged since load and is read from storage.
+   */
+  private checkAgentProject(): Promise<readonly IJsonFilesDiagnostic[]> {
+    const overlays: { id: string; root: INode }[] = [];
+    for (const [id, scheme] of this.schemes) {
+      const doc = this.getDocument(id);
+      const root = doc && isAgentEditableType(doc.type) ? readSchemeTree(scheme) : null;
+      if (root) overlays.push({ id, root });
+    }
+    return workflowApi.checkAgentProject(this.projectId, overlays);
+  }
+
+  /** The node stack of a document type no document has yet (`NODES.md` in an empty section): a throwaway scheme. */
+  private buildDocumentStack(type: string): NodesStack | null {
+    if (!isAgentEditableType(type)) return null;
+    const scheme = buildWorkflowDocumentScheme({
+      doc: { id: `__stack_${type}`, name: 'stack', type },
+      getCredentialInstances: () => getIntegrationInstances(this.documents),
+      parentContainer: this.container,
+    });
+    const stack = scheme.infra.structure;
+    scheme.dispose();
+    return stack;
   }
 
   /** The project-level `TypesRegistryStore` every scheme's struct pickers/Monaco hidden scope read from. */

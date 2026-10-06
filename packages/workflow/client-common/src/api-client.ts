@@ -11,6 +11,7 @@ import type { IDebugLocation } from '@falang/debug';
 import type {
   IApiAgentChatRequest,
   IApiAgentChatResult,
+  IApiAgentCheckDiagnostic,
   IApiAgentSettingsStatus,
   IApiBuildResult,
   IApiDebugSessionSnapshot,
@@ -484,6 +485,21 @@ export const workflowApi = {
 
   /** Whether the app-wide agent is configured (never which model it uses) — see the ADR above. Any signed-in user. */
   getAgentSettings: () => request<IApiAgentSettingsStatus>('/agent/settings'),
+
+  /**
+   * The agent's `check_project`: compiles + type-checks the project server-side. `documents` are the
+   * CURRENT trees the client holds (autosave is debounced), overlaid on the stored ones. ADR 0062 (private).
+   */
+  checkAgentProject: async (
+    projectId: string,
+    documents: readonly { readonly id: string; readonly root: unknown }[],
+  ): Promise<IApiAgentCheckDiagnostic[]> => {
+    const result = await request<{ diagnostics: IApiAgentCheckDiagnostic[] }>(
+      `/projects/${projectId}/agent/check-project`,
+      { body: JSON.stringify({ documents }), method: 'POST' },
+    );
+    return result.diagnostics;
+  },
 
   /** Backs `HttpVersionStore` — see ADR 0025 (private). */
   listCommits: (projectId: string) => request<ICommitInfo[]>(`/projects/${projectId}/commits`),

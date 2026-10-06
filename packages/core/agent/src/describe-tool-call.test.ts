@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import type { ILlmToolCall } from './llm-client.js';
-import { describeToolCall } from './describe-tool-call.js';
+import { describeFileToolCall, describeToolCall } from './describe-tool-call.js';
 
 const call = (name: string, input: unknown): ILlmToolCall => ({ id: 'call-1', input, name });
 
@@ -54,5 +54,23 @@ describe('describeToolCall', () => {
 
   it('falls back to the raw tool name for an unknown tool', () => {
     expect(describeToolCall(call('no_such_tool', {}))).toBe('no_such_tool');
+  });
+
+  it('describes the JSON file tools, with translatable keys', () => {
+    expect(describeToolCall(call('list_files', {}))).toBe('Listed the project files');
+    expect(describeToolCall(call('read_file', { path: 'functions/main.json' }))).toBe('Read functions/main.json');
+    expect(describeToolCall(call('write_file', { content: '{}', path: 'functions/a.json' }))).toBe(
+      'Wrote functions/a.json',
+    );
+    expect(describeToolCall(call('edit_file', { new_string: 'b', old_string: 'a', path: 'types/T.json' }))).toBe(
+      'Edited types/T.json',
+    );
+    expect(describeToolCall(call('check_project', {}))).toBe('Checked the project (compile + type check)');
+    expect(describeFileToolCall(call('read_file', { path: 'functions/main.json' }))).toEqual({
+      key: 'step-read-file',
+      text: 'Read functions/main.json',
+      values: { path: 'functions/main.json' },
+    });
+    expect(describeFileToolCall(call('insert_node', {}))).toBeNull();
   });
 });

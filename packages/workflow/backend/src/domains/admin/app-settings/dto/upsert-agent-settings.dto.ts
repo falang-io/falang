@@ -1,4 +1,4 @@
-import { IsOptional, IsString, MinLength } from 'class-validator';
+import { IsIn, IsOptional, IsString, MinLength } from 'class-validator';
 
 export class UpsertAgentSettingsDto {
   @IsString()
@@ -13,4 +13,9 @@ export class UpsertAgentSettingsDto {
   @IsOptional()
   @IsString()
   apiKey?: string;
+
+  /** `'json'` | `'nodes'`; omitted keeps the stored value (default `'json'`). */
+  @IsOptional()
+  @IsIn(['json', 'nodes'])
+  interface?: 'json' | 'nodes';
 }

@@ -341,6 +341,15 @@ export interface IApiSchedule {
 
 export interface IApiAgentSettingsStatus {
   readonly configured: boolean;
+  /** How the in-app agent edits documents (ADR 0062 (private)). */
+  readonly interface: 'json' | 'nodes';
+}
+
+/** One diagnostic of `POST /projects/:id/agent/check-project`. */
+export interface IApiAgentCheckDiagnostic {
+  readonly documentId?: string;
+  readonly nodeId?: string;
+  readonly message: string;
 }
 
 /**

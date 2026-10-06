@@ -9,6 +9,7 @@ export interface IAdminAgentSettings {
   readonly baseUrl: string | null;
   readonly model: string | null;
   readonly hasApiKey: boolean;
+  readonly interface: 'json' | 'nodes';
   readonly updatedAt: string | null;
 }
 

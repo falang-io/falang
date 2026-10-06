@@ -9,6 +9,8 @@ import { workflowApi } from '../api-client.js';
 export class AgentSettingsStore {
   @observable configured = false;
   @observable loading = true;
+  /** How the agent edits documents; `'json'` until the status loads (ADR 0062 (private)). */
+  @observable agentInterface: 'json' | 'nodes' = 'json';
 
   private disposed = false;
 
@@ -20,9 +22,9 @@ export class AgentSettingsStore {
   async load(): Promise<void> {
     try {
       const status = await workflowApi.getAgentSettings();
-      this.apply(status.configured);
+      this.apply(status.configured, status.interface === 'nodes' ? 'nodes' : 'json');
     } catch {
-      this.apply(false);
+      this.apply(false, 'json');
     }
   }
 
@@ -30,9 +32,10 @@ export class AgentSettingsStore {
     this.disposed = true;
   }
 
-  @action private apply(configured: boolean): void {
+  @action private apply(configured: boolean, agentInterface: 'json' | 'nodes'): void {
     if (this.disposed) return;
     this.configured = configured;
+    this.agentInterface = agentInterface;
     this.loading = false;
   }
 }

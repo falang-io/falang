@@ -1,3 +1,4 @@
+import { variableInfoToTsType } from '@falang/typescript-dto';
 import type { TVariableInfo } from '@falang/typescript-dto';
 import type { IActionDescriptor, IActivityOptions, IFieldSelectOption } from '@falang/workflow-integrations-common';
 import { tableInsertStructId, tablePatchStructId, tableStructId, tableWhereStructId } from './struct-ids.js';
@@ -247,11 +248,15 @@ export const buildSqlActions = (
         { name: 'result', label: 'sql:field.result', kind: 'result-type' },
         resultVariableField,
       ],
-      emit: (fields) =>
-        emitAssign(
-          `await ${p}Query(${fields.credentialId}, ${fields.sql}, ${fields.params || '[]'})`,
-          fields[RESULT_VARIABLE_FIELD_NAME],
-        ),
+      // The activity returns `unknown[]`; the declared result type (what the editor's scope says the variable is) is
+      // applied here, or every field access on a row failed to compile ("Object is of type 'unknown'", ADR 0061 spike).
+      emit: (fields) => {
+        const call = `await ${p}Query(${fields.credentialId}, ${fields.sql}, ${fields.params || '[]'})`;
+        const variable = fields[RESULT_VARIABLE_FIELD_NAME];
+        return variable
+          ? `const ${variable} = (${call}) as ${variableInfoToTsType(queryResultType(fields))};`
+          : `${call};`;
+      },
       activitySignature: `${p}Query(credentialId: string, sql: string, params: unknown[]): Promise<unknown[]>`,
       activityCode: '',
       activityOptions: SQL_ACTIVITY_OPTIONS,

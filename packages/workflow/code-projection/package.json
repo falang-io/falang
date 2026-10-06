@@ -1,0 +1,42 @@
+{
+  "name": "@falang/workflow-code-projection",
+  "version": "1.0.0",
+  "description": "Workflow profile of the code projection: function/trigger files, vendor actions/questions as instance method calls, generated declarations and in-memory type checking (spike, see ADR 0061 (private))",
+  "license": "AGPL-3.0-only",
+  "author": "",
+  "type": "commonjs",
+  "main": "src/index.ts",
+  "scripts": {
+    "test": "vitest run -c ../../../vitest.config.ts",
+    "coverage": "vitest run --coverage -c ../../../vitest.config.ts",
+    "check": "tsc --noEmit -p tsconfig.build.json"
+  },
+  "dependencies": {
+    "@falang/code-projection": "*",
+    "@falang/dto": "*",
+    "@falang/typescript-dto": "*",
+    "@falang/workflow-dto": "*",
+    "@falang/workflow-integrations-common": "*",
+    "tslib": "^2.8.1",
+    "typescript": "^6.0.2"
+  },
+  "devDependencies": {
+    "@falang/logic-e2e-tests": "*",
+    "@falang/workflow-compiler": "*",
+    "@falang/workflow-integrations-files": "*",
+    "@falang/workflow-integrations-openai": "*",
+    "@falang/workflow-integrations-telegram": "*"
+  },
+  "files": [
+    "src",
+    "!src/**/*.test.ts",
+    "!src/**/*.test.tsx",
+    "!src/**/*.e2e.test.ts",
+    "!src/**/*.workflow-e2e-spec.ts",
+    "!src/**/*.spec.ts",
+    "!src/**/*.docker-e2e-spec.ts",
+    "!src/**/*-test-harness.ts",
+    "!src/test-utils",
+    "!src/**/__snapshots__"
+  ]
+}

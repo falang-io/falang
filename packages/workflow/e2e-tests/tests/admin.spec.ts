@@ -142,7 +142,7 @@ test.describe('admin app', () => {
       // Any signed-in user's status view reflects the same app-wide configuration.
       const statusResponse = await api.get('/agent/settings');
       expect(statusResponse.ok()).toBeTruthy();
-      expect(await statusResponse.json()).toEqual({ configured: true });
+      expect(await statusResponse.json()).toEqual({ configured: true, interface: 'json' });
 
       // A reload re-fetches the settings from the server — the Base URL/Model survive, the API key
       // is never sent back. The admin app has no router (`AdminNavigationStore` starts on "Users"

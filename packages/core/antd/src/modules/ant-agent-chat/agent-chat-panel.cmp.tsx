@@ -5,6 +5,7 @@ import { observer } from 'mobx-react-lite';
 import { Alert, Button, Collapse, Input, Space, Switch, Tag, Tooltip, Typography } from 'antd';
 import { RedoOutlined, SendOutlined, StopOutlined, UndoOutlined } from '@ant-design/icons';
 import {
+  describeFileToolCall,
   describeToolCall,
   type AgentSession,
   type IAgentStep,
@@ -42,6 +43,11 @@ const styles: Record<string, React.CSSProperties> = {
 /** One tool-call step — a readable one-liner (`describeToolCall`), ok/error tag, and click-to-expand raw input/result. */
 const StepItem: React.FC<{ readonly step: IAgentStep }> = ({ step }) => {
   const [expanded, setExpanded] = useState(false);
+  const t = useAgentChatT();
+  const fileStep = describeFileToolCall(step.call);
+  const label = fileStep
+    ? t(`agent-chat:${fileStep.key}`, { ...fileStep.values, defaultValue: fileStep.text })
+    : describeToolCall(step.call);
   return (
     <div>
       <Button
@@ -50,7 +56,7 @@ const StepItem: React.FC<{ readonly step: IAgentStep }> = ({ step }) => {
         onClick={() => setExpanded((value) => !value)}
         style={{ height: 'auto', padding: 0 }}
       >
-        {describeToolCall(step.call)}
+        {label}
       </Button>
       <Tag color={step.result.ok ? 'success' : 'error'} style={{ marginLeft: 8 }}>
         {step.result.ok ? 'ok' : 'error'}

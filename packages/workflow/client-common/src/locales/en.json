@@ -572,7 +572,12 @@
     "dont-ask": "Don't ask, just do",
     "dont-ask-tooltip": "The agent won't ask clarifying questions and will pick the most reasonable option itself.",
     "send": "Send",
-    "stop": "Stop"
+    "stop": "Stop",
+    "step-list-files": "Listed the project files",
+    "step-read-file": "Read {{path}}",
+    "step-write-file": "Wrote {{path}}",
+    "step-edit-file": "Edited {{path}}",
+    "step-check-project": "Checked the project (compile + type check)"
   },
   "print-export": {
     "title": "Export to PDF",

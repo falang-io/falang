@@ -18,3 +18,4 @@ export * from './agent-session.token.js';
 export * from './agent.module.js';
 export * from './chat-session.js';
 export { validateNodeSpecs } from './insert-nodes.js';
+export * from './json-files/index.js';

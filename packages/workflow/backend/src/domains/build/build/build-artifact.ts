@@ -43,10 +43,23 @@ const failedToCompile = (
   });
 
 /**
+ * Like `typeCheckInWorker` below but returns the type errors instead of throwing — the agent's
+ * `check_project` endpoint (ADR 0062 (private)). Infra failures (worker crash/timeout) still reject.
+ * Doc comment of the throwing variant follows.
+ *
  * Type-checks compiled `workflows`/`activities` in a disposable build process (see
  * `build-worker-pool.ts`) instead of the backend's event loop — the code-preview's check. Throws the
  * same 400 `{ message, errors, files }` as a structural compile failure.
  */
+export const typeCheckInWorkerErrors = async (
+  workflows: string,
+  activities: string,
+  workerOptions: IBuildWorkerOptions = {},
+): Promise<readonly ICompileError[]> => {
+  const result = await runBuildWorker({ workflows, activities, workDir: '', bundle: false }, workerOptions);
+  return result.kind === 'errors' ? result.errors : [];
+};
+
 export const typeCheckInWorker = async (
   workflows: string,
   activities: string,

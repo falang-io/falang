@@ -42,6 +42,8 @@ export interface IAdminAgentSettings {
   readonly baseUrl: string | null;
   readonly model: string | null;
   readonly hasApiKey: boolean;
+  /** How the in-app agent edits documents (ADR 0062 (private)). */
+  readonly interface: 'json' | 'nodes';
   readonly updatedAt: string | null;
 }
 
@@ -152,10 +154,10 @@ export const adminApi = {
   getAgentSettings: () => apiRequest<IAdminAgentSettings>('/admin/settings/agent'),
 
   /** `apiKey` is omitted from the request body entirely when empty, keeping the previously stored key. */
-  upsertAgentSettings: (input: { baseUrl: string; model: string; apiKey?: string }) =>
+  upsertAgentSettings: (input: { baseUrl: string; model: string; apiKey?: string; interface?: 'json' | 'nodes' }) =>
     apiRequest<IAdminAgentSettings>('/admin/settings/agent', {
       method: 'PUT',
-      body: JSON.stringify(input.apiKey ? input : { baseUrl: input.baseUrl, model: input.model }),
+      body: JSON.stringify(input.apiKey ? input : { baseUrl: input.baseUrl, model: input.model, interface: input.interface }),
     }),
 
   deleteAgentSettings: () => apiRequest<null>('/admin/settings/agent', { method: 'DELETE' }),
