@@ -1,3 +1,4 @@
+// oxlint-disable max-lines -- over the cap only by the run-journal specs (ADR 0059 (private)).
 import type { TVariableInfo } from '@falang/typescript-dto';
 import type { IWorkflowIntegration } from '@falang/workflow-integrations-common';
 import {
@@ -18,6 +19,9 @@ import { telegramStructTypes } from './telegram-struct-types.js';
 
 export * from './constants.js';
 export { telegramStructTypes } from './telegram-struct-types.js';
+
+/** Run-journal line for both triggers (ADR 0059 (private)): the message text, or a marker for media-only messages. */
+const TELEGRAM_JOURNAL_MESSAGE = "${message.text ?? '[no text]'}";
 
 const anyNumber: TVariableInfo = { type: 'number', numberType: { type: 'any' } };
 
@@ -50,6 +54,7 @@ export const telegramIntegration: IWorkflowIntegration = {
       scopeVariableName: TELEGRAM_SCOPE_VARIABLE_NAME,
       signalName: TELEGRAM_SIGNAL_NAME,
       webhookPath: '/webhooks/telegram/:projectId/:credentialId/:env',
+      journalMessage: TELEGRAM_JOURNAL_MESSAGE,
       // Found worth adding after a real user chat where the agent built a bot's whole "handle /start"
       // flow as free-text `if message.text.trim().toLowerCase().startsWith('/start')` logic inside this
       // trigger's own body, instead of ever calling create_trigger_document with the on-command trigger
@@ -84,6 +89,7 @@ export const telegramIntegration: IWorkflowIntegration = {
       signalName: TELEGRAM_SIGNAL_NAME,
       webhookPath: '/webhooks/telegram/:projectId/:credentialId/:env',
       contextFields: [{ name: TELEGRAM_COMMAND_FIELD_NAME, label: 'telegram:field.command', kind: 'text' }],
+      journalMessage: TELEGRAM_JOURNAL_MESSAGE,
       notes: [
         'The correct, ONLY way to handle a Telegram bot command (e.g. /start, /help, /cancel) — do not',
         'reimplement command routing yourself by reading `message.text` in the plain onMessage trigger',
@@ -110,6 +116,7 @@ export const telegramIntegration: IWorkflowIntegration = {
       ],
       emit: (fields) => `await telegramSendMessage(${fields.credentialId}, ${fields.chatId}, ${fields.text});`,
       activitySignature: 'telegramSendMessage(credentialId: string, chatId: number, text: string): Promise<void>',
+      journal: { kind: 'message-out', args: ['chatId', 'text'], result: false },
       // These strings are TypeScript source emitted verbatim into activities.ts, not code executed
       // here — the `${...}` template placeholders below are meant to survive as literal text and
       // interpolate when that emitted file runs, not now.
@@ -152,6 +159,7 @@ export const telegramIntegration: IWorkflowIntegration = {
       // `IQuestionDescriptorExtensions.timeoutField`'s doc. Added 2026-09-28 alongside `human-task`
       // (ADR 0040 (private) §4, "Decisions" item 4).
       timeoutField: 'timeout',
+      journal: { kind: 'message-out', args: ['chatId', 'question', 'options'] },
       askActivitySignature:
         'telegramAskQuestion(credentialId: string, chatId: number, question: string, options: readonly string[]): Promise<{ messageId: string }>',
       askActivityCode: [

@@ -6,7 +6,11 @@ describe('compileStatements — marker wrapping', () => {
   it('wraps a statement in icon-start/icon-end markers', () => {
     const node: INode = { id: 'l1', name: 'log', data: 'hi' };
     expect(compileStatements([node])).toBe(
-      ['// icon-start:log:l1', 'await logActivity(`hi`);', '// icon-end:log:l1'].join('\n'),
+      [
+        '// icon-start:log:l1',
+        "__falangJournal({ kind: 'log', level: 'info', message: `hi` });",
+        '// icon-end:log:l1',
+      ].join('\n'),
     );
   });
 
@@ -21,7 +25,7 @@ describe('compileStatements — marker wrapping', () => {
         '// icon-start:if:if1',
         'if (true) {',
         '  // icon-start:log:l1',
-        '  await logActivity(`x`);',
+        "  __falangJournal({ kind: 'log', level: 'info', message: `x` });",
         '  // icon-end:log:l1',
         '}',
         '// icon-end:if:if1',

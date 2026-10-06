@@ -1,6 +1,11 @@
 import { mkdirSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
-import type { ICompileError } from '@falang/workflow-compiler';
+import {
+  JOURNAL_INTERCEPTORS_FILENAME,
+  JOURNAL_INTERCEPTORS_MODULE,
+  needsJournalInterceptors,
+  type ICompileError,
+} from '@falang/workflow-compiler';
 import { assertSafeGeneratedModules } from './assert-safe-generated-modules.js';
 import { bundleWorkflowCode } from './bundle-workflow-code.js';
 import { transpileActivitiesToCjs } from './transpile-activities-to-cjs.js';
@@ -38,7 +43,16 @@ export const runBuildJob = async (job: IBuildJob): Promise<TBuildJobResult> => {
   mkdirSync(job.workDir, { recursive: true });
   const workflowsPath = join(job.workDir, 'workflows.ts');
   writeFileSync(workflowsPath, job.workflows, 'utf8');
-  const workflowBundle = await bundleWorkflowCode(workflowsPath);
+  // Run-journal node-id header interceptor (ADR 0059 (private) §2b) — static text from the compiler,
+  // written next to `workflows.ts` (it imports the position stack from './workflows') whenever the
+  // build was compiled with position tracking, and bundled as a workflow interceptor module.
+  const interceptorModules: string[] = [];
+  if (needsJournalInterceptors(job.workflows)) {
+    const interceptorsPath = join(job.workDir, JOURNAL_INTERCEPTORS_FILENAME);
+    writeFileSync(interceptorsPath, JOURNAL_INTERCEPTORS_MODULE, 'utf8');
+    interceptorModules.push(interceptorsPath);
+  }
+  const workflowBundle = await bundleWorkflowCode(workflowsPath, interceptorModules);
   const activitiesSource = transpileActivitiesToCjs(job.activities);
   return { kind: 'built', workflowBundle, activitiesSource };
 };

@@ -44,6 +44,7 @@ export const telegramSendFileAction: IActionDescriptor = {
   emit: (fields) =>
     `await telegramSendFile(${fields.credentialId}, ${fields.chatId}, ${fields.file}, ${fields.as}, ${fields.caption});`,
   activitySignature: `telegramSendFile(credentialId: string, chatId: number, file: ${FILE_REF_TYPE}, as: string, caption: string): Promise<void>`,
+  journal: { kind: 'message-out', args: ['chatId', 'file', 'as', 'caption'], result: false },
   // TS source emitted verbatim into activities.ts, alongside `telegramSendMessage`'s own — see
   // `sharedActivityCode` for the aliased `readFileBytes` import this relies on (aliased so it never
   // collides with `@falang/workflow-integrations-files`'s own identically-named import elsewhere in

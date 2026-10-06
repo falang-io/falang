@@ -48,7 +48,7 @@ describe('compileProject — marker wrapping', () => {
       nodeId: 'c1',
     });
 
-    const logLine = lines.findIndex((line) => line.includes('logActivity(`calc`)'));
+    const logLine = lines.findIndex((line) => line.includes('message: `calc`'));
     expect(resolveMarkerLocation(markers, logLine)).toEqual({
       documentId: 'doc-callee',
       documentName: 'calculateShipping',

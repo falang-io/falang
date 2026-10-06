@@ -1,3 +1,4 @@
+import { buildJournalRuntimeCode } from './journal-runtime.js';
 import type { INode, IProjectDocument } from '@falang/dto';
 import type { IActionDescriptor, IWorkflowIntegration } from '@falang/workflow-integrations-common';
 import { describe, expect, it, vi } from 'vitest';
@@ -71,11 +72,13 @@ describe('compileProject — debug instrumentation (ADR 0021 (private))', () => 
 
     expect(result.workflows).toBe(
       [
-        "import { condition, defineQuery, defineSignal, proxyLocalActivities, setHandler } from '@temporalio/workflow';",
+        "import { condition, defineQuery, defineSignal, proxyLocalActivities, proxySinks, setHandler } from '@temporalio/workflow';",
         '',
         'const { logActivity } = proxyLocalActivities<{ logActivity(message: string): Promise<string> }>({',
         "  startToCloseTimeout: '10 seconds',",
         '});',
+        '',
+        buildJournalRuntimeCode(false),
         '',
         DEBUG_RUNTIME_CODE,
         '',
@@ -99,7 +102,7 @@ describe('compileProject — debug instrumentation (ADR 0021 (private))', () => 
         '  try {',
         '    // icon-start:log:l2',
         '    await __falangDebug.trace(1, () => ({}));',
-        '    await logActivity(`calc`);',
+        "    __falangJournal({ kind: 'log', level: 'info', message: `calc` });",
         '    // icon-end:log:l2',
         '  } finally {',
         '    __falangDebug.leave();',
@@ -170,7 +173,7 @@ describe('compileProject — debug instrumentation (ADR 0021 (private))', () => 
         '      // icon-start:log:l1',
         '      __falangAt("l1");',
         '      await __falangDebug.trace(0, () => ({}));',
-        '      await logActivity(`hi`);',
+        "      __falangJournal({ kind: 'log', level: 'info', message: `hi` });",
         '      // icon-end:log:l1',
         '    } catch (error) {',
         '      throw __falangFailure(error);',

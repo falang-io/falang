@@ -113,7 +113,8 @@
       "magic-insert": "Магия",
       "magic-insert-tooltip": "Клик по точке вставки создаёт магический узел: опишите шаг словами, агент построит его",
       "magic-insert-disabled": "Для магической вставки администратор должен настроить AI-агента",
-      "project-menu": "Проект"
+      "project-menu": "Проект",
+      "run-journal": "Журнал запусков"
     },
     "run-function-modal": {
       "title": "Запуск функции",
@@ -285,7 +286,13 @@
       "event-history": "История событий",
       "event-id": "ID",
       "event-time": "Время",
-      "event-type": "Тип события"
+      "event-type": "Тип события",
+      "tab-journal": "Журнал",
+      "tab-io": "Вход и результат",
+      "tab-events": "События Temporal",
+      "whole-conversation": "Вся переписка",
+      "this-run-only": "Только этот запуск",
+      "journal-unavailable": "Журнал для этого запуска недоступен."
     },
     "run-panel": {
       "loading": "Загрузка…",
@@ -299,7 +306,8 @@
       "position-unknown-failure": "Ошибка — позиция не записана (сборка до появления отслеживания?)",
       "position-finished": "Завершён",
       "document-missing": "(документ больше не существует)",
-      "history": "История событий"
+      "history": "История событий",
+      "journal": "Журнал"
     },
     "runs-drawer": {
       "title": "Запуски этого проекта",
@@ -475,6 +483,32 @@
       "cancel": "Отмена",
       "run": "Запустить",
       "debug": "Отладить"
+    },
+    "run-journal": {
+      "kind-log": "Лог",
+      "kind-trigger": "Триггер",
+      "kind-user-input": "Ввод пользователя",
+      "kind-ai": "ИИ",
+      "kind-message-out": "Сообщение",
+      "kind-error": "Ошибка",
+      "level-info": "Инфо",
+      "level-warn": "Предупреждение",
+      "level-error": "Ошибка",
+      "filter-kind": "Типы",
+      "filter-level": "Уровень",
+      "errors-only": "Только ошибки",
+      "empty": "Записей журнала пока нет",
+      "no-match": "Нет записей, подходящих под фильтры",
+      "load-more": "Загрузить ещё",
+      "texts-stripped": "тексты не сохранены",
+      "truncated": "обрезано"
+    },
+    "run-journal-settings": {
+      "title": "Журнал запусков",
+      "store-texts": "Хранить тексты (промпты, ответы, сообщения)",
+      "hint": "Если выключено, новые записи хранят только метаданные (тип, узел, модель, размеры, ошибки). Уже сохранённые записи не переписываются.",
+      "failed-to-load": "Не удалось загрузить настройки",
+      "failed-to-save": "Не удалось сохранить настройки"
     }
   },
   "version-history": {

@@ -1,6 +1,7 @@
 import { COMMENT_NAME, type INode } from '@falang/dto';
 import { defaultValueExpression, variableInfoToTsType, type TVariableInfo } from '@falang/typescript-dto';
 import { ACTIVEPIECES_ACTION_NAME, type TActivepiecesActionData } from '@falang/workflow-dto';
+import { JOURNAL_FN } from './journal-runtime.js';
 import { escapeTemplateLiteralBody } from './escape-template-literal.js';
 import type { TResolveFunctionName } from './resolve-function-name.js';
 import { asExpression, asStatement } from './raw-code.js';
@@ -20,8 +21,9 @@ const emitCreateVar = (node: INode): string => {
 
 const emitAction = (node: INode): string => asStatement(node.data as string);
 
-/** Calls the `logActivity` activity (proxied at module scope by `compileProject`) so the message lands in Temporal's own execution history, not just the Worker's stderr — see ADR 0001 (private)'s `log` row. */
-const emitLog = (node: INode): string => `await logActivity(\`${escapeTemplateLiteralBody(node.data as string)}\`);`;
+/** Appends an `info` entry to the run journal through the workflow sink (synchronous, never awaited, never throws — see `journal-runtime.ts`, ADR 0059 (private) §2a/§8). Replaced `await logActivity(…)`; versions published before that keep calling the (still defined) activity. */
+const emitLog = (node: INode): string =>
+  `${JOURNAL_FN}({ kind: 'log', level: 'info', message: \`${escapeTemplateLiteralBody(node.data as string)}\` });`;
 
 interface IArrPopOrShiftData {
   readonly arr: string;

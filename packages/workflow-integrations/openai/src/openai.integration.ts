@@ -1,4 +1,10 @@
-import type { IWorkflowIntegration } from '@falang/workflow-integrations-common';
+// oxlint-disable max-lines -- over the cap only by the run-journal result shape (ADR 0059 (private)).
+import {
+  AI_TEXT_RESULT_TYPE,
+  AI_USAGE_TYPE,
+  OPENAI_COMPATIBLE_USAGE_EXPRESSION,
+  type IWorkflowIntegration,
+} from '@falang/workflow-integrations-common';
 import { fileArrayTypeInfo } from '@falang/workflow-integrations-files';
 import { CALL_AI_CHOICE_NAME, CALL_AI_TEXT_NAME, FILE_REF_TYPE, OPENAI_VENDOR } from './constants.js';
 import { fetchOpenAiModelOptions } from './list-models.js';
@@ -84,13 +90,16 @@ export const openaiIntegration: IWorkflowIntegration = {
         // An empty `attachments` field (never edited, or deliberately left blank) compiles to a
         // literal `[]` rather than an empty string, so the emitted call always type-checks — see
         // `resolveFieldExpression`'s `'expression'` handling (a blank field resolves to `''`).
+        // The activity returns `{ text, usage, model }` (run journal, ADR 0059 (private)); the scheme variable stays a `string`.
         const call = `await callAiText(${fields.integration}, ${fields.model}, ${fields.prompt}, ${fields.attachments || '[]'})`;
         // `resultVariable` is a bare identifier (see `resolveFieldExpression`'s `'new-variable'`
         // pass-through) — empty only for a node created but never edited yet, in which case the
         // call is still emitted, just without capturing its result anywhere.
-        return fields.resultVariable ? `const ${fields.resultVariable} = ${call};` : `${call};`;
+        return fields.resultVariable ? `const ${fields.resultVariable} = (${call}).text;` : `${call};`;
       },
-      activitySignature: `callAiText(credentialId: string, model: string, prompt: string, attachments: readonly ${FILE_REF_TYPE}[]): Promise<string>`,
+      activitySignature: `callAiText(credentialId: string, model: string, prompt: string, attachments: readonly ${FILE_REF_TYPE}[]): Promise<${AI_TEXT_RESULT_TYPE}>`,
+      // Run journal (ADR 0059 (private)): the request as sent (model, prompt, attachment descriptors — never bodies) and the answer + usage.
+      journal: { kind: 'ai', args: ['model', 'prompt', 'attachments'] },
       // Same `result`-field parse `emit` above already does — a plain `string` result unless a
       // struct was chosen (in which case `emit` itself throws at compile time; the scope type is
       // still reported here so Monaco shows *something* sane while the node is mid-edit). Marked
@@ -111,7 +120,7 @@ export const openaiIntegration: IWorkflowIntegration = {
         '  model: string,',
         '  prompt: string,',
         '  attachments: readonly IFileRef[],',
-        '): Promise<string> => {',
+        `): Promise<${AI_TEXT_RESULT_TYPE}> => {`,
         "  const baseUrl = await resolveOpenAiField(credentialId, 'baseUrl');",
         "  const apiKey = await resolveOpenAiField(credentialId, 'apiKey');",
         '  const messageContent =',
@@ -126,8 +135,12 @@ export const openaiIntegration: IWorkflowIntegration = {
         '  if (!response.ok) {',
         '    throw new Error(`OpenAI chat completion failed: ${response.status} ${await response.text()}`);',
         '  }',
-        '  const data = (await response.json()) as { choices: { message: { content: string } }[] };',
-        "  return data.choices[0]?.message.content ?? '';",
+        '  const data = (await response.json()) as {',
+        '    choices: { message: { content: string } }[];',
+        '    usage?: { prompt_tokens?: number; completion_tokens?: number; total_tokens?: number };',
+        '    model?: string;',
+        '  };',
+        `  return { text: data.choices[0]?.message.content ?? '', usage: ${OPENAI_COMPATIBLE_USAGE_EXPRESSION('data')}, model: data.model ?? model };`,
         '};',
       ].join('\n'),
     },
@@ -163,7 +176,8 @@ export const openaiIntegration: IWorkflowIntegration = {
       // `'[]'` default the way `callAiText`'s own action `emit` does — a node with no `attachments` data
       // (an older document predating this field, or a fixture that never set it) compiles the call
       // site's argument to the literal `undefined`, which this signature must accept.
-      activitySignature: `callAiChoice(credentialId: string, model: string, prompt: string, attachments: readonly ${FILE_REF_TYPE}[] | undefined, schema: unknown): Promise<{ action: string; data: unknown }>`,
+      activitySignature: `callAiChoice(credentialId: string, model: string, prompt: string, attachments: readonly ${FILE_REF_TYPE}[] | undefined, schema: unknown): Promise<{ action: string; data: unknown; usage?: ${AI_USAGE_TYPE}; model: string }>`,
+      journal: { kind: 'ai', args: ['model', 'prompt', 'attachments'] },
       // `schema` is the discriminated-union JSON Schema `@falang/workflow-compiler`'s `choice-emitters.ts`
       // builds from this node's options — passed in as an inline object literal by the compiled call
       // site, not JSON-encoded. OpenAI's Structured Outputs (strict mode) requires the *root* schema to
@@ -177,7 +191,7 @@ export const openaiIntegration: IWorkflowIntegration = {
         '  prompt: string,',
         '  attachments: readonly IFileRef[] | undefined,',
         '  schema: unknown,',
-        '): Promise<{ action: string; data: unknown }> => {',
+        `): Promise<{ action: string; data: unknown; usage?: ${AI_USAGE_TYPE}; model: string }> => {`,
         "  const baseUrl = await resolveOpenAiField(credentialId, 'baseUrl');",
         "  const apiKey = await resolveOpenAiField(credentialId, 'apiKey');",
         '  const resolvedAttachments = attachments ?? [];',
@@ -206,10 +220,14 @@ export const openaiIntegration: IWorkflowIntegration = {
         '  if (!response.ok) {',
         '    throw new Error(`OpenAI structured chat completion failed: ${response.status} ${await response.text()}`);',
         '  }',
-        '  const data = (await response.json()) as { choices: { message: { content: string } }[] };',
+        '  const data = (await response.json()) as {',
+        '    choices: { message: { content: string } }[];',
+        '    usage?: { prompt_tokens?: number; completion_tokens?: number; total_tokens?: number };',
+        '    model?: string;',
+        '  };',
         "  const content = data.choices[0]?.message.content ?? '{}';",
         '  const parsed = JSON.parse(content) as { result: { action: string; data: unknown } };',
-        '  return parsed.result;',
+        `  return { ...parsed.result, usage: ${OPENAI_COMPATIBLE_USAGE_EXPRESSION('data')}, model: data.model ?? model };`,
         '};',
       ].join('\n'),
       activityOptions: { kind: 'regular', startToCloseTimeout: '10 minutes' },

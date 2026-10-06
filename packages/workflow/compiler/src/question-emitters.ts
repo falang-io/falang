@@ -5,6 +5,7 @@ import {
   type IQuestionDescriptor,
   type IWorkflowIntegration,
 } from '@falang/workflow-integrations-common';
+import { JOURNAL_FN } from './journal-runtime.js';
 import { indentLines } from './indent.js';
 import { resolveFieldExpression } from './integration-emitters.js';
 import type { TQuestionEmitters } from './node-emitters.js';
@@ -160,6 +161,10 @@ const buildQuestionEmitter = (
       `    ${prefix}Answer = payload.value;`,
       ...(descriptor.answerScope ? [`    ${prefix}Payload = payload;`] : []),
       `    ${prefix}HasAnswer = true;`,
+      // Run journal (ADR 0059 (private) §2a): a payload for some other (stale/foreign) question used to
+      // vanish silently — the workflow is the only place that knows it was not accepted.
+      '  } else {',
+      `    ${JOURNAL_FN}({ kind: 'error', level: 'warn', message: 'Ignored input: it does not match the pending question', data: { payload } });`,
       '  }',
       '});',
     ];
@@ -191,11 +196,25 @@ const buildQuestionEmitter = (
         ].join('\n')
       : waitLines.join('\n');
 
+    // The accepted answer (value plus, for a descriptor with `answerScope`, who/when resolved it) is
+    // journalled right after the wait; a timeout is a warning entry (ADR 0059 (private) §2a).
+    const answerExtras = descriptor.answerScope
+      ? `, resolvedBy: ${prefix}Payload?.resolvedBy, resolvedAt: ${prefix}Payload?.resolvedAt, answerData: ${prefix}Payload?.data`
+      : '';
+    const acceptedJournal = `${JOURNAL_FN}({ kind: 'user-input', level: 'info', message: \`Answer: \${${prefix}Answer}\`, data: { value: ${prefix}Answer${answerExtras} } });`;
+    const timeoutJournal = `${JOURNAL_FN}({ kind: 'user-input', level: 'warn', message: 'No answer: timed out', data: { timeout: true } });`;
     const afterWaitLines: string[] = [];
     if (hasTimeout) {
-      afterWaitLines.push(`if (${prefix}Answered) {`, `  await ${resolveFnName}(${resolveArgs});`, '}');
+      afterWaitLines.push(
+        `if (${prefix}Answered) {`,
+        `  ${acceptedJournal}`,
+        `  await ${resolveFnName}(${resolveArgs});`,
+        '} else {',
+        `  ${timeoutJournal}`,
+        '}',
+      );
     } else {
-      afterWaitLines.push(`await ${resolveFnName}(${resolveArgs});`);
+      afterWaitLines.push(acceptedJournal, `await ${resolveFnName}(${resolveArgs});`);
     }
     if (descriptor.answerScope) {
       const { variableName, type } = descriptor.answerScope;

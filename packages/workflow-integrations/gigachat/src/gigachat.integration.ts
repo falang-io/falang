@@ -1,4 +1,9 @@
-import type { IFieldSelectOption, IWorkflowIntegration } from '@falang/workflow-integrations-common';
+import {
+  AI_TEXT_RESULT_TYPE,
+  OPENAI_COMPATIBLE_USAGE_EXPRESSION,
+  type IFieldSelectOption,
+  type IWorkflowIntegration,
+} from '@falang/workflow-integrations-common';
 import { GIGACHAT_CALL_TEXT_NAME, GIGACHAT_VENDOR } from './constants.js';
 
 export * from './constants.js';
@@ -55,13 +60,15 @@ export const gigachatIntegration: IWorkflowIntegration = {
         { name: 'resultVariable', label: 'Result variable', kind: 'new-variable' },
       ],
       emit: (fields) => {
+        // The activity returns `{ text, usage, model }` (run journal, ADR 0059 (private)); the scheme variable stays a `string`.
         const call = `await gigachatCallText(${fields.credentialId}, ${fields.model}, ${fields.prompt})`;
         // `resultVariable` is a bare identifier — empty only for a node created but never edited yet,
         // in which case the call is still emitted, just without capturing its result anywhere. Same
         // convention as `openaiIntegration`'s `call-ai-text`.
-        return fields.resultVariable ? `const ${fields.resultVariable} = ${call};` : `${call};`;
+        return fields.resultVariable ? `const ${fields.resultVariable} = (${call}).text;` : `${call};`;
       },
-      activitySignature: 'gigachatCallText(credentialId: string, model: string, prompt: string): Promise<string>',
+      activitySignature: `gigachatCallText(credentialId: string, model: string, prompt: string): Promise<${AI_TEXT_RESULT_TYPE}>`,
+      journal: { kind: 'ai', args: ['model', 'prompt'] },
       // `activitySignature` above always resolves to a plain `string` — same reasoning as
       // `yandexgptIntegration`'s own `resultType`.
       resultType: { type: 'string', constant: true },
@@ -69,7 +76,7 @@ export const gigachatIntegration: IWorkflowIntegration = {
       // here — the `${...}` template placeholders below are meant to survive as literal text and
       // interpolate when that emitted file runs, not now.
       activityCode: [
-        'export const gigachatCallText = async (credentialId: string, model: string, prompt: string): Promise<string> => {',
+        `export const gigachatCallText = async (credentialId: string, model: string, prompt: string): Promise<${AI_TEXT_RESULT_TYPE}> => {`,
         '  const accessToken = await getGigaChatAccessToken(credentialId);',
         "  const response = await fetch('https://api.giga.chat/v1/chat/completions', {",
         "    method: 'POST',",
@@ -79,8 +86,12 @@ export const gigachatIntegration: IWorkflowIntegration = {
         '  if (!response.ok) {',
         '    throw new Error(`GigaChat chat completion failed: ${response.status} ${await response.text()}`);',
         '  }',
-        '  const data = (await response.json()) as { choices: { message: { content: string } }[] };',
-        "  return data.choices[0]?.message.content ?? '';",
+        '  const data = (await response.json()) as {',
+        '    choices: { message: { content: string } }[];',
+        '    usage?: { prompt_tokens?: number; completion_tokens?: number; total_tokens?: number };',
+        '    model?: string;',
+        '  };',
+        `  return { text: data.choices[0]?.message.content ?? '', usage: ${OPENAI_COMPATIBLE_USAGE_EXPRESSION('data')}, model: data.model ?? model };`,
         '};',
       ].join('\n'),
     },

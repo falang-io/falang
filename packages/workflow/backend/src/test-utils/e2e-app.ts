@@ -30,6 +30,8 @@ import { DocumentsModule } from '../domains/projects/documents/documents.module.
 import { ProjectExportModule } from '../domains/projects/export/project-export.module.js';
 import { Folder } from '../domains/projects/folders/folder.entity.js';
 import { FoldersModule } from '../domains/projects/folders/folders.module.js';
+import { RunJournalEntry } from '../domains/run-journal/run-journal-entry.entity.js';
+import { RunJournalModule } from '../domains/run-journal/run-journal.module.js';
 import { AgentUsage } from '../domains/agent-chat/agent-usage.entity.js';
 import { Project } from '../domains/projects/projects/project.entity.js';
 import { ProjectsModule } from '../domains/projects/projects/projects.module.js';
@@ -79,6 +81,7 @@ export const buildTestAppImports = (extraModules: TAppImport[] = []) => [
       UserLimits,
       File,
       AgentUsage,
+      RunJournalEntry,
       ProjectTemplate,
       AuthToken,
       SupportMessage,
@@ -99,6 +102,7 @@ export const buildTestAppImports = (extraModules: TAppImport[] = []) => [
   AgentChatModule,
   SupportModule,
   FilesModule,
+  RunJournalModule,
   TemporalModule,
   EgressProxyModule,
   GatewayModule.forRoot([], noopDiscoveryPort),

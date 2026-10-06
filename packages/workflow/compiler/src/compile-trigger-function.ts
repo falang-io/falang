@@ -8,6 +8,7 @@ import {
   type ITrackPositionOptions,
 } from './compile-function.js';
 import { getContainerScopeContribution } from '@falang/typescript-common';
+import { JOURNAL_FN } from './journal-runtime.js';
 import { indentLines } from './indent.js';
 import { buildIntegrationEmitters } from './integration-emitters.js';
 import { compileStatements, type IDebugEmitOptions, type TResolveFunctionName } from './node-emitters.js';
@@ -100,10 +101,17 @@ export const compileTriggerFunction = (
   const signalConstName = `${name}Signal`;
   const isStartDelivery = trigger.delivery === 'start';
 
+  // Run journal (ADR 0059 (private) §2a): the payload that started this run, right after it is bound —
+  // a mandatory entry the scheme author never draws. `journalMessage` is the vendor's readable line (a
+  // template-literal body over the scope variable), else the trigger's name.
+  const journalMessage = trigger.journalMessage ?? JSON.stringify(trigger.name).slice(1, -1);
+  const triggerJournal = `${JOURNAL_FN}({ kind: 'trigger', level: 'info', message: \`${journalMessage}\`, data: { payload: ${trigger.scopeVariableName} } });`;
+
   const preamble = isStartDelivery
     ? [
         `const __falangScheduledStart = workflowInfo().searchAttributes['TemporalScheduledStartTime']?.[0] as Date | undefined;`,
         `const ${trigger.scopeVariableName}: ${payloadType} = { ...payload, scheduledAt: (__falangScheduledStart ?? new Date()).toISOString() };`,
+        triggerJournal,
       ].join('\n')
     : [
         `const ${signalConstName} = defineSignal<[${payloadType}]>('${trigger.signalName}');`,
@@ -115,6 +123,7 @@ export const compileTriggerFunction = (
         '  hasSignal = true;',
         '});',
         'await condition(() => hasSignal);',
+        triggerJournal,
       ].join('\n');
 
   const headerComment = asComment(header?.data as string | undefined);

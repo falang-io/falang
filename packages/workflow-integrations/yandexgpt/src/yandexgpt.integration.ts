@@ -1,4 +1,4 @@
-import type { IWorkflowIntegration } from '@falang/workflow-integrations-common';
+import { AI_TEXT_RESULT_TYPE, type IWorkflowIntegration } from '@falang/workflow-integrations-common';
 import { YANDEXGPT_CALL_TEXT_NAME, YANDEXGPT_VENDOR } from './constants.js';
 
 export * from './constants.js';
@@ -46,13 +46,15 @@ export const yandexgptIntegration: IWorkflowIntegration = {
         { name: 'resultVariable', label: 'Result variable', kind: 'new-variable' },
       ],
       emit: (fields) => {
+        // The activity returns `{ text, usage, model }` (run journal, ADR 0059 (private)); the scheme variable stays a `string`.
         const call = `await yandexgptCallText(${fields.credentialId}, ${fields.model}, ${fields.prompt})`;
         // `resultVariable` is a bare identifier — empty only for a node created but never edited yet,
         // in which case the call is still emitted, just without capturing its result anywhere. Same
         // convention as `openaiIntegration`'s `call-ai-text` / `gigachatIntegration`'s.
-        return fields.resultVariable ? `const ${fields.resultVariable} = ${call};` : `${call};`;
+        return fields.resultVariable ? `const ${fields.resultVariable} = (${call}).text;` : `${call};`;
       },
-      activitySignature: 'yandexgptCallText(credentialId: string, model: string, prompt: string): Promise<string>',
+      activitySignature: `yandexgptCallText(credentialId: string, model: string, prompt: string): Promise<${AI_TEXT_RESULT_TYPE}>`,
+      journal: { kind: 'ai', args: ['model', 'prompt'] },
       // `activitySignature` above always resolves to a plain `string` — same fixed shape as
       // `openaiIntegration`'s `call-ai-text` (which has to be a function since it also supports a
       // chosen struct result; this action has no such option, so a static value is enough).
@@ -65,7 +67,7 @@ export const yandexgptIntegration: IWorkflowIntegration = {
         '  credentialId: string,',
         '  model: string,',
         '  prompt: string,',
-        '): Promise<string> => {',
+        `): Promise<${AI_TEXT_RESULT_TYPE}> => {`,
         '  const [apiKey, folderId] = await Promise.all([',
         "    resolveYandexGptField(credentialId, 'apiKey'),",
         "    resolveYandexGptField(credentialId, 'folderId'),",
@@ -85,8 +87,18 @@ export const yandexgptIntegration: IWorkflowIntegration = {
         '  if (!response.ok) {',
         '    throw new Error(`YandexGPT completion failed: ${response.status} ${await response.text()}`);',
         '  }',
-        '  const data = (await response.json()) as { alternatives: { message: { text: string } }[] };',
-        "  return data.alternatives[0]?.message.text ?? '';",
+        '  const data = (await response.json()) as {',
+        '    alternatives: { message: { text: string } }[];',
+        '    usage?: { inputTextTokens?: string; completionTokens?: string; totalTokens?: string };',
+        '  };',
+        '  const usage = data.usage',
+        '    ? {',
+        '        promptTokens: Number(data.usage.inputTextTokens ?? 0),',
+        '        completionTokens: Number(data.usage.completionTokens ?? 0),',
+        '        totalTokens: Number(data.usage.totalTokens ?? 0),',
+        '      }',
+        '    : undefined;',
+        "  return { text: data.alternatives[0]?.message.text ?? '', usage, model };",
         '};',
       ].join('\n'),
     },

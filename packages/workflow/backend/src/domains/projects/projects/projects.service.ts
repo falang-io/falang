@@ -82,6 +82,19 @@ export class ProjectsService {
     await this.projects.update({ id }, { prodBuildId: buildId });
   }
 
+  /** The run journal's text policy for a project (`null` when the project doesn't exist) — see `RunJournalService`. */
+  async getJournalStoreTexts(projectId: string): Promise<boolean | null> {
+    const row = await this.projects.findOne({
+      select: { id: true, journalStoreTexts: true },
+      where: { id: projectId },
+    });
+    return row ? row.journalStoreTexts : null;
+  }
+
+  async setJournalStoreTexts(projectId: string, storeTexts: boolean): Promise<void> {
+    await this.projects.update({ id: projectId }, { journalStoreTexts: storeTexts });
+  }
+
   /** Ids of every project whose production is turned on — `BuildService` re-activates their prod ingress on boot. */
   async listProdEnabledIds(): Promise<string[]> {
     const rows = await this.projects.find({ select: { id: true }, where: { prodEnabled: true } });
