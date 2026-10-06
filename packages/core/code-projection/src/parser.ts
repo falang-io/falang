@@ -96,7 +96,43 @@ export class Parser implements IParser {
       return templateBodyFromSource(this.dedent(raw, start));
     }
     if (ts.isStringLiteral(node)) return node.text;
+    const chain = this.concatenation(node);
+    if (chain) return chain;
     return `\${${this.text(node)}}`;
+  }
+
+  /**
+   * `"Hello, " + name + "!\n"` → `Hello, ${name}!⏎` — a text field written as string concatenation becomes plain template
+   * text, so the field holds text, not code. `+` is left-associative: operands before the first string/template literal
+   * may be a numeric sum and stay one `${…}` (`a + b + "x"` → `${a + b}x`); from the first literal on it is concatenation.
+   */
+  private concatenation(node: ts.Expression): string | undefined {
+    const operands: ts.Expression[] = [];
+    const flatten = (expression: ts.Expression): boolean => {
+      const inner = ts.isParenthesizedExpression(expression) ? expression.expression : expression;
+      if (ts.isBinaryExpression(inner) && inner.operatorToken.kind === ts.SyntaxKind.PlusToken) {
+        return flatten(inner.left) && (operands.push(inner.right), true);
+      }
+      operands.push(expression);
+      return true;
+    };
+    flatten(node);
+    const isText = (operand: ts.Expression): boolean =>
+      ts.isStringLiteral(operand) || ts.isNoSubstitutionTemplateLiteral(operand) || ts.isTemplateExpression(operand);
+    const firstText = operands.findIndex((operand) => isText(operand));
+    if (operands.length < 2 || firstText === -1) return undefined;
+    const prefix = operands.slice(0, firstText);
+    const parts: string[] = [];
+    if (prefix.length > 0) {
+      const first = prefix[0] as ts.Expression;
+      const last = prefix.at(-1) as ts.Expression;
+      const start = first.getStart(this.source);
+      parts.push(`\${${this.dedent(this.source.text.slice(start, last.end), start).trim()}}`);
+    }
+    for (const operand of operands.slice(firstText)) {
+      parts.push(isText(operand) ? this.templateBody(operand) : `\${${this.text(operand)}}`);
+    }
+    return parts.join('');
   }
 
   typeOf(node: ts.TypeNode): TVariableInfo {

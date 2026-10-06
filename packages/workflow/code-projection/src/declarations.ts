@@ -73,7 +73,11 @@ const vendorBlock = (integration: IWorkflowIntegration, model: WorkflowModel, wi
       if (hasResultTypeField) result = 'T';
       else if (typeof action.resultType === 'object') result = renderType(action.resultType, model.types);
       else if (hasVariable) result = 'any';
-      const generic = hasResultTypeField ? '<T = string>' : '';
+      // The type the editor (and the compiler, for vendors that cast) gives the variable when no type argument is written.
+      const defaultResult = typeof action.resultType === 'function' ? action.resultType({}) : undefined;
+      const generic = hasResultTypeField
+        ? `<T = ${defaultResult ? renderType(defaultResult, model.types) : 'string'}>`
+        : '';
       lines.push(
         `  ${actionMethodName(action.name, integration.vendor)}${generic}(${paramsType(fields, model)}): Promise<${result}>;`,
       );

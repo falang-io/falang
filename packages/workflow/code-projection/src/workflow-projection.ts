@@ -25,6 +25,8 @@ import {
   typesDeclarations,
   vendorsDeclarations,
 } from './declarations.js';
+import { instanceFactoryName } from './integration-extension.js';
+import { strayInstanceUses } from './instance-uses.js';
 import { parseTriggerFile, projectTriggerFile, type ITriggerBodyData } from './trigger-file.js';
 import { inferredTypeText, typeCheckFile } from './type-check.js';
 import { WorkflowModel, type IWorkflowProjectDocument, type IWorkflowProjectInput } from './workflow-model.js';
@@ -233,6 +235,13 @@ export class WorkflowProjection {
       // Structure first (unsupported constructs, falang rules — cheap, and the errors an agent can't learn from tsc),
       // then types; a declaration without an annotation is fine at this stage.
       this.parse(type, text, path, name, { ...this.ctx, inferType: () => ({ type: 'any' }) });
+      const stray = strayInstanceUses(
+        path,
+        text,
+        new Set(this.model.instances.map((entry) => entry.identifier)),
+        new Set(this.model.input.integrations.map((integration) => instanceFactoryName(integration.vendor))),
+      );
+      if (stray.length > 0) throw new ProjectionError(stray);
       const returnValueType = this.implicitReturnType(text);
       const check = typeCheckFile(this.checkFiles(path, text, returnValueType), path, {
         ignoreCodes: returnValueType ? IMPLICIT_RETURN_CODES : undefined,

@@ -221,6 +221,20 @@ const CASES: readonly ICase[] = [
     path: 'functions/total.ts',
     title: '`do … while`',
   },
+  {
+    code: trigger('  const reply = String(await supportBot.sendMessage({ chatId: message.chat.id, text: `Hi` }));'),
+    expect: /can only be called as a statement of its own/,
+    line: 2,
+    path: 'triggers/start.ts',
+    title: 'integration call nested in an expression (tuner: guess-celebrity)',
+  },
+  {
+    code: trigger('  let sent = 0;\n  sent = await supportBot.sendMessage({ chatId: message.chat.id, text: `Hi` });'),
+    expect: /can only be called as a statement of its own/,
+    line: 3,
+    path: 'triggers/start.ts',
+    title: 'integration call result assigned to an existing variable',
+  },
   // Normalisations: valid code the tree can't hold literally — accepted and rewritten (G4).
   {
     code: fn(

@@ -6,3 +6,4 @@ export * from './trigger-file.js';
 export * from './declarations.js';
 export * from './type-check.js';
 export * from './workflow-projection.js';
+export * from './instance-uses.js';

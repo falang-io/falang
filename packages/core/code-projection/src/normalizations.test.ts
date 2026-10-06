@@ -1,3 +1,4 @@
+// oxlint-disable prefer-string-raw -- escapes are the subject of these tests
 import type { INode } from '@falang/dto';
 import { describe, expect, it } from 'vitest';
 import { parseFunctionFile } from './function-file.js';
@@ -69,5 +70,16 @@ describe('G4: rules the tree enforces are normalised, not rejected', () => {
   it('`while (true) { …; break; }` is the run-once block', () => {
     const [block] = bodyOf(parse('  while (true) {\n    log(`once`);\n    break;\n  }', 'f(): Promise<void>'));
     expect(strip(block)).toMatchObject({ children: [{ name: 'log' }], name: 'pseudo-cycle' });
+  });
+});
+
+describe('template fields written as string concatenation', () => {
+  it('become template text (the leading numeric sum stays one interpolation)', () => {
+    const logOf = (expression: string): unknown =>
+      bodyOf(parse(`  log(${expression});`, 'f(x: number, name: string): Promise<void>'))[0]?.data;
+    expect(logOf('"Hello, " + name + "!\\n"')).toBe('Hello, ${name}!\n');
+    expect(logOf('name + "\\n" + name')).toBe('${name}\n${name}');
+    expect(logOf('x + 1 + " items"')).toBe('${x + 1} items');
+    expect(logOf('name.trim()')).toBe('${name.trim()}');
   });
 });
