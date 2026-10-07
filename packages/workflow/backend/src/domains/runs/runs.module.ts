@@ -6,6 +6,7 @@ import { arrayFromPayloads, defaultPayloadConverter } from '@temporalio/common';
 import { temporal } from '@temporalio/proto';
 import type { Repository } from 'typeorm';
 import { ProjectVersion } from '../build/build/project-version.entity.js';
+import { buildIdFromSearchAttributes } from './deployment-version.js';
 import { ProjectsModule } from '../projects/projects/projects.module.js';
 import { ProjectsService } from '../projects/projects/projects.service.js';
 import { ProjectRunsController } from './project-runs.controller.js';
@@ -77,7 +78,9 @@ const createListWorkflowRuns =
           status: execution.status.name,
           workflowName: execution.type,
           taskQueue: execution.taskQueue,
-          buildId: execution.raw.versioningInfo?.deploymentVersion?.buildId ?? null,
+          buildId:
+            execution.raw.versioningInfo?.deploymentVersion?.buildId ??
+            buildIdFromSearchAttributes(execution.raw.searchAttributes),
           startTime: execution.startTime.toISOString(),
           closeTime: execution.closeTime ? execution.closeTime.toISOString() : null,
         });
@@ -117,7 +120,9 @@ const createDescribeWorkflowRun =
         status: description.status.name,
         workflowName: description.type,
         taskQueue: description.taskQueue,
-        buildId: description.raw.workflowExecutionInfo?.versioningInfo?.deploymentVersion?.buildId ?? null,
+        buildId:
+          description.raw.workflowExecutionInfo?.versioningInfo?.deploymentVersion?.buildId ??
+          buildIdFromSearchAttributes(description.raw.workflowExecutionInfo?.searchAttributes),
         startTime: description.startTime.toISOString(),
         closeTime: description.closeTime ? description.closeTime.toISOString() : null,
         input: decodePayloads(startedEvent?.workflowExecutionStartedEventAttributes?.input),

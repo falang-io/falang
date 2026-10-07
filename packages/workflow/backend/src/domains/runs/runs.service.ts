@@ -16,7 +16,11 @@ export interface IRawWorkflowRun {
   readonly status: string;
   readonly workflowName: string;
   readonly taskQueue: string;
-  /** Worker Deployment build ID that ran the most recent workflow task, if the execution is versioned — see ADR 0004 (private). Unversioned (dev) executions never have one. */
+  /**
+   * Worker Deployment build ID that ran the most recent workflow task, if the execution is versioned — see ADR 0004 (private).
+   * Unversioned (dev) executions never have one. Visibility list rows carry no `versioningInfo`, so there it comes from the
+   * `TemporalWorkerDeploymentVersion` search attribute (`deployment-version.ts`).
+   */
   readonly buildId: string | null;
   readonly startTime: string;
   readonly closeTime: string | null;
