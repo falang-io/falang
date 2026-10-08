@@ -110,8 +110,8 @@ export const amocrmIntegration: IWorkflowIntegration = {
     // code compiles unconditionally — see `compileProject`'s `buildWorkflowPreamble`).
     `const AMOCRM_OAUTH2_CONFIG = ${JSON.stringify(amocrmOAuth2RuntimeConfig)} as const;`,
     '',
-    "// The native-path OAuth2 refresh helper (see ADR 0017 (private)) — handles amoCRM's",
-    '// account-domain/JSON-body/redirect-uri-on-refresh deviations from plain RFC 6749.',
+    '// A valid access token from the backend, which refreshes it with the platform OAuth2 client',
+    "// (handling amoCRM's account-domain/JSON-body/redirect-uri-on-refresh deviations from RFC 6749).",
     'const resolveAmoCrmAccessToken = (credentialId: string): Promise<string> =>',
     "  resolveOAuth2AccessToken('amocrm', credentialId, AMOCRM_OAUTH2_CONFIG);",
     '',
