@@ -205,7 +205,7 @@ head:
     <b>Users</b> — every account, with a role switch per row.
   </li>
   <li>
-    <b>OAuth credentials</b> — the OAuth2 clients configured for ActivePieces integrations, see below.
+    <b>OAuth credentials</b> — the platform's OAuth2 clients for amoCRM and ActivePieces integrations, see below.
   </li>
   <li>
     <b>AI agent</b> — the app-wide configuration for the editor's AI editing agent, see below.
@@ -224,8 +224,8 @@ head:
 #### OAuth credentials — enabling OAuth2 integrations
 
 <p>
-  Integrations from the <a href="../integrations/">ActivePieces catalog</a> that authenticate via OAuth2 — Google Sheets,
-  Gmail, Google Drive, Slack, and others — use <b>one OAuth2 client per integration, owned by the deployment</b>,
+  amoCRM and the integrations from the <a href="../integrations/">ActivePieces catalog</a> that authenticate via OAuth2
+  — Google Sheets, Gmail, Google Drive, Slack, and others — use <b>one OAuth2 client per integration, owned by the deployment</b>,
   configured once here. Users never paste a client ID or secret themselves; they just click "Connect".
 </p>
 <p>
@@ -235,7 +235,10 @@ head:
 <p>To enable one:</p>
 <ol>
   <li>Open OAuth credentials in the Admin app and find the integration — it shows status "Disabled".</li>
-  <li>Click "Configure".</li>
+  <li>
+    Click "Configure". The table and the dialog show the redirect URL to register in the vendor's app —
+    <code>https://&lt;your backend host&gt;/oauth2/callback/&lt;integration id&gt;</code>.
+  </li>
   <li>Paste the vendor's Client ID and Client secret.</li>
   <li>Save. The status switches to "Enabled", and the integration becomes usable in every project.</li>
 </ol>
@@ -279,8 +282,13 @@ head:
 </p>
 
 <p>
-  Built-in (non-catalog) OAuth2 integrations such as amoCRM and Диадок are unaffected by any of this — they keep their
-  own bring-your-own-app credential fields (client ID/secret entered per credential), unchanged.
+  <b>amoCRM example:</b> in an amoCRM technical account, create an external integration with the redirect URL
+  <code>https://&lt;your backend host&gt;/oauth2/callback/amocrm</code> (for the hosted product,
+  <code>https://api.workflow.falang.ru/oauth2/callback/amocrm</code>) and the "Account data access" permission. Then
+  paste its "Integration ID" as the Client ID and its "Secret key" as the Client secret into the amoCRM row.
+</p>
+<p>
+  Диадок still uses its own client ID/secret fields, entered per credential.
 </p>
 
 #### AI agent

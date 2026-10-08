@@ -25,6 +25,9 @@ const amocrmOAuth2Config: IOAuth2Config = {
   // amoCRM account hosts: `<sub>.amocrm.ru` / `<sub>.amocrm.com` (+ Kommo, the international rebrand, `<sub>.kommo.com`).
   accountDomainSuffixes: ['.amocrm.ru', '.amocrm.com', '.kommo.com'],
   includeRedirectUriOnRefresh: true,
+  // One public amoCRM integration for the whole platform: its id/secret are set on the admin app's
+  // "OAuth credentials" page, users only click "Connect" (ADR 0030 (private)'s model for ActivePieces).
+  platformClient: true,
 };
 
 /** The subset of `amocrmOAuth2Config` the runner-side activity code actually needs at runtime — serialized via `JSON.stringify` below so the emitted literal can never drift from the descriptor above. */
@@ -48,8 +51,6 @@ export const amocrmIntegration: IWorkflowIntegration = {
   notes: 'amoCRM — CRM / sales pipeline: create leads (deals) in an amoCRM account via OAuth2.',
   oauth2: amocrmOAuth2Config,
   credentialFields: [
-    { name: 'client_id', label: 'Client ID', kind: 'text' },
-    { name: 'client_secret', label: 'Client secret', kind: 'secret' },
     { name: 'access_token', label: 'Access token', kind: 'secret', hidden: true },
     { name: 'refresh_token', label: 'Refresh token', kind: 'secret', hidden: true },
     { name: 'expires_at', label: 'Expires at', kind: 'text', hidden: true },

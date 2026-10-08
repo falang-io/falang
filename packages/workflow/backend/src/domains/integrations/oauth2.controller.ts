@@ -101,7 +101,11 @@ export class OAuth2Controller {
       encryptionKey,
     );
     if (!clientCredentials) {
-      throw new BadRequestException('Fill in and save "Client ID"/"Client secret" before connecting');
+      throw new BadRequestException(
+        integration.oauth2.platformClient
+          ? `"${integration.vendor}" is not configured yet: an administrator has to enter its OAuth client on the admin app's "OAuth credentials" page`
+          : 'Fill in and save "Client ID"/"Client secret" before connecting',
+      );
     }
     const { clientId } = clientCredentials;
 

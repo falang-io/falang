@@ -48,7 +48,7 @@ describe('closed-beta application signup', () => {
       captcha: null,
       mailConfigured: true,
       selfServiceSignup: true,
-      disabledVendors: ['sqlite'],
+      disabledVendors: ['sqlite', 'amocrm'],
     });
   });
 

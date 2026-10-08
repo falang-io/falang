@@ -21,16 +21,21 @@ export interface IAdminUser {
 }
 
 /**
- * `GET /admin/oauth-credentials` row shape — one entry per ActivePieces OAuth2 piece in the raw
- * catalog, never carrying the secret. See the ADR's "Admin domain".
+ * `GET /admin/oauth-credentials` row shape — one entry per vendor whose OAuth2 client is the platform's own: native
+ * vendors with `oauth2.platformClient` (amoCRM) first, then every ActivePieces OAuth2 piece in the raw catalog.
+ * Never carries the secret. See the ADR's "Admin domain".
  */
 export interface IAdminOAuthCredential {
   readonly vendor: string;
-  readonly pieceName: string;
+  readonly source: 'native' | 'activepieces';
+  /** The ActivePieces piece name; `null` for a native vendor. */
+  readonly pieceName: string | null;
   readonly displayName: string;
   readonly enabled: boolean;
   readonly clientId: string | null;
   readonly updatedAt: string | null;
+  /** The callback URL to register in the vendor's app; `null` when the backend has no `BACKEND_PUBLIC_URL`. */
+  readonly redirectUri: string | null;
 }
 
 /**
@@ -157,7 +162,9 @@ export const adminApi = {
   upsertAgentSettings: (input: { baseUrl: string; model: string; apiKey?: string; interface?: 'json' | 'nodes' }) =>
     apiRequest<IAdminAgentSettings>('/admin/settings/agent', {
       method: 'PUT',
-      body: JSON.stringify(input.apiKey ? input : { baseUrl: input.baseUrl, model: input.model, interface: input.interface }),
+      body: JSON.stringify(
+        input.apiKey ? input : { baseUrl: input.baseUrl, model: input.model, interface: input.interface },
+      ),
     }),
 
   deleteAgentSettings: () => apiRequest<null>('/admin/settings/agent', { method: 'DELETE' }),

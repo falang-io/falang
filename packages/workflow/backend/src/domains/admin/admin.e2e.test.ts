@@ -162,7 +162,8 @@ describe('admin domain (/admin/*)', () => {
   });
 
   describe('GET/PUT/DELETE /admin/oauth-credentials', () => {
-    it('lists one entry per ActivePieces OAuth2 piece, disabled with no clientId until configured', async () => {
+    it('lists the native platform-client vendors, then one entry per ActivePieces OAuth2 piece, disabled until configured', async () => {
+      vi.stubEnv('BACKEND_PUBLIC_URL', 'https://api.test');
       const adminToken = await login(app);
 
       const response = await request(app.getHttpServer()).get('/admin/oauth-credentials').set(auth(adminToken));
@@ -170,14 +171,47 @@ describe('admin domain (/admin/*)', () => {
       expect(response.status).toBe(200);
       expect(response.body).toEqual([
         {
+          vendor: 'amocrm',
+          source: 'native',
+          pieceName: null,
+          displayName: 'amoCRM',
+          enabled: false,
+          clientId: null,
+          updatedAt: null,
+          redirectUri: 'https://api.test/oauth2/callback/amocrm',
+        },
+        {
           vendor: 'activepieces-oauthpiece',
+          source: 'activepieces',
           pieceName: 'oauthpiece',
           displayName: 'OAuth Piece',
           enabled: false,
           clientId: null,
           updatedAt: null,
+          redirectUri: 'https://api.test/oauth2/callback/activepieces-oauthpiece',
         },
       ]);
+    });
+
+    it('configuring amoCRM removes it from GET /auth/config disabledVendors, deleting puts it back', async () => {
+      const adminToken = await login(app);
+      const disabledVendors = async (): Promise<string[]> => {
+        const response = await request(app.getHttpServer()).get('/auth/config').expect(200);
+        return response.body.disabledVendors;
+      };
+
+      expect(await disabledVendors()).toContain('amocrm');
+
+      const upsertResponse = await request(app.getHttpServer())
+        .put('/admin/oauth-credentials/amocrm')
+        .set(auth(adminToken))
+        .send({ clientId: 'amo-integration-id', clientSecret: 'amo-secret' });
+      expect(upsertResponse.status).toBe(200);
+      expect(upsertResponse.body).toMatchObject({ vendor: 'amocrm', source: 'native', enabled: true });
+      expect(await disabledVendors()).not.toContain('amocrm');
+
+      await request(app.getHttpServer()).delete('/admin/oauth-credentials/amocrm').set(auth(adminToken)).expect(204);
+      expect(await disabledVendors()).toContain('amocrm');
     });
 
     it('upserts a platform credential and never returns the secret', async () => {
@@ -194,15 +228,19 @@ describe('admin domain (/admin/*)', () => {
       expect(JSON.stringify(response.body)).not.toContain('secret-1');
     });
 
-    it('404s upserting a vendor that is not an ActivePieces OAuth2 piece', async () => {
+    it('404s upserting a vendor without a platform OAuth2 client', async () => {
       const adminToken = await login(app);
 
-      const response = await request(app.getHttpServer())
-        .put('/admin/oauth-credentials/activepieces-nonoauthpiece')
-        .set(auth(adminToken))
-        .send({ clientId: 'cid-1', clientSecret: 'secret-1' });
+      const responses = await Promise.all(
+        ['activepieces-nonoauthpiece', 'telegram'].map((vendor) =>
+          request(app.getHttpServer())
+            .put(`/admin/oauth-credentials/${vendor}`)
+            .set(auth(adminToken))
+            .send({ clientId: 'cid-1', clientSecret: 'secret-1' }),
+        ),
+      );
 
-      expect(response.status).toBe(404);
+      expect(responses.map((response) => response.status)).toEqual([404, 404]);
     });
 
     it('400s an upsert with a missing clientSecret', async () => {
@@ -230,7 +268,8 @@ describe('admin domain (/admin/*)', () => {
       expect(deleteResponse.status).toBe(204);
 
       const listResponse = await request(app.getHttpServer()).get('/admin/oauth-credentials').set(auth(adminToken));
-      expect(listResponse.body[0]).toMatchObject({ enabled: false, clientId: null });
+      const piece = listResponse.body.find((entry: { vendor: string }) => entry.vendor === 'activepieces-oauthpiece');
+      expect(piece).toMatchObject({ enabled: false, clientId: null });
     });
   });
 

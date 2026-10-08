@@ -108,6 +108,9 @@
       "client-secret-label": "Client secret",
       "save": "Сохранить",
       "cancel": "Отмена",
+      "redirect-column": "Ссылка для перенаправления",
+      "redirect-hint": "Укажите эту ссылку для перенаправления в настройках приложения у вендора:",
+      "client-id-hint-amocrm": "В amoCRM: Client ID — это «ID интеграции», Client secret — «Секретный ключ».",
       "not-set": "—"
     },
     "agent-settings-page": {

@@ -41,7 +41,9 @@ import { signupsTotal } from '../../metrics/metrics.js';
 import { RegisterDto } from './dto/register.dto.js';
 // oxlint-disable-next-line consistent-type-imports
 import { UpdateLanguageDto } from './dto/update-language.dto.js';
+import { OAuthCredentialsService } from '../../admin/oauth-credentials/oauth-credentials.service.js';
 import { getDisabledVendors } from '../../integrations/optional-vendors.js';
+import { getUnconfiguredPlatformClientVendors } from '../../integrations/platform-oauth-vendors.js';
 import { Public } from './public.decorator.js';
 import { resolveSignupMode, type TSignupMode } from './signup-mode.js';
 import type { IJwtPayloadUser } from './jwt.strategy.js';
@@ -55,6 +57,7 @@ export class AuthController {
   private readonly account: AccountService;
   private readonly captcha: CaptchaService;
   private readonly mail: MailService;
+  private readonly oauthCredentials: OAuthCredentialsService;
 
   constructor(
     @Inject(AuthService) authService: AuthService,
@@ -63,6 +66,7 @@ export class AuthController {
     @Inject(AccountService) account: AccountService,
     @Inject(CaptchaService) captcha: CaptchaService,
     @Inject(MailService) mail: MailService,
+    @Inject(OAuthCredentialsService) oauthCredentials: OAuthCredentialsService,
   ) {
     this.authService = authService;
     this.usersService = usersService;
@@ -70,6 +74,7 @@ export class AuthController {
     this.account = account;
     this.captcha = captcha;
     this.mail = mail;
+    this.oauthCredentials = oauthCredentials;
   }
 
   // Read per request (not cached in the constructor) so the flags follow the live environment.
@@ -85,14 +90,14 @@ export class AuthController {
   /** Public: tells the login page whether to show the signup form (and which terms to accept). */
   @Public()
   @Get('config')
-  getConfig(): {
+  async getConfig(): Promise<{
     signupMode: TSignupMode;
     termsUrl: string | null;
     captcha: ICaptchaPublicConfig | null;
     mailConfigured: boolean;
     selfServiceSignup: boolean;
     disabledVendors: string[];
-  } {
+  }> {
     const signupMode = this.signupMode();
     return {
       signupMode,
@@ -100,7 +105,11 @@ export class AuthController {
       captcha: this.captcha.getPublicConfig(),
       mailConfigured: this.mail.isConfigured,
       selfServiceSignup: signupMode !== 'off',
-      disabledVendors: getDisabledVendors(),
+      // Switched off by the deployment, plus platform-OAuth2-client vendors (amoCRM) an admin hasn't configured yet.
+      disabledVendors: [
+        ...getDisabledVendors(),
+        ...(await getUnconfiguredPlatformClientVendors(this.oauthCredentials)),
+      ],
     };
   }
 

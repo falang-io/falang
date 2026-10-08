@@ -56,4 +56,13 @@ export interface IOAuth2Config {
    * leave it unset unless they need one of these.
    */
   readonly extra?: Readonly<Record<string, string>>;
+  /**
+   * The OAuth2 client (id/secret) is the platform's own, set by an administrator on the admin app's
+   * "OAuth credentials" page (`oauth_credentials` table), never per credential instance — the same
+   * model as ActivePieces OAuth2 pieces (ADR 0030 (private)). The vendor's `credentialFields` must not
+   * declare `client_id`/`client_secret`; until the admin has configured a client the backend lists the
+   * vendor in `GET /auth/config`'s `disabledVendors`, so pickers and agent catalogs hide it (existing
+   * instances are kept). Set for amoCRM, whose public integration is one app for every account.
+   */
+  readonly platformClient?: boolean;
 }

@@ -19,6 +19,8 @@ export const resolveOAuth2ClientCredentials = async (
 ): Promise<{ clientId: string; clientSecret: string } | null> => {
   const platform = await oauthCredentials.resolve(integration.vendor);
   if (platform) return platform;
+  // A platform-client vendor (amoCRM) never falls back to the instance: its keys exist only in the admin app.
+  if (integration.oauth2?.platformClient) return null;
 
   const clientIdField = integration.credentialFields.find((field) => field.name === 'client_id');
   const clientSecretField = integration.credentialFields.find((field) => field.name === 'client_secret');

@@ -67,3 +67,13 @@ export const isOAuth2Connected = (instance: IIntegrationInstance | undefined): b
   const raw = instance?.fields['access_token'];
   return typeof raw === 'object' && raw.dev === SECRET_MASK;
 };
+
+/**
+ * The "Name" field of a new integration follows the picked vendor: it takes the vendor's display name while it is
+ * empty or still equal to the name filled in automatically for the previous vendor; a name the user typed is kept.
+ */
+export const nameForPickedVendor = (
+  currentName: string,
+  previousAutoName: string | null,
+  vendorName: string,
+): string => (currentName.trim() === '' || currentName === previousAutoName ? vendorName : currentName);

@@ -1,5 +1,6 @@
 import type { AddressInfo } from 'node:net';
 import type { INestApplication } from '@nestjs/common';
+import { OAuthCredentialsService } from '../admin/oauth-credentials/oauth-credentials.service.js';
 import { ActivepiecesCatalogService } from '../integrations/activepieces-catalog.service.js';
 import { DocumentsService } from '../projects/documents/documents.service.js';
 import { FoldersService } from '../projects/folders/folders.service.js';
@@ -47,6 +48,7 @@ export const createMcpTestApp = async (): Promise<IMcpTestApp> => {
       {} as RunsService,
       nestApp.get(ActivepiecesCatalogService),
       nestApp.get(PersonalAccessTokensService),
+      nestApp.get(OAuthCredentialsService),
     );
     mcpService.mount(nestApp.getHttpAdapter().getInstance());
   });

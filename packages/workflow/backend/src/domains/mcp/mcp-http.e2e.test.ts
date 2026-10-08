@@ -2,6 +2,7 @@
 // get_node_kinds, create/set_document validation, locking across two tokens, project scoping) per
 // the ADR phase F brief; splitting by scenario would duplicate the harness/PAT-creation setup in
 // each part with no real gain in readability.
+import { OAuthCredentialsService } from '../admin/oauth-credentials/oauth-credentials.service.js';
 import { Client } from '@modelcontextprotocol/sdk/client/index.js';
 import { StreamableHTTPClientTransport } from '@modelcontextprotocol/sdk/client/streamableHttp.js';
 import request from 'supertest';
@@ -161,6 +162,23 @@ describe('/mcp (HTTP-level, PAT auth) (e2e)', () => {
       const kinds = (JSON.parse(toolText(result)) as { nodeKinds: { name: string }[] }).nodeKinds;
       expect(kinds.map((kind) => kind.name)).toContain('activepieces-action');
       expect(kinds.map((kind) => kind.name)).toContain('function');
+    } finally {
+      await client.close();
+    }
+  });
+
+  it('list_integrations hides amoCRM (a platform OAuth2 client vendor) until an admin has configured its client', async () => {
+    const rawToken = await createPat(harness, jwt);
+    const client = await connectClient(harness, rawToken);
+    const vendors = async (): Promise<string[]> => {
+      const result = await client.callTool({ name: 'list_integrations', arguments: { keywords: ['amocrm'] } });
+      expect(result.isError).not.toBe(true);
+      return (JSON.parse(toolText(result)) as { vendors: { vendor: string }[] }).vendors.map((entry) => entry.vendor);
+    };
+    try {
+      expect(await vendors()).not.toContain('amocrm');
+      await harness.app.get(OAuthCredentialsService).upsert('amocrm', 'amo-id', 'amo-secret');
+      expect(await vendors()).toContain('amocrm');
     } finally {
       await client.close();
     }

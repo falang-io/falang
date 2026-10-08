@@ -88,7 +88,7 @@
       "save-failed": "Failed to save limits"
     },
     "oauth-credentials-page": {
-      "piece-column": "Piece",
+      "piece-column": "Integration",
       "vendor-column": "Vendor",
       "status-column": "Status",
       "client-id-column": "Client ID",
@@ -108,6 +108,9 @@
       "client-secret-label": "Client secret",
       "save": "Save",
       "cancel": "Cancel",
+      "redirect-column": "Redirect URL",
+      "redirect-hint": "Register this redirect URL in the vendor's app settings:",
+      "client-id-hint-amocrm": "In amoCRM: Client ID is the \"Integration ID\", Client secret is the \"Secret key\".",
       "not-set": "—"
     },
     "agent-settings-page": {

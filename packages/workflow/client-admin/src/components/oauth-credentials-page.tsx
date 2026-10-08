@@ -3,7 +3,7 @@ import { useState } from 'react';
 import { observer } from 'mobx-react-lite';
 import { action, makeObservable, observable, runInAction } from 'mobx';
 import { getGlobalI18n } from '@falang/scheme';
-import { Button, Form, Input, Modal, Popconfirm, Table, Tag, message } from 'antd';
+import { Button, Form, Input, Modal, Popconfirm, Table, Tag, Typography, message } from 'antd';
 import { adminApi, type IAdminOAuthCredential } from '../admin-api.js';
 
 interface IFormValues {
@@ -116,6 +116,18 @@ export const OAuthCredentialsPage: React.FC = observer(() => {
               ),
           },
           {
+            title: t('workflow-client-admin:oauth-credentials-page.redirect-column'),
+            dataIndex: 'redirectUri',
+            render: (redirectUri: string | null) =>
+              redirectUri ? (
+                <Typography.Text copyable code>
+                  {redirectUri}
+                </Typography.Text>
+              ) : (
+                t('workflow-client-admin:oauth-credentials-page.not-set')
+              ),
+          },
+          {
             title: t('workflow-client-admin:oauth-credentials-page.client-id-column'),
             dataIndex: 'clientId',
             render: (clientId: string | null) => clientId ?? t('workflow-client-admin:oauth-credentials-page.not-set'),
@@ -168,6 +180,19 @@ export const OAuthCredentialsPage: React.FC = observer(() => {
         okText={t('workflow-client-admin:oauth-credentials-page.save')}
         cancelText={t('workflow-client-admin:oauth-credentials-page.cancel')}
       >
+        {editing?.redirectUri && (
+          <Typography.Paragraph>
+            {t('workflow-client-admin:oauth-credentials-page.redirect-hint')}{' '}
+            <Typography.Text copyable code>
+              {editing.redirectUri}
+            </Typography.Text>
+          </Typography.Paragraph>
+        )}
+        {editing?.vendor === 'amocrm' && (
+          <Typography.Paragraph type="secondary">
+            {t('workflow-client-admin:oauth-credentials-page.client-id-hint-amocrm')}
+          </Typography.Paragraph>
+        )}
         <Form form={form} layout="vertical">
           <Form.Item
             name="clientId"

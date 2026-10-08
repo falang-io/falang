@@ -11,12 +11,14 @@ import { AccountService } from './account.service.js';
 import { AuthController } from './auth.controller.js';
 import { AuthService } from './auth.service.js';
 import { JwtStrategy } from './jwt.strategy.js';
+import { OAuthCredentialsModule } from '../../admin/oauth-credentials/oauth-credentials.module.js';
 
 const ACCESS_TOKEN_EXPIRY = '7d';
 
 @Module({
   imports: [
     UsersModule,
+    OAuthCredentialsModule,
     MailModule,
     CaptchaModule,
     AuthTokensModule,

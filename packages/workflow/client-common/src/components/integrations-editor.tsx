@@ -23,6 +23,7 @@ import { REGISTERED_INTEGRATIONS } from '../integrations-registry.js';
 import { connectOAuth2Instance } from '../oauth2-connect.js';
 import { OAuth2ConnectionField } from './oauth2-connection-field.cmp.js';
 import { useDisabledVendors } from './use-disabled-vendors.js';
+import { useVendorAutoName } from './use-vendor-auto-name.js';
 import { VendorDataSyncField } from './vendor-data-sync-field.cmp.js';
 
 const { Title } = Typography;
@@ -63,6 +64,7 @@ export const IntegrationsEditor: React.FC = observer(() => {
   );
   const findIntegration = (vendor: string): IWorkflowIntegration | undefined =>
     allIntegrations.find((item) => item.vendor === vendor);
+  const vendorAutoName = useVendorAutoName(form, findIntegration, t);
 
   const instances = useMemo(
     () => (doc?.customData as IIntegrationsDocumentData | undefined)?.instances ?? [],
@@ -75,6 +77,8 @@ export const IntegrationsEditor: React.FC = observer(() => {
     setSelectedVendor(firstVendor);
     form.resetFields();
     form.setFieldsValue({ name: '', vendor: firstVendor ?? '' });
+    vendorAutoName.reset();
+    vendorAutoName.apply(firstVendor);
     setModalOpen(true);
   };
 
@@ -234,7 +238,10 @@ export const IntegrationsEditor: React.FC = observer(() => {
                 value: integration.vendor,
                 label: t(integration.label),
               }))}
-              onChange={(vendor: string) => setSelectedVendor(vendor)}
+              onChange={(vendor: string) => {
+                setSelectedVendor(vendor);
+                if (editingId === null) vendorAutoName.apply(vendor);
+              }}
             />
           </Form.Item>
           {activeIntegration?.credentialFields

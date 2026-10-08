@@ -12,6 +12,7 @@ import {
   type IIntegrationsDocumentData,
   type IWorkflowIntegration,
 } from '@falang/workflow-integrations-common';
+import type { OAuthCredentialsService } from '../admin/oauth-credentials/oauth-credentials.service.js';
 import type { ActivepiecesCatalogService } from '../integrations/activepieces-catalog.service.js';
 import { REGISTERED_INTEGRATIONS } from '../integrations/registered-integrations.js';
 import type { BuildService } from '../build/build/build.service.js';
@@ -32,6 +33,7 @@ export interface IWorkflowToolsDeps {
   readonly debugService: DebugService;
   readonly runsService: RunsService;
   readonly activepiecesCatalog: ActivepiecesCatalogService;
+  readonly oauthCredentials: Pick<OAuthCredentialsService, 'listConfiguredVendors'>;
 }
 
 const debugLocation = zod.object({ documentId: zod.string(), nodeId: zod.string() });
@@ -39,10 +41,20 @@ const debugLocation = zod.object({ documentId: zod.string(), nodeId: zod.string(
 const readOnly = { readOnlyHint: true } as const;
 const destructive = { destructiveHint: true } as const;
 
-const combinedIntegrations = async (deps: IWorkflowToolsDeps): Promise<readonly IWorkflowIntegration[]> => [
-  ...REGISTERED_INTEGRATIONS,
-  ...(await deps.activepiecesCatalog.getDynamicIntegrations()),
-];
+/** Every vendor a project can use right now: OAuth2 vendors whose client is the platform's own (ActivePieces OAuth2
+ *  pieces, `oauth2.platformClient` vendors such as amoCRM) only once an admin has configured that client. */
+const combinedIntegrations = async (deps: IWorkflowToolsDeps): Promise<readonly IWorkflowIntegration[]> => {
+  const pieces = await deps.activepiecesCatalog.getDynamicIntegrations();
+  const configured = await deps.oauthCredentials.listConfiguredVendors();
+  const usable = (integration: IWorkflowIntegration, platformClient: boolean): boolean =>
+    !integration.oauth2 || !platformClient || configured.has(integration.vendor);
+  return [
+    ...REGISTERED_INTEGRATIONS.filter((integration) =>
+      usable(integration, integration.oauth2?.platformClient === true),
+    ),
+    ...pieces.filter((integration) => usable(integration, true)),
+  ];
+};
 
 /** One vendor as `list_integrations` describes a keyword match: unlike the in-app agent's
  *  `search_integrations`, an MCP client composes whole documents with `set_document`, so each action's

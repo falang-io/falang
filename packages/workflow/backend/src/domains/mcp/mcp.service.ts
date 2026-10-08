@@ -1,3 +1,4 @@
+import { OAuthCredentialsService } from '../admin/oauth-credentials/oauth-credentials.service.js';
 import { Inject, Injectable } from '@nestjs/common';
 import { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
 import { StreamableHTTPServerTransport } from '@modelcontextprotocol/sdk/server/streamableHttp.js';
@@ -59,6 +60,7 @@ export class McpService {
   private readonly debugService: DebugService;
   private readonly runsService: RunsService;
   private readonly activepiecesCatalog: ActivepiecesCatalogService;
+  private readonly oauthCredentials: OAuthCredentialsService;
   private readonly tokensService: PersonalAccessTokensService;
   private readonly registry: DocumentStackRegistry;
 
@@ -72,6 +74,7 @@ export class McpService {
     @Inject(RunsService) runsService: RunsService,
     @Inject(ActivepiecesCatalogService) activepiecesCatalog: ActivepiecesCatalogService,
     @Inject(PersonalAccessTokensService) tokensService: PersonalAccessTokensService,
+    @Inject(OAuthCredentialsService) oauthCredentials: OAuthCredentialsService,
   ) {
     this.projectsService = projectsService;
     this.documentsService = documentsService;
@@ -81,6 +84,7 @@ export class McpService {
     this.debugService = debugService;
     this.runsService = runsService;
     this.activepiecesCatalog = activepiecesCatalog;
+    this.oauthCredentials = oauthCredentials;
     this.tokensService = tokensService;
     // Built once, from the *static* vendor list only — see `workflow-mcp-registry.ts`'s own doc
     // comment for why dynamic ActivePieces pieces don't need a place in this registry.
@@ -149,6 +153,7 @@ export class McpService {
         debugService: this.debugService,
         runsService: this.runsService,
         activepiecesCatalog: this.activepiecesCatalog,
+        oauthCredentials: this.oauthCredentials,
       },
       getAuth,
     );

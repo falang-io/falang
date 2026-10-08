@@ -33,10 +33,10 @@ describe('amocrmIntegration', () => {
     });
   });
 
-  it('credentialFields declares client_id/client_secret plus the hidden OAuth2 token fields', () => {
+  it('uses the platform OAuth2 client: credentialFields are only the hidden OAuth2 token fields', () => {
+    expect(amocrmIntegration.oauth2?.platformClient).toBe(true);
+    expect(amocrmIntegration.credentialFields.every((field) => field.hidden)).toBe(true);
     expect(amocrmIntegration.credentialFields.map((field) => field.name)).toEqual([
-      'client_id',
-      'client_secret',
       'access_token',
       'refresh_token',
       'expires_at',
