@@ -1,73 +1,20 @@
-# React + TypeScript + Vite
+# playground
 
-This template provides a minimal setup to get React working in Vite with HMR and some ESLint rules.
+Vite + React harness for manually exercising the scheme editor libraries (`npm run dev -w playground`).
 
-Currently, two official plugins are available:
+The toolbar at the top:
 
-- [@vitejs/plugin-react](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react) uses [Oxc](https://oxc.rs)
-- [@vitejs/plugin-react-swc](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react-swc) uses [SWC](https://swc.rs/)
+- **Base icon** — the document's root kind: `function`, `contour` (the text domain's `functionalSchemeFactory`) or
+  `mind-tree` (`mindTreeSchemeFactory`). Switching builds a fresh scheme; **Reset** rebuilds the current one.
+- **Theme** — Default, Dark (the workflow client's palette) or Paper (the print export's: white, no grid). The antd
+  chrome follows with its dark algorithm.
+- **Debugger** — shows/hides the debug panel on the right. The session is driven by `FakeDebugAdapter`, which
+  "executes" every statement icon in visual order (ADR 0021 (private)).
+- **JSON** — the full document as `getDto` serializes it, live while open, with a Copy button.
+- **Undo / Redo**, **Run agent** (a scripted LLM that inserts and edits two nodes, ADR 0009 (private)), **Log scheme**.
 
-## React Compiler
+The base icon, theme and debugger toggle persist in `localStorage` (`falang:playground`). `globalThis.__playground`
+exposes `{ store, scheme, session }` for the browser console or a Playwright script.
 
-The React Compiler is not enabled on this template because of its impact on dev & build performances. To add it, see [this documentation](https://react.dev/learn/react-compiler/installation).
-
-## Expanding the ESLint configuration
-
-If you are developing a production application, we recommend updating the configuration to enable type-aware lint rules:
-
-```js
-export default defineConfig([
-  globalIgnores(['dist']),
-  {
-    files: ['**/*.{ts,tsx}'],
-    extends: [
-      // Other configs...
-
-      // Remove tseslint.configs.recommended and replace with this
-      tseslint.configs.recommendedTypeChecked,
-      // Alternatively, use this for stricter rules
-      tseslint.configs.strictTypeChecked,
-      // Optionally, add this for stylistic rules
-      tseslint.configs.stylisticTypeChecked,
-
-      // Other configs...
-    ],
-    languageOptions: {
-      parserOptions: {
-        project: ['./tsconfig.node.json', './tsconfig.app.json'],
-        tsconfigRootDir: import.meta.dirname,
-      },
-      // other options...
-    },
-  },
-]);
-```
-
-You can also install [eslint-plugin-react-x](https://github.com/Rel1cx/eslint-react/tree/main/packages/plugins/eslint-plugin-react-x) and [eslint-plugin-react-dom](https://github.com/Rel1cx/eslint-react/tree/main/packages/plugins/eslint-plugin-react-dom) for React-specific lint rules:
-
-```js
-// eslint.config.js
-import reactX from 'eslint-plugin-react-x';
-import reactDom from 'eslint-plugin-react-dom';
-
-export default defineConfig([
-  globalIgnores(['dist']),
-  {
-    files: ['**/*.{ts,tsx}'],
-    extends: [
-      // Other configs...
-      // Enable lint rules for React
-      reactX.configs['recommended-typescript'],
-      // Enable lint rules for React DOM
-      reactDom.configs.recommended,
-    ],
-    languageOptions: {
-      parserOptions: {
-        project: ['./tsconfig.node.json', './tsconfig.app.json'],
-        tsconfigRootDir: import.meta.dirname,
-      },
-      // other options...
-    },
-  },
-]);
-```
+Files: `playground-store.ts` (state), `playground-scheme.tsx` (scheme and debug session factories), `toolbar.tsx`,
+`json-modal.tsx`, `themes.ts`, `agent-demo.ts`.
