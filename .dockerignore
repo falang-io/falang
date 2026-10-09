@@ -1,5 +1,9 @@
 .git
-node_modules
+**/node_modules
+packages/desktop/*/dist
+packages/desktop/*/out
+packages/desktop/*/worker-dist
+site
 build
 dist
 coverage
