@@ -9,6 +9,8 @@ export { AdminGuard } from './domains/auth/auth/admin.guard.js';
 export { UsersModule } from './domains/users/users/users.module.js';
 export { CurrentUser } from './domains/auth/auth/current-user.decorator.js';
 export { JwtAuthGuard } from './domains/auth/auth/jwt-auth.guard.js';
+// `@Public()` exempts a route from the global `JwtAuthGuard` — a payment provider's webhook, for instance.
+export { Public } from './domains/auth/auth/public.decorator.js';
 export type { IJwtPayloadUser } from './domains/auth/auth/jwt.strategy.js';
 export { AppSettingsModule } from './domains/admin/app-settings/app-settings.module.js';
 export { AppSettingsService } from './domains/admin/app-settings/app-settings.service.js';
