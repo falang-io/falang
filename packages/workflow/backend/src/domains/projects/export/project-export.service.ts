@@ -19,7 +19,7 @@ import { Document } from '../documents/document.entity.js';
 import { DocumentsService } from '../documents/documents.service.js';
 import { FoldersService } from '../folders/folders.service.js';
 import type { Project } from '../projects/project.entity.js';
-import { ProjectsService } from '../projects/projects.service.js';
+import { ProjectsService, type TProjectAccess } from '../projects/projects.service.js';
 import type { ImportProjectDocumentDto } from './dto/import-project-document.dto.js';
 import type { ImportProjectDto } from './dto/import-project.dto.js';
 
@@ -75,10 +75,14 @@ export class ProjectExportService {
    * import — see `importProject`) and every integration credential's `secret`-kind fields blanked
    * out via `stripIntegrationsSecretsForExport`, never the real (encrypted) stored value.
    */
-  async exportProject(projectId: string, ownerId: string): Promise<IProjectExportPayload> {
-    const project = await this.projectsService.getOwnedProject(projectId, ownerId);
+  async exportProject(
+    projectId: string,
+    ownerId: string,
+    access: TProjectAccess = 'owner',
+  ): Promise<IProjectExportPayload> {
+    const project = await this.projectsService.getOwnedProject(projectId, ownerId, access);
     const [folders, documents, dynamicIntegrations] = await Promise.all([
-      this.foldersService.listTree(projectId, ownerId),
+      this.foldersService.listTree(projectId, ownerId, access),
       this.documents.find({ where: { projectId } }),
       this.activepiecesCatalog.getDynamicIntegrations(),
     ]);

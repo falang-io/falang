@@ -27,7 +27,7 @@ export class RunJournalController {
     @Query() query: ListRunJournalQueryDto,
     @CurrentUser() user: IJwtPayloadUser,
   ): Promise<IRunJournalPage> {
-    return this.service.listRun(projectId, user.id, workflowId, runId, query);
+    return this.service.listRun(projectId, user.id, workflowId, runId, query, 'read');
   }
 
   @Get('workflows/:workflowId/journal')
@@ -37,7 +37,7 @@ export class RunJournalController {
     @Query() query: ListRunJournalQueryDto,
     @CurrentUser() user: IJwtPayloadUser,
   ): Promise<IRunJournalPage> {
-    return this.service.listWorkflow(projectId, user.id, workflowId, query);
+    return this.service.listWorkflow(projectId, user.id, workflowId, query, 'read');
   }
 
   @Get('journal-settings')
@@ -45,7 +45,7 @@ export class RunJournalController {
     @Param('projectId') projectId: string,
     @CurrentUser() user: IJwtPayloadUser,
   ): Promise<IRunJournalSettings> {
-    return this.service.getSettings(projectId, user.id);
+    return this.service.getSettings(projectId, user.id, 'read');
   }
 
   @Put('journal-settings')

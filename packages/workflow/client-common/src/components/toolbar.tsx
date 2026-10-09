@@ -3,8 +3,8 @@
 import type React from 'react';
 import { useEffect, useState } from 'react';
 import { observer } from 'mobx-react-lite';
-import { Button, Dropdown, notification, Tooltip, type MenuProps } from 'antd';
-import { DownOutlined, RobotOutlined, ThunderboltFilled, ThunderboltOutlined } from '@ant-design/icons';
+import { Button, Dropdown, notification, Tag, Tooltip, type MenuProps } from 'antd';
+import { DownOutlined, EyeOutlined, RobotOutlined, ThunderboltFilled, ThunderboltOutlined } from '@ant-design/icons';
 import { getGlobalI18n, type TFunction } from '@falang/scheme';
 import { navigationStore } from '../navigation-store.js';
 import { useWorkflowStore } from '../workflow-store-context.js';
@@ -175,6 +175,53 @@ const AgentPanelButton: React.FC = observer(() => {
   );
 });
 
+interface IWritableControlsProps {
+  readonly devRunning: boolean;
+  readonly devMenuItems: MenuProps['items'];
+  readonly prodMenuItems: MenuProps['items'];
+}
+
+/** Support, agent, magic insert and the Dev/Prod menus — hidden for a read-only (admin-viewed) project. */
+const WritableControls: React.FC<IWritableControlsProps> = observer(({ devRunning, devMenuItems, prodMenuItems }) => {
+  const t = getGlobalI18n().t;
+  const store = useWorkflowStore();
+  return (
+    <>
+      <SupportButton type="default" style={S.btn} />
+      <AgentPanelButton />
+      <MagicInsertButton />
+      <Dropdown menu={{ items: devMenuItems }} trigger={['click']}>
+        <Button style={S.btn}>
+          <span style={{ ...S.dot, background: devRunning ? RUNNING_COLOR : STOPPED_COLOR }} />
+          {t('client:toolbar.dev-menu.label')}
+          <DownOutlined style={S.dropdownIcon} />
+        </Button>
+      </Dropdown>
+      <Dropdown menu={{ items: prodMenuItems }} trigger={['click']}>
+        <Button style={S.btn}>
+          <span style={{ ...S.dot, background: store.prodRunning ? RUNNING_COLOR : STOPPED_COLOR }} />
+          {t('client:toolbar.prod-menu.label')}
+          <DownOutlined style={S.dropdownIcon} />
+        </Button>
+      </Dropdown>
+    </>
+  );
+});
+
+/** An admin viewing someone else's project — see `WorkflowStore.readOnly`. */
+const ReadOnlyTag: React.FC = observer(() => {
+  const t = getGlobalI18n().t;
+  const store = useWorkflowStore();
+  const owner = store.owner ? (store.owner.email ?? store.owner.username) : '—';
+  return (
+    <Tooltip title={t('client:toolbar.read-only-tooltip')}>
+      <Tag icon={<EyeOutlined />} color="gold" data-testid="toolbar-read-only">
+        {t('client:toolbar.read-only', { owner })}
+      </Tag>
+    </Tooltip>
+  );
+});
+
 export const Toolbar: React.FC = observer(() => {
   const t = getGlobalI18n().t;
   const store = useWorkflowStore();
@@ -246,6 +293,7 @@ export const Toolbar: React.FC = observer(() => {
         {t('client:toolbar.back')}
       </Button>
       <span style={S.projectName}>{navigationStore.selectedProjectName}</span>
+      {store.readOnly && <ReadOnlyTag />}
       <span style={S.spacer} />
       {store.connectionError && <span style={S.error}>{store.connectionError}</span>}
       {store.buildErrors.length > 0 && (
@@ -268,23 +316,9 @@ export const Toolbar: React.FC = observer(() => {
         <span>{t('client:toolbar.published-version', { version: store.lastPublishedVersion.versionNumber })}</span>
       )}
       <ProjectMenu buttonStyle={S.btn} errorStyle={S.error} />
-      <SupportButton type="default" style={S.btn} />
-      <AgentPanelButton />
-      <MagicInsertButton />
-      <Dropdown menu={{ items: devMenuItems }} trigger={['click']}>
-        <Button style={S.btn}>
-          <span style={{ ...S.dot, background: devRunning ? RUNNING_COLOR : STOPPED_COLOR }} />
-          {t('client:toolbar.dev-menu.label')}
-          <DownOutlined style={S.dropdownIcon} />
-        </Button>
-      </Dropdown>
-      <Dropdown menu={{ items: prodMenuItems }} trigger={['click']}>
-        <Button style={S.btn}>
-          <span style={{ ...S.dot, background: store.prodRunning ? RUNNING_COLOR : STOPPED_COLOR }} />
-          {t('client:toolbar.prod-menu.label')}
-          <DownOutlined style={S.dropdownIcon} />
-        </Button>
-      </Dropdown>
+      {!store.readOnly && (
+        <WritableControls devRunning={devRunning} devMenuItems={devMenuItems} prodMenuItems={prodMenuItems} />
+      )}
       {devRun.modals}
       <VersionsModal projectId={store.projectId} open={versionsOpen} onClose={() => setVersionsOpen(false)} />
       <BuildErrorsModal

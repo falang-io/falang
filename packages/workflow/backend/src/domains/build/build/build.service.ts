@@ -19,7 +19,7 @@ import { ActivepiecesCatalogService } from '../../integrations/activepieces-cata
 import { RUN_JOURNAL_STORE, type IRunJournalStore } from '../../run-journal/run-journal-store.js';
 import { ProjectTokenService } from '../../internal-auth/project-token.service.js';
 import { DocumentsService } from '../../projects/documents/documents.service.js';
-import { ProjectsService } from '../../projects/projects/projects.service.js';
+import { ProjectsService, type TProjectAccess } from '../../projects/projects/projects.service.js';
 import { VersioningService } from '../../projects/versioning/versioning.service.js';
 import { toApiSchedule, type IApiSchedule } from './api-schedule.js';
 import { registerRunnerPodsMetric } from './runner-pods-metrics.js';
@@ -262,8 +262,8 @@ export class BuildService implements OnModuleInit, OnApplicationBootstrap {
   }
 
   /** Compiles the project the same way `build()` does, but only for preview: no artifact is built and no runner is started. One entry per generated module. */
-  async generateCode(projectId: string, ownerId: string): Promise<IGeneratedFile[]> {
-    const documents = await this.documentsService.listFull(projectId, ownerId);
+  async generateCode(projectId: string, ownerId: string, access: TProjectAccess = 'owner'): Promise<IGeneratedFile[]> {
+    const documents = await this.documentsService.listFull(projectId, ownerId, access);
     const { workflows, activities } = compileProjectStructure(
       documents,
       await getIntegrationsForCompile(this.activepiecesCatalog),
@@ -368,8 +368,8 @@ export class BuildService implements OnModuleInit, OnApplicationBootstrap {
   }
 
   /** Backs `GET /projects/:id/schedules` — every Temporal Schedule reconciled for this project's `trigger-function` documents, dev and prod alike. See ADR 0037 (private) §7. */
-  async listSchedules(projectId: string, ownerId: string): Promise<IApiSchedule[]> {
-    await this.projectsService.getOwnedProject(projectId, ownerId);
+  async listSchedules(projectId: string, ownerId: string, access: TProjectAccess = 'owner'): Promise<IApiSchedule[]> {
+    await this.projectsService.getOwnedProject(projectId, ownerId, access);
     const schedules = await this.scheduleClient.listForProject(projectId);
     return schedules
       .map((schedule) => toApiSchedule(schedule))

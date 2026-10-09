@@ -24,7 +24,7 @@ import { REGISTERED_INTEGRATIONS } from '../../integrations/registered-integrati
 import { IntegrationVendorDataService } from '../../integrations/vendor-data/integration-vendor-data.service.js';
 import { Folder } from '../folders/folder.entity.js';
 import { resolveDocumentFolder } from '../layout/project-layout.js';
-import { ProjectsService } from '../projects/projects.service.js';
+import { ProjectsService, type TProjectAccess } from '../projects/projects.service.js';
 import type { CreateDocumentDto } from './dto/create-document.dto.js';
 import type { UpdateDocumentDto } from './dto/update-document.dto.js';
 import { Document } from './document.entity.js';
@@ -114,15 +114,19 @@ export class DocumentsService {
     this.vendorData = vendorData;
   }
 
-  async listFull(projectId: string, ownerId: string): Promise<IProjectDocument[]> {
-    await this.projectsService.getOwnedProject(projectId, ownerId);
+  async listFull(projectId: string, ownerId: string, access: TProjectAccess = 'owner'): Promise<IProjectDocument[]> {
+    await this.projectsService.getOwnedProject(projectId, ownerId, access);
     const documents = await this.documents.find({ where: { projectId } });
     const integrations = await this.getIntegrationsList();
     return documents.map((document) => toProjectDocument(document, integrations));
   }
 
-  async listTree(projectId: string, ownerId: string): Promise<IProjectTreeDocumentWithLock[]> {
-    await this.projectsService.getOwnedProject(projectId, ownerId);
+  async listTree(
+    projectId: string,
+    ownerId: string,
+    access: TProjectAccess = 'owner',
+  ): Promise<IProjectTreeDocumentWithLock[]> {
+    await this.projectsService.getOwnedProject(projectId, ownerId, access);
     const documents = await this.documents.find({ where: { projectId } });
     return documents.map((document) => toTreeDocument(document));
   }
@@ -240,8 +244,8 @@ export class DocumentsService {
   }
 
   /** Active locks only — see `IDocumentLockInfo`. Polled every 5s by the client while a project workspace is open. */
-  async getLocks(projectId: string, ownerId: string): Promise<IDocumentLockInfo[]> {
-    await this.projectsService.getOwnedProject(projectId, ownerId);
+  async getLocks(projectId: string, ownerId: string, access: TProjectAccess = 'owner'): Promise<IDocumentLockInfo[]> {
+    await this.projectsService.getOwnedProject(projectId, ownerId, access);
     const documents = await this.documents.find({ where: { projectId, lockExpiresAt: MoreThan(new Date()) } });
     return documents
       .filter(

@@ -46,6 +46,7 @@ import type { IIntegrationInstance } from '@falang/workflow-integrations-common'
 import { SCHEDULE_VENDOR } from '@falang/workflow-integrations-schedule';
 import { TOKEN_SCHEDULE_STATUS } from '@falang/workflow-scheme';
 import { workflowApi } from './api-client.js';
+import type { IApiProjectOwner } from './api-types.js';
 import { AgentLockTracker } from './agent/agent-lock-tracker.js';
 import { AgentSettingsStore } from './agent/agent-settings-store.js';
 import { MagicInsertSetting } from './agent/magic-insert-setting.js';
@@ -108,9 +109,23 @@ const darkTheme: ITheme = {
   selectedBorderColor: '#1668dc',
 };
 
+/** How a project is opened — see `WorkflowStore`'s constructor. */
+export interface IWorkflowStoreOptions {
+  /**
+   * An admin viewing another user's project (`GET /projects/:id`'s `readOnly`): read-only schemes, no autosave, no
+   * structural edits, and the UI hides everything that writes or runs. The backend refuses such writes on its own too.
+   */
+  readonly readOnly?: boolean;
+  /** Who owns the project — shown in the read-only banner. */
+  readonly owner?: IApiProjectOwner | null;
+}
+
 /** Local editor state for one open project — folders, tabs, scheme instances, selection. Backend I/O is `ProjectSync`'s job. */
 export class WorkflowStore implements IWorkflowAgentStore {
   readonly projectId: string;
+  /** See `IWorkflowStoreOptions.readOnly`. */
+  readonly readOnly: boolean;
+  readonly owner: IApiProjectOwner | null;
   readonly container: DependencyContainer;
   readonly folders = observable<WorkflowFolder>([]);
   readonly documents = observable<WorkflowDocument>([]);
@@ -207,10 +222,12 @@ export class WorkflowStore implements IWorkflowAgentStore {
    */
   private readonly agentLocks: AgentLockTracker;
 
-  constructor(projectId: string) {
+  constructor(projectId: string, options: IWorkflowStoreOptions = {}) {
     // The in-app agent's vendor tools hide vendors this deployment disabled (`disabledVendors` of `GET /auth/config`).
     loadDisabledVendors();
     this.projectId = projectId;
+    this.readOnly = options.readOnly === true;
+    this.owner = options.owner ?? null;
     this.container = container.createChildContainer();
     registerTypescriptProjectService(this.container);
     // `this.documents` (the observable array field above) is already the live instance at this point
@@ -218,8 +235,11 @@ export class WorkflowStore implements IWorkflowAgentStore {
     // closure to read it here, even though it's still empty until `ProjectSync`'s first load resolves.
     this.scheduleStatus = new ScheduleStatusStore(projectId, () => this.hasScheduleTrigger());
     this.container.register(TOKEN_SCHEDULE_STATUS, { useValue: this.scheduleStatus });
-    this.tasks.load({ status: 'open', projectId });
-    this.tasks.start();
+    // Tasks are always the viewer's own (`GET /tasks` is owner-scoped) — nothing to show read-only.
+    if (!this.readOnly) {
+      this.tasks.load({ status: 'open', projectId });
+      this.tasks.start();
+    }
     makeObservable(this);
     this.liveRun = new LiveRunStore(projectId, { ensureDevBuilt: () => this.ensureDevBuilt() });
     // Follow the watched run across documents: when it enters another function (`call-function`),
@@ -316,6 +336,7 @@ export class WorkflowStore implements IWorkflowAgentStore {
         // errors are logged and swallowed), so this fire-and-forget chain is safe.
         this.loadVendorData();
       },
+      { readOnly: this.readOnly },
     );
     // Keep-alive bookkeeping: whenever the active tab is a scheme document, it becomes the most recent.
     this.keepAliveDisposer = reaction(
@@ -468,6 +489,7 @@ export class WorkflowStore implements IWorkflowAgentStore {
   }
 
   @action createFolder(name: string, parentId: string | null = null): string {
+    this.assertWritable();
     const id = generateUuid();
     const reason = checkFolderPlacement(id, parentId, this.folders);
     if (reason) throw new Error(reason);
@@ -478,6 +500,7 @@ export class WorkflowStore implements IWorkflowAgentStore {
   }
 
   @action deleteFolder(id: string): void {
+    this.assertWritable();
     if (isFixedFolder(this.folders.find((f) => f.id === id))) return;
     const allIds = new Set([id, ...this.getFolderDescendantIds(id)]);
     const docsToDelete = this.documents.filter((d) => d.folderId !== null && allIds.has(d.folderId));
@@ -496,6 +519,7 @@ export class WorkflowStore implements IWorkflowAgentStore {
   }
 
   @action createDocument(type: DocumentType, name: string, folderId: string | null = null): string {
+    this.assertWritable();
     if (this.hasDocumentName(name)) throw new Error(`A document named "${name}" already exists`);
     const id = generateUuid();
     const doc: WorkflowDocument = { id, name, type, folderId: folderId ?? this.getSectionFolderId(type) };
@@ -510,6 +534,7 @@ export class WorkflowStore implements IWorkflowAgentStore {
     bodyData: TTriggerFunctionBodyData,
     folderId: string | null = null,
   ): string {
+    this.assertWritable();
     if (this.hasDocumentName(name)) throw new Error(`A document named "${name}" already exists`);
     const doc = buildTriggerFunctionDocument(
       name,
@@ -528,6 +553,7 @@ export class WorkflowStore implements IWorkflowAgentStore {
    * caller validates first to show the reason.
    */
   @action renameDocument(id: string, name: string): boolean {
+    this.assertWritable();
     const doc = this.documents.find((d) => d.id === id);
     const trimmed = name.trim();
     if (!doc || doc.pinned || !trimmed || trimmed === doc.name) return false;
@@ -539,6 +565,7 @@ export class WorkflowStore implements IWorkflowAgentStore {
 
   /** Renames a user folder; section folders (and an unchanged/empty name) are refused with `false`. */
   @action renameFolder(id: string, name: string): boolean {
+    this.assertWritable();
     const folder = this.folders.find((f) => f.id === id);
     const trimmed = name.trim();
     if (!folder || isFixedFolder(folder) || !trimmed || trimmed === folder.name) return false;
@@ -548,6 +575,7 @@ export class WorkflowStore implements IWorkflowAgentStore {
   }
 
   @action deleteDocument(id: string): void {
+    this.assertWritable();
     const deleted = this.getDocument(id);
     if (deleted?.type === OBJECTS_STRUCTURE_NAME && deleted.data) {
       this.typesRegistry.updateTypesByParent(deleted.data.id, []);
@@ -558,6 +586,7 @@ export class WorkflowStore implements IWorkflowAgentStore {
   }
 
   @action moveDocument(docId: string, folderId: string | null): void {
+    this.assertWritable();
     const doc = this.documents.find((d) => d.id === docId);
     if (!doc || doc.pinned) return;
     if (checkDocumentPlacement(doc.type, folderId, this.folders) !== null) return;
@@ -566,6 +595,7 @@ export class WorkflowStore implements IWorkflowAgentStore {
   }
 
   @action moveFolder(folderId: string, newParentId: string | null): void {
+    this.assertWritable();
     const folder = this.folders.find((f) => f.id === folderId);
     if (!folder || isFixedFolder(folder)) return;
     if (checkFolderPlacement(folderId, newParentId, this.folders) !== null) return;
@@ -664,6 +694,7 @@ export class WorkflowStore implements IWorkflowAgentStore {
   }
 
   @action saveIntegrationInstance(instance: IIntegrationInstance): void {
+    this.assertWritable();
     saveIntegrationInstanceAction(this.documents, this.sync, instance);
     // A create/rename/vendor-field edit can change what `instanceTypes` derives (e.g. a struct name
     // keyed off `instance.name`) even with no new vendor data fetched — see ADR 0039 (private) §5.
@@ -692,6 +723,7 @@ export class WorkflowStore implements IWorkflowAgentStore {
   }
 
   @action deleteIntegrationInstance(id: string): void {
+    this.assertWritable();
     deleteIntegrationInstanceAction(this.documents, this.sync, id);
     this.registerVendorDataTypes();
   }
@@ -878,10 +910,16 @@ export class WorkflowStore implements IWorkflowAgentStore {
     this.schemes.clear();
   }
 
+  /** Structural edits are never reachable from the read-only UI — this only catches a missed entry point. */
+  private assertWritable(): void {
+    if (this.readOnly) throw new Error('The project is open read-only');
+  }
+
   private buildScheme(doc: WorkflowDocument): Scheme {
     const isFunctionDoc = doc.type === 'function' || doc.type === TRIGGER_FUNCTION_NAME;
     const scheme = buildWorkflowDocumentScheme({
       doc,
+      readOnly: this.readOnly,
       parentContainer: this.container,
       // Every scheme follows the same project-level `liveRun` — a run's location names the document
       // it's in, and the module only highlights when that's this scheme (see `ExecutionPositionModule`).
@@ -898,10 +936,12 @@ export class WorkflowStore implements IWorkflowAgentStore {
       getActivepiecesFieldOptionsProvider: () => createActivepiecesFieldOptionsProvider(this.projectId),
       defaultInsertNodeName: () => (this.agentSettings.configured && this.magicInsert.enabled ? MAGIC_NAME : 'action'),
       onSchemeCreated: (created) => {
-        if (isFunctionDoc) this.magicRuns.registerHost(doc.id, created);
+        if (isFunctionDoc && !this.readOnly) this.magicRuns.registerHost(doc.id, created);
       },
     });
-    subscribeWorkflowDocumentSync(doc, scheme, this.typesRegistry, () => this.sync.scheduleSaveDocument(doc));
+    if (!this.readOnly) {
+      subscribeWorkflowDocumentSync(doc, scheme, this.typesRegistry, () => this.sync.scheduleSaveDocument(doc));
+    }
     return scheme;
   }
 

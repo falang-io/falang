@@ -30,6 +30,18 @@ export interface IAdminUser {
   readonly activatedAt: string | null;
 }
 
+/** `GET /admin/users/:id/projects` — what an admin needs to pick a project to view read-only. */
+export interface IAdminUserProject {
+  readonly id: string;
+  readonly name: string;
+  readonly createdAt: string;
+  readonly lastEditedAt: string | null;
+  readonly prodEnabled: boolean;
+}
+
+/** A project's "last changed" time as the owner's list sorts by it: the last edit, else creation. */
+const changedAt = (project: Project): number => (project.lastEditedAt ?? project.createdAt).getTime();
+
 const toAdminUser = (user: User, projectsCount: number): IAdminUser => ({
   id: user.id,
   username: user.username,
@@ -79,6 +91,25 @@ export class AdminUsersService {
     const user = await this.usersService.findById(id);
     if (!user) throw new NotFoundException(`User "${id}" not found`);
     return toAdminUser(user, await this.projects.count({ where: { ownerId: id } }));
+  }
+
+  /**
+   * The user's projects in the order the owner's own list shows them — most recently changed first, a never-edited
+   * project counted by its creation time (`ProjectListStore.sortedProjects`); 404 for an unknown user.
+   */
+  async listUserProjects(id: string): Promise<IAdminUserProject[]> {
+    const user = await this.usersService.findById(id);
+    if (!user) throw new NotFoundException(`User "${id}" not found`);
+    const projects = await this.projects.find({ where: { ownerId: id } });
+    return projects
+      .toSorted((a, b) => changedAt(b) - changedAt(a))
+      .map((project) => ({
+        id: project.id,
+        name: project.name,
+        createdAt: project.createdAt.toISOString(),
+        lastEditedAt: project.lastEditedAt ? project.lastEditedAt.toISOString() : null,
+        prodEnabled: project.prodEnabled,
+      }));
   }
 
   async updateRole(currentUserId: string, targetUserId: string, role: TUserRole): Promise<IAdminUser> {

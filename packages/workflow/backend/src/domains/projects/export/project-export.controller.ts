@@ -22,7 +22,7 @@ export class ProjectExportController {
     @Param('projectId') projectId: string,
     @CurrentUser() user: IJwtPayloadUser,
   ): Promise<IProjectExportPayload> {
-    return this.projectExportService.exportProject(projectId, user.id);
+    return this.projectExportService.exportProject(projectId, user.id, 'read');
   }
 
   @Post('import')

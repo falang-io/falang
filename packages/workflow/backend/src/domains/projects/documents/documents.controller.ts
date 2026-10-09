@@ -27,7 +27,7 @@ export class DocumentsController {
 
   @Get()
   list(@Param('projectId') projectId: string, @CurrentUser() user: IJwtPayloadUser): Promise<IProjectDocument[]> {
-    return this.documentsService.listFull(projectId, user.id);
+    return this.documentsService.listFull(projectId, user.id, 'read');
   }
 
   /**
@@ -38,7 +38,7 @@ export class DocumentsController {
    */
   @Get('locks')
   getLocks(@Param('projectId') projectId: string, @CurrentUser() user: IJwtPayloadUser): Promise<IDocumentLockInfo[]> {
-    return this.documentsService.getLocks(projectId, user.id);
+    return this.documentsService.getLocks(projectId, user.id, 'read');
   }
 
   /**

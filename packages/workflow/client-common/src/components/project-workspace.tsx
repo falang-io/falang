@@ -6,6 +6,8 @@ import { ContainerContext, getGlobalI18n } from '@falang/scheme';
 import { message } from 'antd';
 import { PrintExportModal, PrintLayer, ResizeHandle, useResizablePanelWidth, VersionDiffModal } from '@falang/antd';
 import { INTEGRATIONS_DOCUMENT_TYPE } from '@falang/workflow-integrations-common';
+import { workflowApi } from '../api-client.js';
+import { navigationStore } from '../navigation-store.js';
 import { WorkflowStore } from '../workflow-store.js';
 import { WorkflowStoreContext } from '../workflow-store-context.js';
 import { ProjectTree } from './project-tree.js';
@@ -110,11 +112,27 @@ export const ProjectWorkspace: React.FC<Props> = observer(({ projectId }) => {
   // `DebugSessionStore` had been silently unsubscribed moments after mount. Pairing create/dispose
   // in the same effect makes the double-invoke symmetric: StrictMode's extra cleanup+re-run creates
   // a fresh store the second time around, exactly as intended.
+  //
+  // `GET /projects/:id` first: an admin opening someone else's project gets `readOnly: true`, which the store
+  // needs at construction (its schemes are built read-only). A failed lookup opens the project as before — the
+  // tree load then reports the error the usual way.
   const [store, setStore] = useState<WorkflowStore | null>(null);
   useEffect(() => {
-    const nextStore = new WorkflowStore(projectId);
-    setStore(nextStore);
-    return () => nextStore.dispose();
+    let cancelled = false;
+    let nextStore: WorkflowStore | null = null;
+    workflowApi
+      .getProject(projectId)
+      .catch(() => null)
+      .then((info) => {
+        if (cancelled) return;
+        if (info) navigationStore.setProjectName(projectId, info.name);
+        nextStore = new WorkflowStore(projectId, { readOnly: info?.readOnly === true, owner: info?.owner ?? null });
+        setStore(nextStore);
+      });
+    return () => {
+      cancelled = true;
+      nextStore?.dispose();
+    };
   }, [projectId]);
 
   // A `PATCH`/`DELETE` 409'd on a document the 5s lock poll hadn't caught up with yet — the overlay

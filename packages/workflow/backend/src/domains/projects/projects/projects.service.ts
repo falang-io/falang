@@ -3,21 +3,42 @@ import { Injectable, NotFoundException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { INTEGRATIONS_DOCUMENT_TYPE } from '@falang/workflow-integrations-common';
 import type { Repository } from 'typeorm';
+import { User } from '../../users/users/user.entity.js';
 import { Document } from '../documents/document.entity.js';
 import { ensureFixedFolders } from '../layout/project-layout.js';
 import { Project } from './project.entity.js';
+
+/**
+ * How a caller may touch a project: `'owner'` (default — every write, run, build, agent call) or
+ * `'read'` — the owner, or a platform admin viewing someone else's project read-only. Only GET routes
+ * pass `'read'`; any write keeps answering 404 to an admin who isn't the owner.
+ */
+export type TProjectAccess = 'owner' | 'read';
+
+/** `GET /projects/:id` — the project plus who owns it, and whether the caller may only look. */
+export interface IProjectInfo {
+  id: string;
+  name: string;
+  ownerId: string;
+  createdAt: Date;
+  owner: { id: string; username: string; email: string | null } | null;
+  readOnly: boolean;
+}
 
 @Injectable()
 export class ProjectsService {
   private readonly projects: Repository<Project>;
   private readonly documents: Repository<Document>;
+  private readonly users: Repository<User>;
 
   constructor(
     @InjectRepository(Project) projects: Repository<Project>,
     @InjectRepository(Document) documents: Repository<Document>,
+    @InjectRepository(User) users: Repository<User>,
   ) {
     this.projects = projects;
     this.documents = documents;
+    this.users = users;
   }
 
   list(ownerId: string): Promise<Project[]> {
@@ -51,11 +72,40 @@ export class ProjectsService {
     await this.documents.save(document);
   }
 
-  /** Resolves a project owned by `ownerId`, or throws 404 — used by folders/documents to authorize before touching a project's contents, and to avoid leaking whether a project exists to a non-owner. */
-  async getOwnedProject(id: string, ownerId: string): Promise<Project> {
-    const project = await this.projects.findOneBy({ id, ownerId });
-    if (!project) throw new NotFoundException(`Project "${id}" not found`);
-    return project;
+  /**
+   * Resolves a project owned by `userId`, or throws 404 — used by folders/documents to authorize before touching a
+   * project's contents, and to avoid leaking whether a project exists to a non-owner. With `access: 'read'` a platform
+   * admin passes too (read-only viewing of other users' projects); the role is re-read from the database, never taken
+   * from the JWT claim, same as `AdminGuard`.
+   */
+  async getOwnedProject(id: string, userId: string, access: TProjectAccess = 'owner'): Promise<Project> {
+    const project = await this.projects.findOneBy({ id });
+    if (project && (project.ownerId === userId || (access === 'read' && (await this.isAdmin(userId))))) {
+      return project;
+    }
+    throw new NotFoundException(`Project "${id}" not found`);
+  }
+
+  /** `GET /projects/:id` — readable by the owner and (read-only) by an admin. */
+  async getProjectInfo(id: string, userId: string): Promise<IProjectInfo> {
+    const project = await this.getOwnedProject(id, userId, 'read');
+    const owner = await this.users.findOne({
+      select: { id: true, username: true, email: true },
+      where: { id: project.ownerId },
+    });
+    return {
+      id: project.id,
+      name: project.name,
+      ownerId: project.ownerId,
+      createdAt: project.createdAt,
+      owner: owner ? { id: owner.id, username: owner.username, email: owner.email } : null,
+      readOnly: project.ownerId !== userId,
+    };
+  }
+
+  private async isAdmin(userId: string): Promise<boolean> {
+    const user = await this.users.findOne({ select: { id: true, role: true }, where: { id: userId } });
+    return user?.role === 'admin';
   }
 
   /** The owning user's id for `projectId`, or throws 404 — for resolving per-owner limits (`UserLimitsService`) where no caller identity is at hand. */

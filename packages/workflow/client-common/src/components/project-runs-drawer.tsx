@@ -5,6 +5,7 @@ import { Button, Drawer, Table, Tag, Typography } from 'antd';
 import { getGlobalI18n } from '@falang/scheme';
 import { workflowApi, type IApiWorkflowRunSummary } from '../api-client.js';
 import { useWorkflowStore } from '../workflow-store-context.js';
+import { RunDetailDrawer } from './run-detail-drawer.js';
 import { statusTagColor } from './run-panel.js';
 
 interface Props {
@@ -33,6 +34,9 @@ export const ProjectRunsDrawer: React.FC<Props> = observer(({ open, onClose }) =
   const [runs, setRuns] = useState<IApiWorkflowRunSummary[] | null>(null);
   const [loading, setLoading] = useState(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
+  // Read-only (an admin viewing someone else's project): a row opens the run's details and journal instead of
+  // following it live — following polls the position route, which may wake the project's runner pod.
+  const [selectedRun, setSelectedRun] = useState<IApiWorkflowRunSummary | null>(null);
 
   const load = useCallback(() => {
     setLoading(true);
@@ -73,6 +77,10 @@ export const ProjectRunsDrawer: React.FC<Props> = observer(({ open, onClose }) =
         onRow={(run) => ({
           style: { cursor: 'pointer' },
           onClick: () => {
+            if (store.readOnly) {
+              setSelectedRun(run);
+              return;
+            }
             store.liveRun.watchSummary(run);
             onClose();
           },
@@ -94,6 +102,19 @@ export const ProjectRunsDrawer: React.FC<Props> = observer(({ open, onClose }) =
           },
         ]}
       />
+      {store.readOnly && (
+        <RunDetailDrawer
+          run={selectedRun ? { ...selectedRun, projectId: store.projectId } : null}
+          onClose={() => setSelectedRun(null)}
+          readOnly
+          onJumpToNode={(documentId, nodeId) => {
+            if (!store.getDocument(documentId)) return;
+            setSelectedRun(null);
+            onClose();
+            store.jumpToNode(documentId, nodeId);
+          }}
+        />
+      )}
     </Drawer>
   );
 });

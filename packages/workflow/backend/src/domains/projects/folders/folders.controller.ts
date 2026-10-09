@@ -21,7 +21,7 @@ export class FoldersController {
 
   @Get()
   list(@Param('projectId') projectId: string, @CurrentUser() user: IJwtPayloadUser): Promise<IProjectTreeFolder[]> {
-    return this.foldersService.listTree(projectId, user.id);
+    return this.foldersService.listTree(projectId, user.id, 'read');
   }
 
   @Post()

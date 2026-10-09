@@ -66,26 +66,29 @@ describe('RunsService.listRuns', () => {
 
   it("narrows to only the filtered project's task queues when projectId is given", async () => {
     const listWorkflowRuns = vi.fn(() => Promise.resolve<IRawWorkflowRun[]>([]));
+    const getOwnedProject = vi.fn(() => Promise.resolve(project('p2', 'Project Two')));
     const service = makeService({
       projectsService: {
         list: vi.fn(() => Promise.resolve([project('p1', 'Project One'), project('p2', 'Project Two')])),
-        getOwnedProject: vi.fn(),
+        getOwnedProject,
       },
       listWorkflowRuns,
     });
 
     await service.listRuns('owner-1', { projectId: 'p2' });
 
+    // Read access: the owner, or an admin viewing the project read-only.
+    expect(getOwnedProject).toHaveBeenCalledWith('p2', 'owner-1', 'read');
     expect(listWorkflowRuns).toHaveBeenCalledTimes(1);
     expect(listWorkflowRuns).toHaveBeenCalledWith({ projectId: 'p2', taskQueues: ['workflow-dev-p2', 'workflow-p2'] });
   });
 
-  it('returns an empty list without calling Temporal when projectId does not match any owned project', async () => {
+  it('returns an empty list without calling Temporal when projectId is not readable by the user', async () => {
     const listWorkflowRuns = vi.fn(() => Promise.resolve<IRawWorkflowRun[]>([]));
     const service = makeService({
       projectsService: {
         list: vi.fn(() => Promise.resolve([project('p1', 'Project One')])),
-        getOwnedProject: vi.fn(),
+        getOwnedProject: vi.fn(() => Promise.reject(new NotFoundException())),
       },
       listWorkflowRuns,
     });
@@ -264,7 +267,7 @@ describe('RunsService.getRunDetail', () => {
     });
 
     await expect(service.getRunDetail('owner-1', 'wf-1', 'run-1')).rejects.toThrow(NotFoundException);
-    expect(getOwnedProject).toHaveBeenCalledWith('p1', 'owner-1');
+    expect(getOwnedProject).toHaveBeenCalledWith('p1', 'owner-1', 'read');
   });
 
   it('returns the enriched detail for an owned dev run', async () => {
@@ -419,7 +422,12 @@ describe('RunsService across Temporal namespaces', () => {
   it('narrows the probe to the given projectId, and 404s for a project the user does not own', async () => {
     const describeWorkflowRun = vi.fn(() => Promise.resolve(null));
     const service = makeService({
-      projectsService: { list: vi.fn(() => Promise.resolve(ownedProjects(3))), getOwnedProject: vi.fn() },
+      projectsService: {
+        list: vi.fn(() => Promise.resolve(ownedProjects(3))),
+        getOwnedProject: vi.fn((id: string) =>
+          id === 'not-mine' ? Promise.reject(new NotFoundException()) : Promise.resolve(project(id, id)),
+        ),
+      },
       describeWorkflowRun,
     });
 

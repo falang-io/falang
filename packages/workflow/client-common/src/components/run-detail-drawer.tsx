@@ -19,6 +19,8 @@ interface Props {
   /** Makes a journal row's node label a link (the project workspace passes it; the standalone Runs page has no editor). */
   readonly onJumpToNode?: (documentId: string, nodeId: string) => void;
   readonly resolveNode?: (documentId: string, nodeId: string) => string | null;
+  /** No Terminate button — an admin viewing someone else's project. */
+  readonly readOnly?: boolean;
 }
 
 const statusColor = (status: string): string => {
@@ -72,7 +74,7 @@ const JournalTab: React.FC<IJournalTabProps> = ({ store, loading, wholeConversat
  * summary fields plus a flat event list, no execution graph. A link to the real Temporal UI is a
  * planned follow-up, not built here.
  */
-export const RunDetailDrawer: React.FC<Props> = ({ run, onClose, onJumpToNode, resolveNode }) => {
+export const RunDetailDrawer: React.FC<Props> = ({ run, onClose, onJumpToNode, resolveNode, readOnly }) => {
   const t = getGlobalI18n().t;
   const [detail, setDetail] = useState<IApiWorkflowRunDetail | null>(null);
   const [loading, setLoading] = useState(false);
@@ -84,7 +86,7 @@ export const RunDetailDrawer: React.FC<Props> = ({ run, onClose, onJumpToNode, r
     setErrorMessage(null);
     setLoading(true);
     workflowApi
-      .getWorkflowRunDetail(run.workflowId, run.runId)
+      .getWorkflowRunDetail(run.workflowId, run.runId, run.projectId)
       .then(setDetail)
       .catch((error: unknown) =>
         setErrorMessage(error instanceof Error ? error.message : t('client:run-detail-drawer.failed-to-load')),
@@ -121,6 +123,7 @@ export const RunDetailDrawer: React.FC<Props> = ({ run, onClose, onJumpToNode, r
       size={720}
       destroyOnHidden
       extra={
+        !readOnly &&
         detail?.status === 'RUNNING' && (
           <TerminateRunButton
             onTerminate={async () => {

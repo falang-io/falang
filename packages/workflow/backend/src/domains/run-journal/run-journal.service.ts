@@ -6,7 +6,7 @@ import {
 } from '@falang/workflow-gateway';
 import type { IRunJournalSettings } from '@falang/workflow-dto';
 import { Inject, Injectable, Logger, Optional, type OnModuleInit } from '@nestjs/common';
-import { ProjectsService } from '../projects/projects/projects.service.js';
+import { ProjectsService, type TProjectAccess } from '../projects/projects/projects.service.js';
 import type { IngestRunJournalDto } from './dto/ingest-run-journal.dto.js';
 import { DEFAULT_JOURNAL_LIMIT } from './dto/list-run-journal.dto.js';
 import { prepareJournalEntries } from './prepare-journal-entries.js';
@@ -94,8 +94,9 @@ export class RunJournalService implements IRunJournalProblemPort, OnModuleInit {
     workflowId: string,
     runId: string,
     query: IJournalListQuery,
+    access: TProjectAccess = 'owner',
   ): Promise<IRunJournalPage> {
-    await this.projectsService.getOwnedProject(projectId, ownerId);
+    await this.projectsService.getOwnedProject(projectId, ownerId, access);
     return this.store.listRun(projectId, workflowId, runId, {
       after: query.after,
       limit: query.limit ?? DEFAULT_JOURNAL_LIMIT,
@@ -107,16 +108,21 @@ export class RunJournalService implements IRunJournalProblemPort, OnModuleInit {
     ownerId: string,
     workflowId: string,
     query: IJournalListQuery,
+    access: TProjectAccess = 'owner',
   ): Promise<IRunJournalPage> {
-    await this.projectsService.getOwnedProject(projectId, ownerId);
+    await this.projectsService.getOwnedProject(projectId, ownerId, access);
     return this.store.listWorkflow(projectId, workflowId, {
       after: query.after,
       limit: query.limit ?? DEFAULT_JOURNAL_LIMIT,
     });
   }
 
-  async getSettings(projectId: string, ownerId: string): Promise<IRunJournalSettings> {
-    const project = await this.projectsService.getOwnedProject(projectId, ownerId);
+  async getSettings(
+    projectId: string,
+    ownerId: string,
+    access: TProjectAccess = 'owner',
+  ): Promise<IRunJournalSettings> {
+    const project = await this.projectsService.getOwnedProject(projectId, ownerId, access);
     return { storeTexts: project.journalStoreTexts };
   }
 

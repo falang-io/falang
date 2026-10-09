@@ -24,6 +24,7 @@ import { authStore } from '@falang/workflow-client-common';
 import { adminApi, type IAdminUser } from '../admin-api.js';
 import { useAdminExtensions } from '../admin-extensions.js';
 import { UserLimitsModal } from './user-limits-modal.js';
+import { UserProjects } from './user-projects.js';
 
 /**
  * MobX store backing `UsersPage` — mirrors the `useState(() => new XStore())` pattern
@@ -194,12 +195,13 @@ const UserDetails: React.FC<{ user: IAdminUser }> = ({ user }) => {
       <Descriptions.Item label={label('role-label')}>{user.role}</Descriptions.Item>
     </Descriptions>
   );
+  const projects = <UserProjects userId={user.id} />;
   const extra = extensions.renderUserDetails?.(user);
-  if (!extra) return details;
   return (
     <>
       {details}
-      <div style={{ marginTop: 16 }}>{extra}</div>
+      {projects}
+      {extra && <div style={{ marginTop: 16 }}>{extra}</div>}
     </>
   );
 };
@@ -285,7 +287,19 @@ export const UsersPage: React.FC = observer(() => {
             dataIndex: 'createdAt',
             render: (createdAt: string) => new Date(createdAt).toLocaleString(),
           },
-          { title: t('workflow-client-admin:users-page.projects-column'), dataIndex: 'projectsCount' },
+          {
+            title: t('workflow-client-admin:users-page.projects-column'),
+            dataIndex: 'projectsCount',
+            // A non-zero count opens "Details", which lists the projects with an "Open" (read-only) link.
+            render: (count: number, user) =>
+              count > 0 ? (
+                <Button type="link" size="small" onClick={() => store.showDetails(user.id)}>
+                  {count}
+                </Button>
+              ) : (
+                count
+              ),
+          },
           {
             title: t('workflow-client-admin:users-page.actions-column'),
             key: 'actions',
@@ -358,6 +372,7 @@ export const UsersPage: React.FC = observer(() => {
       <Modal
         title={t('workflow-client-admin:users-page.details-title')}
         open={store.detailsUser !== null}
+        width={720}
         onCancel={() => store.closeDetails()}
         footer={null}
         destroyOnHidden

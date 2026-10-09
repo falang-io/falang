@@ -118,7 +118,9 @@
       "magic-insert-tooltip": "A click on a valence point inserts a magic node: describe the step in words and the agent builds it",
       "magic-insert-disabled": "Magic insert needs the AI agent to be configured by an administrator",
       "project-menu": "Project",
-      "run-journal": "Run journal"
+      "run-journal": "Run journal",
+      "read-only": "Read-only · owner: {{owner}}",
+      "read-only-tooltip": "You are viewing another user’s project as an administrator. Nothing can be changed, built or run here."
     },
     "run-function-modal": {
       "title": "Run function",
@@ -206,6 +208,7 @@
       "name": "Name",
       "vendor": "Vendor",
       "edit": "Edit",
+      "view": "View",
       "delete": "Delete",
       "delete-confirm": "Delete this integration?",
       "modal-edit-title": "Edit integration",

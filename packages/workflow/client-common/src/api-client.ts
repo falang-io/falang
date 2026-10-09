@@ -26,6 +26,7 @@ import type {
   IApiOpenSignupInput,
   IApiPersonalAccessToken,
   IApiProject,
+  IApiProjectInfo,
   IApiProjectTemplate,
   IApiProjectDocument,
   IApiProjectExport,
@@ -225,6 +226,9 @@ export const workflowApi = {
 
   listProjects: () => request<IApiProject[]>('/projects'),
 
+  /** The owner, or an admin viewing read-only (`readOnly: true`). */
+  getProject: (projectId: string) => request<IApiProjectInfo>(`/projects/${projectId}`),
+
   createProject: (name: string) =>
     request<IApiProject>('/projects', { method: 'POST', body: JSON.stringify({ name }) }),
 
@@ -403,8 +407,11 @@ export const workflowApi = {
   terminateWorkflowRun: (projectId: string, workflowId: string, runId: string) =>
     request<null>(`/projects/${projectId}/runs/${workflowId}/${runId}/terminate`, { method: 'POST' }),
 
-  getWorkflowRunDetail: (workflowId: string, runId: string) =>
-    request<IApiWorkflowRunDetail>(`/workflow-runs/${workflowId}/${runId}`),
+  /** `projectId` narrows the lookup to one project — required for an admin viewing someone else's project. */
+  getWorkflowRunDetail: (workflowId: string, runId: string, projectId?: string) =>
+    request<IApiWorkflowRunDetail>(
+      `/workflow-runs/${workflowId}/${runId}${projectId ? `?projectId=${encodeURIComponent(projectId)}` : ''}`,
+    ),
 
   /** Run journal (ADR 0059 (private)) — one run, entries after the `after` cursor (last seen id). */
   getRunJournal: (projectId: string, workflowId: string, runId: string, params: IJournalPageParams = {}) =>

@@ -12,7 +12,7 @@ import type { IProjectTreeFolder } from '@falang/dto';
 import { checkFolderPlacement } from '@falang/workflow-dto';
 import type { Repository } from 'typeorm';
 import { loadTreeFolders, toTreeFolder } from '../layout/project-layout.js';
-import { ProjectsService } from '../projects/projects.service.js';
+import { ProjectsService, type TProjectAccess } from '../projects/projects.service.js';
 import type { CreateFolderDto } from './dto/create-folder.dto.js';
 import type { UpdateFolderDto } from './dto/update-folder.dto.js';
 import { Folder } from './folder.entity.js';
@@ -39,8 +39,8 @@ export class FoldersService {
     this.projectsService = projectsService;
   }
 
-  async listTree(projectId: string, ownerId: string): Promise<IProjectTreeFolder[]> {
-    await this.projectsService.getOwnedProject(projectId, ownerId);
+  async listTree(projectId: string, ownerId: string, access: TProjectAccess = 'owner'): Promise<IProjectTreeFolder[]> {
+    await this.projectsService.getOwnedProject(projectId, ownerId, access);
     const folders = await this.folders.find({ where: { projectId } });
     return folders.map((folder) => toTreeFolder(folder));
   }

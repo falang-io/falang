@@ -33,8 +33,8 @@ export class TreeController {
     @CurrentUser() user: IJwtPayloadUser,
   ): Promise<IProjectTreeResponse> {
     const [folders, documents] = await Promise.all([
-      this.foldersService.listTree(projectId, user.id),
-      this.documentsService.listTree(projectId, user.id),
+      this.foldersService.listTree(projectId, user.id, 'read'),
+      this.documentsService.listTree(projectId, user.id, 'read'),
     ]);
     return { folders, documents };
   }

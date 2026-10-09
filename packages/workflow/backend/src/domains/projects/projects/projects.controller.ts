@@ -1,4 +1,4 @@
-import { Body, Controller, Get, Inject, Post } from '@nestjs/common';
+import { Body, Controller, Get, Inject, Param, Post } from '@nestjs/common';
 import { CurrentUser } from '../../auth/auth/current-user.decorator.js';
 import type { IJwtPayloadUser } from '../../auth/auth/jwt.strategy.js';
 // Kept as a value import (not `import type`): Nest's global `ValidationPipe` resolves the DTO
@@ -7,7 +7,7 @@ import type { IJwtPayloadUser } from '../../auth/auth/jwt.strategy.js';
 // oxlint-disable-next-line consistent-type-imports
 import { CreateProjectDto } from './dto/create-project.dto.js';
 import type { Project } from './project.entity.js';
-import { ProjectsService } from './projects.service.js';
+import { type IProjectInfo, ProjectsService } from './projects.service.js';
 
 @Controller('projects')
 export class ProjectsController {
@@ -20,6 +20,12 @@ export class ProjectsController {
   @Get()
   list(@CurrentUser() user: IJwtPayloadUser): Promise<Project[]> {
     return this.projectsService.list(user.id);
+  }
+
+  /** The owner, or an admin viewing read-only (`readOnly: true`) — see `TProjectAccess`. */
+  @Get(':projectId')
+  get(@Param('projectId') projectId: string, @CurrentUser() user: IJwtPayloadUser): Promise<IProjectInfo> {
+    return this.projectsService.getProjectInfo(projectId, user.id);
   }
 
   @Post()

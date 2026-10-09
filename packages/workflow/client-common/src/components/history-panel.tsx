@@ -32,7 +32,11 @@ export const HistoryPanel: React.FC = observer(() => {
         <Button size="small" type="text" icon={<CloseOutlined />} onClick={() => store.toggleRightPanel('history')} />
       </div>
       <div style={styles.body}>
-        <VersionHistoryPanel store={store.versionHistory} onOpenDiff={() => store.openDiffModal()} />
+        <VersionHistoryPanel
+          store={store.versionHistory}
+          onOpenDiff={() => store.openDiffModal()}
+          readOnly={store.readOnly}
+        />
       </div>
     </div>
   );

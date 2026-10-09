@@ -19,7 +19,7 @@ import { ProjectExportService } from '../export/project-export.service.js';
 import { FoldersService } from '../folders/folders.service.js';
 import { ensureFixedFolders, normalizeStoredProjectLayout } from '../layout/project-layout.js';
 import { Project } from '../projects/project.entity.js';
-import { ProjectsService } from '../projects/projects.service.js';
+import { ProjectsService, type TProjectAccess } from '../projects/projects.service.js';
 import { User } from '../../users/users/user.entity.js';
 import { blobContentOf, hashBlobContent } from './blob-content.js';
 import { orderCommitsNewestFirst } from './commit-chain-order.js';
@@ -101,16 +101,21 @@ export class VersioningService {
   }
 
   /** Newest first — see `orderCommitsNewestFirst` for why this walks the `parentId` chain rather than sorting by `created_at`. */
-  async listCommits(projectId: string, ownerId: string): Promise<ICommitInfo[]> {
-    await this.projectsService.getOwnedProject(projectId, ownerId);
+  async listCommits(projectId: string, ownerId: string, access: TProjectAccess = 'owner'): Promise<ICommitInfo[]> {
+    await this.projectsService.getOwnedProject(projectId, ownerId, access);
     const commits = orderCommitsNewestFirst(await this.commits.find({ where: { projectId } }));
     if (commits.length === 0) return [];
     const usernameById = await this.resolveUsernames(commits.map((commit) => commit.authorId));
     return commits.map((commit) => this.toCommitInfo(commit, usernameById));
   }
 
-  async getSnapshot(projectId: string, ownerId: string, commitId: string): Promise<IProjectSnapshot> {
-    await this.projectsService.getOwnedProject(projectId, ownerId);
+  async getSnapshot(
+    projectId: string,
+    ownerId: string,
+    commitId: string,
+    access: TProjectAccess = 'owner',
+  ): Promise<IProjectSnapshot> {
+    await this.projectsService.getOwnedProject(projectId, ownerId, access);
     const commit = await this.getOwnedCommit(projectId, commitId);
     return this.buildSnapshotFromTree(projectId, commit.tree);
   }

@@ -28,7 +28,7 @@ export class BuildController {
     @Param('projectId') projectId: string,
     @CurrentUser() user: IJwtPayloadUser,
   ): Promise<IGeneratedFile[]> {
-    return this.buildService.generateCode(projectId, user.id);
+    return this.buildService.generateCode(projectId, user.id, 'read');
   }
 
   @Post('build')
@@ -85,7 +85,7 @@ export class BuildController {
   /** The `trigger-function-body` block's read-only schedule state — see ADR 0037 (private) §7. */
   @Get('schedules')
   listSchedules(@Param('projectId') projectId: string, @CurrentUser() user: IJwtPayloadUser): Promise<IApiSchedule[]> {
-    return this.buildService.listSchedules(projectId, user.id);
+    return this.buildService.listSchedules(projectId, user.id, 'read');
   }
 
   /** Lets the client restore its Build/Stop toolbar state on page load — mirrors `getProdStatus` below, for the dev runner. */

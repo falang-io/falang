@@ -72,7 +72,13 @@
       "source-self-service": "Self-service",
       "only-pending": "Only pending activation",
       "email-optional": "E-mail (optional)",
-      "details-failed": "Failed to load user"
+      "details-failed": "Failed to load user",
+      "projects-title": "Projects",
+      "projects-empty": "No projects",
+      "projects-failed": "Failed to load projects",
+      "project-name-column": "Name",
+      "project-edited-column": "Last edited",
+      "project-open": "Open"
     },
     "user-limits-modal": {
       "title": "File/quota limits",

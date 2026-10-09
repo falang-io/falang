@@ -72,6 +72,22 @@ export interface IApiProject {
   readonly lastEditedAt?: string | null;
 }
 
+export interface IApiProjectOwner {
+  readonly id: string;
+  readonly username: string;
+  readonly email: string | null;
+}
+
+/** `GET /projects/:id` — `readOnly` when the caller is an admin viewing someone else's project. */
+export interface IApiProjectInfo {
+  readonly id: string;
+  readonly name: string;
+  readonly ownerId: string;
+  readonly createdAt: string;
+  readonly owner: IApiProjectOwner | null;
+  readonly readOnly: boolean;
+}
+
 /** `IProjectTreeDocument` (`@falang/dto`) plus an optional `lockedUntil` — see ADR 0029 (private)'s "Document locks" decision and `DocumentsService.listTree` on the backend, which computes this alongside the tree listing. */
 export interface IApiProjectTreeDocument extends IProjectTreeDocument {
   readonly lockedUntil?: string;

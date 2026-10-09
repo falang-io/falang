@@ -206,7 +206,7 @@ export class LiveRunStore implements IExecutionPositionSource {
     const run = this.watchedRun;
     if (!run || generation !== this.generation) return;
     try {
-      const detail = await workflowApi.getWorkflowRunDetail(run.workflowId, run.runId);
+      const detail = await workflowApi.getWorkflowRunDetail(run.workflowId, run.runId, this.projectId);
       if (generation !== this.generation) return;
       runInAction(() => {
         this.detail = detail;

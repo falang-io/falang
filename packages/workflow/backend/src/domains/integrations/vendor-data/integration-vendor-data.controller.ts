@@ -32,7 +32,7 @@ export class IntegrationVendorDataController {
     @Param('credentialId') credentialId: string,
     @CurrentUser() user: IJwtPayloadUser,
   ): Promise<Record<string, Record<string, unknown>>> {
-    await this.projectsService.getOwnedProject(projectId, user.id);
+    await this.projectsService.getOwnedProject(projectId, user.id, 'read');
     return this.vendorData.getAll(projectId, credentialId);
   }
 }

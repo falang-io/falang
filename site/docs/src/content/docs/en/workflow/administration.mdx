@@ -221,6 +221,33 @@ head:
   field means "use the deployment default"; a filled one overrides it for that account's projects only.
 </p>
 
+#### Viewing a user's projects
+
+<p>
+  An admin can look into any user's projects — for example to help with a support question — without being able to
+  change anything. On the Users page click a user's project count (or open "Details"): the card lists the user's
+  projects, and <b>Open</b> shows one in the editor in a new tab.
+</p>
+<ul>
+  <li>
+    The project opens <b>read-only</b>: a "Read-only · owner: …" tag in the toolbar, no "+ Add", no context menus or
+    drag-and-drop in the project tree, and schemes can't be edited. Nothing is saved automatically.
+  </li>
+  <li>
+    Available: every document and folder, the integrations list (secret values are masked, as for the owner), version
+    history and comparisons (no "name the current version", rename or restore), the generated code, the project's runs
+    with their run journal (no "Terminate"), JSON export and PDF.
+  </li>
+  <li>
+    Not available: the Dev/Prod menus (build, run, debug, publish), the AI agent and magic insert, the project's files
+    and tasks, and the run-journal settings.
+  </li>
+  <li>
+    The restriction is enforced by the backend, not only hidden in the interface: an admin may call only the
+    project's read routes, every write answers <code>404</code> exactly as for any other non-owner.
+  </li>
+</ul>
+
 #### OAuth credentials — enabling OAuth2 integrations
 
 <p>

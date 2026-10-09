@@ -2,6 +2,7 @@ import { ConflictException, NotFoundException } from '@nestjs/common';
 import { In, type Repository } from 'typeorm';
 import type { ProjectVersion } from '../build/build/project-version.entity.js';
 import type { ProjectsService } from '../projects/projects/projects.service.js';
+import type { Project } from '../projects/projects/project.entity.js';
 
 export interface IWorkflowRunEvent {
   readonly id: string;
@@ -155,17 +156,14 @@ export class RunsService {
   }
 
   /**
-   * All filtering happens here, not in the client — `projectId` narrows which task queues are even
-   * queried (and, since it's checked against the caller's own owned projects, doubles as an
-   * ownership check: an unowned or unknown id simply yields no task queues, hence no results).
-   * `workflowName`/`version`/`buildId` are applied after enrichment since they aren't real Temporal
-   * visibility fields (`version` in particular is this app's own derived concept, see `resolveVersion`).
+   * All filtering happens here — `projectId` narrows which task queues are queried and doubles as the access check
+   * (`readableProjects`: an unreadable id yields no results). `workflowName`/`version`/`buildId` are applied after
+   * enrichment: they aren't Temporal visibility fields (`version` is this app's own concept, see `resolveVersion`).
    */
   async listRuns(ownerId: string, filters: IRunsFilters = {}): Promise<IWorkflowRunSummary[]> {
-    const ownedProjects = await this.projectsService.list(ownerId);
     const projects = filters.projectId
-      ? ownedProjects.filter((project) => project.id === filters.projectId)
-      : ownedProjects;
+      ? await this.readableProjects(filters.projectId, ownerId)
+      : await this.projectsService.list(ownerId);
     if (projects.length === 0) return [];
 
     const projectNameById = new Map(projects.map((project) => [project.id, project.name]));
@@ -210,8 +208,9 @@ export class RunsService {
     runId: string,
     projectId?: string,
   ): Promise<IWorkflowRunDetail> {
-    const ownedProjects = await this.projectsService.list(ownerId);
-    const candidates = projectId ? ownedProjects.filter((project) => project.id === projectId) : ownedProjects;
+    const candidates = projectId
+      ? await this.readableProjects(projectId, ownerId)
+      : await this.projectsService.list(ownerId);
     const byNamespace = new Map<string, string>();
     for (const project of candidates) {
       if (!byNamespace.has(this.tenancy.namespaceFor(project.id)))
@@ -226,8 +225,9 @@ export class RunsService {
 
     const parsed = parseTaskQueue(detail.taskQueue);
     if (!parsed) throw new NotFoundException(`Workflow run "${workflowId}" is not owned by any project`);
-    // Throws 404 if `parsed.projectId` isn't owned by `ownerId` — never leaks a run's existence to a non-owner.
-    const project = await this.projectsService.getOwnedProject(parsed.projectId, ownerId);
+    // Throws 404 if `parsed.projectId` isn't readable by `ownerId` — never leaks a run's existence to a non-owner.
+    // An admin only gets here through an explicit `projectId` (read-only viewing, see `TProjectAccess`).
+    const project = await this.projectsService.getOwnedProject(parsed.projectId, ownerId, 'read');
     const versionNumberByProjectAndBuild = await this.buildVersionLookup([project.id]);
 
     return {
@@ -237,6 +237,12 @@ export class RunsService {
       env: parsed.env,
       version: this.resolveVersion(parsed, detail.buildId, versionNumberByProjectAndBuild),
     };
+  }
+
+  /** `[project]` when `userId` may read it (owner, or an admin read-only — `TProjectAccess`), else `[]`, never a 404. */
+  private readableProjects(projectId: string, userId: string): Promise<Project[]> {
+    const notFoundToEmpty = (error: unknown) => (error instanceof NotFoundException ? [] : Promise.reject(error));
+    return this.projectsService.getOwnedProject(projectId, userId, 'read').then((found) => [found], notFoundToEmpty);
   }
 
   /**

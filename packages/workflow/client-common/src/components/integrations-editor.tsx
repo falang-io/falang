@@ -1,3 +1,4 @@
+// oxlint-disable max-lines -- crossed 300 lines with the read-only (admin-viewed) variant: a few `!readOnly` guards on the existing buttons.
 import type React from 'react';
 import { useEffect, useMemo, useState } from 'react';
 import { observer } from 'mobx-react-lite';
@@ -161,14 +162,19 @@ export const IntegrationsEditor: React.FC = observer(() => {
   if (!doc) return null;
 
   const activeIntegration = selectedVendor ? findIntegration(selectedVendor) : null;
+  // An admin viewing someone else's project: instances open in a disabled form, nothing can be added, saved,
+  // connected, synced or deleted. Secret values are masked by the backend for every reader anyway.
+  const { readOnly } = store;
 
   return (
     <div style={{ flex: 1, overflow: 'auto', padding: 24 }}>
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 }}>
         <Title style={{ margin: 0 }}>{t('client:integrations-editor.title')}</Title>
-        <Button type="primary" onClick={openCreate}>
-          {t('client:integrations-editor.add')}
-        </Button>
+        {!readOnly && (
+          <Button type="primary" onClick={openCreate}>
+            {t('client:integrations-editor.add')}
+          </Button>
+        )}
       </div>
 
       {instances.length === 0 ? (
@@ -195,16 +201,18 @@ export const IntegrationsEditor: React.FC = observer(() => {
               render: (_, instance) => (
                 <div style={{ display: 'flex', gap: 8 }}>
                   <Button size="small" onClick={() => openEdit(instance)}>
-                    {t('client:integrations-editor.edit')}
+                    {readOnly ? t('client:integrations-editor.view') : t('client:integrations-editor.edit')}
                   </Button>
-                  <Popconfirm
-                    title={t('client:integrations-editor.delete-confirm')}
-                    onConfirm={() => store.deleteIntegrationInstance(instance.id)}
-                  >
-                    <Button size="small" danger>
-                      {t('client:integrations-editor.delete')}
-                    </Button>
-                  </Popconfirm>
+                  {!readOnly && (
+                    <Popconfirm
+                      title={t('client:integrations-editor.delete-confirm')}
+                      onConfirm={() => store.deleteIntegrationInstance(instance.id)}
+                    >
+                      <Button size="small" danger>
+                        {t('client:integrations-editor.delete')}
+                      </Button>
+                    </Popconfirm>
+                  )}
                 </div>
               ),
             },
@@ -220,8 +228,9 @@ export const IntegrationsEditor: React.FC = observer(() => {
         onCancel={closeModal}
         onOk={handleSubmit}
         destroyOnHidden
+        {...(readOnly ? { footer: null } : {})}
       >
-        <Form<IIntegrationFormValues> form={form} layout="vertical">
+        <Form<IIntegrationFormValues> form={form} layout="vertical" disabled={readOnly}>
           <Form.Item
             name="name"
             label={t('client:integrations-editor.name')}
@@ -268,7 +277,7 @@ export const IntegrationsEditor: React.FC = observer(() => {
                 </Form.Item>
               ),
             )}
-          {activeIntegration?.oauth2 && (
+          {!readOnly && activeIntegration?.oauth2 && (
             <OAuth2ConnectionField
               connected={isOAuth2Connected(instances.find((instance) => instance.id === editingId))}
               connecting={connecting}
@@ -279,7 +288,7 @@ export const IntegrationsEditor: React.FC = observer(() => {
               }}
             />
           )}
-          {editingId !== null && activeIntegration?.syncVendorData && (
+          {!readOnly && editingId !== null && activeIntegration?.syncVendorData && (
             <VendorDataSyncField
               vendorData={store.vendorData.byInstance.get(editingId)}
               syncing={store.vendorData.syncing.has(editingId)}

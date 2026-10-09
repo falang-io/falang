@@ -21,7 +21,7 @@ export class VersioningController {
 
   @Get()
   listCommits(@Param('projectId') projectId: string, @CurrentUser() user: IJwtPayloadUser): Promise<ICommitInfo[]> {
-    return this.versioningService.listCommits(projectId, user.id);
+    return this.versioningService.listCommits(projectId, user.id, 'read');
   }
 
   /** Snapshots the working copy and commits it. `200`, not Nest's default `201` for `POST` — matches `IVersionStore.commit`'s own client contract (see ADR 0025 (private)). Returns `null` when nothing changed since `HEAD`. */
@@ -41,7 +41,7 @@ export class VersioningController {
     @Param('commitId') commitId: string,
     @CurrentUser() user: IJwtPayloadUser,
   ): Promise<IProjectSnapshot> {
-    return this.versioningService.getSnapshot(projectId, user.id, commitId);
+    return this.versioningService.getSnapshot(projectId, user.id, commitId, 'read');
   }
 
   /** Promotes an `auto` commit to `named` (or renames a `named` one) — metadata only. */

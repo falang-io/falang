@@ -20,6 +20,15 @@ export interface IAdminUser {
   readonly activatedAt: string | null;
 }
 
+/** `GET /admin/users/:id/projects` row — opened read-only in the main client (`/#/projects/<id>`). */
+export interface IAdminUserProject {
+  readonly id: string;
+  readonly name: string;
+  readonly createdAt: string;
+  readonly lastEditedAt: string | null;
+  readonly prodEnabled: boolean;
+}
+
 /**
  * `GET /admin/oauth-credentials` row shape — one entry per vendor whose OAuth2 client is the platform's own: native
  * vendors with `oauth2.platformClient` (amoCRM) first, then every ActivePieces OAuth2 piece in the raw catalog.
@@ -137,6 +146,8 @@ export const adminApi = {
     }),
 
   getUser: (id: string) => apiRequest<IAdminUser>(`/admin/users/${id}`),
+
+  listUserProjects: (id: string) => apiRequest<IAdminUserProject[]>(`/admin/users/${id}/projects`),
 
   /** `{ sent: true }` when the login+password mail went out; otherwise `password` comes back once for manual hand-over. */
   activateUser: (id: string) =>

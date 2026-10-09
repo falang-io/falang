@@ -116,10 +116,15 @@ export const ProjectTree: React.FC = observer(() => {
     [store, resolveDropParent],
   );
 
-  const handleRightClick = useCallback(({ event, node }: { event: React.MouseEvent; node: { key: React.Key } }) => {
-    event.preventDefault();
-    setContextMenu({ x: event.clientX, y: event.clientY, nodeKey: String(node.key) });
-  }, []);
+  // Read-only (an admin viewing someone else's project): no "+ Add", no context menu, no drag-and-drop.
+  const { readOnly } = store;
+  const handleRightClick = useCallback(
+    ({ event, node }: { event: React.MouseEvent; node: { key: React.Key } }) => {
+      event.preventDefault();
+      if (!store.readOnly) setContextMenu({ x: event.clientX, y: event.clientY, nodeKey: String(node.key) });
+    },
+    [store],
+  );
 
   const handleMenuClick = useCallback(
     ({ key }: { key: string }) => {
@@ -225,9 +230,11 @@ export const ProjectTree: React.FC = observer(() => {
       <style>{'.ant-tree-switcher{display:none!important}'}</style>
       <div style={S.header}>
         <span style={S.headerTitle}>{t('client:project-tree.header')}</span>
-        <Dropdown menu={{ items: getAddMenuItems(t), onClick: handleAddMenuClick }} trigger={['click']}>
-          <button style={S.addBtn}>{t('client:project-tree.add')}</button>
-        </Dropdown>
+        {!readOnly && (
+          <Dropdown menu={{ items: getAddMenuItems(t), onClick: handleAddMenuClick }} trigger={['click']}>
+            <button style={S.addBtn}>{t('client:project-tree.add')}</button>
+          </Dropdown>
+        )}
       </div>
 
       {newItem && (
@@ -254,10 +261,12 @@ export const ProjectTree: React.FC = observer(() => {
             treeData={treeData}
             showIcon
             switcherIcon={() => null}
-            draggable={{
-              icon: false,
-              nodeDraggable: (node) => !(node as TreeDataNode & { disableDrag?: boolean }).disableDrag,
-            }}
+            draggable={
+              !readOnly && {
+                icon: false,
+                nodeDraggable: (node) => !(node as TreeDataNode & { disableDrag?: boolean }).disableDrag,
+              }
+            }
             blockNode
             selectedKeys={selectedKeys}
             expandedKeys={expandedKeys}

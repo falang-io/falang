@@ -36,6 +36,8 @@ export interface IBuildWorkflowDocumentSchemeParams {
   readonly defaultInsertNodeName?: () => string;
   /** Runs after the scheme exists and the theme is set, before its root node is set — the host's place to register the magic host. */
   readonly onSchemeCreated?: (scheme: Scheme) => void;
+  /** A read-only scheme (no inline editor, context menus or mutation commands) — an admin viewing someone else's project. */
+  readonly readOnly?: boolean;
 }
 
 /** The project type a workflow scheme copies icons from / pastes them into (`CopyPasteModule`). */
@@ -82,6 +84,7 @@ export const buildWorkflowDocumentScheme = (params: IBuildWorkflowDocumentScheme
     ? workflowFunctionalSchemeFactory({
         id: doc.id,
         name: doc.name,
+        readOnly: params.readOnly,
         parentContainer: params.parentContainer,
         extraModules,
         integrations: REGISTERED_INTEGRATIONS,
@@ -94,6 +97,7 @@ export const buildWorkflowDocumentScheme = (params: IBuildWorkflowDocumentScheme
     : objectsStructureSchemeFactory({
         id: doc.id,
         name: doc.name,
+        readOnly: params.readOnly,
         extraModules,
         parentContainer: params.parentContainer,
       });

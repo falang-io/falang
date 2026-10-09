@@ -73,6 +73,8 @@ export class ProjectSync {
 
   private readonly projectId: string;
   private readonly lockHooks: IProjectSyncLockHooks;
+  /** An admin viewing someone else's project: load only, never write (the backend refuses writes too). */
+  private readonly readOnly: boolean;
   private readonly pendingSaves = new PendingSaves(SAVE_DEBOUNCE_MS, (error) => this.reportError(error));
   /** One suspended debounced save per locked document — see `scheduleSaveDocument`/`onLocksChanged`. */
   private readonly suspendedSaves = new Map<string, () => Promise<unknown>>();
@@ -82,11 +84,14 @@ export class ProjectSync {
     lockHooks: IProjectSyncLockHooks,
     onTreeLoaded: TOnTreeLoaded,
     onDocumentsLoaded: TOnDocumentsLoaded,
+    options: { readOnly?: boolean } = {},
   ) {
     this.projectId = projectId;
     this.lockHooks = lockHooks;
+    this.readOnly = options.readOnly === true;
     makeObservable(this);
     this.init(onTreeLoaded, onDocumentsLoaded);
+    if (this.readOnly) return;
     loadDevStatus(
       projectId,
       () => this.buildStatus,
@@ -137,18 +142,22 @@ export class ProjectSync {
   }
 
   createFolderRemote(folder: WorkflowFolder): void {
+    if (this.readOnly) return;
     workflowApi.createFolder(this.projectId, folder).catch((error: unknown) => this.reportError(error));
   }
 
   updateFolderRemote(id: string, input: { name?: string; parentId?: string | null }): void {
+    if (this.readOnly) return;
     workflowApi.updateFolder(this.projectId, id, input).catch((error: unknown) => this.reportError(error));
   }
 
   deleteFolderRemote(id: string): void {
+    if (this.readOnly) return;
     workflowApi.deleteFolder(this.projectId, id).catch((error: unknown) => this.reportError(error));
   }
 
   createDocumentRemote(doc: WorkflowDocument): void {
+    if (this.readOnly) return;
     this.markChanged();
     workflowApi
       .createDocument(this.projectId, {
@@ -162,6 +171,7 @@ export class ProjectSync {
   }
 
   updateDocumentRemote(id: string, input: { name?: string; folderId?: string | null }): void {
+    if (this.readOnly) return;
     // A rename changes the compiled function's name — a folder move doesn't, but it's not worth
     // distinguishing for a flag that only costs an extra build.
     this.markChanged();
@@ -171,6 +181,7 @@ export class ProjectSync {
   }
 
   deleteDocumentRemote(id: string): void {
+    if (this.readOnly) return;
     this.pendingSaves.cancel(id);
     this.suspendedSaves.delete(id);
     this.markChanged();
@@ -185,6 +196,7 @@ export class ProjectSync {
    * is replayed once `onLocksChanged` sees the lock is gone.
    */
   scheduleSaveDocument(doc: WorkflowDocument): void {
+    if (this.readOnly) return;
     const root: INode | undefined = doc.data;
     this.markChanged();
     const performSave = () =>
@@ -197,6 +209,7 @@ export class ProjectSync {
 
   /** Same debounce (and lock-suspend) as `scheduleSaveDocument`, but for `custom`-typed documents (e.g. `integrations`) whose payload is `data`, not `root`. */
   scheduleSaveCustomDocument(doc: WorkflowDocument): void {
+    if (this.readOnly) return;
     const data = doc.customData;
     this.markChanged();
     const performSave = () =>
@@ -208,6 +221,7 @@ export class ProjectSync {
 
   /** Cancels any pending debounced save for `doc` and saves it immediately — used before a step (e.g. OAuth2's "Connect") that needs the document to exist server-side right away, not up to `SAVE_DEBOUNCE_MS` later. Not lock-aware: the caller already needs this write to happen now, so a 409 here surfaces as a normal thrown error, same as before this document had locks at all. */
   async flushSaveCustomDocument(doc: WorkflowDocument): Promise<void> {
+    if (this.readOnly) return;
     this.pendingSaves.cancel(doc.id);
     const data = doc.customData;
     await workflowApi.updateDocument(this.projectId, doc.id, {

@@ -106,12 +106,17 @@ export const ProjectMenu: React.FC<IProjectMenuProps> = observer(({ buttonStyle,
     },
   ];
 
+  // An admin viewing someone else's project (read-only) gets only what reads: files, tasks and the journal
+  // settings belong to the owner.
+  const READ_ONLY_HIDDEN = new Set(['files', 'tasks', 'run-journal-settings']);
+  const visibleItems = store.readOnly ? items.filter((item) => !READ_ONLY_HIDDEN.has(String(item?.key))) : items;
+
   // The button itself shows a badge when anything inside needs attention (open tasks / running runs).
   const attention = store.tasks.openCount + runningCount;
 
   return (
     <>
-      <Dropdown menu={{ items }} trigger={['click']}>
+      <Dropdown menu={{ items: visibleItems }} trigger={['click']}>
         <Button style={buttonStyle} data-testid="toolbar-project-menu">
           <Badge dot={attention > 0} color="#a6e3a1" offset={[4, -2]}>
             <span style={{ color: '#cdd6f4' }}>{t('client:toolbar.project-menu')}</span>
