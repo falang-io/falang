@@ -148,13 +148,14 @@ const waitForDevRunnerStatus = async (projectId: string, running: boolean, timeo
  * `@falang/workflow-client-common`'s `toolbar.tsx`), so readiness is polled via the API instead of
  * read off the DOM.
  */
-export const startDevRunnerViaUI = async (page: Page, projectId: string): Promise<void> => {
+export const startDevRunnerViaUI = async (page: Page, projectId: string, timeoutMs = 60_000): Promise<void> => {
   await page.getByRole('button', { name: 'Dev' }).click();
   await page.getByRole('menuitem', { name: 'Start', exact: true }).click();
   // Generous under a heavily-loaded box (the full suite runs multiple specs' webpack-bundle +
   // runner spawn concurrently against one shared backend container) — seen to occasionally exceed
   // 30-45s there even though a single spec in isolation settles in ~15s.
-  await waitForDevRunnerStatus(projectId, true, 60_000);
+  // A spec whose project bundles more (every integration) passes a longer `timeoutMs`.
+  await waitForDevRunnerStatus(projectId, true, timeoutMs);
 };
 
 /** Opens the toolbar's "Project" menu and clicks one of its items (Code/Files/Tasks/History/Runs/Save as JSON/Download PDF). */

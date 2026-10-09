@@ -48,7 +48,9 @@ test.describe('integrations smoke', () => {
   test('drops one node per integration through the canvas UI, and the "Dev" toolbar reports the build running, then stopped', async ({
     page,
   }) => {
-    test.setTimeout(90_000);
+    // This project bundles every integration's activity code, so its dev build is the slowest of the suite: ~40s warm,
+    // over 60s on the first build of a cold stack (seen as a first-attempt timeout that passed on retry).
+    test.setTimeout(180_000);
     await loginAndReachProjectList(page);
     const projectName = `Integrations Smoke ${uniqueSuffix()}`;
     const projectId = await createProjectViaUI(page, projectName);
@@ -211,7 +213,7 @@ test.describe('integrations smoke', () => {
 
     await page.reload();
     await openProjectViaUI(page, projectName);
-    await startDevRunnerViaUI(page, projectId);
+    await startDevRunnerViaUI(page, projectId, 120_000);
     await stopDevRunnerViaUI(page, projectId);
   });
 });
