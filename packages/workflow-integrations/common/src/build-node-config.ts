@@ -6,11 +6,20 @@ export type TIntegrationActionData = Readonly<Record<string, string>>;
 
 export const defaultFieldValue = (field: IFieldConfig): string => field.defaultValue ?? '';
 
-export const buildActionDataSchema = (
-  fields: readonly IFieldConfig[],
-): zod.ZodObject<Record<string, zod.ZodString>> => {
-  const shape: Record<string, zod.ZodString> = {};
-  for (const field of fields) shape[field.name] = zod.string().describe(describeFieldForAgent(field));
+type TFieldSchema = zod.ZodString | zod.ZodDefault<zod.ZodString>;
+
+/**
+ * Every field is a string and required — except a field that declares an explicit `defaultValue`:
+ * missing from stored data, it parses to that value. That is how a field added to an existing action
+ * later stays compatible with nodes saved before it existed (e.g. amoCRM's create-lead gaining its
+ * optional pipeline/status/extra fields), without loosening the fields an agent must always fill.
+ */
+export const buildActionDataSchema = (fields: readonly IFieldConfig[]): zod.ZodObject<Record<string, TFieldSchema>> => {
+  const shape: Record<string, TFieldSchema> = {};
+  for (const field of fields) {
+    const schema = zod.string().describe(describeFieldForAgent(field));
+    shape[field.name] = typeof field.defaultValue === 'string' ? schema.default(field.defaultValue) : schema;
+  }
   return zod.object(shape);
 };
 

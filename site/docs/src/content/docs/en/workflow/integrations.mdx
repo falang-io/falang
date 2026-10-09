@@ -95,8 +95,19 @@ head:
     against. There are no actions: call the Bitrix24 REST API through <b>HTTP request</b> with an incoming-webhook URL.
   </li>
   <li>
-    <b>amoCRM</b>. "Create lead" (name and price). Connected with OAuth2: pick amoCRM in the integrations list and click
-    "Connect". It appears only once an administrator has entered the amoCRM app's keys on the "OAuth credentials" page
+    <b>amoCRM</b>. Dedicated nodes for the frequent operations: create, update, get and find a lead; create a lead together
+    with a contact and a company; create, update and find a contact; create a company; create and complete a task; add a
+    note; link entities. Moving a lead to another pipeline stage is "Update lead" with the stage ID. The "Call API
+    method" node covers the rest of API v4 (about 170 methods: pipelines and stages, custom fields, tags, lists,
+    customers, unsorted, users, webhooks, and so on) with the chosen method's parameters suggested by the editor; it
+    returns the API answer as is (amoCRM's empty "nothing found" answer comes back as <code>null</code>). Request errors
+    (4xx) fail the node without retries; hitting the rate limit (about 7 requests per second) is retried automatically.
+    Triggers: a lead event (created, updated, stage changed, responsible user changed, deleted, restored, note added),
+    a contact, company, task, customer or conversation event, and a chat message (incoming or outgoing); the event is
+    picked when the trigger is created, and every event starts its own run. The amoCRM webhook is subscribed
+    automatically when the scenario starts; that needs the "Расширенный" or "Профессиональный" plan — if subscribing
+    fails, the run journal shows the URL and the events so the webhook can be added by hand (amoМаркет → Web hooks).
+    Connected with OAuth2: pick amoCRM in the integrations list and click "Connect". It appears only once an administrator has entered the amoCRM app's keys on the "OAuth credentials" page
     (see <a href="../administration/">administration</a>). amocrm.ru accounts only.
   </li>
   <li>
@@ -212,6 +223,6 @@ head:
 
 <p>
   The list of built-in integrations keeps growing. Most of the Russian services above start with a few core actions or
-  a single trigger; more actions (writing to 1С, amoCRM contacts and tasks, sending documents through Диадок) are
+  a single trigger; more actions (writing to 1С, sending documents through Диадок) are
   planned.
 </p>

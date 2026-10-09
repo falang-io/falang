@@ -5,6 +5,7 @@ import { Logger, type OnModuleDestroy, type OnModuleInit } from '@nestjs/common'
 import type { IIntegrationBackendHandle, IWorkflowIntegration } from '@falang/workflow-integrations-common';
 import type { IIntegrationCredentialInstance, IIntegrationsDiscoveryPort } from './discovery-port.js';
 import type { IFileUploadPort } from './file-upload-port.js';
+import type { IOAuth2AccessTokenPort } from './oauth2-access-token-port.js';
 import type { IRunJournalProblemPort } from './run-journal-problem-port.js';
 import type { IScheduleClientPort } from './schedule-client.js';
 import type { TSignalWorkflowWithStart } from './signal-workflow.js';
@@ -94,6 +95,8 @@ export interface IIntegrationsRuntimeParams {
    * it) — `ctx.uploadFile()` throws if actually called without it, the same posture as `scheduleClient`.
    */
   readonly fileUpload?: IFileUploadPort;
+  /** Backs `ctx.getOAuth2AccessToken()` — see `oauth2-access-token-port.ts`. Without it the ctx method is absent. */
+  readonly oauth2AccessToken?: IOAuth2AccessTokenPort;
 }
 
 /**
@@ -119,6 +122,7 @@ export class IntegrationsRuntimeService implements OnModuleInit, OnModuleDestroy
   private readonly getInternalProjectToken: ((projectId: string) => string) | undefined;
   private readonly scheduleClient: IScheduleClientPort | undefined;
   private readonly fileUpload: IFileUploadPort | undefined;
+  private readonly oauth2AccessToken: IOAuth2AccessTokenPort | undefined;
 
   private readonly webhookHandlers = new Map<string, (request: Request) => Promise<Response>>();
   private readonly activeTargets = new Map<string, IActiveTarget>();
@@ -148,6 +152,7 @@ export class IntegrationsRuntimeService implements OnModuleInit, OnModuleDestroy
     this.getInternalProjectToken = params.getInternalProjectToken;
     this.scheduleClient = params.scheduleClient;
     this.fileUpload = params.fileUpload;
+    this.oauth2AccessToken = params.oauth2AccessToken;
   }
 
   onModuleInit(): void {
@@ -518,6 +523,7 @@ export class IntegrationsRuntimeService implements OnModuleInit, OnModuleDestroy
         deleteSchedule: (scheduleId) => this.requireScheduleClient().delete(target.projectId, scheduleId),
         listSchedules: () => this.requireScheduleClient().list(target.projectId, taskQueue),
         uploadFile: (source, meta) => this.requireFileUploadPort().upload(target.projectId, source, meta),
+        ...(this.oauth2AccessToken ? { getOAuth2AccessToken: () => this.resolveOAuth2AccessToken(target) } : {}),
       }),
     );
 
@@ -574,6 +580,11 @@ export class IntegrationsRuntimeService implements OnModuleInit, OnModuleDestroy
       throw new Error('No schedule client configured for this IntegrationsRuntimeService');
     }
     return this.scheduleClient;
+  }
+
+  private resolveOAuth2AccessToken(target: IKnownTarget): Promise<string> {
+    if (!this.oauth2AccessToken) throw new Error('No OAuth2 access token port configured');
+    return this.oauth2AccessToken.getAccessToken(target.projectId, target.vendor, target.credentialId);
   }
 
   private requireFileUploadPort(): IFileUploadPort {

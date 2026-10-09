@@ -3,6 +3,7 @@ import { ConfigService } from '@nestjs/config';
 import type { IWorkflowIntegration } from '@falang/workflow-integrations-common';
 import type { IIntegrationsDiscoveryPort } from './discovery-port.js';
 import type { IFileUploadPort } from './file-upload-port.js';
+import type { IOAuth2AccessTokenPort } from './oauth2-access-token-port.js';
 import { IntegrationWebhookController } from './integration-webhook.controller.js';
 import { IntegrationsRuntimeService } from './integrations-runtime.service.js';
 import { createTemporalScheduleClient, SCHEDULE_CLIENT_PORT, type IScheduleClientPort } from './schedule-client.js';
@@ -33,6 +34,8 @@ type TResolveInternalProjectToken = FactoryProvider<(projectId: string) => strin
 // `(port: IFileUploadPort) => port`, injecting a host's own `FILE_UPLOAD_PORT`-provided instance) can
 // be passed here directly.
 type TResolveFileUploadPort = FactoryProvider<IFileUploadPort>['useFactory'];
+// Same borrowing trick — e.g. `(port: IOAuth2AccessTokenPort) => port`.
+type TResolveOAuth2AccessTokenPort = FactoryProvider<IOAuth2AccessTokenPort>['useFactory'];
 
 const buildIntegrationsRuntimeServiceProvider = (
   integrations: readonly IWorkflowIntegration[],
@@ -44,6 +47,8 @@ const buildIntegrationsRuntimeServiceProvider = (
   internalProjectTokenInject: FactoryProvider['inject'],
   resolveFileUploadPort: TResolveFileUploadPort | undefined,
   fileUploadInject: FactoryProvider['inject'],
+  resolveOAuth2AccessTokenPort: TResolveOAuth2AccessTokenPort | undefined,
+  oauth2AccessTokenInject: FactoryProvider['inject'],
 ): FactoryProvider<IntegrationsRuntimeService> => ({
   provide: IntegrationsRuntimeService,
   useFactory: async (config: ConfigService, ...allArgs: readonly unknown[]) => {
@@ -51,6 +56,7 @@ const buildIntegrationsRuntimeServiceProvider = (
     const dynamicLength = dynamicInject?.length ?? 0;
     const tokenLength = internalProjectTokenInject?.length ?? 0;
     const fileUploadLength = fileUploadInject?.length ?? 0;
+    const oauth2Length = oauth2AccessTokenInject?.length ?? 0;
     const discoveryArgs = allArgs.slice(0, discoveryLength) as Parameters<TResolveDiscoveryPort>;
     const dynamicArgs = allArgs.slice(discoveryLength, discoveryLength + dynamicLength);
     const tokenArgs = allArgs.slice(
@@ -61,18 +67,26 @@ const buildIntegrationsRuntimeServiceProvider = (
       discoveryLength + dynamicLength + tokenLength,
       discoveryLength + dynamicLength + tokenLength + fileUploadLength,
     ) as Parameters<TResolveFileUploadPort>;
+    const oauth2Start = discoveryLength + dynamicLength + tokenLength + fileUploadLength;
+    const oauth2Args = allArgs.slice(
+      oauth2Start,
+      oauth2Start + oauth2Length,
+    ) as Parameters<TResolveOAuth2AccessTokenPort>;
     // `SCHEDULE_CLIENT_PORT` then `TEMPORAL_TENANCY` are always the last injected dependencies, fixed regardless of host (unlike
     // the categories above, which vary per host) — see `scheduleClientPortProvider`.
-    const [scheduleClient, tenancy] = allArgs.slice(
-      discoveryLength + dynamicLength + tokenLength + fileUploadLength,
-    ) as [IScheduleClientPort, ITemporalTenancy];
-    const [discovery, dynamicIntegrations, getInternalProjectToken, fileUpload] = await Promise.all([
+    const [scheduleClient, tenancy] = allArgs.slice(oauth2Start + oauth2Length) as [
+      IScheduleClientPort,
+      ITemporalTenancy,
+    ];
+    const [discovery, dynamicIntegrations, getInternalProjectToken, fileUpload, oauth2AccessToken] = await Promise.all([
       resolveDiscoveryPort(...discoveryArgs),
       resolveDynamicIntegrations(...dynamicArgs),
       // oxlint-disable-next-line no-undefined -- a real "no token source configured" value, not a mistaken omission.
       resolveInternalProjectToken ? resolveInternalProjectToken(...tokenArgs) : undefined,
       // oxlint-disable-next-line no-undefined -- a real "no file-upload port configured" value, not a mistaken omission.
       resolveFileUploadPort ? resolveFileUploadPort(...fileUploadArgs) : undefined,
+      // oxlint-disable-next-line no-undefined -- a real "no OAuth2 access-token port configured" value, not a mistaken omission.
+      resolveOAuth2AccessTokenPort ? resolveOAuth2AccessTokenPort(...oauth2Args) : undefined,
     ]);
     return new IntegrationsRuntimeService({
       integrations: [...integrations, ...dynamicIntegrations],
@@ -82,6 +96,7 @@ const buildIntegrationsRuntimeServiceProvider = (
       getInternalProjectToken,
       scheduleClient,
       fileUpload,
+      oauth2AccessToken,
     });
   },
   inject: [
@@ -90,6 +105,7 @@ const buildIntegrationsRuntimeServiceProvider = (
     ...(dynamicInject ?? []),
     ...(internalProjectTokenInject ?? []),
     ...(fileUploadInject ?? []),
+    ...(oauth2AccessTokenInject ?? []),
     SCHEDULE_CLIENT_PORT,
     TEMPORAL_TENANCY,
   ],
@@ -129,6 +145,12 @@ export interface IGatewayModuleAsyncOptions {
    */
   resolveFileUploadPort?: TResolveFileUploadPort;
   fileUploadInject?: FactoryProvider['inject'];
+  /**
+   * Resolves `IIntegrationsRuntimeParams.oauth2AccessToken` — backs `ctx.getOAuth2AccessToken()`, see
+   * `oauth2-access-token-port.ts`. Omit when no vendor's ingress calls its own OAuth2 API.
+   */
+  resolveOAuth2AccessTokenPort?: TResolveOAuth2AccessTokenPort;
+  oauth2AccessTokenInject?: FactoryProvider['inject'];
 }
 
 @Module({})
@@ -151,6 +173,9 @@ export class GatewayModule {
           undefined,
           [],
           // oxlint-disable-next-line no-undefined -- no file-upload port for this bare-`forRoot` wiring; a real value, not an omission.
+          undefined,
+          [],
+          // oxlint-disable-next-line no-undefined -- no OAuth2 access-token port for this bare-`forRoot` wiring.
           undefined,
           [],
         ),
@@ -183,6 +208,8 @@ export class GatewayModule {
           options.internalProjectTokenInject,
           options.resolveFileUploadPort,
           options.fileUploadInject,
+          options.resolveOAuth2AccessTokenPort,
+          options.oauth2AccessTokenInject,
         ),
       ],
       exports: [IntegrationsRuntimeService, SCHEDULE_CLIENT_PORT],

@@ -1,0 +1,201 @@
+import type { TIntegrationLocaleLoader } from '@falang/workflow-integrations-common';
+import { AMOCRM_METHODS } from './amocrm-methods.js';
+
+type TLanguage = 'en' | 'ru';
+type TDictionary = Record<string, string>;
+
+const ACTIONS: Record<TLanguage, TDictionary> = {
+  en: {
+    createLead: 'amoCRM — Create lead',
+    updateLead: 'amoCRM — Update lead',
+    getLead: 'amoCRM — Get lead',
+    findLeads: 'amoCRM — Find leads',
+    createLeadComplex: 'amoCRM — Create lead with contact',
+    createContact: 'amoCRM — Create contact',
+    updateContact: 'amoCRM — Update contact',
+    findContacts: 'amoCRM — Find contacts',
+    createCompany: 'amoCRM — Create company',
+    createTask: 'amoCRM — Create task',
+    completeTask: 'amoCRM — Complete task',
+    addNote: 'amoCRM — Add note',
+    linkEntities: 'amoCRM — Link entities',
+    callMethod: 'amoCRM — Call API method',
+  },
+  ru: {
+    createLead: 'amoCRM — Создать сделку',
+    updateLead: 'amoCRM — Изменить сделку',
+    getLead: 'amoCRM — Получить сделку',
+    findLeads: 'amoCRM — Найти сделки',
+    createLeadComplex: 'amoCRM — Создать сделку с контактом',
+    createContact: 'amoCRM — Создать контакт',
+    updateContact: 'amoCRM — Изменить контакт',
+    findContacts: 'amoCRM — Найти контакты',
+    createCompany: 'amoCRM — Создать компанию',
+    createTask: 'amoCRM — Создать задачу',
+    completeTask: 'amoCRM — Завершить задачу',
+    addNote: 'amoCRM — Добавить примечание',
+    linkEntities: 'amoCRM — Связать сущности',
+    callMethod: 'amoCRM — Вызвать метод API',
+  },
+};
+
+const FIELDS: Record<TLanguage, TDictionary> = {
+  en: {
+    account: 'Account',
+    resultVariable: 'Result variable',
+    leadName: 'Lead name',
+    leadNameKeep: 'Lead name (empty — unchanged)',
+    leadId: 'Lead ID',
+    price: 'Budget',
+    pipelineId: 'Pipeline ID',
+    statusId: 'Stage (status) ID',
+    responsibleUserId: 'Responsible user ID',
+    extra: 'Other fields (custom fields, tags, …)',
+    with: 'Include (with)',
+    query: 'Search text',
+    contactQuery: 'Search text (phone, e-mail, name)',
+    filter: 'Filter',
+    limit: 'Limit (max 250)',
+    contactName: 'Contact name',
+    contactNameKeep: 'Contact name (empty — unchanged)',
+    contactId: 'Contact ID',
+    companyName: 'Company name',
+    phone: 'Phone',
+    email: 'E-mail',
+    phoneReplace: 'Phone (replaces the current ones, empty — unchanged)',
+    emailReplace: 'E-mail (replaces the current ones, empty — unchanged)',
+    entityType: 'Entity type',
+    entityId: 'Entity ID',
+    toEntityType: 'Link to entity type',
+    toEntityId: 'Link to entity ID',
+    taskText: 'Task text',
+    completeTill: 'Due (Unix time, seconds)',
+    taskTypeId: 'Task type ID (1 — call, 2 — meeting)',
+    taskId: 'Task ID',
+    taskResult: 'Result text',
+    noteText: 'Note text',
+    method: 'Method',
+    data: 'Parameters',
+    event: 'Event',
+  },
+  ru: {
+    account: 'Аккаунт',
+    resultVariable: 'Переменная результата',
+    leadName: 'Название сделки',
+    leadNameKeep: 'Название сделки (пусто — не менять)',
+    leadId: 'ID сделки',
+    price: 'Бюджет',
+    pipelineId: 'ID воронки',
+    statusId: 'ID этапа (статуса)',
+    responsibleUserId: 'ID ответственного',
+    extra: 'Прочие поля (доп. поля, теги, …)',
+    with: 'Дополнительно (with)',
+    query: 'Текст поиска',
+    contactQuery: 'Текст поиска (телефон, e-mail, имя)',
+    filter: 'Фильтр',
+    limit: 'Лимит (до 250)',
+    contactName: 'Имя контакта',
+    contactNameKeep: 'Имя контакта (пусто — не менять)',
+    contactId: 'ID контакта',
+    companyName: 'Название компании',
+    phone: 'Телефон',
+    email: 'E-mail',
+    phoneReplace: 'Телефон (заменяет текущие, пусто — не менять)',
+    emailReplace: 'E-mail (заменяет текущие, пусто — не менять)',
+    entityType: 'Тип сущности',
+    entityId: 'ID сущности',
+    toEntityType: 'Связать с типом',
+    toEntityId: 'Связать с ID',
+    taskText: 'Текст задачи',
+    completeTill: 'Срок (Unix-время, секунды)',
+    taskTypeId: 'ID типа задачи (1 — звонок, 2 — встреча)',
+    taskId: 'ID задачи',
+    taskResult: 'Результат',
+    noteText: 'Текст примечания',
+    method: 'Метод',
+    data: 'Параметры',
+    event: 'Событие',
+  },
+};
+
+const ENTITY_TYPES: Record<TLanguage, TDictionary> = {
+  en: {
+    leads: 'Leads',
+    contacts: 'Contacts',
+    companies: 'Companies',
+    customers: 'Customers',
+    catalog_elements: 'Catalog elements',
+  },
+  ru: {
+    leads: 'Сделки',
+    contacts: 'Контакты',
+    companies: 'Компании',
+    customers: 'Покупатели',
+    catalog_elements: 'Элементы списков',
+  },
+};
+
+const TRIGGERS: Record<TLanguage, TDictionary> = {
+  en: {
+    lead: 'amoCRM — Lead event',
+    contact: 'amoCRM — Contact event',
+    company: 'amoCRM — Company event',
+    task: 'amoCRM — Task event',
+    customer: 'amoCRM — Customer event',
+    talk: 'amoCRM — Conversation event',
+    message: 'amoCRM — Chat message',
+  },
+  ru: {
+    lead: 'amoCRM — Событие сделки',
+    contact: 'amoCRM — Событие контакта',
+    company: 'amoCRM — Событие компании',
+    task: 'amoCRM — Событие задачи',
+    customer: 'amoCRM — Событие покупателя',
+    talk: 'amoCRM — Событие беседы',
+    message: 'amoCRM — Сообщение в чате',
+  },
+};
+
+const EVENTS: Record<TLanguage, TDictionary> = {
+  en: {
+    add: 'Created',
+    update: 'Updated',
+    status: 'Stage changed',
+    responsible: 'Responsible user changed',
+    delete: 'Deleted',
+    restore: 'Restored',
+    note: 'Note added',
+    incoming: 'Incoming message',
+    outgoing: 'Outgoing message',
+  },
+  ru: {
+    add: 'Создание',
+    update: 'Изменение',
+    status: 'Смена этапа',
+    responsible: 'Смена ответственного',
+    delete: 'Удаление',
+    restore: 'Восстановление',
+    note: 'Добавлено примечание',
+    incoming: 'Входящее сообщение',
+    outgoing: 'Исходящее сообщение',
+  },
+};
+
+/** The `amocrm` namespace for one language — method labels come from the catalog itself (`label`/`labelEn`), so they can't drift. */
+export const buildAmoCrmLocale = (language: TLanguage): Record<string, Record<string, unknown>> => ({
+  amocrm: {
+    action: ACTIONS[language],
+    field: FIELDS[language],
+    entityType: ENTITY_TYPES[language],
+    trigger: TRIGGERS[language],
+    event: EVENTS[language],
+    method: Object.fromEntries(
+      AMOCRM_METHODS.map((method) => [method.id, language === 'ru' ? method.label : method.labelEn]),
+    ),
+  },
+});
+
+export const AMOCRM_LOCALES: Partial<Record<string, TIntegrationLocaleLoader>> = {
+  en: () => Promise.resolve({ default: buildAmoCrmLocale('en') }),
+  ru: () => Promise.resolve({ default: buildAmoCrmLocale('ru') }),
+};

@@ -13,6 +13,7 @@
   },
   "dependencies": {
     "@falang/typescript-dto": "*",
+    "@falang/workflow-dto": "*",
     "@falang/workflow-integrations-common": "*"
   },
   "files": [
@@ -26,5 +27,8 @@
     "!src/**/*-test-harness.ts",
     "!src/test-utils",
     "!src/**/__snapshots__"
-  ]
+  ],
+  "devDependencies": {
+    "typescript": "^6.0.2"
+  }
 }

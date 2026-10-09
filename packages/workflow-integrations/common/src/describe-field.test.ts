@@ -82,4 +82,9 @@ describe('buildActionDataSchema', () => {
     });
     expect(jsonSchema.properties['text']?.description).toBe(describeFieldForAgent(textField));
   });
+
+  it('fills a missing field that declares a defaultValue (a node saved before the field existed)', () => {
+    const schema = buildActionDataSchema([chatIdField, { ...textField, defaultValue: 'hi' }]);
+    expect(schema.parse({ chatId: '1' })).toEqual({ chatId: '1', text: 'hi' });
+  });
 });

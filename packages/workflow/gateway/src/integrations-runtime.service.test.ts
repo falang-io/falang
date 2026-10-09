@@ -571,6 +571,54 @@ describe('IntegrationsRuntimeService', () => {
     });
   });
 
+  describe('ctx.getOAuth2AccessToken', () => {
+    it("is backed by the oauth2AccessToken port, scoped to this target's project, vendor and credential", async () => {
+      vi.useFakeTimers();
+      const oauth2AccessToken = { getAccessToken: vi.fn().mockResolvedValue('fresh-token') };
+      const tokens: string[] = [];
+      const registerBackend = vi.fn().mockImplementation(async (ctx: IIntegrationBackendContext) => {
+        if (ctx.getOAuth2AccessToken) tokens.push(await ctx.getOAuth2AccessToken());
+        return noopDispose;
+      });
+      const instance = singleInstance();
+      const runtime = new IntegrationsRuntimeService({
+        integrations: [buildIntegration(registerBackend)],
+        discovery: buildDiscovery({ findCredentialInstances: vi.fn().mockResolvedValue([instance]) }),
+        signalWorkflowWithStart: vi.fn(),
+        oauth2AccessToken,
+      });
+
+      await runtime.onModuleInit();
+      runtime.resumeProjectIntegrations('project-1', 'dev');
+      await vi.advanceTimersByTimeAsync(0);
+
+      expect(tokens).toEqual(['fresh-token']);
+      expect(oauth2AccessToken.getAccessToken).toHaveBeenCalledWith('project-1', instance.vendor, instance.instanceId);
+      await runtime.onModuleDestroy();
+    });
+
+    it('is absent when no port is configured', async () => {
+      vi.useFakeTimers();
+      const seen: boolean[] = [];
+      const registerBackend = vi.fn().mockImplementation((ctx: IIntegrationBackendContext) => {
+        seen.push(typeof ctx.getOAuth2AccessToken === 'function');
+        return Promise.resolve(noopDispose);
+      });
+      const runtime = new IntegrationsRuntimeService({
+        integrations: [buildIntegration(registerBackend)],
+        discovery: buildDiscovery({ findCredentialInstances: vi.fn().mockResolvedValue([singleInstance()]) }),
+        signalWorkflowWithStart: vi.fn(),
+      });
+
+      await runtime.onModuleInit();
+      runtime.resumeProjectIntegrations('project-1', 'dev');
+      await vi.advanceTimersByTimeAsync(0);
+
+      expect(seen).toEqual([false]);
+      await runtime.onModuleDestroy();
+    });
+  });
+
   describe('ctx.uploadFile', () => {
     it("delegates to the configured fileUpload port, scoped to this target's projectId", async () => {
       vi.useFakeTimers();

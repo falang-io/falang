@@ -176,6 +176,14 @@ export interface IIntegrationBackendContext {
    */
   uploadFile(source: ReadableStream<Uint8Array> | Uint8Array, meta: IUploadFileMeta): Promise<IFileRefLike>;
   /**
+   * A valid access token for this ctx's OAuth2 credential (`IWorkflowIntegration.oauth2`), refreshed and persisted by
+   * the host when it is about to expire — the backend-side counterpart of the runner's `resolveOAuth2AccessToken`,
+   * for a vendor whose ingress must call the vendor's API itself (e.g. amoCRM subscribing its webhook). `ctx.fields`
+   * only carries the stored, possibly expired token. Optional so a host without it still works; it rejects when the
+   * credential isn't connected.
+   */
+  getOAuth2AccessToken?(): Promise<string>;
+  /**
    * Writes a run-journal entry (`kind: 'error'`, default level `warn`) for input this vendor's ingress received but
    * could not hand to any workflow — a button press with no bound trigger function, say (ADR 0059 (private) §2c).
    * `workflowId` is the one the input would have targeted; `runId` is `null` when no run exists. The host adds the

@@ -6,6 +6,8 @@ import { APP_GUARD } from '@nestjs/core';
 import { getRepositoryToken, TypeOrmModule } from '@nestjs/typeorm';
 import {
   FILE_UPLOAD_PORT,
+  OAUTH2_ACCESS_TOKEN_PORT,
+  type IOAuth2AccessTokenPort,
   GatewayModule,
   type IFileUploadPort,
   type IIntegrationsDiscoveryPort,
@@ -152,6 +154,10 @@ const buildBuiltInImports = (extraMigrations: readonly TAppMigration[] = []): TA
     // wrapping `FilesService`. See ADR 0038 (private) §2/§5.
     resolveFileUploadPort: (port: IFileUploadPort) => port,
     fileUploadInject: [FILE_UPLOAD_PORT],
+    // Backs `ctx.getOAuth2AccessToken()` (amoCRM's webhook subscription) — `IntegrationsModule`'s
+    // `OAuth2AccessTokenService`, the same code as `POST /internal/credentials/oauth2-access-token`.
+    resolveOAuth2AccessTokenPort: (port: IOAuth2AccessTokenPort) => port,
+    oauth2AccessTokenInject: [OAUTH2_ACCESS_TOKEN_PORT],
   }),
 ];
 

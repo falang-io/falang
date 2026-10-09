@@ -1,2 +1,15 @@
 export const AMOCRM_VENDOR = 'amocrm';
 export const AMOCRM_CREATE_LEAD_NAME = 'amocrm-create-lead';
+export const AMOCRM_UPDATE_LEAD_NAME = 'amocrm-update-lead';
+export const AMOCRM_GET_LEAD_NAME = 'amocrm-get-lead';
+export const AMOCRM_FIND_LEADS_NAME = 'amocrm-find-leads';
+export const AMOCRM_CREATE_LEAD_COMPLEX_NAME = 'amocrm-create-lead-complex';
+export const AMOCRM_CREATE_CONTACT_NAME = 'amocrm-create-contact';
+export const AMOCRM_UPDATE_CONTACT_NAME = 'amocrm-update-contact';
+export const AMOCRM_FIND_CONTACTS_NAME = 'amocrm-find-contacts';
+export const AMOCRM_CREATE_COMPANY_NAME = 'amocrm-create-company';
+export const AMOCRM_CREATE_TASK_NAME = 'amocrm-create-task';
+export const AMOCRM_COMPLETE_TASK_NAME = 'amocrm-complete-task';
+export const AMOCRM_ADD_NOTE_NAME = 'amocrm-add-note';
+export const AMOCRM_LINK_ENTITIES_NAME = 'amocrm-link-entities';
+export const AMOCRM_CALL_METHOD_NAME = 'amocrm-call-method';
