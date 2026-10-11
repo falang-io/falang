@@ -1,0 +1,76 @@
+---
+title: Project servers
+description: How a project's dev stand and prod versions run as instances, when they start and stop on their own, and how to tune it
+head:
+  - tag: meta
+    attrs:
+      name: keywords
+      content: 'instance, server, idle, auto-stop, always on, runner, workflow, dev, prod'
+---
+
+<p>
+  A workflow project does not occupy a server all the time. Its code runs on <b>instances</b> that start when they are
+  needed and stop on their own when nothing is happening.
+</p>
+
+#### What an instance is
+
+<p>
+  The <b>dev stand</b> is one instance. Every <b>prod version</b> that is currently running is a separate instance. If
+  two prod versions run side by side (for example, after a rollback), they are counted as two instances. The system
+  keeps a record of when each instance started and stopped (a run session), so the time an instance was up can always be
+  checked.
+</p>
+
+#### Starting and stopping
+
+<p>
+  An instance starts when you press Run, Debug or Start in the editor, and also automatically when an event arrives for
+  it: a Telegram message, a webhook, a schedule fire, a task being resolved. After a period with no events and no runs
+  it stops by itself. The next event starts it again. The default idle period is 30 minutes; a self-hosted deployment
+  changes it with the <code>RUNNER_IDLE_TIMEOUT_MS</code> environment variable (in milliseconds).
+</p>
+<p>
+  Waking up a stopped instance takes a few seconds, so the first event after a long pause is handled with a small delay.
+</p>
+<p>
+  If prod is switched off (you pressed Stop, or the project was suspended), events that arrive meanwhile are lost: there
+  is nobody to handle them. Switch prod on again to resume; events that were missed are not replayed.
+</p>
+
+#### The "Project servers" window
+
+<p>
+  Open <b>Project → Project servers</b> to tune the behaviour for this project. The dev stand and prod have their own
+  settings:
+</p>
+<ul>
+  <li>
+    <b>Idle minutes</b> — how long an instance waits without events before it stops. Leave the field empty to use the
+    deployment default.
+  </li>
+  <li>
+    <b>Always on</b> — the instance never stops by idleness. Useful for a bot that must answer instantly.
+  </li>
+</ul>
+<p>
+  The window also shows the current state of each instance.
+</p>
+
+#### Limits set by the administrator
+
+<p>
+  The administrator can cap the idle period (a longer value is rejected) and can forbid "Always on" for a user. These
+  limits are set per user in the admin app, on the Users page, next to the other limits.
+</p>
+
+#### Suspended projects
+
+<p>
+  An administrator can suspend a project (the Users page of the admin app → the user's project). In a cloud
+  deployment a project can also be suspended automatically, for example when the account balance has run out. A
+  suspended project has all its servers switched off, and a pill <b>"Servers are off"</b> appears in the toolbar. Run,
+  Debug, Start and automatic wake-ups are rejected until the project is resumed; events arriving meanwhile are lost,
+  as with prod switched off. Your documents and data stay untouched. After the project is resumed, switch prod on
+  again.
+</p>

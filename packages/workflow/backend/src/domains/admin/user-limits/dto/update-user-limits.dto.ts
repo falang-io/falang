@@ -1,4 +1,4 @@
-import { IsInt, IsOptional, Min } from 'class-validator';
+import { IsBoolean, IsInt, IsOptional, Min } from 'class-validator';
 
 /**
  * `PUT /admin/users/:id/limits` body — every field is optional (omitted = leave untouched) and,
@@ -31,4 +31,13 @@ export class UpdateUserLimitsDto {
   @IsInt()
   @Min(1)
   maxConcurrentProdVersions?: number | null;
+
+  @IsOptional()
+  @IsInt()
+  @Min(1)
+  maxIdleMinutes?: number | null;
+
+  @IsOptional()
+  @IsBoolean()
+  alwaysOnAllowed?: boolean | null;
 }

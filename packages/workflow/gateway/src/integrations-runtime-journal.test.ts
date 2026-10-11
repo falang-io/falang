@@ -1,7 +1,9 @@
+// oxlint-disable no-undefined, unicorn/no-useless-undefined, unicorn/consistent-function-scoping, unicorn/no-await-expression-member, unicorn/catch-error-name, oxc/no-map-spread -- test fakes: resolving/rejecting with nothing, small local helpers and one-off spreads read better than the lint-preferred shapes.
 import type { IIntegrationBackendContext, IWorkflowIntegration } from '@falang/workflow-integrations-common';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import type { IIntegrationsDiscoveryPort } from './discovery-port.js';
 import { IntegrationsRuntimeService } from './integrations-runtime.service.js';
+import { RunnerStartRefusedError } from './runner-start-refused-error.js';
 
 const discovery = (): IIntegrationsDiscoveryPort => ({
   findCredentialInstances: vi.fn().mockResolvedValue([{ instanceId: 'cred-1', vendor: 'telegram', projectId: 'p1' }]),
@@ -124,6 +126,68 @@ describe('IntegrationsRuntimeService — run journal problems', () => {
     });
     await start(runtime);
     expect(registerBackend).toHaveBeenCalled();
+    await runtime.onModuleDestroy();
+  });
+});
+
+describe('IntegrationsRuntimeService — refused runner start (ADR 0067)', () => {
+  it('does not signal the workflow when the start was refused on purpose, journals the input and rethrows', async () => {
+    vi.useFakeTimers();
+    const recordProblem = vi.fn().mockResolvedValue(null);
+    const signalWorkflowWithStart = vi.fn().mockResolvedValue(undefined);
+    let thrown: unknown = null;
+    const registerBackend = vi.fn().mockImplementation(async (ctx: IIntegrationBackendContext) => {
+      try {
+        await ctx.signalWorkflow({
+          workflowId: 'tg-doc-1',
+          workflowType: 'onMessage',
+          signalName: 'telegram-message',
+          signalArgs: [{ text: 'hi' }],
+        });
+      } catch (error) {
+        thrown = error;
+      }
+      return () => Promise.resolve();
+    });
+    const runtime = new IntegrationsRuntimeService({
+      integrations: [integration(registerBackend)],
+      discovery: discovery(),
+      signalWorkflowWithStart,
+    });
+    runtime.setEnsureRunnerRunning(() => Promise.reject(new RunnerStartRefusedError('project is suspended')));
+    runtime.setRunJournal({ recordProblem });
+    await start(runtime);
+
+    expect(signalWorkflowWithStart).not.toHaveBeenCalled();
+    expect(thrown).toBeInstanceOf(RunnerStartRefusedError);
+    expect(recordProblem).toHaveBeenCalledWith(
+      expect.objectContaining({
+        projectId: 'p1',
+        workflowId: 'tg-doc-1',
+        runId: null,
+        level: 'warn',
+        message: 'Undeliverable input: project is suspended',
+        data: expect.objectContaining({ signal: 'telegram-message', wakeError: 'project is suspended' }),
+      }),
+    );
+    await runtime.onModuleDestroy();
+  });
+
+  it('keeps signalling anyway after any other wake failure', async () => {
+    vi.useFakeTimers();
+    const signalWorkflowWithStart = vi.fn().mockResolvedValue(undefined);
+    const registerBackend = vi.fn().mockImplementation(async (ctx: IIntegrationBackendContext) => {
+      await ctx.signalWorkflow({ workflowId: 'w', workflowType: 't', signalName: 's', signalArgs: [] });
+      return () => Promise.resolve();
+    });
+    const runtime = new IntegrationsRuntimeService({
+      integrations: [integration(registerBackend)],
+      discovery: discovery(),
+      signalWorkflowWithStart,
+    });
+    runtime.setEnsureRunnerRunning(() => Promise.reject(new Error('k8s hiccup')));
+    await start(runtime);
+    expect(signalWorkflowWithStart).toHaveBeenCalledTimes(1);
     await runtime.onModuleDestroy();
   });
 });

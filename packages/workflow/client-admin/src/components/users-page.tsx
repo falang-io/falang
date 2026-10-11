@@ -25,6 +25,7 @@ import { adminApi, type IAdminUser } from '../admin-api.js';
 import { useAdminExtensions } from '../admin-extensions.js';
 import { UserLimitsModal } from './user-limits-modal.js';
 import { UserProjects } from './user-projects.js';
+import { UserRunnerSessions } from './user-runner-sessions.js';
 
 /**
  * MobX store backing `UsersPage` — mirrors the `useState(() => new XStore())` pattern
@@ -195,7 +196,12 @@ const UserDetails: React.FC<{ user: IAdminUser }> = ({ user }) => {
       <Descriptions.Item label={label('role-label')}>{user.role}</Descriptions.Item>
     </Descriptions>
   );
-  const projects = <UserProjects userId={user.id} />;
+  const projects = (
+    <>
+      <UserProjects userId={user.id} />
+      <UserRunnerSessions userId={user.id} />
+    </>
+  );
   const extra = extensions.renderUserDetails?.(user);
   return (
     <>

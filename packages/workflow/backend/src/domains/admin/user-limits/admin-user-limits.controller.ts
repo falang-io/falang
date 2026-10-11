@@ -12,6 +12,8 @@ const OVERRIDE_KEYS = [
   'devFileTtlHours',
   'ingressFileTtlHours',
   'maxConcurrentProdVersions',
+  'maxIdleMinutes',
+  'alwaysOnAllowed',
 ] as const;
 
 /**
@@ -50,7 +52,9 @@ export class AdminUserLimitsController {
     const overrides: IUserLimitsOverrides = {};
     for (const key of OVERRIDE_KEYS) {
       const value = body[key];
-      if (typeof value === 'number' || value === null) overrides[key] = value;
+      if (typeof value === 'number' || typeof value === 'boolean' || value === null) {
+        (overrides as Record<string, number | boolean | null>)[key] = value;
+      }
     }
     await this.userLimits.setOverrides(id, overrides);
     return this.buildResponse(id);

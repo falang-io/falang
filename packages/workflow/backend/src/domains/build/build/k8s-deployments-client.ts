@@ -14,8 +14,11 @@ export interface IK8sDeploymentsClient {
   exists(namespace: string, name: string): Promise<boolean>;
   /** Names of every Deployment matching `labelSelector` (e.g. `taskQueue=workflow-1`). */
   listNames(namespace: string, labelSelector: string): Promise<string[]>;
-  /** Name + labels of every Deployment matching `labelSelector` — like `listNames`, but keeps the labels `RunnerProcessManager.listRunning()` reads back off (task queue, project id, env). */
-  listAll(namespace: string, labelSelector: string): Promise<{ name: string; labels: Record<string, string> }[]>;
+  /** Name + labels (+ `metadata.creationTimestamp` when the API reports it) of every Deployment matching `labelSelector` — like `listNames`, but keeps what `RunnerProcessManager.listRunning()` reads back off (task queue, project id, env, creation time for session reconcile). */
+  listAll(
+    namespace: string,
+    labelSelector: string,
+  ): Promise<{ name: string; labels: Record<string, string>; createdAt?: Date }[]>;
 }
 
 const isApiExceptionWithCode = (error: unknown, code: number): boolean =>
@@ -76,11 +79,12 @@ export const createK8sDeploymentsClient = (appsApi: AppsV1Api): IK8sDeploymentsC
 
   async listAll(namespace, labelSelector) {
     const result = await appsApi.listNamespacedDeployment({ namespace, labelSelector });
-    const items: { name: string; labels: Record<string, string> }[] = [];
+    const items: { name: string; labels: Record<string, string>; createdAt?: Date }[] = [];
     for (const item of result.items) {
       const name = item.metadata?.name;
       if (!name) continue;
-      items.push({ name, labels: item.metadata?.labels ?? {} });
+      const created = item.metadata?.creationTimestamp;
+      items.push({ name, labels: item.metadata?.labels ?? {}, ...(created ? { createdAt: new Date(created) } : {}) });
     }
     return items;
   },

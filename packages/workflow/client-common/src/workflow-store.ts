@@ -421,6 +421,11 @@ export class WorkflowStore implements IWorkflowAgentStore {
     return this.sync.prodRunning;
   }
 
+  /** Why the platform switched this project's servers off (ADR 0067 (private)); `null` = not suspended. */
+  get suspendedReason(): 'balance' | 'admin' | null {
+    return this.sync.suspendedReason;
+  }
+
   get hasVersions(): boolean {
     return this.sync.hasVersions;
   }

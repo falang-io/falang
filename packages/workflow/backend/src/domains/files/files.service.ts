@@ -91,12 +91,10 @@ export class FilesService {
     source.on('error', (error: Error) => guard.destroy(error));
     source.pipe(guard);
 
-    const putResult = await this.storage
-      .putStream(storageKey, guard, { contentType: mime })
-      .catch((error: unknown) => {
-        if (error instanceof FileTooLargeError) throw new PayloadTooLargeException(error.message);
-        throw error;
-      });
+    const putResult = await this.storage.putStream(storageKey, guard, { contentType: mime }).catch((error: unknown) => {
+      if (error instanceof FileTooLargeError) throw new PayloadTooLargeException(error.message);
+      throw error;
+    });
 
     const now = new Date();
     const expiresAt = resolveExpiresAt(
@@ -131,7 +129,11 @@ export class FilesService {
   async openStream(projectId: string, fileId: string): Promise<IOpenedFileStream> {
     const file = await this.getRow(projectId, fileId);
     const result = await this.storage.getStream(file.storageKey);
-    return { file, body: result.body, ...(typeof result.contentLength === 'number' ? { contentLength: result.contentLength } : {}) };
+    return {
+      file,
+      body: result.body,
+      ...(typeof result.contentLength === 'number' ? { contentLength: result.contentLength } : {}),
+    };
   }
 
   async remove(projectId: string, fileId: string): Promise<void> {
@@ -177,7 +179,11 @@ export class FilesService {
     if (!row) return null;
     if (row.expiresAt && row.expiresAt.getTime() <= Date.now()) return null;
     const result = await this.storage.getStream(row.storageKey);
-    return { file: row, body: result.body, ...(typeof result.contentLength === 'number' ? { contentLength: result.contentLength } : {}) };
+    return {
+      file: row,
+      body: result.body,
+      ...(typeof result.contentLength === 'number' ? { contentLength: result.contentLength } : {}),
+    };
   }
 
   /** Deletes every row whose `expiresAt` has passed — S3 objects first, then rows, same order `FileGcService` expects. Returns how many were removed, for logging. */

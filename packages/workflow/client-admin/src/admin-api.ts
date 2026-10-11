@@ -1,4 +1,4 @@
-import { apiRequest } from '@falang/workflow-client-common';
+import { apiRequest, type IApiRunnerSession, type TApiSuspendedReason } from '@falang/workflow-client-common';
 
 /**
  * `GET /admin/users` row shape — see
@@ -27,6 +27,13 @@ export interface IAdminUserProject {
   readonly createdAt: string;
   readonly lastEditedAt: string | null;
   readonly prodEnabled: boolean;
+  /** Why the platform switched the project's servers off (ADR 0067 (private)); `null` = not suspended. */
+  readonly suspendedReason: TApiSuspendedReason | null;
+}
+
+/** `GET /admin/users/:id/runner-sessions` row — a runner session plus its project's name. */
+export interface IAdminRunnerSession extends IApiRunnerSession {
+  readonly projectName: string | null;
 }
 
 /**
@@ -99,10 +106,14 @@ export interface IUserLimits {
   readonly devFileTtlHours: number;
   readonly ingressFileTtlHours: number;
   readonly maxConcurrentProdVersions: number;
+  /** The longest idle-stop period a project may set, minutes (ADR 0067 (private)). */
+  readonly maxIdleMinutes: number;
+  /** Whether projects may use the "always on" switch. */
+  readonly alwaysOnAllowed: boolean;
 }
 
 /** A field set to `null` clears that override (falls back to the env default); an omitted field leaves it untouched. */
-export type IUserLimitsOverrides = Partial<Record<keyof IUserLimits, number | null>>;
+export type IUserLimitsOverrides = { -readonly [K in keyof IUserLimits]?: IUserLimits[K] | null };
 
 export interface IUserLimitsResponse {
   readonly effective: IUserLimits;
@@ -148,6 +159,20 @@ export const adminApi = {
   getUser: (id: string) => apiRequest<IAdminUser>(`/admin/users/${id}`),
 
   listUserProjects: (id: string) => apiRequest<IAdminUserProject[]>(`/admin/users/${id}/projects`),
+
+  /** Newest first, across all of the user's projects. */
+  listUserRunnerSessions: (id: string, params: { limit?: number; before?: string } = {}) => {
+    const query = new URLSearchParams();
+    if (typeof params.limit === 'number') query.set('limit', String(params.limit));
+    if (params.before) query.set('before', params.before);
+    const suffix = query.size > 0 ? `?${query.toString()}` : '';
+    return apiRequest<{ sessions: IAdminRunnerSession[] }>(`/admin/users/${id}/runner-sessions${suffix}`);
+  },
+
+  /** Switches the project's servers off with the `admin` reason (prod stays off after a resume). */
+  suspendProject: (projectId: string) => apiRequest<null>(`/admin/projects/${projectId}/suspend`, { method: 'POST' }),
+
+  resumeProject: (projectId: string) => apiRequest<null>(`/admin/projects/${projectId}/resume`, { method: 'POST' }),
 
   /** `{ sent: true }` when the login+password mail went out; otherwise `password` comes back once for manual hand-over. */
   activateUser: (id: string) =>

@@ -1,10 +1,16 @@
 import type React from 'react';
 import { useEffect, useState } from 'react';
 import { getGlobalI18n } from '@falang/scheme';
-import { Button, Form, InputNumber, Modal, message } from 'antd';
-import { adminApi, type IUserLimits, type IUserLimitsOverrides, type IUserLimitsResponse } from '../admin-api.js';
+import { Button, Form, InputNumber, Modal, Select, message } from 'antd';
+import { adminApi, type IUserLimitsOverrides, type IUserLimitsResponse } from '../admin-api.js';
 
-type TFieldKey = keyof IUserLimits;
+type TFieldKey =
+  | 'maxProjectFilesBytes'
+  | 'maxFileBytes'
+  | 'devFileTtlHours'
+  | 'ingressFileTtlHours'
+  | 'maxConcurrentProdVersions'
+  | 'maxIdleMinutes';
 
 const FIELD_KEYS: readonly TFieldKey[] = [
   'maxProjectFilesBytes',
@@ -12,9 +18,23 @@ const FIELD_KEYS: readonly TFieldKey[] = [
   'devFileTtlHours',
   'ingressFileTtlHours',
   'maxConcurrentProdVersions',
+  'maxIdleMinutes',
 ];
 
-type IFormValues = Partial<Record<TFieldKey, number>>;
+/** `alwaysOnAllowed` is a tri-state select: default (no override) / allowed / forbidden. */
+type TAlwaysOnChoice = 'default' | 'allowed' | 'forbidden';
+
+type IFormValues = Partial<Record<TFieldKey, number>> & { alwaysOnAllowed?: TAlwaysOnChoice };
+
+const alwaysOnToChoice = (value: boolean | null | undefined): TAlwaysOnChoice => {
+  if (typeof value !== 'boolean') return 'default';
+  return value ? 'allowed' : 'forbidden';
+};
+
+const choiceToAlwaysOn = (choice: TAlwaysOnChoice | undefined): boolean | null => {
+  if (choice === 'allowed') return true;
+  return choice === 'forbidden' ? false : null;
+};
 
 export interface IUserLimitsModalProps {
   /** `null` closes the modal; a user id opens it for that user. */
@@ -48,7 +68,10 @@ export const UserLimitsModal: React.FC<IUserLimitsModalProps> = ({ userId, onClo
       .then((response) => {
         if (cancelled) return;
         setData(response);
-        form.setFieldsValue({ ...response.overrides });
+        form.setFieldsValue({
+          ...response.overrides,
+          alwaysOnAllowed: alwaysOnToChoice(response.overrides.alwaysOnAllowed),
+        });
       })
       .catch((error) => {
         message.error(
@@ -70,7 +93,10 @@ export const UserLimitsModal: React.FC<IUserLimitsModalProps> = ({ userId, onClo
     try {
       const response = await adminApi.updateUserLimits(userId, overrides);
       setData(response);
-      form.setFieldsValue({ ...response.overrides });
+      form.setFieldsValue({
+        ...response.overrides,
+        alwaysOnAllowed: alwaysOnToChoice(response.overrides.alwaysOnAllowed),
+      });
     } catch (error) {
       message.error(error instanceof Error ? error.message : t('workflow-client-admin:user-limits-modal.save-failed'));
     } finally {
@@ -85,12 +111,14 @@ export const UserLimitsModal: React.FC<IUserLimitsModalProps> = ({ userId, onClo
       const value = values[key];
       overrides[key] = typeof value === 'number' ? value : null;
     }
+    overrides.alwaysOnAllowed = choiceToAlwaysOn(values.alwaysOnAllowed);
     await submit(overrides);
   };
 
   const handleReset = async (): Promise<void> => {
     const overrides: IUserLimitsOverrides = {};
     for (const key of FIELD_KEYS) overrides[key] = null;
+    overrides.alwaysOnAllowed = null;
     await submit(overrides);
   };
 
@@ -146,6 +174,30 @@ export const UserLimitsModal: React.FC<IUserLimitsModalProps> = ({ userId, onClo
             style={{ width: '100%' }}
             min={1}
             placeholder={String(data?.effective.maxConcurrentProdVersions ?? '')}
+          />
+        </Form.Item>
+        <Form.Item name="maxIdleMinutes" label={t('workflow-client-admin:user-limits-modal.max-idle-minutes-label')}>
+          <InputNumber style={{ width: '100%' }} min={1} placeholder={String(data?.effective.maxIdleMinutes ?? '')} />
+        </Form.Item>
+        <Form.Item
+          name="alwaysOnAllowed"
+          label={t('workflow-client-admin:user-limits-modal.always-on-allowed-label')}
+          initialValue="default"
+        >
+          <Select
+            data-testid="limits-always-on-allowed"
+            options={[
+              {
+                value: 'default',
+                label: t('workflow-client-admin:user-limits-modal.always-on-default', {
+                  value: t(
+                    `workflow-client-admin:user-limits-modal.always-on-${data?.effective.alwaysOnAllowed === false ? 'forbidden' : 'allowed'}`,
+                  ),
+                }),
+              },
+              { value: 'allowed', label: t('workflow-client-admin:user-limits-modal.always-on-allowed') },
+              { value: 'forbidden', label: t('workflow-client-admin:user-limits-modal.always-on-forbidden') },
+            ]}
           />
         </Form.Item>
       </Form>

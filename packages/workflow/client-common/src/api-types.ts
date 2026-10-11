@@ -462,3 +462,52 @@ export interface IApiSupportMessage {
   readonly createdAt: string;
   readonly readAt: string | null;
 }
+
+// ---- Instance runtime (ADR 0067 (private)) ----
+
+export type TApiRunnerEnv = 'dev' | 'prod';
+export type TApiSuspendedReason = 'balance' | 'admin';
+export type TApiRunnerSessionEndReason = 'stopped' | 'idle' | 'replaced' | 'suspended' | 'lost' | 'shutdown';
+
+export interface IApiRunnerSession {
+  readonly id: string;
+  readonly projectId: string;
+  readonly env: TApiRunnerEnv;
+  readonly buildId: string | null;
+  readonly deploymentName: string;
+  readonly taskQueue: string;
+  readonly startedAt: string;
+  readonly lastSeenAt: string;
+  readonly endedAt: string | null;
+  readonly endReason: TApiRunnerSessionEndReason | null;
+}
+
+/** `idleMinutes: null` = the deployment default. */
+export interface IApiRuntimeEnvSettings {
+  readonly idleMinutes: number | null;
+  readonly alwaysOn: boolean;
+}
+
+export interface IApiRuntimeSettings {
+  readonly dev: IApiRuntimeEnvSettings;
+  readonly prod: IApiRuntimeEnvSettings;
+  readonly defaults: { readonly idleMinutes: number };
+  readonly limits: { readonly maxIdleMinutes: number; readonly alwaysOnAllowed: boolean };
+  readonly state: {
+    readonly dev: { readonly running: boolean; readonly since: string | null };
+    readonly prod: { readonly running: boolean; readonly instances: number; readonly since: string | null };
+  };
+  readonly suspendedReason: TApiSuspendedReason | null;
+}
+
+/** `GET /projects/:id/versions/status`. */
+export interface IApiProdStatus {
+  readonly running: boolean;
+  readonly suspendedReason: TApiSuspendedReason | null;
+}
+
+/** `PUT /projects/:id/runtime-settings` body. */
+export interface IApiRuntimeSettingsInput {
+  readonly dev: IApiRuntimeEnvSettings;
+  readonly prod: IApiRuntimeEnvSettings;
+}

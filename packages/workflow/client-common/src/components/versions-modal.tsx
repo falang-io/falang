@@ -4,6 +4,7 @@ import { observer } from 'mobx-react-lite';
 import { getGlobalI18n } from '@falang/scheme';
 import { Button, Modal, Space, Table, Tag, Tooltip, Typography } from 'antd';
 import { workflowApi, type IApiProjectVersion } from '../api-client.js';
+import { describeStartError } from '../start-error-message.js';
 
 interface Props {
   readonly projectId: string;
@@ -54,7 +55,7 @@ export const VersionsModal: React.FC<Props> = observer(({ projectId, open, onClo
     action()
       .then(() => load())
       .catch((error: unknown) =>
-        setErrorMessage(error instanceof Error ? error.message : t('client:versions-modal.action-failed')),
+        setErrorMessage(describeStartError(error, t, t('client:versions-modal.action-failed'))),
       )
       .finally(() => setActioningVersion(null));
   };
@@ -65,7 +66,7 @@ export const VersionsModal: React.FC<Props> = observer(({ projectId, open, onClo
     action()
       .then(() => load())
       .catch((error: unknown) =>
-        setErrorMessage(error instanceof Error ? error.message : t('client:versions-modal.action-failed')),
+        setErrorMessage(describeStartError(error, t, t('client:versions-modal.action-failed'))),
       )
       .finally(() => setProdActionLoading(false));
   };

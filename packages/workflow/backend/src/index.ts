@@ -35,3 +35,23 @@ export {
   type TJournalKind,
   type TJournalLevel,
 } from './domains/run-journal/index.js';
+
+// ADR 0067 (private): the instance-uptime record, the runner start guard and project suspension — what the hosted
+// edition's meter/balance watch builds on. Provide `RUNNER_SESSION_SINK` / `RUNNER_START_GUARD` from a `@Global()` module.
+export {
+  RUNNER_SESSION_SINK,
+  RUNNER_START_GUARD,
+  type IRunnerSession,
+  type IRunnerSessionSink,
+  type IRunnerStartContext,
+  type IRunnerStartGuard,
+  type TRunnerStartAction,
+} from './domains/build/runner-sessions/runner-session-hooks.js';
+export { RunnerSession, type TRunnerSessionEndReason } from './domains/build/runner-sessions/runner-session.entity.js';
+export { RunnerSessionsModule } from './domains/build/runner-sessions/runner-sessions.module.js';
+export { RunnerSessionsService } from './domains/build/runner-sessions/runner-sessions.service.js';
+export { ProjectSuspendedException } from './domains/build/runner-sessions/project-suspended.exception.js';
+export { ProjectSuspensionService, type TSuspendedReason } from './domains/build/build/project-suspension.service.js';
+export { BuildModule } from './domains/build/build/build.module.js';
+export { ProjectsModule } from './domains/projects/projects/projects.module.js';
+export { ProjectsService } from './domains/projects/projects/projects.service.js';

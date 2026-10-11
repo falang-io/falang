@@ -11,6 +11,8 @@ const OVERRIDE_KEYS = [
   'devFileTtlHours',
   'ingressFileTtlHours',
   'maxConcurrentProdVersions',
+  'maxIdleMinutes',
+  'alwaysOnAllowed',
 ] as const;
 
 /**
@@ -38,6 +40,8 @@ export class UserLimitsService {
       devFileTtlHours: config.get<number>('DEV_FILE_TTL_HOURS', 24),
       ingressFileTtlHours: config.get<number>('INGRESS_FILE_TTL_HOURS', 168),
       maxConcurrentProdVersions: config.get<number>('MAX_CONCURRENT_PROD_VERSIONS', 3),
+      maxIdleMinutes: config.get<number>('MAX_IDLE_MINUTES', 1440),
+      alwaysOnAllowed: String(config.get<string | boolean>('ALWAYS_ON_ALLOWED', true)) !== 'false',
     };
   }
 
@@ -49,12 +53,12 @@ export class UserLimitsService {
   async getOverrides(userId: string): Promise<Partial<IUserLimits>> {
     const row = await this.repo.findOneBy({ userId });
     if (!row) return {};
-    const overrides: Partial<Record<keyof IUserLimits, number>> = {};
+    const overrides: Record<string, number | boolean> = {};
     for (const key of OVERRIDE_KEYS) {
       const value = row[key];
       if (value !== null) overrides[key] = value;
     }
-    return overrides;
+    return overrides as Partial<IUserLimits>;
   }
 
   /** A field set to `null` clears that override; an omitted field leaves it untouched. */
@@ -67,10 +71,13 @@ export class UserLimitsService {
       devFileTtlHours: existing?.devFileTtlHours ?? null,
       ingressFileTtlHours: existing?.ingressFileTtlHours ?? null,
       maxConcurrentProdVersions: existing?.maxConcurrentProdVersions ?? null,
+      maxIdleMinutes: existing?.maxIdleMinutes ?? null,
+      alwaysOnAllowed: existing?.alwaysOnAllowed ?? null,
       updatedAt: existing?.updatedAt ?? new Date(),
     };
+    const writable = next as unknown as Record<string, number | boolean | null>;
     for (const key of OVERRIDE_KEYS) {
-      if (key in partial) next[key] = partial[key] ?? null;
+      if (key in partial) writable[key] = partial[key] ?? null;
     }
     await this.repo.save(next);
   }

@@ -1,7 +1,7 @@
 import type React from 'react';
 import { useEffect, useState } from 'react';
 import { getGlobalI18n } from '@falang/scheme';
-import { Table, Tag, Typography } from 'antd';
+import { Button, Popconfirm, Table, Tag, Typography, message } from 'antd';
 import { EyeOutlined } from '@ant-design/icons';
 import { adminApi, type IAdminUserProject } from '../admin-api.js';
 
@@ -17,6 +17,17 @@ export const UserProjects: React.FC<{ userId: string }> = ({ userId }) => {
   const label = (key: string) => t(`workflow-client-admin:users-page.${key}`);
   const [projects, setProjects] = useState<IAdminUserProject[] | null>(null);
   const [error, setError] = useState<string | null>(null);
+
+  const [reloadKey, setReloadKey] = useState(0);
+  const [busyId, setBusyId] = useState<string | null>(null);
+
+  const toggleSuspension = (project: IAdminUserProject): void => {
+    setBusyId(project.id);
+    (project.suspendedReason ? adminApi.resumeProject(project.id) : adminApi.suspendProject(project.id))
+      .then(() => setReloadKey((key) => key + 1))
+      .catch((error_: unknown) => message.error(error_ instanceof Error ? error_.message : label('suspend-failed')))
+      .finally(() => setBusyId(null));
+  };
 
   useEffect(() => {
     let cancelled = false;
@@ -34,7 +45,7 @@ export const UserProjects: React.FC<{ userId: string }> = ({ userId }) => {
       cancelled = true;
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [userId]);
+  }, [userId, reloadKey]);
 
   return (
     <div data-testid="admin-user-projects">
@@ -56,6 +67,11 @@ export const UserProjects: React.FC<{ userId: string }> = ({ userId }) => {
             render: (name: string, project) => (
               <>
                 {name} {project.prodEnabled && <Tag color="green">prod</Tag>}
+                {project.suspendedReason && (
+                  <Tag color="error" data-testid="admin-project-suspended-tag" data-reason={project.suspendedReason}>
+                    {label(`suspended-${project.suspendedReason}`)}
+                  </Tag>
+                )}
               </>
             ),
           },
@@ -67,11 +83,28 @@ export const UserProjects: React.FC<{ userId: string }> = ({ userId }) => {
           {
             title: '',
             key: 'open',
-            width: 110,
+            width: 260,
             render: (_, project) => (
-              <a href={projectViewUrl(project.id)} target="_blank" rel="noreferrer" data-testid="admin-open-project">
-                <EyeOutlined /> {label('project-open')}
-              </a>
+              <>
+                <Popconfirm
+                  title={label(project.suspendedReason ? 'resume-confirm' : 'suspend-confirm')}
+                  okText={label(project.suspendedReason ? 'resume' : 'suspend')}
+                  onConfirm={() => toggleSuspension(project)}
+                >
+                  <Button
+                    size="small"
+                    danger={!project.suspendedReason}
+                    loading={busyId === project.id}
+                    style={{ marginRight: 8 }}
+                    data-testid={project.suspendedReason ? 'admin-resume-project' : 'admin-suspend-project'}
+                  >
+                    {label(project.suspendedReason ? 'resume' : 'suspend')}
+                  </Button>
+                </Popconfirm>
+                <a href={projectViewUrl(project.id)} target="_blank" rel="noreferrer" data-testid="admin-open-project">
+                  <EyeOutlined /> {label('project-open')}
+                </a>
+              </>
             ),
           },
         ]}

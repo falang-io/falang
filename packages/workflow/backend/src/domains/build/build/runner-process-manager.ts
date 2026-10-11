@@ -2,6 +2,9 @@
 // comment; a handful of lines, not accumulated complexity.
 import type { V1Deployment } from '@kubernetes/client-node';
 import type { IK8sDeploymentsClient } from './k8s-deployments-client.js';
+import { Logger } from '@nestjs/common';
+import type { IRunnerSessionRecorder } from '../runner-sessions/runner-sessions.service.js';
+import type { TRunnerSessionEndReason } from '../runner-sessions/runner-session.entity.js';
 import { buildRunnerEnv } from './runner-env.js';
 
 const APP_LABEL = 'app.kubernetes.io/name';
@@ -84,6 +87,11 @@ export interface IRunnerProcessManagerParams {
   readonly backendPublicUrl?: string;
   /** From `backend`'s own `NODE_V8_COVERAGE` presence (`build.module.ts`) — sets pods' `NODE_V8_COVERAGE=/tmp` so `runner`'s `main.ts` pushes its coverage on `SIGTERM` (ADR 0016's "Runner-pod coverage collection"). */
   readonly coverageEnabled?: boolean;
+  /**
+   * Durable uptime record (ADR 0067 (private) §1): `start()` opens a session, every stop path closes it with its reason.
+   * A failing recorder is logged and never fails a start/stop. Absent in unit tests that don't care.
+   */
+  readonly sessions?: IRunnerSessionRecorder;
 }
 
 /** One currently-running runner Deployment, as reported by `RunnerProcessManager.listRunning()`. */
@@ -94,7 +102,12 @@ export interface IRunningRunner {
   readonly buildId?: string;
   readonly projectId: string;
   readonly env: 'dev' | 'prod';
+  /** The Deployment's `metadata.creationTimestamp`, when the cluster reported it — lets a session opened after a `backend` restart start at the real time. */
+  readonly createdAt?: Date;
 }
+
+/** Idle timeout for one running Deployment in ms, or `null` = never idle-stop it ("always on"). */
+export type TIdleTimeoutResolver = (runner: IRunningRunner) => number | null;
 
 export interface IStartRunnerParams {
   readonly taskQueue: string;
@@ -145,8 +158,21 @@ export class RunnerProcessManager {
    */
   private readonly lastActivity = new Map<string, number>();
 
+  private readonly logger = new Logger(RunnerProcessManager.name);
+
   constructor(params: IRunnerProcessManagerParams) {
     this.params = params;
+  }
+
+  /** Runs a session-recorder call; its failure is logged and swallowed (ADR 0067 (private) §1). */
+  private async record(action: string, task: (recorder: IRunnerSessionRecorder) => Promise<void>): Promise<void> {
+    const recorder = this.params.sessions;
+    if (!recorder) return;
+    try {
+      await task(recorder);
+    } catch (error) {
+      this.logger.error(`Runner session ${action} failed`, error instanceof Error ? error.stack : error);
+    }
   }
 
   /** Records activity for `key` (a deployment name or a bare task queue) — see `lastActivity`'s doc comment. */
@@ -178,19 +204,26 @@ export class RunnerProcessManager {
 
     await this.params.deploymentsClient.apply(this.params.k8sNamespace, this.buildDeployment(name, taskQueue, projectId, workflowEnv, env));
     this.touch(name);
+    // A repeated `start()` of the same Deployment (dev replace-in-place, a version already up) only heartbeats the open session.
+    await this.record('open', (recorder) =>
+      recorder.open({ deploymentName: name, taskQueue, projectId, env: workflowEnv, buildId: buildId ?? null }),
+    );
   }
 
-  async stop(taskQueue: string): Promise<void> {
+  /** Stops the unversioned (dev) deployment of `taskQueue`. `reason` is what the closed session records. */
+  async stop(taskQueue: string, reason: TRunnerSessionEndReason = 'stopped'): Promise<void> {
     const name = deploymentNameFor(taskQueue);
     await this.params.deploymentsClient.delete(this.params.k8sNamespace, name);
     this.lastActivity.delete(name);
+    await this.record('close', (recorder) => recorder.close(name, reason));
   }
 
   /** Explicitly retires one published version's runner pod, leaving other versions on the same task queue untouched. */
-  async stopVersion(taskQueue: string, buildId: string): Promise<void> {
+  async stopVersion(taskQueue: string, buildId: string, reason: TRunnerSessionEndReason = 'stopped'): Promise<void> {
     const name = deploymentNameFor(taskQueue, buildId);
     await this.params.deploymentsClient.delete(this.params.k8sNamespace, name);
     this.lastActivity.delete(name);
+    await this.record('close', (recorder) => recorder.close(name, reason));
   }
 
   isRunning(taskQueue: string, buildId?: string): Promise<boolean> {
@@ -217,10 +250,11 @@ export class RunnerProcessManager {
   }
 
   /** Stops every version currently running on `taskQueue` — the counterpart to `start()`'s per-version model, for a project-wide "stop prod" action. */
-  async stopAll(taskQueue: string): Promise<void> {
+  async stopAll(taskQueue: string, reason: TRunnerSessionEndReason = 'stopped'): Promise<void> {
     const names = await this.params.deploymentsClient.listNames(this.params.k8sNamespace, taskQueueSelector(taskQueue));
     await Promise.all(names.map((name) => this.params.deploymentsClient.delete(this.params.k8sNamespace, name)));
     for (const name of names) this.lastActivity.delete(name);
+    await Promise.all(names.map((name) => this.record('close', (recorder) => recorder.close(name, reason))));
   }
 
   /**
@@ -234,6 +268,7 @@ export class RunnerProcessManager {
     const names = await this.params.deploymentsClient.listNames(this.params.k8sNamespace, `${APP_LABEL}=${APP_LABEL_VALUE}`);
     await Promise.all(names.map((name) => this.params.deploymentsClient.delete(this.params.k8sNamespace, name)));
     for (const name of names) this.lastActivity.delete(name);
+    await Promise.all(names.map((name) => this.record('close', (recorder) => recorder.close(name, 'shutdown'))));
   }
 
   /** Every runner Deployment this manager's namespace currently holds, with the identifying labels `buildDeployment()` sets — backs `stopIdleRunners()`. */
@@ -245,10 +280,18 @@ export class RunnerProcessManager {
       const projectId = deployment.labels[PROJECT_ID_LABEL];
       const env = deployment.labels[ENV_LABEL];
       if (!taskQueue || !projectId || (env !== 'dev' && env !== 'prod')) continue;
+      const createdAt = deployment.createdAt ? { createdAt: deployment.createdAt } : {};
       runners.push(
         deployment.name === taskQueue
-          ? { deploymentName: deployment.name, taskQueue, projectId, env }
-          : { deploymentName: deployment.name, taskQueue, buildId: deployment.name.slice(taskQueue.length + 1), projectId, env },
+          ? { deploymentName: deployment.name, taskQueue, projectId, env, ...createdAt }
+          : {
+              deploymentName: deployment.name,
+              taskQueue,
+              buildId: deployment.name.slice(taskQueue.length + 1),
+              projectId,
+              env,
+              ...createdAt,
+            },
       );
     }
     return runners;
@@ -266,20 +309,28 @@ export class RunnerProcessManager {
    * being stopped on first sight, so a restart doesn't mass-evict everything that happens to be idle
    * at that moment before the next real activity would have touched it anyway.
    */
-  async stopIdleRunners(idleTimeoutMs: number, now = Date.now()): Promise<readonly string[]> {
-    const running = await this.listRunning();
+  async stopIdleRunners(
+    idleTimeoutMs: number | TIdleTimeoutResolver,
+    now = Date.now(),
+    running?: readonly IRunningRunner[],
+  ): Promise<readonly string[]> {
+    const runners = running ?? (await this.listRunning());
     const toStop: string[] = [];
-    for (const runner of running) {
+    for (const runner of runners) {
+      // Per-project policy (ADR 0067 (private) §2): `null` = "always on", never idle-stopped.
+      const timeoutMs = typeof idleTimeoutMs === 'number' ? idleTimeoutMs : idleTimeoutMs(runner);
+      if (timeoutMs === null) continue;
       const hasActivity = this.lastActivity.has(runner.deploymentName) || this.lastActivity.has(runner.taskQueue);
       if (!hasActivity) {
         this.touch(runner.deploymentName);
         continue;
       }
       const last = Math.max(this.lastActivity.get(runner.deploymentName) ?? 0, this.lastActivity.get(runner.taskQueue) ?? 0);
-      if (now - last >= idleTimeoutMs) toStop.push(runner.deploymentName);
+      if (now - last >= timeoutMs) toStop.push(runner.deploymentName);
     }
     await Promise.all(toStop.map((name) => this.params.deploymentsClient.delete(this.params.k8sNamespace, name)));
     for (const name of toStop) this.lastActivity.delete(name);
+    await Promise.all(toStop.map((name) => this.record('close', (recorder) => recorder.close(name, 'idle'))));
     return toStop;
   }
 

@@ -1,3 +1,4 @@
+// oxlint-disable no-undefined, unicorn/no-useless-undefined, unicorn/consistent-function-scoping, unicorn/no-await-expression-member, unicorn/catch-error-name, oxc/no-map-spread -- test fakes: resolving/rejecting with nothing, small local helpers and one-off spreads read better than the lint-preferred shapes.
 import type { V1Deployment } from '@kubernetes/client-node';
 import { describe, expect, it } from 'vitest';
 import type { IK8sDeploymentsClient } from './k8s-deployments-client.js';
@@ -111,5 +112,130 @@ describe('RunnerProcessManager — stopIdleRunners()', () => {
 
     const secondSweep = await freshManager.stopIdleRunners(30_000, Date.now() + 60_000);
     expect(secondSweep).toEqual(['workflow-1']);
+  });
+});
+
+interface IRecordedCall {
+  readonly kind: 'open' | 'close';
+  readonly name: string;
+  readonly reason?: string;
+}
+
+const createRecorderManager = (): {
+  manager: RunnerProcessManager;
+  client: ReturnType<typeof createFakeDeploymentsClient>;
+  calls: IRecordedCall[];
+} => {
+  const client = createFakeDeploymentsClient();
+  const calls: IRecordedCall[] = [];
+  const manager = new RunnerProcessManager({
+    deploymentsClient: client,
+    k8sNamespace: NAMESPACE,
+    runnerImage: 'falang/workflow-runner:test',
+    sessions: {
+      open: (runner) => {
+        calls.push({ kind: 'open', name: runner.deploymentName });
+        return Promise.resolve();
+      },
+      close: (name, reason) => {
+        calls.push({ kind: 'close', name, reason });
+        return Promise.resolve();
+      },
+    },
+  });
+  return { manager, client, calls };
+};
+
+const startDev = (manager: RunnerProcessManager, projectId = 'p'): Promise<void> =>
+  manager.start({ taskQueue: `workflow-dev-${projectId}`, projectId, internalProjectToken: 't', workflowEnv: 'dev' });
+const startProd = (manager: RunnerProcessManager, buildId: string, projectId = 'p'): Promise<void> =>
+  manager.start({ taskQueue: `workflow-${projectId}`, projectId, internalProjectToken: 't', workflowEnv: 'prod', buildId });
+
+describe('RunnerProcessManager — runner sessions (ADR 0067)', () => {
+  it('opens a session on every start, with the deployment name', async () => {
+    const { manager, calls } = createRecorderManager();
+    await startDev(manager);
+    await startProd(manager, 'v1');
+    expect(calls).toEqual([
+      { kind: 'open', name: 'workflow-dev-p' },
+      { kind: 'open', name: 'workflow-p-v1' },
+    ]);
+  });
+
+  it('closes with the matching reason on stop / stopVersion / stopAll / stopEverything / idle', async () => {
+    const { manager, calls } = createRecorderManager();
+    await startDev(manager);
+    await manager.stop('workflow-dev-p');
+    await startProd(manager, 'v1');
+    await manager.stopVersion('workflow-p', 'v1');
+    await startProd(manager, 'v1');
+    await startProd(manager, 'v2');
+    await manager.stopAll('workflow-p', 'suspended');
+    await startDev(manager);
+    await manager.stopEverything();
+    await startDev(manager);
+    await manager.stopIdleRunners(10, Date.now() + 1000);
+
+    expect(calls.filter((c) => c.kind === 'close')).toEqual([
+      { kind: 'close', name: 'workflow-dev-p', reason: 'stopped' },
+      { kind: 'close', name: 'workflow-p-v1', reason: 'stopped' },
+      { kind: 'close', name: 'workflow-p-v1', reason: 'suspended' },
+      { kind: 'close', name: 'workflow-p-v2', reason: 'suspended' },
+      { kind: 'close', name: 'workflow-dev-p', reason: 'shutdown' },
+      { kind: 'close', name: 'workflow-dev-p', reason: 'idle' },
+    ]);
+  });
+
+  it('a failing recorder never fails start or stop', async () => {
+    const client = createFakeDeploymentsClient();
+    const failing = (): Promise<void> => Promise.reject(new Error('db down'));
+    const manager = new RunnerProcessManager({
+      deploymentsClient: client,
+      k8sNamespace: NAMESPACE,
+      runnerImage: 'img',
+      sessions: { open: failing, close: failing },
+    });
+    await expect(startDev(manager)).resolves.toBeUndefined();
+    expect(client.deployments.has('workflow-dev-p')).toBe(true);
+    await expect(manager.stop('workflow-dev-p')).resolves.toBeUndefined();
+    expect(client.deployments.has('workflow-dev-p')).toBe(false);
+  });
+
+  it('listRunning carries the deployment creation time when the cluster reports it', async () => {
+    const { manager, client } = createRecorderManager();
+    await startDev(manager);
+    const createdAt = new Date('2026-01-01T00:00:00Z');
+    const original = client.listAll.bind(client);
+    client.listAll = async (namespace, selector) => (await original(namespace, selector)).map((item) => ({ ...item, createdAt }));
+    const [runner] = await manager.listRunning();
+    expect(runner?.createdAt).toEqual(createdAt);
+  });
+});
+
+describe('RunnerProcessManager — per-project idle policy (ADR 0067)', () => {
+  it('uses the timeout the resolver returns per runner and skips always-on ones (null)', async () => {
+    const { manager, client } = createManager();
+    await manager.start({ taskQueue: 'workflow-dev-a', projectId: 'a', internalProjectToken: 't', workflowEnv: 'dev' });
+    await manager.start({ taskQueue: 'workflow-dev-b', projectId: 'b', internalProjectToken: 't', workflowEnv: 'dev' });
+    await manager.start({ taskQueue: 'workflow-dev-c', projectId: 'c', internalProjectToken: 't', workflowEnv: 'dev' });
+    const resolver = (runner: { projectId: string }): number | null =>
+      ({ a: 60_000, b: null, c: 10 * 60_000 })[runner.projectId] ?? null;
+
+    // Five minutes later: a (1 min) is idle, b (always on) is not, c (10 min) is not.
+    const stopped = await manager.stopIdleRunners(resolver, Date.now() + 5 * 60_000);
+    expect(stopped).toEqual(['workflow-dev-a']);
+    expect(client.deployments.has('workflow-dev-b')).toBe(true);
+    expect(client.deployments.has('workflow-dev-c')).toBe(true);
+
+    // An hour later only the always-on one survives.
+    await manager.stopIdleRunners(resolver, Date.now() + 60 * 60_000);
+    expect([...client.deployments.keys()]).toEqual(['workflow-dev-b']);
+  });
+
+  it('keeps accepting a plain number as the one global timeout', async () => {
+    const { manager, client } = createManager();
+    await manager.start({ taskQueue: 'workflow-dev-a', projectId: 'a', internalProjectToken: 't', workflowEnv: 'dev' });
+    expect(await manager.stopIdleRunners(1000, Date.now() + 5000)).toEqual(['workflow-dev-a']);
+    expect(client.deployments.size).toBe(0);
   });
 });

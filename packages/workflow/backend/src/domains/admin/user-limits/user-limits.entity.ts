@@ -39,6 +39,12 @@ export class UserLimits {
   @Column({ name: 'max_concurrent_prod_versions', type: 'int', nullable: true })
   maxConcurrentProdVersions!: number | null;
 
+  @Column({ name: 'max_idle_minutes', type: 'int', nullable: true })
+  maxIdleMinutes!: number | null;
+
+  @Column({ name: 'always_on_allowed', type: 'boolean', nullable: true })
+  alwaysOnAllowed!: boolean | null;
+
   @UpdateDateColumn({ name: 'updated_at', type: Date })
   updatedAt!: Date;
 }

@@ -6,7 +6,9 @@ import type {
   TDebugEventListener,
   TDebugResumeMode,
 } from '@falang/debug';
+import { getGlobalI18n } from '@falang/scheme';
 import { workflowApi, type IApiDebugSessionSnapshot } from './api-client.js';
+import { startErrorKey } from './start-error-message.js';
 
 /** `IDebugStartParams.entry` for the workflow product — the function to run and its positional arguments. */
 export interface ITemporalDebugEntry {
@@ -66,13 +68,19 @@ export class TemporalDebugAdapter implements IDebugAdapter {
       return;
     }
 
-    const started = await workflowApi.startDebugSession(this.projectId, {
-      functionName: entry.functionName,
-      args: [...entry.args],
-      breakpoints: params.breakpoints.map((breakpoint) => toLocation(breakpoint)),
-      pauseOnEntry: params.pauseOnEntry,
-      ...(entry.triggerPayload ? { triggerPayload: entry.triggerPayload } : {}),
-    });
+    const started = await workflowApi
+      .startDebugSession(this.projectId, {
+        functionName: entry.functionName,
+        args: [...entry.args],
+        breakpoints: params.breakpoints.map((breakpoint) => toLocation(breakpoint)),
+        pauseOnEntry: params.pauseOnEntry,
+        ...(entry.triggerPayload ? { triggerPayload: entry.triggerPayload } : {}),
+      })
+      .catch((error: unknown) => {
+        // A platform refusal (suspended project, empty balance) reads as localised text, not the raw server message.
+        const key = startErrorKey(error);
+        throw key ? new Error(getGlobalI18n().t(key), { cause: error }) : error;
+      });
 
     this.generation += 1;
     this.workflowId = started.workflowId;

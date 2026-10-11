@@ -1,3 +1,4 @@
+// oxlint-disable no-undefined, unicorn/no-useless-undefined, unicorn/consistent-function-scoping, unicorn/no-await-expression-member, unicorn/catch-error-name, oxc/no-map-spread -- test fakes: resolving/rejecting with nothing, small local helpers and one-off spreads read better than the lint-preferred shapes.
 import { describe, expect, it, vi } from 'vitest';
 import { BuildService } from './build.service.js';
 
@@ -92,6 +93,13 @@ describe("BuildService — production's version", () => {
 
     expect(project.prodBuildId).toBe('v1');
     expect(gatewayRuntime.resumeProjectIntegrations).toHaveBeenCalledWith('p1', 'prod');
+  });
+
+  it('getProdStatus reports the toggle and why the project is suspended', async () => {
+    const { service, project } = makeService({ prodBuildId: 'v1', versions: [V1] });
+    expect(await service.getProdStatus('p1', 'owner')).toEqual({ running: false, suspendedReason: undefined });
+    Object.assign(project, { prodEnabled: true, suspendedReason: 'balance' });
+    expect(await service.getProdStatus('p1', 'owner')).toEqual({ running: true, suspendedReason: 'balance' });
   });
 
   it('listVersions marks the current version and the ones with a live pod', async () => {

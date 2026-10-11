@@ -57,4 +57,28 @@ export class Project {
    */
   @Column({ name: 'journal_store_texts', type: 'boolean', default: true })
   journalStoreTexts!: boolean;
+
+  /** ADR 0067 (private) §2: minutes without events before the dev stand's runner is stopped; `null` = the deployment default (`RUNNER_IDLE_TIMEOUT_MS`). */
+  @Column({ name: 'idle_minutes_dev', type: 'int', nullable: true })
+  idleMinutesDev!: number | null;
+
+  /** Same for every running prod version of the project. */
+  @Column({ name: 'idle_minutes_prod', type: 'int', nullable: true })
+  idleMinutesProd!: number | null;
+
+  /** The dev stand is never idle-stopped (needs the owner's `alwaysOnAllowed` limit). */
+  @Column({ name: 'always_on_dev', type: 'boolean', default: false })
+  alwaysOnDev!: boolean;
+
+  @Column({ name: 'always_on_prod', type: 'boolean', default: false })
+  alwaysOnProd!: boolean;
+
+  /**
+   * Why the project's servers are off: `balance` (the hosted edition ran the owner's balance out) or `admin` (an
+   * administrator suspended it). `null` = not suspended. While set, every start answers 423 — see `ProjectSuspensionService`.
+   */
+  @Column({ name: 'suspended_reason', type: 'varchar', length: 16, nullable: true })
+  suspendedReason!: TSuspendedReason | null;
 }
+
+export type TSuspendedReason = 'balance' | 'admin';

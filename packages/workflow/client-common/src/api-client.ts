@@ -42,6 +42,10 @@ import type {
   IApiVendorData,
   IApiRunJournalPage,
   IApiRunJournalSettings,
+  IApiProdStatus,
+  IApiRunnerSession,
+  IApiRuntimeSettings,
+  IApiRuntimeSettingsInput,
   IApiWorkflowPosition,
   IApiWorkflowRunDetail,
   IApiWorkflowRunFilters,
@@ -92,7 +96,7 @@ export const setAuthToken = (nextToken: string | null): void => {
 export const getAuthToken = (): string | null => token;
 
 const throwIfCoded = (message: string | undefined, body: { code?: string } | null): void => {
-  if (typeof body?.code === 'string') throw new ApiCodedError(message ?? body.code, body.code);
+  if (typeof body?.code === 'string') throw new ApiCodedError(message ?? body.code, body.code, body);
 };
 
 const throwIfQuotaExceeded = (status: number, message: string | undefined, body: unknown): void => {
@@ -388,7 +392,24 @@ export const workflowApi = {
     request<null>(`/projects/${projectId}/versions/${versionNumber}`, { method: 'DELETE' }),
 
   /** Project-wide Start/Stop toggle for prod — distinct from the per-version `activateVersion`/`stopVersion` above. */
-  getProdStatus: (projectId: string) => request<{ running: boolean }>(`/projects/${projectId}/versions/status`),
+  getProdStatus: (projectId: string) => request<IApiProdStatus>(`/projects/${projectId}/versions/status`),
+
+  /** Per-project idle/always-on settings + current instance state + owner limits (ADR 0067 (private)). */
+  getRuntimeSettings: (projectId: string) => request<IApiRuntimeSettings>(`/projects/${projectId}/runtime-settings`),
+
+  putRuntimeSettings: (projectId: string, input: IApiRuntimeSettingsInput) =>
+    request<IApiRuntimeSettings>(`/projects/${projectId}/runtime-settings`, {
+      method: 'PUT',
+      body: JSON.stringify(input),
+    }),
+
+  listRunnerSessions: (projectId: string, params: { limit?: number; before?: string } = {}) => {
+    const query = new URLSearchParams();
+    if (typeof params.limit === 'number') query.set('limit', String(params.limit));
+    if (params.before) query.set('before', params.before);
+    const suffix = query.size > 0 ? `?${query.toString()}` : '';
+    return request<{ sessions: IApiRunnerSession[] }>(`/projects/${projectId}/runner-sessions${suffix}`);
+  },
 
   startProd: (projectId: string) => request<null>(`/projects/${projectId}/versions/start`, { method: 'POST' }),
 

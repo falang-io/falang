@@ -1,6 +1,9 @@
+// oxlint-disable no-undefined, unicorn/no-useless-undefined, unicorn/consistent-function-scoping, unicorn/no-await-expression-member, unicorn/catch-error-name, oxc/no-map-spread -- test fakes: resolving/rejecting with nothing, small local helpers and one-off spreads read better than the lint-preferred shapes.
 import type { IntegrationsRuntimeService } from '@falang/workflow-gateway';
 import { describe, expect, it, vi } from 'vitest';
 import { RunnerIdleSweepService } from './runner-idle-sweep.service.js';
+import type { ProjectRuntimeSettingsService } from '../../projects/runtime-settings/project-runtime-settings.service.js';
+import type { RunnerSessionsService } from '../runner-sessions/runner-sessions.service.js';
 import type { RunnerProcessManager } from './runner-process-manager.js';
 
 const buildService = (
@@ -51,6 +54,57 @@ describe('RunnerIdleSweepService — dev schedule auto-pause forwarding (0037 §
 
   it('logs but does not throw when pauseProjectIntegrations rejects', async () => {
     const { service } = buildService(['workflow-dev-project-1'], vi.fn().mockRejectedValue(new Error('boom')));
+    await expect(runSweep(service)).resolves.toBeUndefined();
+  });
+});
+
+describe('RunnerIdleSweepService — per-project policy and session reconcile (ADR 0067)', () => {
+  const build = () => {
+    const running = [
+      { deploymentName: 'workflow-dev-a', taskQueue: 'workflow-dev-a', projectId: 'a', env: 'dev' as const },
+      { deploymentName: 'workflow-b-v1', taskQueue: 'workflow-b', buildId: 'v1', projectId: 'b', env: 'prod' as const },
+    ];
+    const stopIdleRunners = vi.fn().mockResolvedValue([]);
+    const listRunning = vi.fn().mockResolvedValue(running);
+    const runnerProcessManager = { stopIdleRunners, listRunning } as unknown as RunnerProcessManager;
+    const resolveIdlePolicies = vi.fn().mockResolvedValue(
+      new Map([
+        ['a', { dev: 60_000, prod: 120_000 }],
+        ['b', { dev: 60_000, prod: null }],
+      ]),
+    );
+    const settings = {
+      resolveIdlePolicies,
+      defaultPolicy: { dev: 1_800_000, prod: 1_800_000 },
+    } as unknown as ProjectRuntimeSettingsService;
+    const reconcile = vi.fn().mockResolvedValue(undefined);
+    const sessions = { reconcile } as unknown as RunnerSessionsService;
+    const integrationsRuntime = { pauseProjectIntegrations: vi.fn() } as unknown as IntegrationsRuntimeService;
+    const service = new RunnerIdleSweepService(runnerProcessManager, 1, integrationsRuntime, settings, sessions);
+    return { service, stopIdleRunners, running, resolveIdlePolicies, reconcile, listRunning };
+  };
+
+  it('hands stopIdleRunners a resolver built from each project and env policy (null = always on)', async () => {
+    const { service, stopIdleRunners, running, resolveIdlePolicies } = build();
+    await runSweep(service);
+    expect(resolveIdlePolicies).toHaveBeenCalledWith(['a', 'b']);
+    const [resolver, , passedRunning] = stopIdleRunners.mock.calls[0] as [(runner: (typeof running)[number]) => number | null, number, unknown];
+    expect(passedRunning).toBe(running);
+    expect(resolver(running[0] as (typeof running)[number])).toBe(60_000);
+    expect(resolver(running[1] as (typeof running)[number])).toBeNull();
+    expect(resolver({ ...(running[0] as (typeof running)[number]), projectId: 'unknown' })).toBe(1_800_000);
+  });
+
+  it('reconciles the sessions against the deployments listed after the stops', async () => {
+    const { service, reconcile, running } = build();
+    await runSweep(service);
+    expect(reconcile).toHaveBeenCalledTimes(1);
+    expect(reconcile.mock.calls[0]?.[0]).toBe(running);
+  });
+
+  it('a failing reconcile is logged, not thrown', async () => {
+    const { service, reconcile } = build();
+    reconcile.mockRejectedValue(new Error('db down'));
     await expect(runSweep(service)).resolves.toBeUndefined();
   });
 });

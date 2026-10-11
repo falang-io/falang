@@ -120,7 +120,12 @@
       "project-menu": "Project",
       "run-journal": "Run journal",
       "read-only": "Read-only · owner: {{owner}}",
-      "read-only-tooltip": "You are viewing another user’s project as an administrator. Nothing can be changed, built or run here."
+      "read-only-tooltip": "You are viewing another user’s project as an administrator. Nothing can be changed, built or run here.",
+      "runtime-settings": "Project servers",
+      "suspended": {
+        "balance": "Servers off: balance",
+        "admin": "Servers off: suspended by administrator"
+      }
     },
     "run-function-modal": {
       "title": "Run function",
@@ -512,6 +517,35 @@
       "title": "Run journal",
       "store-texts": "Store texts (prompts, answers, messages)",
       "hint": "When off, new entries keep only metadata (kind, node, model, sizes, errors). Entries already stored are not rewritten.",
+      "failed-to-load": "Failed to load settings",
+      "failed-to-save": "Failed to save settings"
+    },
+    "start-errors": {
+      "suspended-balance": "The servers are off because the balance ran out. Top up and start prod again.",
+      "suspended-admin": "The project’s servers are switched off by an administrator.",
+      "insufficient-balance": "Not enough balance to start the servers. Top up and try again."
+    },
+    "runtime-settings": {
+      "title": "Project servers",
+      "close": "Close",
+      "save": "Save",
+      "env-dev": "Test stand (dev)",
+      "env-prod": "Production versions",
+      "state-stopped": "Stopped",
+      "state-running-since": "Running since {{time}}",
+      "state-prod-running_one": "{{count}} instance running since {{time}}",
+      "state-prod-running_other": "{{count}} instances running, the earliest since {{time}}",
+      "always-on": "Always on",
+      "always-on-blocked": "Not available on your plan",
+      "idle-minutes": "Stop after idle (minutes)",
+      "idle-default_one": "default: {{count}} minute",
+      "idle-default_other": "default: {{count}} minutes",
+      "explain-idle_one": "Stops after {{count}} minute without events",
+      "explain-idle_other": "Stops after {{count}} minutes without events",
+      "explain-always-on": "Runs all the time",
+      "error-integer": "Enter a whole number of minutes",
+      "error-range": "From 1 to {{max}} minutes",
+      "always-on-not-allowed": "The always-on mode is not available for your account.",
       "failed-to-load": "Failed to load settings",
       "failed-to-save": "Failed to save settings"
     }

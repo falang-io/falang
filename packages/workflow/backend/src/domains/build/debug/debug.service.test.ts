@@ -129,6 +129,20 @@ describe('DebugService.start', () => {
     );
   });
 
+  it("asks the runner start guard with action 'debug' before waking the pod, and a refusal stops the session", async () => {
+    const ensureRunnerDeps = { ...fakeEnsureRunnerDeps(false), assertCanStart: vi.fn(() => Promise.reject(new Error('refused'))) };
+    const signalWithStartDebug = vi.fn<TDebugSignalWithStart>(() => Promise.resolve({ runId: 'run-9' }));
+    const service = createService({ devArtifacts: withDebugMapArtifact(), ensureRunnerDeps, signalWithStartDebug });
+
+    await expect(
+      service.start(PROJECT_ID, OWNER_ID, { functionName: 'greet', args: [], breakpoints: [], pauseOnEntry: false }),
+    ).rejects.toThrow('refused');
+
+    expect(ensureRunnerDeps.assertCanStart).toHaveBeenCalledWith(PROJECT_ID, 'dev', 'debug');
+    expect(ensureRunnerDeps.runnerProcessManager.start).not.toHaveBeenCalled();
+    expect(signalWithStartDebug).not.toHaveBeenCalled();
+  });
+
   it('drops a breakpoint the debug map does not know about', async () => {
     const signalWithStartDebug = vi.fn<TDebugSignalWithStart>(() => Promise.resolve({ runId: 'run-1' }));
     const service = createService({ devArtifacts: withDebugMapArtifact(), signalWithStartDebug });

@@ -37,6 +37,8 @@ export interface IAdminUserProject {
   readonly createdAt: string;
   readonly lastEditedAt: string | null;
   readonly prodEnabled: boolean;
+  /** Why the project's servers are off (ADR 0067 (private)); `null` = not suspended. */
+  readonly suspendedReason: 'balance' | 'admin' | null;
 }
 
 /** A project's "last changed" time as the owner's list sorts by it: the last edit, else creation. */
@@ -109,6 +111,7 @@ export class AdminUsersService {
         createdAt: project.createdAt.toISOString(),
         lastEditedAt: project.lastEditedAt ? project.lastEditedAt.toISOString() : null,
         prodEnabled: project.prodEnabled,
+        suspendedReason: project.suspendedReason,
       }));
   }
 

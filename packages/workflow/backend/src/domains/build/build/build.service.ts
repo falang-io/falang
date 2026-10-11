@@ -5,13 +5,20 @@ import {
   Inject,
   Injectable,
   Logger,
+  HttpException,
   NotFoundException,
+  Optional,
   type OnApplicationBootstrap,
   type OnModuleInit,
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { getFunctionSignature, type IFunctionSignature } from '@falang/workflow-compiler';
-import { IntegrationsRuntimeService, SCHEDULE_CLIENT_PORT, type IScheduleClientPort } from '@falang/workflow-gateway';
+import {
+  IntegrationsRuntimeService,
+  RunnerStartRefusedError,
+  SCHEDULE_CLIENT_PORT,
+  type IScheduleClientPort,
+} from '@falang/workflow-gateway';
 import type { Repository } from 'typeorm';
 import { UserLimitsService } from '../../admin/user-limits/user-limits.service.js';
 import { FilesService } from '../../files/files.service.js';
@@ -19,8 +26,15 @@ import { ActivepiecesCatalogService } from '../../integrations/activepieces-cata
 import { RUN_JOURNAL_STORE, type IRunJournalStore } from '../../run-journal/run-journal-store.js';
 import { ProjectTokenService } from '../../internal-auth/project-token.service.js';
 import { DocumentsService } from '../../projects/documents/documents.service.js';
+import type { Project } from '../../projects/projects/project.entity.js';
 import { ProjectsService, type TProjectAccess } from '../../projects/projects/projects.service.js';
 import { VersioningService } from '../../projects/versioning/versioning.service.js';
+import { ProjectSuspendedException } from '../runner-sessions/project-suspended.exception.js';
+import {
+  RUNNER_START_GUARD,
+  type IRunnerStartGuard,
+  type TRunnerStartAction,
+} from '../runner-sessions/runner-session-hooks.js';
 import { toApiSchedule, type IApiSchedule } from './api-schedule.js';
 import { registerRunnerPodsMetric } from './runner-pods-metrics.js';
 import { buildArtifact, cleanupOrphanedBuildDirs, typeCheckInWorker } from './build-artifact.js';
@@ -100,6 +114,7 @@ export class BuildService implements OnModuleInit, OnApplicationBootstrap {
   private readonly userLimits: UserLimitsService;
   private readonly filesService: FilesService;
   private readonly runJournal: IRunJournalStore;
+  private readonly startGuard: IRunnerStartGuard | undefined;
 
   constructor(
     @Inject(DocumentsService) documentsService: DocumentsService,
@@ -118,6 +133,8 @@ export class BuildService implements OnModuleInit, OnApplicationBootstrap {
     @Inject(UserLimitsService) userLimits: UserLimitsService,
     @Inject(FilesService) filesService: FilesService,
     @Inject(RUN_JOURNAL_STORE) runJournal: IRunJournalStore,
+    // Not provided by `BuildModule` itself: a `@Global()` module exporting the token (the hosted edition's balance guard) overrides the default.
+    @Optional() @Inject(RUNNER_START_GUARD) startGuard?: IRunnerStartGuard,
   ) {
     this.documentsService = documentsService;
     this.projectsService = projectsService;
@@ -135,6 +152,7 @@ export class BuildService implements OnModuleInit, OnApplicationBootstrap {
     this.userLimits = userLimits;
     this.filesService = filesService;
     this.runJournal = runJournal;
+    this.startGuard = startGuard;
   }
 
   /**
@@ -149,9 +167,17 @@ export class BuildService implements OnModuleInit, OnApplicationBootstrap {
     cleanupOrphanedBuildDirs(this.outputDir);
     registerRunnerPodsMetric(this.runnerProcessManager);
     const deps = this.ensureRunnerDeps();
-    this.gatewayRuntime.setEnsureRunnerRunning((params) =>
-      ensureRunnerRunning(deps, params.projectId, params.env, params.taskQueue),
-    );
+    this.gatewayRuntime.setEnsureRunnerRunning(async (params) => {
+      try {
+        await ensureRunnerRunning(deps, params.projectId, params.env, params.taskQueue);
+      } catch (error) {
+        // A start refused on purpose (suspended project, no balance) must not let the event queue up in Temporal.
+        if (error instanceof HttpException && (error.getStatus() === 402 || error.getStatus() === 423)) {
+          throw new RunnerStartRefusedError(error.message, error);
+        }
+        throw error;
+      }
+    });
   }
 
   /**
@@ -168,11 +194,14 @@ export class BuildService implements OnModuleInit, OnApplicationBootstrap {
   }
 
   private async restoreIngress(): Promise<void> {
+    const suspended = new Set(await this.projectsService.listSuspendedIds());
     const prodProjects = new Set(await this.projectsService.listProdEnabledIds());
-    const running = await this.runnerProcessManager.listRunning().catch((error: unknown) => {
+    for (const projectId of suspended) prodProjects.delete(projectId);
+    const listed = await this.runnerProcessManager.listRunning().catch((error: unknown) => {
       this.logger.error('Could not list runner pods on boot', error instanceof Error ? error.stack : error);
       return [];
     });
+    const running = listed.filter((runner) => !suspended.has(runner.projectId));
     const legacyProd = new Set(
       running
         .filter((runner) => runner.env === 'prod' && !prodProjects.has(runner.projectId))
@@ -198,7 +227,21 @@ export class BuildService implements OnModuleInit, OnApplicationBootstrap {
       resolveProdVersion: (projectId) => this.resolveProdVersion(projectId),
       deploymentCli: this.deploymentCli,
       startVersionRunnerIfNeeded: this.startVersionRunnerIfNeeded.bind(this),
+      assertCanStart: (projectId, env, action) => this.assertMayStart(projectId, env, action),
     };
+  }
+
+  /**
+   * Everything that may veto creating a runner pod (ADR 0067 (private) §3): a suspended project answers `423`, then the
+   * host's `IRunnerStartGuard` (the hosted edition's balance check — `402`) gets its say. Called before any side effect
+   * on every path that ends in `RunnerProcessManager.start` — `build` (`dev-start`), `startDevRun` (`dev-run`), a debug
+   * start (`debug`), `startProd` (`prod-start`), `activate`, `publish` when prod is live, and a trigger/schedule/task
+   * wake (`wake`, through `ensureRunnerRunning`). A path that finds its pod already running never starts one and so asks nothing.
+   */
+  async assertMayStart(projectId: string, env: 'dev' | 'prod', action: TRunnerStartAction): Promise<void> {
+    const { ownerId, suspendedReason } = await this.projectsService.getStartGateInfo(projectId);
+    if (suspendedReason) throw new ProjectSuspendedException(suspendedReason);
+    await this.startGuard?.assertCanStart({ projectId, ownerId, env, action });
   }
 
   /**
@@ -218,6 +261,7 @@ export class BuildService implements OnModuleInit, OnApplicationBootstrap {
   async build(projectId: string, ownerId: string): Promise<IBuildResult> {
     // `listFull` authorizes internally (throws 404 if the project isn't owned by `ownerId`).
     const documents = await this.documentsService.listFull(projectId, ownerId);
+    await this.assertMayStart(projectId, 'dev', 'dev-start');
     // Dev builds are always debug-instrumented (ADR 0021 (private) §5) — the cost is a no-op per
     // statement until a debug session actually attaches, and it means toggling a breakpoint never
     // needs a rebuild. `debugMap` is kept alongside the artifact for `DebugService` to resolve
@@ -331,7 +375,7 @@ export class BuildService implements OnModuleInit, OnApplicationBootstrap {
     }
 
     const taskQueue = devTaskQueue(projectId);
-    await ensureRunnerRunning(this.ensureRunnerDeps(), projectId, 'dev', taskQueue);
+    await ensureRunnerRunning(this.ensureRunnerDeps(), projectId, 'dev', taskQueue, { action: 'dev-run' });
     const terminatedExecutionsCount = await this.workflowRunService.terminateRunningOn(projectId, taskQueue);
     const started = await this.workflowRunService.start(
       projectId,
@@ -401,7 +445,12 @@ export class BuildService implements OnModuleInit, OnApplicationBootstrap {
     }
     this.runnerProcessManager.touch(position.taskQueue);
     if (position.source === 'unavailable') {
-      await ensureRunnerRunning(this.ensureRunnerDeps(), projectId, env, position.taskQueue);
+      try {
+        await ensureRunnerRunning(this.ensureRunnerDeps(), projectId, env, position.taskQueue);
+      } catch (error) {
+        // A suspended project / empty balance: the poll just keeps reporting "unavailable" instead of failing.
+        if (!(error instanceof HttpException && (error.getStatus() === 402 || error.getStatus() === 423))) throw error;
+      }
     }
     return position;
   }
@@ -412,6 +461,9 @@ export class BuildService implements OnModuleInit, OnApplicationBootstrap {
    * version starts alongside it (subject to the owner's `maxConcurrentProdVersions` limit) — see `startProd`.
    */
   async publish(projectId: string, ownerId: string): Promise<IProjectVersionSummary> {
+    // When prod is live, this publish starts the new version's pod too: ask first, so a refusal doesn't leave a published-but-unstarted version behind.
+    const prodRunning = await this.runnerProcessManager.isAnyRunning(prodTaskQueue(projectId));
+    if (prodRunning) await this.assertMayStart(projectId, 'prod', 'publish');
     const versionNumber = (await this.versions.count({ where: { projectId } })) + 1;
 
     // One commit per publish (ADR 0025 (private), "Ties to ProjectVersion") —
@@ -442,8 +494,13 @@ export class BuildService implements OnModuleInit, OnApplicationBootstrap {
     );
 
     const taskQueue = prodTaskQueue(projectId);
-    if (await this.runnerProcessManager.isAnyRunning(taskQueue)) {
-      await startAndRouteProdVersion(this.routeProdVersionDeps(projectId, taskQueue), projectId, taskQueue, buildId);
+    if (prodRunning) {
+      await startAndRouteProdVersion(
+        this.routeProdVersionDeps(projectId, taskQueue, 'publish', true),
+        projectId,
+        taskQueue,
+        buildId,
+      );
     }
     // A new version becomes production's version: routed right away if prod is live, otherwise the one
     // the next Start (or a trigger waking a scaled-down pod) brings up.
@@ -478,7 +535,7 @@ export class BuildService implements OnModuleInit, OnApplicationBootstrap {
     const version = await this.getOwnedVersion(projectId, ownerId, versionNumber);
     const taskQueue = prodTaskQueue(projectId);
     await startAndRouteProdVersion(
-      this.routeProdVersionDeps(projectId, taskQueue),
+      this.routeProdVersionDeps(projectId, taskQueue, 'activate'),
       projectId,
       taskQueue,
       version.buildId,
@@ -503,6 +560,15 @@ export class BuildService implements OnModuleInit, OnApplicationBootstrap {
     return project.prodEnabled;
   }
 
+  /** `GET /projects/:id/versions/status`: the prod toggle plus why the servers are off, if the project is suspended. */
+  async getProdStatus(
+    projectId: string,
+    ownerId: string,
+  ): Promise<{ running: boolean; suspendedReason: Project['suspendedReason'] }> {
+    const project = await this.projectsService.getOwnedProject(projectId, ownerId);
+    return { running: project.prodEnabled, suspendedReason: project.suspendedReason };
+  }
+
   /**
    * The project-wide "Start" toggle: starts production's version (`Project.prodBuildId` — the last
    * published or activated one, so a rollback survives Stop/Start), and resumes any prod-env vendor
@@ -515,7 +581,7 @@ export class BuildService implements OnModuleInit, OnApplicationBootstrap {
 
     const taskQueue = prodTaskQueue(projectId);
     await startAndRouteProdVersion(
-      this.routeProdVersionDeps(projectId, taskQueue),
+      this.routeProdVersionDeps(projectId, taskQueue, 'prod-start'),
       projectId,
       taskQueue,
       version.buildId,
@@ -561,8 +627,11 @@ export class BuildService implements OnModuleInit, OnApplicationBootstrap {
     projectId: string,
     taskQueue: string,
     version: Pick<ProjectVersion, 'buildId'>,
+    action: TRunnerStartAction = 'wake',
+    alreadyGuarded = false,
   ): Promise<void> {
     if (await this.runnerProcessManager.isRunning(taskQueue, version.buildId)) return;
+    if (!alreadyGuarded) await this.assertMayStart(projectId, 'prod', action);
     await assertUnderProdVersionLimit(
       this.runnerProcessManager,
       taskQueue,
@@ -583,11 +652,17 @@ export class BuildService implements OnModuleInit, OnApplicationBootstrap {
     this.gatewayRuntime.resumeProjectIntegrations(projectId, 'prod');
   }
 
-  private routeProdVersionDeps(projectId: string, taskQueue: string): IRouteProdVersionDeps {
+  private routeProdVersionDeps(
+    projectId: string,
+    taskQueue: string,
+    action: TRunnerStartAction,
+    alreadyGuarded = false,
+  ): IRouteProdVersionDeps {
     return {
       runnerProcessManager: this.runnerProcessManager,
       deploymentCli: this.deploymentCli,
-      startRunner: (buildId) => this.startVersionRunnerIfNeeded(projectId, taskQueue, { buildId }),
+      startRunner: (buildId) =>
+        this.startVersionRunnerIfNeeded(projectId, taskQueue, { buildId }, action, alreadyGuarded),
     };
   }
 

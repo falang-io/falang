@@ -25,6 +25,9 @@ import { FilesModule } from '../domains/files/files.module.js';
 import { InMemoryFileStorage } from '../domains/files/in-memory-file-storage.js';
 import { IntegrationsModule } from '../domains/integrations/integrations.module.js';
 import { IntegrationVendorData } from '../domains/integrations/vendor-data/integration-vendor-data.entity.js';
+import { RunnerSession } from '../domains/build/runner-sessions/runner-session.entity.js';
+import { RunnerSessionsModule } from '../domains/build/runner-sessions/runner-sessions.module.js';
+import { ProjectRuntimeSettingsModule } from '../domains/projects/runtime-settings/project-runtime-settings.module.js';
 import { Document } from '../domains/projects/documents/document.entity.js';
 import { DocumentsModule } from '../domains/projects/documents/documents.module.js';
 import { ProjectExportModule } from '../domains/projects/export/project-export.module.js';
@@ -85,6 +88,7 @@ export const buildTestAppImports = (extraModules: TAppImport[] = []) => [
       ProjectTemplate,
       AuthToken,
       SupportMessage,
+      RunnerSession,
     ],
   }),
   UsersModule,
@@ -103,6 +107,8 @@ export const buildTestAppImports = (extraModules: TAppImport[] = []) => [
   SupportModule,
   FilesModule,
   RunJournalModule,
+  RunnerSessionsModule,
+  ProjectRuntimeSettingsModule,
   TemporalModule,
   EgressProxyModule,
   GatewayModule.forRoot([], noopDiscoveryPort),

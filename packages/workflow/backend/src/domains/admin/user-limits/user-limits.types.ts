@@ -11,10 +11,14 @@ export interface IUserLimits {
   readonly ingressFileTtlHours: number;
   /** Max published (prod) workflow versions running at once per project (`MAX_CONCURRENT_PROD_VERSIONS`). */
   readonly maxConcurrentProdVersions: number;
+  /** Cap on a project's per-env idle-stop period in minutes (ADR 0067 (private) §2; default 1440). */
+  readonly maxIdleMinutes: number;
+  /** Whether the owner's projects may use the "always on" switch (default `true`). */
+  readonly alwaysOnAllowed: boolean;
 }
 
 /** A field set to `null` clears that override (falls back to the env default); an omitted field leaves it untouched. */
-export type IUserLimitsOverrides = Partial<Record<keyof IUserLimits, number | null>>;
+export type IUserLimitsOverrides = { [K in keyof IUserLimits]?: IUserLimits[K] | null };
 
 /** `GET`/`PUT /admin/users/:id/limits` response shape. */
 export interface IUserLimitsResponse {

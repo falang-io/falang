@@ -6,7 +6,7 @@ import type { Repository } from 'typeorm';
 import { User } from '../../users/users/user.entity.js';
 import { Document } from '../documents/document.entity.js';
 import { ensureFixedFolders } from '../layout/project-layout.js';
-import { Project } from './project.entity.js';
+import { Project, type TSuspendedReason } from './project.entity.js';
 
 /**
  * How a caller may touch a project: `'owner'` (default — every write, run, build, agent call) or
@@ -143,6 +143,34 @@ export class ProjectsService {
 
   async setJournalStoreTexts(projectId: string, storeTexts: boolean): Promise<void> {
     await this.projects.update({ id: projectId }, { journalStoreTexts: storeTexts });
+  }
+
+  /** `Project.suspendedReason` of `id` (`null` also for an unknown project). */
+  async getSuspendedReason(id: string): Promise<TSuspendedReason | null> {
+    const project = await this.projects.findOne({ select: { id: true, suspendedReason: true }, where: { id } });
+    return project?.suspendedReason ?? null;
+  }
+
+  /** Sets (or, with `null`, clears) the suspension reason; returns whether a project row was updated. */
+  async setSuspendedReason(id: string, reason: TSuspendedReason | null): Promise<boolean> {
+    const result = await this.projects.update({ id }, { suspendedReason: reason });
+    return (result.affected ?? 0) > 0;
+  }
+
+  /** `ownerId` + `suspendedReason` of a project in one read, for the runner start gate; throws 404 for an unknown project. */
+  async getStartGateInfo(id: string): Promise<{ ownerId: string; suspendedReason: TSuspendedReason | null }> {
+    const project = await this.projects.findOne({
+      select: { id: true, ownerId: true, suspendedReason: true },
+      where: { id },
+    });
+    if (!project) throw new NotFoundException(`Project "${id}" not found`);
+    return { ownerId: project.ownerId, suspendedReason: project.suspendedReason };
+  }
+
+  /** Ids of every suspended project — `BuildService` never restores their ingress on boot. */
+  async listSuspendedIds(): Promise<string[]> {
+    const rows = await this.projects.find({ select: { id: true, suspendedReason: true } });
+    return rows.filter((row) => row.suspendedReason !== null).map((row) => row.id);
   }
 
   /** Ids of every project whose production is turned on — `BuildService` re-activates their prod ingress on boot. */

@@ -1,6 +1,8 @@
 import { eventTracker } from './analytics/event-tracker.js';
 import { action, computed, makeObservable, observable, runInAction } from 'mobx';
 import type { IExecutionLocation, IExecutionPositionSource } from '@falang/scheme';
+import { getGlobalI18n } from '@falang/scheme';
+import { describeStartError } from './start-error-message.js';
 import { RunJournalStore } from './run-journal-store.js';
 import {
   workflowApi,
@@ -107,7 +109,7 @@ export class LiveRunStore implements IExecutionPositionSource {
       return true;
     } catch (error) {
       runInAction(() => {
-        this.startError = error instanceof Error ? error.message : 'Failed to start the run';
+        this.startError = describeStartError(error, getGlobalI18n().t, 'Failed to start the run');
       });
       return false;
     } finally {

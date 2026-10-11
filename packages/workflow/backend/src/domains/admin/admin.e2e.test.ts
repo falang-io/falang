@@ -310,6 +310,8 @@ describe('admin domain (/admin/*)', () => {
           devFileTtlHours: 24,
           ingressFileTtlHours: 168,
           maxConcurrentProdVersions: 3,
+          maxIdleMinutes: 1440,
+          alwaysOnAllowed: true,
         },
         overrides: {},
       });
@@ -344,6 +346,34 @@ describe('admin domain (/admin/*)', () => {
       expect(resetResponse.status).toBe(200);
       expect(resetResponse.body.overrides).toEqual({});
       expect(resetResponse.body.effective.maxFileBytes).toBe(104_857_600);
+    });
+
+    it('overrides maxIdleMinutes and alwaysOnAllowed (ADR 0067) and clears them with null', async () => {
+      const adminToken = await login(app);
+      await registerUser('alice');
+      const listResponse = await request(app.getHttpServer()).get('/admin/users').set(auth(adminToken));
+      const aliceId: string = listResponse.body.find((user: { username: string }) => user.username === 'alice').id;
+
+      const bad = await request(app.getHttpServer())
+        .put(`/admin/users/${aliceId}/limits`)
+        .set(auth(adminToken))
+        .send({ maxIdleMinutes: 0 });
+      expect(bad.status).toBe(400);
+
+      const set = await request(app.getHttpServer())
+        .put(`/admin/users/${aliceId}/limits`)
+        .set(auth(adminToken))
+        .send({ maxIdleMinutes: 60, alwaysOnAllowed: false });
+      expect(set.status).toBe(200);
+      expect(set.body.overrides).toEqual({ maxIdleMinutes: 60, alwaysOnAllowed: false });
+      expect(set.body.effective).toMatchObject({ maxIdleMinutes: 60, alwaysOnAllowed: false });
+
+      const cleared = await request(app.getHttpServer())
+        .put(`/admin/users/${aliceId}/limits`)
+        .set(auth(adminToken))
+        .send({ maxIdleMinutes: null, alwaysOnAllowed: null });
+      expect(cleared.body.overrides).toEqual({});
+      expect(cleared.body.effective).toMatchObject({ maxIdleMinutes: 1440, alwaysOnAllowed: true });
     });
 
     it('overrides maxConcurrentProdVersions and rejects 0', async () => {

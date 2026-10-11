@@ -1,5 +1,6 @@
 // oxlint-disable no-await-in-loop -- every loop below is a sequential, deliberately-not-parallel drive over targets (discovery, startup registration — low-frequency, not a hot path).
 // oxlint-disable max-lines -- over the default cap because of the new `ensureRunnerRunning`/`setEnsureRunnerRunning` wake-on-signal wiring (ADR 0016 (private)'s Phase 2 "Scale-to-zero" follow-up), not accumulated complexity.
+import { RunnerStartRefusedError } from './runner-start-refused-error.js';
 import { runWithEgressVendor } from '@falang/workflow-egress';
 import { Logger, type OnModuleDestroy, type OnModuleInit } from '@nestjs/common';
 import type { IIntegrationBackendHandle, IWorkflowIntegration } from '@falang/workflow-integrations-common';
@@ -480,6 +481,14 @@ export class IntegrationsRuntimeService implements OnModuleInit, OnModuleDestroy
               await this.ensureRunnerRunning({ projectId: target.projectId, env: target.env, taskQueue });
             } catch (error) {
               wake.error = error;
+              if (error instanceof RunnerStartRefusedError) {
+                // Refused on purpose (suspended project / no balance): do not queue the event in Temporal.
+                this.logger.warn(
+                  `Runner start refused for ${target.vendor}/${target.credentialId}/${target.env}: ${error.message}`,
+                );
+                await this.reportUndeliverable(target, signal, error, wake);
+                throw error;
+              }
               // Best-effort: fall through to signaling anyway — no worse than the pre-wake status quo.
               this.logger.error(
                 `ensureRunnerRunning failed for ${target.vendor}/${target.credentialId}/${target.env}`,

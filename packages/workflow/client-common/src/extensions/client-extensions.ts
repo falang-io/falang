@@ -27,6 +27,18 @@ export interface IAgentPanelHeaderContext {
   readonly turnsFinished: number;
 }
 
+/** What `IClientExtensions.renderRuntimeCost` is rendered with. */
+export interface IRuntimeCostContext {
+  readonly projectId: string;
+  readonly env: 'dev' | 'prod';
+}
+
+/** What `IClientExtensions.renderSuspendedAction` is rendered with. */
+export interface ISuspendedActionContext {
+  readonly projectId: string;
+  readonly reason: 'balance' | 'admin';
+}
+
 /**
  * The one explicit extension contract of the community client: a separate entry (e.g. the hosted cloud edition)
  * passes these slots to `renderWorkflowApp` instead of forking the client. Every slot is optional; `{}` changes nothing.
@@ -46,6 +58,10 @@ export interface IClientExtensions {
   renderAgentQuotaNotice?: (error: unknown) => ReactNode | null;
   /** Rendered above the agent chat panel while it is open (cloud: the agent balance). */
   renderAgentPanelHeader?: (ctx: IAgentPanelHeaderContext) => ReactNode;
+  /** Rendered under each environment section of the "Project servers" modal (cloud: the hourly price and today's uptime). ADR 0067 (private). */
+  renderRuntimeCost?: (ctx: IRuntimeCostContext) => ReactNode;
+  /** Rendered next to the toolbar's "Servers off" pill (cloud: a "Top up" link for `reason: 'balance'`). ADR 0067 (private). */
+  renderSuspendedAction?: (ctx: ISuspendedActionContext) => ReactNode;
 }
 
 const EMPTY_EXTENSIONS: IClientExtensions = {};

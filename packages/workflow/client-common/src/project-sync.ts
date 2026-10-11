@@ -5,9 +5,11 @@ import { eventTracker } from './analytics/event-tracker.js';
 // of the class, the same reasoning `workflow-store.ts` already gives for its own disable.
 import { action, makeObservable, observable, runInAction } from 'mobx';
 import type { INode } from '@falang/dto';
+import { getGlobalI18n } from '@falang/scheme';
 import {
   workflowApi,
   ApiCompileErrorsError,
+  type TApiSuspendedReason,
   DocumentLockedError,
   type IApiBuildResult,
   type IApiCompileError,
@@ -15,6 +17,8 @@ import {
   type IApiProjectDocument,
   type IApiProjectVersion,
 } from './api-client.js';
+import { ApiCodedError } from './api-coded-error.js';
+import { describeStartError } from './start-error-message.js';
 import { PendingSaves } from './pending-saves.js';
 import { loadDevStatus, loadProdStatus } from './project-sync-status.js';
 import type { WorkflowDocument, WorkflowFolder } from './workflow-types.js';
@@ -67,6 +71,8 @@ export class ProjectSync {
   @observable lastPublishedVersion: IApiProjectVersion | null = null;
   @observable prodRunning = false;
   @observable hasVersions = false;
+  /** Why the project's servers are switched off by the platform (ADR 0067 (private)); `null` = not suspended. */
+  @observable suspendedReason: TApiSuspendedReason | null = null;
   @observable isProdActionLoading = false;
   /** Whether any document changed (content, name, structure) since the last successful dev build — the "Run" button rebuilds when this is set, see `WorkflowStore.ensureDevBuilt`. */
   @observable changedSinceBuild = false;
@@ -97,9 +103,10 @@ export class ProjectSync {
       () => this.buildStatus,
       (status) => (this.buildStatus = status),
     );
-    loadProdStatus(projectId, (prodRunning, hasVersions) => {
+    loadProdStatus(projectId, (prodRunning, hasVersions, suspendedReason) => {
       this.prodRunning = prodRunning;
       this.hasVersions = hasVersions;
+      this.suspendedReason = suspendedReason;
     });
   }
 
@@ -296,6 +303,7 @@ export class ProjectSync {
       const result = await workflowApi.build(this.projectId);
       runInAction(() => {
         this.buildStatus = 'running';
+        this.suspendedReason = null;
         this.lastBuildResult = result;
         this.changedSinceBuild = false;
       });
@@ -306,7 +314,7 @@ export class ProjectSync {
           this.buildErrors = error.errors;
           this.buildFiles = error.files;
         } else {
-          this.connectionError = error instanceof Error ? error.message : 'Build failed';
+          this.reportStartError(error, 'Build failed');
         }
       });
     }
@@ -360,7 +368,7 @@ export class ProjectSync {
     } catch (error) {
       runInAction(() => {
         this.isPublishing = false;
-        this.connectionError = error instanceof Error ? error.message : 'Publish failed';
+        this.reportStartError(error, 'Publish failed');
       });
     }
   }
@@ -372,11 +380,12 @@ export class ProjectSync {
       await workflowApi.startProd(this.projectId);
       runInAction(() => {
         this.prodRunning = true;
+        this.suspendedReason = null;
         this.isProdActionLoading = false;
       });
     } catch (error) {
       runInAction(() => {
-        this.connectionError = error instanceof Error ? error.message : 'Failed to start production';
+        this.reportStartError(error, 'Failed to start production');
         this.isProdActionLoading = false;
       });
     }
@@ -397,6 +406,15 @@ export class ProjectSync {
         this.isProdActionLoading = false;
       });
     }
+  }
+
+  /** A failed start/publish: a platform refusal (suspended project, empty balance) gets its own localised text, and a suspension is remembered for the toolbar pill. */
+  @action private reportStartError(error: unknown, fallback: string): void {
+    if (error instanceof ApiCodedError && error.code === 'project_suspended') {
+      const reason = (error.body as { reason?: unknown } | undefined)?.reason;
+      this.suspendedReason = reason === 'admin' ? 'admin' : 'balance';
+    }
+    this.connectionError = describeStartError(error, getGlobalI18n().t, fallback);
   }
 
   @action private reportError(error: unknown): void {

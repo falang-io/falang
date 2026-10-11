@@ -44,7 +44,9 @@ describe('admin read-only access to other users’ projects', () => {
     const aliceId = users.find((user) => user.username === 'alice')?.id ?? '';
 
     const projects = await request(server).get(`/admin/users/${aliceId}/projects`).set(auth(adminToken)).expect(200);
-    expect(projects.body).toEqual([expect.objectContaining({ id: projectId, name: 'Bot', prodEnabled: false })]);
+    expect(projects.body).toEqual([
+      expect.objectContaining({ id: projectId, name: 'Bot', prodEnabled: false, suspendedReason: null }),
+    ]);
 
     const info = await request(server).get(`/projects/${projectId}`).set(auth(adminToken)).expect(200);
     expect(info.body).toMatchObject({ id: projectId, name: 'Bot', readOnly: true, owner: { username: 'alice' } });

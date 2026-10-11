@@ -133,11 +133,11 @@ export class BuildController {
 
   /** The project-wide Start/Stop toggle (Versions modal) — distinct from per-version `activate`/`stopVersion` above. */
   @Get('versions/status')
-  async getProdStatus(
+  getProdStatus(
     @Param('projectId') projectId: string,
     @CurrentUser() user: IJwtPayloadUser,
-  ): Promise<{ running: boolean }> {
-    return { running: await this.buildService.isProdRunning(projectId, user.id) };
+  ): Promise<{ running: boolean; suspendedReason: 'balance' | 'admin' | null }> {
+    return this.buildService.getProdStatus(projectId, user.id);
   }
 
   @Post('versions/start')

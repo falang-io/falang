@@ -124,7 +124,7 @@ export class DebugService {
     }
 
     const taskQueue = devTaskQueue(projectId);
-    await ensureRunnerRunning(this.ensureRunnerDeps, projectId, 'dev', taskQueue);
+    await ensureRunnerRunning(this.ensureRunnerDeps, projectId, 'dev', taskQueue, { action: 'debug' });
     const terminatedExecutionsCount = await this.workflowRunService.terminateRunningOn(projectId, taskQueue);
 
     const workflowId = `debug-${input.functionName}-${randomUUID()}`;

@@ -6,6 +6,7 @@ import { observer } from 'mobx-react-lite';
 import { Button, Dropdown, notification, Tag, Tooltip, type MenuProps } from 'antd';
 import { DownOutlined, EyeOutlined, RobotOutlined, ThunderboltFilled, ThunderboltOutlined } from '@ant-design/icons';
 import { getGlobalI18n, type TFunction } from '@falang/scheme';
+import { useClientExtensions } from '../extensions/client-extensions.js';
 import { navigationStore } from '../navigation-store.js';
 import { useWorkflowStore } from '../workflow-store-context.js';
 import { BuildErrorsModal } from './build-errors-modal.js';
@@ -208,6 +209,23 @@ const WritableControls: React.FC<IWritableControlsProps> = observer(({ devRunnin
   );
 });
 
+/** "Servers off: <reason>" while the platform has switched the project's servers off (ADR 0067 (private)). */
+const SuspendedPill: React.FC = observer(() => {
+  const t = getGlobalI18n().t;
+  const store = useWorkflowStore();
+  const extensions = useClientExtensions();
+  const reason = store.suspendedReason;
+  if (!reason) return null;
+  return (
+    <>
+      <Tag color="error" data-testid="project-suspended-pill" data-reason={reason}>
+        {t(`client:toolbar.suspended.${reason}`)}
+      </Tag>
+      {extensions.renderSuspendedAction?.({ projectId: store.projectId, reason })}
+    </>
+  );
+});
+
 /** An admin viewing someone else's project — see `WorkflowStore.readOnly`. */
 const ReadOnlyTag: React.FC = observer(() => {
   const t = getGlobalI18n().t;
@@ -294,6 +312,7 @@ export const Toolbar: React.FC = observer(() => {
       </Button>
       <span style={S.projectName}>{navigationStore.selectedProjectName}</span>
       {store.readOnly && <ReadOnlyTag />}
+      <SuspendedPill />
       <span style={S.spacer} />
       {store.connectionError && <span style={S.error}>{store.connectionError}</span>}
       {store.buildErrors.length > 0 && (

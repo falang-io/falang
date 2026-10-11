@@ -17,6 +17,8 @@ const LIMITS: IUserLimits = {
   devFileTtlHours: 24,
   ingressFileTtlHours: 168,
   maxConcurrentProdVersions: 3,
+  maxIdleMinutes: 1440,
+  alwaysOnAllowed: true,
 };
 
 interface MockFileRepo {

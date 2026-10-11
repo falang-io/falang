@@ -1,5 +1,6 @@
 import { runInAction } from 'mobx';
 import { workflowApi } from './api-client.js';
+import type { TApiSuspendedReason } from './api-types.js';
 import type { TBuildStatus } from './project-sync.js';
 
 /**
@@ -29,7 +30,7 @@ export const loadDevStatus = async (
 /** Restores prod running state + whether any version exists, for the toolbar's Prod menu — mirrors `loadDevStatus` above. */
 export const loadProdStatus = async (
   projectId: string,
-  onLoaded: (prodRunning: boolean, hasVersions: boolean) => void,
+  onLoaded: (prodRunning: boolean, hasVersions: boolean, suspendedReason: TApiSuspendedReason | null) => void,
 ): Promise<void> => {
   try {
     const [status, versions] = await Promise.all([
@@ -37,7 +38,7 @@ export const loadProdStatus = async (
       workflowApi.listVersions(projectId),
     ]);
     runInAction(() => {
-      onLoaded(status.running, versions.length > 0);
+      onLoaded(status.running, versions.length > 0, status.suspendedReason ?? null);
     });
   } catch {
     // Best-effort restore only.

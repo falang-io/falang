@@ -11,6 +11,7 @@ import {
   FilePdfOutlined,
   FolderOutlined,
   HistoryOutlined,
+  CloudServerOutlined,
   ProfileOutlined,
   UnorderedListOutlined,
 } from '@ant-design/icons';
@@ -18,6 +19,7 @@ import { getGlobalI18n } from '@falang/scheme';
 import { useWorkflowStore } from '../workflow-store-context.js';
 import { useProjectExport } from './export-buttons.cmp.js';
 import { CodeViewerModal } from './code-viewer-modal.js';
+import { RuntimeSettingsModal } from './runtime-settings-modal.js';
 import { RunJournalSettingsModal } from './run-journal-settings-modal.js';
 import { ProjectRunsDrawer } from './project-runs-drawer.js';
 import { useRunningCount } from './use-running-count.js';
@@ -49,6 +51,7 @@ export const ProjectMenu: React.FC<IProjectMenuProps> = observer(({ buttonStyle,
   const [codeViewerOpen, setCodeViewerOpen] = useState(false);
   const [runsOpen, setRunsOpen] = useState(false);
   const [journalSettingsOpen, setJournalSettingsOpen] = useState(false);
+  const [runtimeSettingsOpen, setRuntimeSettingsOpen] = useState(false);
   const runningCount = useRunningCount(store.projectId, store.liveRun.position?.status ?? null);
 
   const items: MenuProps['items'] = [
@@ -88,6 +91,12 @@ export const ProjectMenu: React.FC<IProjectMenuProps> = observer(({ buttonStyle,
       label: t('client:toolbar.run-journal'),
       onClick: () => setJournalSettingsOpen(true),
     },
+    {
+      key: 'runtime-settings',
+      icon: <CloudServerOutlined />,
+      label: t('client:toolbar.runtime-settings'),
+      onClick: () => setRuntimeSettingsOpen(true),
+    },
     { type: 'divider' },
     {
       key: 'export-json',
@@ -108,7 +117,7 @@ export const ProjectMenu: React.FC<IProjectMenuProps> = observer(({ buttonStyle,
 
   // An admin viewing someone else's project (read-only) gets only what reads: files, tasks and the journal
   // settings belong to the owner.
-  const READ_ONLY_HIDDEN = new Set(['files', 'tasks', 'run-journal-settings']);
+  const READ_ONLY_HIDDEN = new Set(['files', 'tasks', 'run-journal-settings', 'runtime-settings']);
   const visibleItems = store.readOnly ? items.filter((item) => !READ_ONLY_HIDDEN.has(String(item?.key))) : items;
 
   // The button itself shows a badge when anything inside needs attention (open tasks / running runs).
@@ -130,6 +139,11 @@ export const ProjectMenu: React.FC<IProjectMenuProps> = observer(({ buttonStyle,
         projectId={store.projectId}
         open={journalSettingsOpen}
         onClose={() => setJournalSettingsOpen(false)}
+      />
+      <RuntimeSettingsModal
+        projectId={store.projectId}
+        open={runtimeSettingsOpen}
+        onClose={() => setRuntimeSettingsOpen(false)}
       />
       <ProjectRunsDrawer open={runsOpen} onClose={() => setRunsOpen(false)} />
     </>

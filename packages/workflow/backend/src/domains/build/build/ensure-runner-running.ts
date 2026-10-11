@@ -1,3 +1,4 @@
+import type { TRunnerStartAction } from '../runner-sessions/runner-session-hooks.js';
 import type { ProjectTokenService } from '../../internal-auth/project-token.service.js';
 import type { DevArtifactStore } from './dev-artifact-store.service.js';
 import type { DeploymentCliService } from './deployment-cli.service.js';
@@ -16,7 +17,13 @@ export interface IEnsureRunnerRunningDeps {
     projectId: string,
     taskQueue: string,
     version: Pick<ProjectVersion, 'buildId'>,
+    action?: TRunnerStartAction,
   ) => Promise<void>;
+  /**
+   * Suspension check + `IRunnerStartGuard` (ADR 0067 (private) §3), called right before a runner pod would be created
+   * for the dev stand; the prod path guards inside `startVersionRunnerIfNeeded`. Absent in unit tests that don't care.
+   */
+  readonly assertCanStart?: (projectId: string, env: 'dev' | 'prod', action: TRunnerStartAction) => Promise<void>;
 }
 
 export interface IEnsureRunnerRunningOptions {
@@ -31,6 +38,8 @@ export interface IEnsureRunnerRunningOptions {
    * `RunnerProcessManager.start()`'s own internal `touch()`.
    */
   readonly touch?: boolean;
+  /** What triggered the start, for the start guard — default `'wake'` (a trigger signal at a scaled-down pod). */
+  readonly action?: TRunnerStartAction;
 }
 
 /**
@@ -59,6 +68,7 @@ export const ensureRunnerRunning = async (
     // `DevArtifactStore`'s own MVP-scope doc comment) — nothing to wake into, same as today's
     // behavior for a dev trigger firing before `build()` has ever run.
     if (!deps.devArtifacts.has(projectId)) return;
+    await deps.assertCanStart?.(projectId, 'dev', options.action ?? 'wake');
     await deps.runnerProcessManager.start({
       taskQueue,
       projectId,
@@ -73,6 +83,6 @@ export const ensureRunnerRunning = async (
   const version = await deps.resolveProdVersion(projectId);
   // Nothing published yet.
   if (!version) return;
-  await deps.startVersionRunnerIfNeeded(projectId, taskQueue, version);
+  await deps.startVersionRunnerIfNeeded(projectId, taskQueue, version, options.action ?? 'wake');
   await deps.deploymentCli.setCurrentVersionWithRetry(projectId, taskQueue, version.buildId);
 };

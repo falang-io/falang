@@ -1,3 +1,4 @@
+// oxlint-disable no-undefined, unicorn/no-useless-undefined, unicorn/consistent-function-scoping, unicorn/no-await-expression-member, unicorn/catch-error-name, oxc/no-map-spread -- test fakes: resolving/rejecting with nothing, small local helpers and one-off spreads read better than the lint-preferred shapes.
 import { describe, expect, it, vi } from 'vitest';
 import { ensureRunnerRunning, type IEnsureRunnerRunningDeps } from './ensure-runner-running.js';
 
@@ -69,7 +70,7 @@ describe('ensureRunnerRunning — prod wake', () => {
     const { deps } = buildFakeDeps({ isRunning: false, prodVersion: { buildId: 'v1' } });
     await ensureRunnerRunning(deps, 'p1', 'prod', 'workflow-p1');
     expect(deps.resolveProdVersion).toHaveBeenCalledWith('p1');
-    expect(deps.startVersionRunnerIfNeeded).toHaveBeenCalledWith('p1', 'workflow-p1', { buildId: 'v1' });
+    expect(deps.startVersionRunnerIfNeeded).toHaveBeenCalledWith('p1', 'workflow-p1', { buildId: 'v1' }, 'wake');
     expect(deps.deploymentCli.setCurrentVersionWithRetry).toHaveBeenCalledWith('p1', 'workflow-p1', 'v1');
   });
 
@@ -77,5 +78,50 @@ describe('ensureRunnerRunning — prod wake', () => {
     const { deps } = buildFakeDeps({ isRunning: false });
     await ensureRunnerRunning(deps, 'p1', 'prod', 'workflow-p1');
     expect(deps.startVersionRunnerIfNeeded).not.toHaveBeenCalled();
+  });
+});
+
+describe('ensureRunnerRunning — start guard (ADR 0067)', () => {
+  it('asks the guard with the requested action before starting a dev pod', async () => {
+    const { deps, start } = buildFakeDeps({ isRunning: false });
+    const order: string[] = [];
+    const assertCanStart = vi.fn().mockImplementation(() => {
+      order.push('guard');
+      return Promise.resolve();
+    });
+    start.mockImplementation(() => {
+      order.push('start');
+      return Promise.resolve();
+    });
+    await ensureRunnerRunning({ ...deps, assertCanStart }, 'p1', 'dev', 'workflow-dev-p1', { action: 'dev-run' });
+    expect(assertCanStart).toHaveBeenCalledWith('p1', 'dev', 'dev-run');
+    expect(order).toEqual(['guard', 'start']);
+  });
+
+  it("defaults the action to 'wake'", async () => {
+    const { deps } = buildFakeDeps({ isRunning: false });
+    const assertCanStart = vi.fn().mockResolvedValue(undefined);
+    await ensureRunnerRunning({ ...deps, assertCanStart }, 'p1', 'dev', 'workflow-dev-p1');
+    expect(assertCanStart).toHaveBeenCalledWith('p1', 'dev', 'wake');
+  });
+
+  it('does not start a pod when the guard refuses, and the refusal propagates', async () => {
+    const { deps, start } = buildFakeDeps({ isRunning: false });
+    const assertCanStart = vi.fn().mockRejectedValue(new Error('refused'));
+    await expect(ensureRunnerRunning({ ...deps, assertCanStart }, 'p1', 'dev', 'workflow-dev-p1')).rejects.toThrow('refused');
+    expect(start).not.toHaveBeenCalled();
+  });
+
+  it('does not ask when the dev pod is already running (nothing to start)', async () => {
+    const { deps } = buildFakeDeps({ isRunning: true });
+    const assertCanStart = vi.fn().mockResolvedValue(undefined);
+    await ensureRunnerRunning({ ...deps, assertCanStart }, 'p1', 'dev', 'workflow-dev-p1');
+    expect(assertCanStart).not.toHaveBeenCalled();
+  });
+
+  it('passes the action on to the prod start', async () => {
+    const { deps } = buildFakeDeps({ isRunning: false, prodVersion: { buildId: 'v2' } });
+    await ensureRunnerRunning(deps, 'p1', 'prod', 'workflow-p1', { action: 'wake' });
+    expect(deps.startVersionRunnerIfNeeded).toHaveBeenCalledWith('p1', 'workflow-p1', { buildId: 'v2' }, 'wake');
   });
 });

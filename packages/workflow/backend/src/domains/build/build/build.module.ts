@@ -21,6 +21,12 @@ import { DocumentsModule } from '../../projects/documents/documents.module.js';
 import { DocumentsService } from '../../projects/documents/documents.service.js';
 import { ProjectsModule } from '../../projects/projects/projects.module.js';
 import { VersioningModule } from '../../projects/versioning/versioning.module.js';
+import { ProjectRuntimeSettingsModule } from '../../projects/runtime-settings/project-runtime-settings.module.js';
+import { UsersModule } from '../../users/users/users.module.js';
+import { RunnerSessionsModule } from '../runner-sessions/runner-sessions.module.js';
+import { RunnerSessionsService } from '../runner-sessions/runner-sessions.service.js';
+import { AdminProjectSuspensionController } from './admin-project-suspension.controller.js';
+import { ProjectSuspensionService } from './project-suspension.service.js';
 import { BuildController } from './build.controller.js';
 import { UserLimitsModule } from '../../admin/user-limits/user-limits.module.js';
 import { BuildService, BUILD_OUTPUT_DIR } from './build.service.js';
@@ -215,16 +221,28 @@ const createTerminateRunningExecutions = (graceMs: number, tenancy: ITemporalTen
     RunJournalModule,
     // Per-owner `maxConcurrentProdVersions` (see `BuildService.getMaxConcurrentProdVersions`).
     UserLimitsModule,
+    // ADR 0067 (private): the durable uptime record (`RunnerProcessManager` writes it), per-project idle settings (the
+    // sweep reads them) and `AdminGuard`'s `UsersService` for the admin suspend/resume routes.
+    RunnerSessionsModule,
+    ProjectRuntimeSettingsModule,
+    UsersModule,
     // Publish auto-commits the working copy before compiling (ADR 0025 (private),
     // "Ties to ProjectVersion") — imported here, not the other way around: `VersioningModule` must not
     // import `BuildModule`, or the two would form a circular module dependency.
     VersioningModule,
     TypeOrmModule.forFeature([ProjectVersion]),
   ],
-  controllers: [BuildController, DebugController, InternalArtifactsController, InternalCoverageController],
+  controllers: [
+    BuildController,
+    DebugController,
+    InternalArtifactsController,
+    InternalCoverageController,
+    AdminProjectSuspensionController,
+  ],
   providers: [
     BuildService,
     DevArtifactStore,
+    ProjectSuspensionService,
     RunnerIdleSweepService,
     // Waking a scaled-down pod ahead of a schedule's next fire (ADR 0037 (private)
     // §5) — depends on `BuildService` (for its `ensureRunnerRunning` wrapper) and, transitively via
@@ -243,8 +261,8 @@ const createTerminateRunningExecutions = (graceMs: number, tenancy: ITemporalTen
     },
     {
       provide: RunnerProcessManager,
-      inject: [ConfigService, TEMPORAL_TENANCY],
-      useFactory: (config: ConfigService, tenancy: ITemporalTenancy) => {
+      inject: [ConfigService, TEMPORAL_TENANCY, RunnerSessionsService],
+      useFactory: (config: ConfigService, tenancy: ITemporalTenancy, sessions: RunnerSessionsService) => {
         // `loadFromDefault()` reads `KUBECONFIG` (falling back to `~/.kube/config`, or in-cluster
         // service-account credentials when running as a pod itself) — the same convention every
         // other k8s tool (`kubectl`, Helm, …) follows, so no bespoke config surface for it here.
@@ -254,6 +272,8 @@ const createTerminateRunningExecutions = (graceMs: number, tenancy: ITemporalTen
 
         return new RunnerProcessManager({
           deploymentsClient: createK8sDeploymentsClient(appsApi),
+          // Durable uptime record, ADR 0067 (private) §1.
+          sessions,
           k8sNamespace: config.get<string>('K8S_NAMESPACE', 'workflow'),
           runnerImage: config.get<string>('RUNNER_IMAGE', 'falang-workflow-runner:local'),
           runnerServiceAccount: config.get<string>('RUNNER_SERVICE_ACCOUNT'),
@@ -341,6 +361,6 @@ const createTerminateRunningExecutions = (graceMs: number, tenancy: ITemporalTen
   // `BuildService`/`DebugService` are consumed directly by `McpModule` (ADR 0029 (private) phase F) — every other
   // pre-existing consumer of this module only used its
   // own controllers, so nothing was exported before this.
-  exports: [BuildService, DebugService],
+  exports: [BuildService, DebugService, ProjectSuspensionService],
 })
 export class BuildModule {}
