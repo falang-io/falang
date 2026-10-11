@@ -107,10 +107,9 @@ services:
     environment:
       - MINIO_ROOT_USER=${MINIO_ROOT_USER:-falang}
       - MINIO_ROOT_PASSWORD=${MINIO_ROOT_PASSWORD:-falangfalang}
-      # Bitnami-specific convenience (not available on the now-unpullable official image) — creates
-      # the bucket at startup too; `minio-init` below still runs its own `mc mb --ignore-existing`
-      # as a second, idempotent guarantee, matching the official-image pattern this was modeled on.
-      - MINIO_DEFAULT_BUCKETS=falang-files
+      # No MINIO_DEFAULT_BUCKETS: `minio-init` below creates the bucket. With both, `minio-init` could create
+      # it on Bitnami's temporary setup server first and the image's own `mc mb` (no --ignore-existing)
+      # then exited the container (see docker-compose.workflow-e2e.yml).
     ports:
       - '9000:9000'
       - '9001:9001'
@@ -123,20 +122,16 @@ services:
       retries: 20
     networks: [falang-workflow-network]
 
-  # One-shot bucket bootstrap (`mc alias set` + `mc mb --ignore-existing`) — kept even though
-  # `minio`'s own `MINIO_DEFAULT_BUCKETS` above already creates the bucket, so `backend`'s
-  # `depends_on: minio-init: condition: service_completed_successfully` has something concrete to
-  # wait on and this stays close to a plain official-`minio/mc`-based setup if that image becomes
-  # pullable again later.
+  # One-shot bucket bootstrap (`mc alias set` + `mc mb --ignore-existing`) — the only place the bucket
+  # is created; `backend` waits on it (`depends_on: minio-init: condition: service_completed_successfully`).
   minio-init:
     image: bitnamilegacy/minio-client:2025.7.21
     container_name: falang-workflow-minio-init
     depends_on:
       minio:
         condition: service_healthy
-    # `mc alias set` is retried: Bitnami's `minio` image first runs a temporary server to create
-    # `MINIO_DEFAULT_BUCKETS`, then stops and restarts it — the healthcheck can pass on the temporary
-    # one, and a single attempt landing in that restart gap fails with "connection refused".
+    # `mc alias set` is retried: a single attempt landing before the server listens fails with
+    # "connection refused".
     command:
       - /bin/sh
       - -c

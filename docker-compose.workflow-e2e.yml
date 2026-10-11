@@ -132,7 +132,9 @@ services:
     environment:
       - MINIO_ROOT_USER=falang
       - MINIO_ROOT_PASSWORD=falangfalang
-      - MINIO_DEFAULT_BUCKETS=falang-files
+      # No MINIO_DEFAULT_BUCKETS: `minio-init` creates the bucket. With both, `minio-init` could create it on
+      # Bitnami's temporary setup server first, and the image's own `mc mb` (no --ignore-existing) then
+      # failed with "you already own it" and exited the container — every Files/Media spec got 500s.
     ports:
       - '9002:9000'
       - '9003:9001'
@@ -151,9 +153,8 @@ services:
     depends_on:
       minio:
         condition: service_healthy
-    # `mc alias set` is retried: Bitnami's `minio` image first runs a temporary server to create
-    # `MINIO_DEFAULT_BUCKETS`, then stops and restarts it — the healthcheck can pass on the temporary
-    # one, and a single attempt landing in that restart gap fails with "connection refused".
+    # `mc alias set` is retried: a single attempt landing before the server listens fails with
+    # "connection refused".
     command:
       - /bin/sh
       - -c
