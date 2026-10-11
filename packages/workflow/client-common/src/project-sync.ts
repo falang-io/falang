@@ -413,6 +413,9 @@ export class ProjectSync {
     if (error instanceof ApiCodedError && error.code === 'project_suspended') {
       const reason = (error.body as { reason?: unknown } | undefined)?.reason;
       this.suspendedReason = reason === 'admin' ? 'admin' : 'balance';
+      // The toolbar pill already says it; repeating the refusal inline would crowd the toolbar.
+      this.connectionError = null;
+      return;
     }
     this.connectionError = describeStartError(error, getGlobalI18n().t, fallback);
   }

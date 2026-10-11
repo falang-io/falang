@@ -123,6 +123,7 @@
       "read-only-tooltip": "You are viewing another user’s project as an administrator. Nothing can be changed, built or run here.",
       "runtime-settings": "Project servers",
       "suspended": {
+        "short": "Servers off",
         "balance": "Servers off: balance",
         "admin": "Servers off: suspended by administrator"
       }
@@ -526,6 +527,7 @@
       "insufficient-balance": "Not enough balance to start the servers. Top up and try again."
     },
     "runtime-settings": {
+      "saved": "Settings saved",
       "title": "Project servers",
       "close": "Close",
       "save": "Save",

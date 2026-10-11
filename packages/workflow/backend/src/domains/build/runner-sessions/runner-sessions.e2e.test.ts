@@ -74,15 +74,24 @@ describe('runner sessions (ADR 0067)', () => {
 
   describe('reconcile (the 60 s sweep tick, after a restart)', () => {
     it('adopts a running deployment nobody recorded, starting at its creation time', async () => {
+      const projectId = await createProject(await registerUser('adopter'));
       const createdAt = minutes(T0, -90);
-      await sessions.reconcile([{ ...dev('p1'), createdAt }], T0);
+      await sessions.reconcile([{ ...dev(projectId), createdAt }], T0);
       const [session] = await sessions.listOpen();
-      expect(session).toMatchObject({ projectId: 'p1', startedAt: createdAt, lastSeenAt: T0 });
+      expect(session).toMatchObject({ projectId, startedAt: createdAt, lastSeenAt: T0 });
     });
 
     it('adopts at "now" when the cluster reports no creation time', async () => {
-      await sessions.reconcile([prod('p1', 'v2')], T0);
+      const projectId = await createProject(await registerUser('adopter2'));
+      await sessions.reconcile([prod(projectId, 'v2')], T0);
       expect((await sessions.listOpen())[0]?.startedAt).toEqual(T0);
+    });
+
+    it('does not adopt a deployment whose project does not exist', async () => {
+      const real = await createProject(await registerUser('adopter3'));
+      await sessions.reconcile([dev('ghost-project'), dev(real)], T0);
+      const open = await sessions.listOpen();
+      expect(open.map((session) => session.projectId)).toEqual([real]);
     });
 
     it('heartbeats a session whose deployment is still there', async () => {

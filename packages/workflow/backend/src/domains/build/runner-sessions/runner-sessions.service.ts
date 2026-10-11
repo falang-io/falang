@@ -68,6 +68,7 @@ export class RunnerSessionsService implements IRunnerSessionRecorder {
   private readonly sessions: Repository<RunnerSession>;
   private readonly projects: Repository<Project>;
   private readonly sink: IRunnerSessionSink | undefined;
+  private readonly warnedOrphans = new Set<string>();
   private chain: Promise<unknown> = Promise.resolve();
 
   constructor(
@@ -132,8 +133,20 @@ export class RunnerSessionsService implements IRunnerSessionRecorder {
       }
       const closedAfterSnapshot = await this.sessions.find({ where: { endedAt: MoreThanOrEqual(snapshotAt) } });
       const recentlyClosed = new Set(closedAfterSnapshot.map((row) => row.deploymentName));
-      for (const runner of running) {
-        if (openNames.has(runner.deploymentName) || recentlyClosed.has(runner.deploymentName)) continue;
+      const candidates = running.filter(
+        (runner) => !openNames.has(runner.deploymentName) && !recentlyClosed.has(runner.deploymentName),
+      );
+      const known = await this.existingProjectIds(candidates.map((runner) => runner.projectId));
+      for (const runner of candidates) {
+        if (!known.has(runner.projectId)) {
+          if (!this.warnedOrphans.has(runner.deploymentName)) {
+            this.warnedOrphans.add(runner.deploymentName);
+            this.logger.warn(
+              `Runner Deployment ${runner.deploymentName} belongs to unknown project ${runner.projectId}; no session opened`,
+            );
+          }
+          continue;
+        }
         const createdAt = runner.createdAt && runner.createdAt < now ? runner.createdAt : now;
         await this.insert(runner, createdAt, now);
       }
@@ -174,6 +187,13 @@ export class RunnerSessionsService implements IRunnerSessionRecorder {
       take: clampLimit(options.limit),
     });
     return rows.map((row) => withProjectName(toSession(row), names.get(row.projectId) ?? null));
+  }
+
+  private async existingProjectIds(ids: readonly string[]): Promise<Set<string>> {
+    const unique = [...new Set(ids)];
+    if (unique.length === 0) return new Set();
+    const rows = await this.projects.find({ select: { id: true }, where: { id: In(unique) } });
+    return new Set(rows.map((row) => row.id));
   }
 
   private async insert(runner: IRunnerSessionRunner, startedAt: Date, lastSeenAt: Date = startedAt): Promise<void> {

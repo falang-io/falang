@@ -26,13 +26,22 @@ const S: Record<string, React.CSSProperties> = {
     gap: 10,
     padding: '6px 12px',
     borderBottom: '1px solid #313244',
+    whiteSpace: 'nowrap',
     background: '#181825',
     color: '#cdd6f4',
     fontFamily: 'system-ui, sans-serif',
     fontSize: 12,
     flexShrink: 0,
   },
-  projectName: { fontWeight: 600 },
+  projectName: {
+    fontWeight: 600,
+    whiteSpace: 'nowrap',
+    overflow: 'hidden',
+    textOverflow: 'ellipsis',
+    maxWidth: 240,
+    minWidth: 0,
+    flexShrink: 1,
+  },
   spacer: { flex: 1 },
   dot: { width: 8, height: 8, borderRadius: '50%', flexShrink: 0 },
   dropdownIcon: { fontSize: 10, opacity: 0.7 },
@@ -49,6 +58,14 @@ const S: Record<string, React.CSSProperties> = {
     cursor: 'pointer',
   },
   error: { color: '#f38ba8' },
+  errorLine: {
+    color: '#f38ba8',
+    whiteSpace: 'nowrap',
+    overflow: 'hidden',
+    textOverflow: 'ellipsis',
+    maxWidth: 360,
+    minWidth: 0,
+  },
 };
 
 /** An on/off toolbar button's "on" look — `S.btn`'s inline background would otherwise hide antd's `primary`. */
@@ -218,9 +235,11 @@ const SuspendedPill: React.FC = observer(() => {
   if (!reason) return null;
   return (
     <>
-      <Tag color="error" data-testid="project-suspended-pill" data-reason={reason}>
-        {t(`client:toolbar.suspended.${reason}`)}
-      </Tag>
+      <Tooltip title={t(`client:toolbar.suspended.${reason}`)}>
+        <Tag color="error" data-testid="project-suspended-pill" data-reason={reason} style={{ marginInlineEnd: 0 }}>
+          {t('client:toolbar.suspended.short')}
+        </Tag>
+      </Tooltip>
       {extensions.renderSuspendedAction?.({ projectId: store.projectId, reason })}
     </>
   );
@@ -310,11 +329,17 @@ export const Toolbar: React.FC = observer(() => {
       <Button style={S.btn} onClick={() => navigationStore.goToProjectList()}>
         {t('client:toolbar.back')}
       </Button>
-      <span style={S.projectName}>{navigationStore.selectedProjectName}</span>
+      <span style={S.projectName} title={navigationStore.selectedProjectName ?? ''}>
+        {navigationStore.selectedProjectName}
+      </span>
       {store.readOnly && <ReadOnlyTag />}
       <SuspendedPill />
       <span style={S.spacer} />
-      {store.connectionError && <span style={S.error}>{store.connectionError}</span>}
+      {store.connectionError && (
+        <span style={S.errorLine} title={store.connectionError}>
+          {store.connectionError}
+        </span>
+      )}
       {store.buildErrors.length > 0 && (
         <span
           style={{ ...S.error, cursor: 'pointer', textDecoration: 'underline' }}

@@ -1,6 +1,6 @@
 import type React from 'react';
 import { useEffect, useState } from 'react';
-import { Alert, Button, InputNumber, Modal, Spin, Switch, Tooltip, Typography } from 'antd';
+import { Alert, Button, InputNumber, Modal, message, Spin, Switch, Tooltip, Typography } from 'antd';
 import { getGlobalI18n } from '@falang/scheme';
 import { workflowApi, type IApiRuntimeSettings, type TApiRunnerEnv } from '../api-client.js';
 import { ApiCodedError } from '../api-coded-error.js';
@@ -63,7 +63,11 @@ export const RuntimeSettingsModal: React.FC<Props> = ({ projectId, open, onClose
     setErrorMessage(null);
     workflowApi
       .putRuntimeSettings(projectId, buildRuntimeSettingsInput(form))
-      .then(apply)
+      .then((next) => {
+        apply(next);
+        message.success(t('client:runtime-settings.saved'));
+        onClose();
+      })
       .catch((error: unknown) => {
         if (error instanceof ApiCodedError && error.code === 'always_on_not_allowed') {
           setErrorMessage(t('client:runtime-settings.always-on-not-allowed'));
@@ -149,6 +153,7 @@ export const RuntimeSettingsModal: React.FC<Props> = ({ projectId, open, onClose
                 <div style={{ display: 'flex', gap: 8, alignItems: 'center', marginBottom: 4 }}>
                   <span>{t('client:runtime-settings.idle-minutes')}</span>
                   <InputNumber
+                    style={{ width: 220 }}
                     min={1}
                     max={settings.limits.maxIdleMinutes}
                     precision={0}
