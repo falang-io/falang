@@ -55,3 +55,6 @@ export { ProjectSuspensionService, type TSuspendedReason } from './domains/build
 export { BuildModule } from './domains/build/build/build.module.js';
 export { ProjectsModule } from './domains/projects/projects/projects.module.js';
 export { ProjectsService } from './domains/projects/projects/projects.service.js';
+// Mail for overlay modules (e.g. the cloud balance watch): `send` never throws, `buildClientLink` builds a client URL.
+export { MailModule } from './domains/mail/mail.module.js';
+export { MailService, type ISendMailInput } from './domains/mail/mail.service.js';
