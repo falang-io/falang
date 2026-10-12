@@ -15,6 +15,7 @@ import { DefaultPasswordBanner, EmailNotVerifiedBanner } from './default-passwor
 import { PersonalAccessTokensModal } from './personal-access-tokens-modal.js';
 import { TopBar } from './top-bar.js';
 import { SupportButton } from './support-button.js';
+import { StartWithAgent, useStartWithAgent, type TStartWithAgent } from './start-with-agent.js';
 
 type TCreateMode = 'empty' | 'file';
 
@@ -44,9 +45,13 @@ const styles: Record<string, React.CSSProperties> = {
   newProject: { marginLeft: 8, fontWeight: 600 },
 };
 
-const renderProjectList = (store: ProjectListStore, t: TFunction): React.ReactNode => {
+const renderProjectList = (store: ProjectListStore, t: TFunction, startWithAgent: TStartWithAgent): React.ReactNode => {
   if (store.isLoading) return <Spin />;
-  if (store.projects.length === 0) return <Empty description={t('client:project-list-page.no-projects')} />;
+  if (store.projects.length === 0) {
+    if (startWithAgent === 'loading') return <Spin />;
+    if (startWithAgent) return <StartWithAgent onStart={startWithAgent} busy={store.isCreating} />;
+    return <Empty description={t('client:project-list-page.no-projects')} />;
+  }
   return (
     <List
       dataSource={store.sortedProjects}
@@ -109,6 +114,7 @@ export const ProjectListPage: React.FC = observer(() => {
   const [importPayload, setImportPayload] = useState<IApiProjectExport | null>(null);
   const [importError, setImportError] = useState<string | null>(null);
   const [templateId, setTemplateId] = useState<string | null>(null);
+  const startWithAgent = useStartWithAgent(store);
 
   const resetModal = () => {
     setModalOpen(false);
@@ -200,7 +206,7 @@ export const ProjectListPage: React.FC = observer(() => {
       <DefaultPasswordBanner />
       <EmailNotVerifiedBanner />
       <div style={styles.content}>
-        {renderProjectList(store, t)}
+        {renderProjectList(store, t, startWithAgent)}
 
         {store.error && <Typography.Text type="danger">{store.error}</Typography.Text>}
 

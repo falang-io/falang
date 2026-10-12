@@ -1,7 +1,7 @@
 import { eventTracker } from './analytics/event-tracker.js';
 // oxlint-disable max-lines -- versioning (ADR 0025 (private)) added a handful of small fields/methods; the bulk of the new logic itself lives in `versioning/*.ts` to keep this file's growth minimal.
 import 'reflect-metadata';
-import { action, makeObservable, observable, reaction, runInAction, type IReactionDisposer } from 'mobx';
+import { action, makeObservable, observable, reaction, runInAction, when, type IReactionDisposer } from 'mobx';
 import { readSchemeTree, type AgentSession, type IJsonFilesDiagnostic } from '@falang/agent';
 import {
   type Scheme,
@@ -48,6 +48,7 @@ import { TOKEN_SCHEDULE_STATUS } from '@falang/workflow-scheme';
 import { workflowApi } from './api-client.js';
 import type { IApiProjectOwner } from './api-types.js';
 import { AgentLockTracker } from './agent/agent-lock-tracker.js';
+import { decideAgentAutoStart, hasInitialAgentPrompt, takeInitialAgentPrompt } from './agent/agent-auto-start.js';
 import { AgentSettingsStore } from './agent/agent-settings-store.js';
 import { MagicInsertSetting } from './agent/magic-insert-setting.js';
 import type { MagicRunStore } from './agent/magic-run-store.js';
@@ -160,6 +161,10 @@ export class WorkflowStore implements IWorkflowAgentStore {
   @observable.ref agentSession: AgentSession;
   private agentSessionInterface: TAgentInterfaceSetting;
   private readonly agentInterfaceDisposer: IReactionDisposer;
+  /** Resolves once `agentChat`'s session list is loaded — a programmatic send must not race it. */
+  private readonly agentChatLoaded: Promise<void>;
+  /** Opens the agent panel / runs the project list's prompt once the workspace has loaded (`agent-auto-start.ts`). */
+  private readonly agentAutoStartDisposer: IReactionDisposer;
   /** Which project-level right-sidebar panel is open — replaces the old per-panel `historyPanelOpen`
    *  boolean (ADR 0036 (private) §3): at most one of Agent/History shows at a time. */
   @observable rightPanel: 'agent' | 'history' | null = null;
@@ -293,7 +298,7 @@ export class WorkflowStore implements IWorkflowAgentStore {
     this.agentChat = new AgentChatSessionStore(new IndexedDbAgentSessionStore(projectId), {
       allowQuestionsStorageKey: `falang:agent-allow-questions:${projectId}`,
     });
-    this.agentChat.loadSessions();
+    this.agentChatLoaded = this.agentChat.loadSessions();
     this.agentSessionInterface = this.agentSettings.agentInterface;
     this.agentSession = this.createAgentSession(this.agentSessionInterface);
     this.agentInterfaceDisposer = reaction(
@@ -348,6 +353,41 @@ export class WorkflowStore implements IWorkflowAgentStore {
     );
     // Restore/persist the open tabs and mirror the active one into the URL (`workspace-sync.ts`).
     this.workspaceSyncDisposer = startWorkspaceSync(this);
+    this.agentAutoStartDisposer = when(
+      () => !this.isLoadingTree && !this.isLoadingDocuments && !this.agentSettings.loading,
+      () => this.autoStartAgent(),
+    );
+  }
+
+  /** An empty project opens with the agent panel; a project created from the list's prompt box runs that prompt. */
+  private autoStartAgent(): void {
+    const decision = decideAgentAutoStart({
+      readOnly: this.readOnly,
+      connectionError: this.connectionError,
+      agentConfigured: this.agentSettings.configured,
+      documents: this.documents,
+      rightPanel: this.rightPanel,
+      hasInitialPrompt: hasInitialAgentPrompt(this.projectId),
+    });
+    if (decision === 'none') return;
+    runInAction(() => {
+      this.rightPanel = 'agent';
+    });
+    if (decision !== 'run-initial-prompt') return;
+    const prompt = takeInitialAgentPrompt(this.projectId);
+    if (prompt) this.runInitialAgentPrompt(prompt).catch(() => null);
+  }
+
+  private async runInitialAgentPrompt(prompt: string): Promise<void> {
+    await this.agentChatLoaded;
+    // A fresh conversation, never appended to whatever session the project happens to have.
+    if (this.agentChat.activeSession && this.agentChat.activeSession.turns.length > 0) {
+      await this.agentChat.createSession();
+    }
+    await this.agentChat.send(prompt, {
+      agentSession: this.agentSession,
+      activeDocumentId: this.getAgentActiveDocumentId(),
+    });
   }
 
   /** The active tab's id when it is a document with a scheme editor (not the pinned `integrations`, not a loading placeholder). */
@@ -896,6 +936,7 @@ export class WorkflowStore implements IWorkflowAgentStore {
   }
 
   dispose(): void {
+    this.agentAutoStartDisposer();
     this.workspaceSyncDisposer();
     this.keepAliveDisposer();
     this.printExport?.dispose();

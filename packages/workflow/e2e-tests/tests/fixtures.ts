@@ -107,6 +107,16 @@ export const createProjectViaUI = async (page: Page, name: string): Promise<stri
   return body.id;
 };
 
+/**
+ * Shows the project-level agent chat panel. An empty project (nothing but `Integrations`) opens with the panel already
+ * showing when the agent is configured, and the toolbar's "Agent" button toggles — so click only when it is hidden.
+ */
+export const openAgentPanelViaUI = async (page: Page): Promise<void> => {
+  const panel = page.locator('.agent-chat-panel');
+  if (!(await panel.isVisible())) await page.getByRole('button', { name: 'Agent' }).click();
+  await expect(panel).toBeVisible();
+};
+
 /** Opens a project from the project list by name. */
 export const openProjectViaUI = async (page: Page, name: string): Promise<void> => {
   await page.getByText(name, { exact: true }).click();

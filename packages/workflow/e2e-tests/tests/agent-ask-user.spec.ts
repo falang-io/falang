@@ -1,7 +1,7 @@
 import type { INode } from '@falang/dto';
 import { getOpenAiRequests, queueOpenAiToolCalls, resetOpenAiMock } from '@falang/workflow-mocks';
 import type { APIRequestContext } from '@playwright/test';
-import { test, expect } from './fixtures.js';
+import { test, expect, openAgentPanelViaUI } from './fixtures.js';
 import {
   createApiContext,
   createProjectViaUI,
@@ -77,7 +77,7 @@ test.describe('agent clarifying questions', () => {
       await page.reload();
       await openProjectViaUI(page, projectName);
       await page.getByRole('treeitem', { name: 'main' }).click();
-      await page.getByRole('button', { name: 'Agent' }).click();
+      await openAgentPanelViaUI(page);
       const agentPanel = page.locator('.agent-chat-panel');
       const input = agentPanel.locator('textarea');
       await input.fill('Log a greeting');
@@ -153,7 +153,7 @@ test.describe('agent clarifying questions', () => {
       const reply = 'Nothing to do.';
       await queueOpenAiToolCalls(MOCKS_URL, apiKey, [{ arguments: { message: reply }, name: 'finish' }]);
 
-      await page.getByRole('button', { name: 'Agent' }).click();
+      await openAgentPanelViaUI(page);
       const agentPanel = page.locator('.agent-chat-panel');
       await agentPanel.getByRole('switch').click();
       await agentPanel.getByPlaceholder(PLACEHOLDER).fill('Do something');

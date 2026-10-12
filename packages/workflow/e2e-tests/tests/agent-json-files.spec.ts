@@ -1,7 +1,7 @@
 import type { INode } from '@falang/dto';
 import { getOpenAiRequests, queueOpenAiToolCalls, resetOpenAiMock } from '@falang/workflow-mocks';
 import type { APIRequestContext } from '@playwright/test';
-import { test, expect } from './fixtures.js';
+import { test, expect, openAgentPanelViaUI } from './fixtures.js';
 import {
   createApiContext,
   createProjectViaUI,
@@ -89,7 +89,7 @@ test.describe('agent JSON files', () => {
       await page.getByRole('treeitem', { name: 'main' }).click();
       await expect(page.getByRole('tab', { name: 'main' })).toHaveAttribute('aria-selected', 'true');
 
-      await page.getByRole('button', { name: 'Agent' }).click();
+      await openAgentPanelViaUI(page);
       const agentPanel = page.locator('.agent-chat-panel');
       await agentPanel
         .getByPlaceholder('Describe what the agent should change, or ask a question…')

@@ -64,7 +64,12 @@
       "invalid-json": "Selected file is not valid JSON",
       "tokens": "Access tokens",
       "admin": "Admin",
-      "change-password": "Change password"
+      "change-password": "Change password",
+      "default-project-name": "New project",
+      "start-with-agent-title": "What new automation do you want to build?",
+      "start-with-agent-hint": "Describe it in your own words — we'll create a project and the AI agent will start building it right away.",
+      "start-with-agent-placeholder": "For example: a Telegram bot that takes orders and sends them to amoCRM",
+      "start-with-agent-submit": "Start"
     },
     "toolbar": {
       "back": "← Projects",

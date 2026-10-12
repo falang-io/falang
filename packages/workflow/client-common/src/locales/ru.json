@@ -64,7 +64,12 @@
       "invalid-json": "Выбранный файл — не валидный JSON",
       "tokens": "Токены доступа",
       "admin": "Админ",
-      "change-password": "Сменить пароль"
+      "change-password": "Сменить пароль",
+      "default-project-name": "Новый проект",
+      "start-with-agent-title": "Какую новую автоматизацию вы хотите сделать?",
+      "start-with-agent-hint": "Опишите своими словами — мы создадим проект, и ИИ-агент сразу начнёт его собирать.",
+      "start-with-agent-placeholder": "Например: Telegram-бот, который принимает заказы и отправляет их в amoCRM",
+      "start-with-agent-submit": "Начать"
     },
     "toolbar": {
       "back": "← Проекты",

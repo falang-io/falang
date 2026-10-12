@@ -1,4 +1,4 @@
-import { test, expect } from './fixtures.js';
+import { test, expect, openAgentPanelViaUI } from './fixtures.js';
 import { clickProjectMenuItem, createProjectViaUI, createTreeItemViaUI, loginAndReachProjectList } from './fixtures.js';
 
 /**
@@ -29,7 +29,7 @@ test.describe('project right sidebar', () => {
     // `createTreeItemViaUI` call leaves `funcTwo` active, not `funcOne`.
     await page.getByRole('treeitem', { name: 'funcOne' }).click();
 
-    await page.getByRole('button', { name: 'Agent' }).click();
+    await openAgentPanelViaUI(page);
     const agentPanel = page.locator('.agent-chat-panel');
     await expect(agentPanel).toBeVisible();
 
