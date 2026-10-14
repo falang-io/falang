@@ -8,6 +8,11 @@ export class SchemeNodesStore {
     this.nodes.set(node.id, node);
   }
 
+  /** Ids of every node currently in the scheme — observable (reads the underlying map's keys). */
+  get ids(): string[] {
+    return [...this.nodes.keys()];
+  }
+
   get(id: string): NodeStore | null {
     return this.getNodeSafe(id);
   }
