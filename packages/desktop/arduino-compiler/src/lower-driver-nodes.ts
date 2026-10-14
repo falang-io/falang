@@ -2,6 +2,7 @@ import type { INode, IProjectDocument } from '@falang/dto';
 import { parseDriverActionNodeName, type IDriverConfig } from '@falang/desktop-arduino-dto';
 import { substituteDriverTemplate } from './substitute-driver-template.js';
 import { driverResultTypeToVariableType } from './driver-result-type.js';
+import { driverActionVariableName } from '@falang/desktop-arduino-dto/src/driver-result-type.js';
 
 export interface ILowerDriverNodesResult {
   readonly documents: IProjectDocument[];
@@ -41,7 +42,7 @@ export const lowerDriverNodes = (
     const newVariableField = driverAction.fields.find((field) => field.kind === 'new-variable');
 
     if (newVariableField && driverAction.resultType) {
-      const variableName = data[newVariableField.name] || newVariableField.default || 'result';
+      const variableName = driverActionVariableName(data, newVariableField);
       return {
         id: node.id,
         name: 'create-var',

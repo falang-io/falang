@@ -9,6 +9,7 @@ import {
   type IFieldCheckContext,
   type TFieldDescriber,
 } from '@falang/typescript-scheme';
+import { driverActionVariableName } from '@falang/desktop-arduino-dto/src/driver-result-type.js';
 import { MICROS, MILLIS, RANDOM } from '@falang/desktop-arduino-dto/src/arduino-function-nodes.js';
 import { PIN_READ_ANALOG, PIN_READ_DIGITAL } from '@falang/desktop-arduino-dto/src/pin-nodes.js';
 import { TOKEN_DRIVER_REGISTRY } from '../driver-nodes/driver-registry-token.js';
@@ -50,7 +51,8 @@ const describeDriverAction = (
     // Same fallback as `DriverActionBlockEditorStore`'s constructor: stored value, else the field default.
     const value = textOf(data[field.name], field.default ?? '');
     if (field.kind === 'string') fields.push(templateField(node, ctx, field.name, value));
-    else if (field.kind === 'new-variable') fields.push(identifierField(node, ctx, field.name, value));
+    else if (field.kind === 'new-variable')
+      fields.push(identifierField(node, ctx, field.name, driverActionVariableName(data, field)));
   }
   return fields;
 };

@@ -7,6 +7,7 @@ import { DriverRegistryModule } from './driver-nodes/driver-registry.module.js';
 import { getDriverConfigs, getDriverNodesIconsGroup } from './driver-nodes/driver-registry-cache.js';
 import { buildArduinoInsertableGroups } from './arduino-insertable-groups.js';
 import { ArduinoSchemeLocalesModule } from './locales/arduino-scheme-locales.module.js';
+import { registerArduinoScopeContributors } from './scope-contributors.js';
 import { registerArduinoFieldDescribers } from './field-check/arduino-field-describers.js';
 
 /**
@@ -36,6 +37,7 @@ export const arduinoSchemeFactory = (params: {
   getConnectedDriverIds?: () => ReadonlySet<string> | undefined;
 }) => {
   registerArduinoFieldDescribers();
+  registerArduinoScopeContributors();
   return functionalSchemeFactory({
     id: params.id,
     name: params.name,

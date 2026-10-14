@@ -1,5 +1,6 @@
 import type { IModule, Scheme } from '@falang/scheme';
 import type { IDriverConfig } from '@falang/desktop-arduino-dto/src/driver-config.js';
+import { registerDriverScopeContributors } from '../scope-contributors.js';
 import { DriverRegistryStore } from './driver-registry.store.js';
 import { TOKEN_DRIVER_REGISTRY } from './driver-registry-token.js';
 
@@ -12,6 +13,7 @@ export class DriverRegistryModule implements IModule {
   }
 
   register(scheme: Scheme): void {
+    registerDriverScopeContributors(this.drivers);
     scheme.container.register(TOKEN_DRIVER_REGISTRY, { useValue: new DriverRegistryStore(this.drivers) });
   }
 }

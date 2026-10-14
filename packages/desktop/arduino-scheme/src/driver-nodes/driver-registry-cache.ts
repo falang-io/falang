@@ -3,6 +3,7 @@ import type { IDriverConfig } from '@falang/desktop-arduino-dto/src/driver-confi
 import { buildDriverActionNodeName } from '@falang/desktop-arduino-dto/src/driver-node-name.js';
 import { localizeDriverConfig } from '@falang/desktop-arduino-dto/src/driver-localize.js';
 import { getGlobalI18n } from '@falang/scheme';
+import { registerDriverScopeContributors } from '../scope-contributors.js';
 import { buildDriverNodesIconsGroup, DRIVER_TITLES_NS } from './driver-nodes-icons-group.js';
 
 /**
@@ -87,6 +88,7 @@ export const initializeDriverRegistry = (
     driver.actions.map((action) => buildDriverActionNodeName(driver.id, action.id)),
   );
   registerDriverTitleLocales(drivers, scopes);
+  registerDriverScopeContributors(drivers);
 };
 
 export const getDriverScope = (driverId: string): TDriverScopeHint | undefined => cachedScopes[driverId];

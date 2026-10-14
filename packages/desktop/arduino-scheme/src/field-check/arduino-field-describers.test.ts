@@ -17,6 +17,9 @@ import {
   TOKEN_TYPESCRIPT_PROJECT_SERVICE,
   type ICheckedField,
 } from '@falang/typescript-scheme';
+import { validateVariableName } from '@falang/typescript-scheme/src/block-elements/new-variable/validate-variable-name.js';
+import { int32Type } from '@falang/typescript-dto';
+import { collectScopeVariables } from '@falang/typescript-common';
 import { parseDriverConfig } from '@falang/desktop-arduino-dto/src/driver-config.js';
 import { buildDriverActionNodeName } from '@falang/desktop-arduino-dto/src/driver-node-name.js';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
@@ -184,5 +187,40 @@ describe('arduino field describers', () => {
       describeCheckedFields(h.scheme.rootNode?.children[1] as never, { projectService: null, container: null }),
     ).toEqual([]);
     expect(describeCheckedFields(h.scheme.rootNode?.children[1] as never, h.ctx)).toEqual([]);
+  });
+
+  it('variables declared by Arduino nodes are in scope for later icons, typed like the lowering', () => {
+    const h = build();
+    scheme = h.scheme;
+    const int32 = int32Type;
+    h.add('a', 'pin-read-digital', { pin: 2, variable: 'btn' });
+    h.add('b', 'millis', { variable: 'now' });
+    h.add('c', 'random', { max: 5, variable: 'rnd' });
+    h.add('d', 'micros', { variable: '' });
+    h.add('e', READ, { pin: '3', result: 'res' });
+    h.add('f', READ, {});
+    const later = h.add('z', 'if', 'btn');
+    const vars = Object.fromEntries(collectScopeVariables(later as never).map((v) => [v.name, v.type]));
+    expect(vars['btn']).toMatchObject(int32);
+    expect(vars['now']).toMatchObject(int32);
+    expect(vars['rnd']).toMatchObject(int32);
+    expect(vars['res']).toEqual({ type: 'number', numberType: { type: 'float', floatType: 'float32' } });
+    // the field has no default: lowering uses 'result'
+    expect(vars['result']).toBeDefined();
+    expect(Object.keys(vars)).not.toContain('');
+    // the later node's checked-field prefix declares the variable, so the background check passes
+    const print = h.add('p2', PRINT, { text: 'x ${btn}' });
+    const text = codeTexts(describeCheckedFields(print, h.ctx))['text'] ?? '';
+    expect(text).toContain('btn');
+    expect(text).toContain('res');
+  });
+
+  it('an empty driver new-variable name checks as the compiled default `result`', () => {
+    const h = build();
+    scheme = h.scheme;
+    const read = h.add('r0', READ, { pin: '3', result: '' });
+    const fields = describeCheckedFields(read, h.ctx);
+    expect(fields[0]).toMatchObject({ kind: 'identifier', field: 'result', value: 'result' });
+    expect(validateVariableName('result', (fields[0] as { scopeNames: string[] }).scopeNames)).toBeNull();
   });
 });
