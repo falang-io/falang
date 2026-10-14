@@ -2,7 +2,7 @@ import { tl } from '../locales/arduino-t.js';
 import type { IBlockConfig, IBlockEditorFactoryParams, IBlockView, TBlockEditorView } from '@falang/scheme';
 import { CELL_SIZE_2, EditorType } from '@falang/scheme';
 import {
-  collectScopeVariables,
+  collectNodeScope,
   ExpressionBlockEditorStore,
   NewVariableEditingComponent,
   NewVariableStore,
@@ -49,7 +49,7 @@ class RandomBlockEditorStore extends ExpressionBlockEditorStore<IRandomData> {
     this.max = params.data.max;
     this.variableStore = new NewVariableStore({
       value: params.data.variable,
-      getScopeNames: () => collectScopeVariables(this.dataNode).map((variable) => variable.name),
+      getScopeNames: () => collectNodeScope(this.dataNode, this.projectService).map((variable) => variable.name),
     });
     makeObservable(this);
   }

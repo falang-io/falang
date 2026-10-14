@@ -7,6 +7,7 @@ import { DriverRegistryModule } from './driver-nodes/driver-registry.module.js';
 import { getDriverConfigs, getDriverNodesIconsGroup } from './driver-nodes/driver-registry-cache.js';
 import { buildArduinoInsertableGroups } from './arduino-insertable-groups.js';
 import { ArduinoSchemeLocalesModule } from './locales/arduino-scheme-locales.module.js';
+import { registerArduinoFieldDescribers } from './field-check/arduino-field-describers.js';
 
 /**
  * Every scheme this app opens gets the pin node kinds (ADR 0023 (private)'s Phase A), the
@@ -33,8 +34,9 @@ export const arduinoSchemeFactory = (params: {
    * only their actions (a palette filter; node kinds of every driver stay registered). Omit to list every driver.
    */
   getConnectedDriverIds?: () => ReadonlySet<string> | undefined;
-}) =>
-  functionalSchemeFactory({
+}) => {
+  registerArduinoFieldDescribers();
+  return functionalSchemeFactory({
     id: params.id,
     name: params.name,
     parentContainer: params.parentContainer,
@@ -47,3 +49,4 @@ export const arduinoSchemeFactory = (params: {
       ...(params.extraModules ?? []),
     ],
   });
+};

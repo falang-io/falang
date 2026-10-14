@@ -3,7 +3,7 @@ import { resolveService } from '@falang/di';
 import type { IBlockConfig, IBlockEditorFactoryParams, IBlockView, TBlockEditorView } from '@falang/scheme';
 import { CELL_SIZE_2, EditorType, getGlobalI18n, useService } from '@falang/scheme';
 import {
-  collectScopeVariables,
+  collectNodeScope,
   ExpressionBlockEditorStore,
   ExpressionEditorCellComponent,
   NewVariableEditingComponent,
@@ -78,7 +78,7 @@ class DriverActionBlockEditorStore extends ExpressionBlockEditorStore<TDriverAct
       if (field.kind === 'new-variable') {
         this.variableStore = new NewVariableStore({
           value,
-          getScopeNames: () => collectScopeVariables(this.dataNode).map((variable) => variable.name),
+          getScopeNames: () => collectNodeScope(this.dataNode, this.projectService).map((variable) => variable.name),
         });
       } else if (field.kind === 'string') {
         this.templateStores.set(

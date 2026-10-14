@@ -10,3 +10,4 @@ export {
   type TDriverScopeHint,
   initializeDriverRegistry,
 } from './driver-nodes/driver-registry-cache.js';
+export { registerArduinoFieldDescribers } from './field-check/arduino-field-describers.js';
