@@ -7,7 +7,7 @@ export type TFieldDescriber = (node: NodeStore, ctx: IFieldCheckContext) => IChe
 /** A describer for a family of node kinds that cannot be listed by name (e.g. one node kind per integration action). */
 export interface IFieldDescriberResolver {
   /** Returns the describer for `node`, or `undefined` when this resolver doesn't know the node. */
-  resolve(node: NodeStore): TFieldDescriber | undefined;
+  resolve(node: NodeStore, ctx: IFieldCheckContext): TFieldDescriber | undefined;
 }
 
 const describersByName = new Map<string, TFieldDescriber>();
@@ -35,11 +35,11 @@ export const registerFieldDescriberResolver = (resolver: IFieldDescriberResolver
   };
 };
 
-export const findFieldDescriber = (node: NodeStore): TFieldDescriber | undefined => {
+export const findFieldDescriber = (node: NodeStore, ctx: IFieldCheckContext): TFieldDescriber | undefined => {
   const byName = describersByName.get(node.name);
   if (byName) return byName;
   for (const resolver of resolvers) {
-    const found = resolver.resolve(node);
+    const found = resolver.resolve(node, ctx);
     if (found) return found;
   }
 };

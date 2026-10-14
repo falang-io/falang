@@ -14,6 +14,8 @@ import {
 } from '@falang/workflow-integrations-common';
 import { action, makeObservable, observable } from 'mobx';
 import { TOKEN_CREDENTIALS_PROVIDER, TOKEN_INTEGRATIONS_REGISTRY } from '../../registry/di-tokens.js';
+import { expressionFieldPrefix } from '../../field-check/expression-field-prefix.js';
+import { storedFieldValues } from '../../field-check/describe-integration-fields.js';
 import { initialFieldValue } from '../../registry/initial-field-value.js';
 import { syncIndexedChildren } from '../sync-indexed-children.js';
 
@@ -67,6 +69,7 @@ export class QuestionEditorStore extends ExpressionBlockEditorStore<TQuestionHea
   @observable.shallow optionMeta: IOptionMeta[] = [];
   private readonly credentialInstances: readonly IIntegrationInstance[];
   private readonly iconId: string;
+  private readonly initialValues: Readonly<Record<string, string>>;
 
   constructor(params: IBlockEditorFactoryParams<TQuestionHeaderData>) {
     super(params);
@@ -92,6 +95,12 @@ export class QuestionEditorStore extends ExpressionBlockEditorStore<TQuestionHea
         prompt: realChildrenData[index]?.prompt,
       }));
     }
+
+    this.initialValues = storedFieldValues(
+      getQuestionHeaderFields(descriptor),
+      params.data as Record<string, unknown>,
+      this.credentialInstances,
+    );
 
     for (const field of getQuestionHeaderFields(descriptor)) {
       const value = initialFieldValue(field, params.data[field.name] as string | undefined, this.credentialInstances);
@@ -129,12 +138,21 @@ export class QuestionEditorStore extends ExpressionBlockEditorStore<TQuestionHea
    * it on change.
    */
   getExpressionHiddenPrefix(field: IFieldConfig): string {
-    if (!field.expectedType) return this.hiddenScopeCode;
-    const resolvedType =
-      typeof field.expectedType === 'function'
-        ? field.expectedType(Object.fromEntries(this.values))
-        : field.expectedType;
-    return resolvedType ? this.buildHiddenPrefixForType(resolvedType) : this.hiddenScopeCode;
+    return expressionFieldPrefix(field, this.getFieldValuesSnapshot(), this.hiddenScopeCode, (type) =>
+      this.buildHiddenPrefixForType(type),
+    );
+  }
+
+  /** Every field's value: the starting values overlaid with the live plain-field and code-store ones. */
+  private getFieldValuesSnapshot(): Readonly<Record<string, string>> {
+    const snapshot: Record<string, string> = { ...this.initialValues, ...Object.fromEntries(this.values) };
+    this.codeStores.forEach((store, name) => {
+      snapshot[name] = store.value;
+    });
+    this.templateStringStores.forEach((store, name) => {
+      snapshot[name] = store.value;
+    });
+    return snapshot;
   }
 
   @action setFieldValue(name: string, value: string): void {

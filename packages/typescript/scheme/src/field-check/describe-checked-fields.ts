@@ -10,5 +10,5 @@ import { findFieldDescriber } from './field-describer-registry.js';
  */
 export const describeCheckedFields = (node: NodeStore, ctx: IFieldCheckContext): ICheckedField[] => {
   registerBuiltinFieldDescribers();
-  return findFieldDescriber(node)?.(node, ctx) ?? [];
+  return findFieldDescriber(node, ctx)?.(node, ctx) ?? [];
 };

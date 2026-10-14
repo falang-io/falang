@@ -13,6 +13,7 @@ import { IntegrationsModule } from './registry/integrations.module.js';
 import { buildChoiceNodesIconsGroup } from './integrations-nodes/choice-nodes-icons-group.js';
 import { buildIntegrationNodesIconsGroup } from './integrations-nodes/integration-nodes-icons-group.js';
 import { buildQuestionNodesIconsGroup } from './integrations-nodes/question-nodes-icons-group.js';
+import { registerWorkflowFieldDescribers } from './field-check/workflow-field-describers.js';
 import { buildMagicIconsGroup } from './magic/magic-icons-group.js';
 import { buildCommentIconsGroup } from './comment/comment-icons-group.js';
 import { MagicModule } from './magic/magic-module.js';
@@ -48,8 +49,9 @@ export const workflowFunctionalSchemeFactory = ({
   extraModules,
   extraIconsGroups,
   ...props
-}: IWorkflowFunctionalSchemeFactoryParams) =>
-  functionalSchemeFactory({
+}: IWorkflowFunctionalSchemeFactoryParams) => {
+  registerWorkflowFieldDescribers();
+  return functionalSchemeFactory({
     ...props,
     extraIconsGroups: [
       buildTriggerFunctionIconsGroup(),
@@ -77,3 +79,4 @@ export const workflowFunctionalSchemeFactory = ({
       ...(extraModules ?? []),
     ],
   });
+};

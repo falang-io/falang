@@ -1,3 +1,4 @@
+import type { DependencyContainer } from '@falang/di';
 import type { TypescriptProjectService } from '../typescript-project-service/typescript-project.service.js';
 import { buildModelText } from './model-text.js';
 
@@ -29,6 +30,11 @@ export type ICheckedField = ICheckedCodeField | ICheckedIdentifierField;
 export interface IFieldCheckContext {
   /** The project's types/functions/external-API registries; `null` when the scheme has none. */
   projectService: TypescriptProjectService | null;
+  /**
+   * The scheme's DI container, for describers of other packages that need a service of their own (e.g. workflow's
+   * integrations registry). Absent in contexts built without a scheme; describers must cope with that.
+   */
+  container?: DependencyContainer | null;
 }
 
 export const getCodeFieldText = (field: ICheckedCodeField): string =>

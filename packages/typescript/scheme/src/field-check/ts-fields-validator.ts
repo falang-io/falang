@@ -11,7 +11,7 @@ import { MonacoCheckPool } from './monaco-check-pool.js';
 export const TYPESCRIPT_VALIDATION_SOURCE = 'typescript';
 
 /** Appended to an error that falls on a hidden line: the forced type or a scope declaration, not the typed text. */
-export const HIDDEN_LINE_NOTE = ' (несоответствие ожидаемому типу или области видимости поля)';
+export const HIDDEN_LINE_NOTE = " (does not match the field's expected type or scope)";
 
 let defaultPool: MonacoCheckPool | null = null;
 
@@ -47,7 +47,10 @@ export const createTypescriptFieldsValidator = (
   return {
     source: TYPESCRIPT_VALIDATION_SOURCE,
     describe(node, ctx) {
-      const fields = describeCheckedFields(node, { projectService: resolveProjectService(ctx) });
+      const fields = describeCheckedFields(node, {
+        projectService: resolveProjectService(ctx),
+        container: ctx.scheme.container,
+      });
       const available = getPool().isAvailable();
       const relevant = fields.filter((field) =>
         field.kind === 'identifier' ? true : available && !isCodeFieldSkipped(field),

@@ -10,3 +10,6 @@ export * from './trigger-function/trigger-function-icons-group.js';
 export * from './integrations-nodes/integration-nodes-icons-group.js';
 export * from './workflow-functional-scheme-factory.js';
 export * from './magic/index.js';
+export * from './field-check/workflow-field-describers.js';
+export * from './field-check/describe-integration-fields.js';
+export * from './field-check/expression-field-prefix.js';

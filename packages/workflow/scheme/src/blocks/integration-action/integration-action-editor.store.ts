@@ -16,6 +16,8 @@ import {
   TOKEN_INTEGRATIONS_REGISTRY,
   type IFieldOptionsProvider,
 } from '../../registry/di-tokens.js';
+import { expressionFieldPrefix } from '../../field-check/expression-field-prefix.js';
+import { storedFieldValues } from '../../field-check/describe-integration-fields.js';
 import { initialFieldValue } from '../../registry/initial-field-value.js';
 
 export type TIntegrationActionData = Readonly<Record<string, string>>;
@@ -67,6 +69,8 @@ export class IntegrationActionEditorStore extends ExpressionBlockEditorStore<TIn
   private readonly fieldOptionsProvider: IFieldOptionsProvider;
   private readonly credentialRefFieldName: string | undefined;
   private readonly dynamicOptionsField: IFieldConfig | undefined;
+  /** Every field's starting value, so a function `expectedType` sees a complete snapshot even while the stores are still being created. */
+  private readonly initialValues: Readonly<Record<string, string>>;
 
   constructor(params: IBlockEditorFactoryParams<TIntegrationActionData>) {
     super(params);
@@ -80,6 +84,7 @@ export class IntegrationActionEditorStore extends ExpressionBlockEditorStore<TIn
     this.fieldOptionsProvider = resolveService(TOKEN_FIELD_OPTIONS_PROVIDER, params.container);
     this.credentialRefFieldName = descriptor.fields.find((field) => field.kind === 'credential-ref')?.name;
     this.dynamicOptionsField = descriptor.fields.find((field) => field.kind === 'select' && field.loadOptions);
+    this.initialValues = storedFieldValues(descriptor.fields, params.data, this.credentialInstances);
 
     for (const field of descriptor.fields) {
       const value = initialFieldValue(field, params.data[field.name], this.credentialInstances);
@@ -128,15 +133,14 @@ export class IntegrationActionEditorStore extends ExpressionBlockEditorStore<TIn
    * own doc comment.
    */
   getExpressionHiddenPrefix(field: IFieldConfig): string {
-    if (!field.expectedType) return this.hiddenScopeCode;
-    const resolvedType =
-      typeof field.expectedType === 'function' ? field.expectedType(this.getFieldValuesSnapshot()) : field.expectedType;
-    return resolvedType ? this.buildHiddenPrefixForType(resolvedType) : this.hiddenScopeCode;
+    return expressionFieldPrefix(field, this.getFieldValuesSnapshot(), this.hiddenScopeCode, (type) =>
+      this.buildHiddenPrefixForType(type),
+    );
   }
 
   /** Plain-string snapshot of every field's current value — `expression`/`template-string`/`new-variable` fields live in their own stores, not `this.values`, so a function `expectedType` needs all three merged in. */
   private getFieldValuesSnapshot(): Readonly<Record<string, string>> {
-    const snapshot: Record<string, string> = Object.fromEntries(this.values);
+    const snapshot: Record<string, string> = { ...this.initialValues, ...Object.fromEntries(this.values) };
     this.codeStores.forEach((store, name) => {
       snapshot[name] = store.value;
     });
