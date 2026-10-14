@@ -1,7 +1,13 @@
 import 'reflect-metadata';
 import { describe, expect, it } from 'vitest';
 import { resolveService } from '@falang/di';
-import { registerGlobalTokens, TOKEN_COPY_PASTE, TOKEN_HISTORY } from '@falang/scheme';
+import {
+  registerGlobalTokens,
+  TOKEN_COPY_PASTE,
+  TOKEN_HISTORY,
+  TOKEN_VALIDATION_STORE,
+  ValidationModule,
+} from '@falang/scheme';
 import { buildArduinoDocumentScheme } from './arduino/build-arduino-document-scheme.js';
 import { createArduinoProjectContainer } from './arduino/create-arduino-project-container.js';
 import { buildSketchDocumentScheme } from './sketch/build-sketch-document-scheme.js';
@@ -10,6 +16,9 @@ import { createSketchProjectContainer } from './sketch/create-sketch-project-con
 
 const copyPasteOf = (scheme: { container: Parameters<typeof resolveService>[1] }) =>
   scheme.container.isRegistered(TOKEN_COPY_PASTE, true) ? resolveService(TOKEN_COPY_PASTE, scheme.container) : null;
+
+const hasValidation = (scheme: { container: Parameters<typeof resolveService>[1] }): boolean =>
+  scheme.container.isRegistered(TOKEN_VALIDATION_STORE, true);
 
 const historyOf = (scheme: { container: Parameters<typeof resolveService>[1] }): unknown => {
   try {
@@ -63,6 +72,31 @@ describe('buildSketchDocumentScheme', () => {
     }
   });
 
+  it('adds the validation module only to a function document of a logic project', () => {
+    registerGlobalTokens();
+    const make = (type: keyof typeof SKETCH_DOCUMENT_TYPES, projectType: string) =>
+      buildSketchDocumentScheme({
+        doc: { id: `${type}-${projectType}`, name: 'x', type },
+        parentContainer: createSketchProjectContainer(projectType),
+        projectType,
+        validationModule: new ValidationModule({ validators: [] }),
+      });
+    const schemes = {
+      logicFn: make('function', 'logic'),
+      logicStruct: make('objects-structure', 'logic'),
+      textFn: make('text-function', 'text'),
+      code: make('simple-code-ts', 'simple-code-ts'),
+    };
+    try {
+      expect(hasValidation(schemes.logicFn)).toBe(true);
+      expect(hasValidation(schemes.logicStruct)).toBe(false);
+      expect(hasValidation(schemes.textFn)).toBe(false);
+      expect(hasValidation(schemes.code)).toBe(false);
+    } finally {
+      for (const scheme of Object.values(schemes)) scheme.dispose();
+    }
+  });
+
   it('builds the default root of every document type without a project container', () => {
     registerGlobalTokens();
     for (const type of Object.keys(SKETCH_DOCUMENT_TYPES) as (keyof typeof SKETCH_DOCUMENT_TYPES)[]) {
@@ -85,6 +119,24 @@ describe('buildArduinoDocumentScheme', () => {
       expect(copyPasteOf(scheme)?.origin).toEqual({ projectType: 'arduino', documentType: 'function' });
     } finally {
       scheme.dispose();
+    }
+  });
+
+  it('adds the validation module when given', () => {
+    registerGlobalTokens();
+    const container = createArduinoProjectContainer();
+    const withModule = buildArduinoDocumentScheme({
+      doc: { id: 'loop', name: 'loop' },
+      parentContainer: container,
+      validationModule: new ValidationModule({ validators: [] }),
+    });
+    const without = buildArduinoDocumentScheme({ doc: { id: 'f', name: 'f' }, parentContainer: container });
+    try {
+      expect(hasValidation(withModule)).toBe(true);
+      expect(hasValidation(without)).toBe(false);
+    } finally {
+      withModule.dispose();
+      without.dispose();
     }
   });
 });

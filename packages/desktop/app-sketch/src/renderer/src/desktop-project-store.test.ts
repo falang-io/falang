@@ -6,7 +6,7 @@ import { describe, it, expect, vi } from 'vitest';
 import type { INode, IProjectDocument } from '@falang/dto';
 import type { IProjectTree } from '@falang/desktop-project-fs';
 import { resolveService } from '@falang/di';
-import { CMD_INSERT_NODE } from '@falang/scheme';
+import { CMD_INSERT_NODE, ValidationModule, ValidationQueue, type INodeValidator } from '@falang/scheme';
 import { OBJECTS_STRUCTURE_NAME } from '@falang/typescript-dto';
 import { TOKEN_TYPESCRIPT_PROJECT_SERVICE } from '@falang/typescript-scheme';
 import { DesktopProjectStore } from './desktop-project-store.js';
@@ -587,6 +587,61 @@ describe('DesktopProjectStore — autosave after a scheme edit', () => {
       expect(JSON.stringify(write.mock.calls[0]?.[1])).toContain('new-action');
     } finally {
       store.dispose();
+    }
+  });
+});
+
+/** Flags every `function` root node, so a document with validation reports exactly one error. */
+const rootErrorValidator: INodeValidator<{ ok: true }> = {
+  source: 'fake',
+  describe: (node) => (node.name === 'function' ? { ok: true } : null),
+  check: () => [{ message: 'broken', severity: 'error' }],
+};
+
+describe('DesktopProjectStore — background validation (ADR 0068)', () => {
+  const makeStore = (projectType: string) => {
+    setUpEmptyProject();
+    const queue = new ValidationQueue({
+      concurrency: 1,
+      schedule: (fn) => {
+        Promise.resolve().then(fn);
+      },
+    });
+    const store = new DesktopProjectStore('/fake/project', projectType, {
+      createValidationModule: () => new ValidationModule({ validators: [rootErrorValidator], queue }),
+    });
+    return { store, queue };
+  };
+
+  it('gives a logic function document validation counts and drops them with the tab', async () => {
+    const { store, queue } = makeStore('logic');
+    try {
+      const id = store.createDocument('function', 'myFunctionName');
+      expect(id).not.toBeNull();
+      store.getScheme(id as string);
+      await queue.idle();
+      expect(store.getValidationCounts(id as string)).toEqual({ errors: 1, warnings: 0 });
+      store.closeTab(id as string);
+      expect(store.getValidationCounts(id as string)).toEqual({ errors: 0, warnings: 0 });
+    } finally {
+      store.dispose();
+    }
+  });
+
+  it('gives no validation to logic structure documents or text-project documents', async () => {
+    const logic = makeStore('logic');
+    const text = makeStore('text');
+    try {
+      const structureId = logic.store.createDocument('objects-structure', 'MyStructures');
+      logic.store.getScheme(structureId as string);
+      const textId = text.store.createDocument('text-function', 'textFunction');
+      text.store.getScheme(textId as string);
+      await Promise.all([logic.queue.idle(), text.queue.idle()]);
+      expect(logic.store.getValidationCounts(structureId as string)).toEqual({ errors: 0, warnings: 0 });
+      expect(text.store.getValidationCounts(textId as string)).toEqual({ errors: 0, warnings: 0 });
+    } finally {
+      logic.store.dispose();
+      text.store.dispose();
     }
   });
 });

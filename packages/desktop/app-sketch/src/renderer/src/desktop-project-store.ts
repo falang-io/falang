@@ -1,14 +1,30 @@
 // oxlint-disable max-lines
 import 'reflect-metadata';
-import { action, autorun, computed, makeObservable, observable, runInAction, toJS } from 'mobx';
+import {
+  action,
+  autorun,
+  computed,
+  makeObservable,
+  observable,
+  ObservableMap,
+  reaction,
+  runInAction,
+  toJS,
+  type IReactionDisposer,
+} from 'mobx';
 import { isValidFunctionName, type INode, type IProjectDocument } from '@falang/dto';
 import {
+  defaultValidationQueue,
   setSchemeStartPosition,
   TOKEN_HISTORY,
+  TOKEN_VALIDATION_STORE,
   type HistoryStore,
   type Scheme,
   type TVersionDiffSide,
+  type ValidationModule,
+  type ValidationStore,
 } from '@falang/scheme';
+import { createTypescriptValidationModule } from '@falang/typescript-scheme';
 import type { IAgentDocumentResolver, AgentSession } from '@falang/agent';
 import {
   EVENT_LINK_CLICKED,
@@ -144,6 +160,12 @@ export class DesktopProjectStore {
 
   private readonly documentsRegistry: ProjectDocumentsRegistryStore;
   private readonly schemes = new Map<string, Scheme>();
+  /** Background-validation modules of the built schemes (their queue keys give the active tab priority). */
+  private readonly validationModules = new Map<string, ValidationModule>();
+  /** The built schemes' validation stores — observable, so a tab badge appears once its scheme is built (ADR 0068 (private)). */
+  private readonly validationStores = new ObservableMap<string, ValidationStore>();
+  private readonly validationPriorityDisposer: IReactionDisposer;
+  private readonly createValidation: () => ValidationModule;
   private readonly saveTimers = new Map<string, ReturnType<typeof setTimeout>>();
   private readonly disposeRegistrySync: () => void;
   private readonly disposeFunctionsRegistrySync: () => void;
@@ -153,8 +175,13 @@ export class DesktopProjectStore {
   private readonly disposeExportProgressSubscriptions: () => void;
   private readonly electronVersionStore: ElectronVersionStore;
 
-  constructor(projectDir: string, projectType: string) {
+  constructor(
+    projectDir: string,
+    projectType: string,
+    options: { createValidationModule?: () => ValidationModule } = {},
+  ) {
     this.projectDir = projectDir;
+    this.createValidation = options.createValidationModule ?? createTypescriptValidationModule;
     this.projectType = projectType;
     // The project container (Monaco lib variant for this project type, the documents registry, the TypeScript project
     // service, the light theme) is `@falang/desktop-agent-host`'s `createSketchProjectContainer` — the same function a
@@ -162,6 +189,17 @@ export class DesktopProjectStore {
     this.container = createSketchProjectContainer(projectType);
     this.documentsRegistry = resolveService(TOKEN_PROJECT_DOCUMENTS_REGISTRY, this.container);
     makeObservable(this);
+    // The active tab's validation jobs go first on the window-wide queue; `null` for a tab without validation or no tab.
+    this.validationPriorityDisposer = reaction(
+      () => {
+        const id = this.activeTabId;
+        return id !== null && this.validationStores.has(id)
+          ? (this.validationModules.get(id)?.getSchemeKey() ?? null)
+          : null;
+      },
+      (key) => defaultValidationQueue.setPriorityScheme(key),
+      { fireImmediately: true },
+    );
     this.electronVersionStore = new ElectronVersionStore(projectDir);
     this.versionHistory = new VersionHistoryStore({
       store: this.electronVersionStore,
@@ -357,6 +395,7 @@ export class DesktopProjectStore {
     if (existingScheme) {
       existingScheme.dispose();
       this.schemes.delete(id);
+      this.forgetValidation(id);
     }
     runInAction(() => this.reloadVersions.set(id, (this.reloadVersions.get(id) ?? 0) + 1));
   }
@@ -601,6 +640,7 @@ export class DesktopProjectStore {
     if (scheme) {
       scheme.dispose();
       this.schemes.delete(id);
+      this.forgetValidation(id);
     }
   }
 
@@ -622,6 +662,7 @@ export class DesktopProjectStore {
     if (!doc) throw new Error(`Document ${docId} not found`);
     const scheme = this.buildScheme(doc);
     this.schemes.set(docId, scheme);
+    this.registerValidationStore(docId, scheme);
     setTimeout(() => {
       setSchemeStartPosition(scheme);
     }, 10);
@@ -798,15 +839,56 @@ export class DesktopProjectStore {
     // cleanup contract), so this is fire-and-forget here; the window-close path awaits the same method
     // directly instead (see `main/index.ts`'s graceful-close flow).
     this.flushPendingSaves().catch((error: unknown) => reportError('Failed to flush pending saves', error));
+    this.validationPriorityDisposer();
+    defaultValidationQueue.setPriorityScheme(null);
     for (const scheme of this.schemes.values()) scheme.dispose();
     this.schemes.clear();
+    this.forgetAllValidation();
+  }
+
+  /**
+   * Error/warning counts of a document's background validation (ADR 0068 (private)) — `{ 0, 0 }` while its scheme is not
+   * built or has no validation. Observable: an `observer` tab badge follows it.
+   */
+  getValidationCounts(docId: string): { errors: number; warnings: number } {
+    const store = this.validationStores.get(docId);
+    return store ? { errors: store.errorCount, warnings: store.warningCount } : { errors: 0, warnings: 0 };
+  }
+
+  private createValidationModule(docId: string): ValidationModule {
+    const module = this.createValidation();
+    this.validationModules.set(docId, module);
+    return module;
+  }
+
+  private registerValidationStore(docId: string, scheme: Scheme): void {
+    if (!this.validationModules.has(docId)) return;
+    runInAction(() => this.validationStores.set(docId, resolveService(TOKEN_VALIDATION_STORE, scheme.container)));
+  }
+
+  /** Drops a disposed scheme's validation module/store (the module itself is disposed with the scheme). */
+  private forgetValidation(docId: string): void {
+    this.validationModules.delete(docId);
+    runInAction(() => this.validationStores.delete(docId));
+  }
+
+  private forgetAllValidation(): void {
+    this.validationModules.clear();
+    runInAction(() => this.validationStores.clear());
   }
 
   private buildScheme(doc: DesktopDocument): Scheme {
     // `buildSketchDocumentScheme` adds `HistoryModule` to every document type (Edit → Undo/Redo work everywhere); one
     // request from the project's single `AgentSession` (see the `agentSession` field above) is one undo group on
     // whichever agent-capable scheme it touches.
-    const scheme = buildSketchDocumentScheme({ doc, parentContainer: this.container, projectType: this.projectType });
+    // Background validation (ADR 0068 (private)) only for `logic` `function` documents — the builder ignores the module otherwise.
+    const validate = doc.type === 'function' && this.projectType === 'logic';
+    const scheme = buildSketchDocumentScheme({
+      doc,
+      parentContainer: this.container,
+      projectType: this.projectType,
+      ...(validate ? { validationModule: this.createValidationModule(doc.id) } : {}),
+    });
     // No types-registry update here, unlike an earlier version: `doc.root`'s reassignment by the sync is itself the MobX
     // trigger the project-wide `disposeTypesRegistrySync` autorun (see the constructor) reacts to — the same "no per-tab
     // path, only the project-wide sync" posture `syncFunctionsRegistry`/`syncExternalApiRegistry` already use.

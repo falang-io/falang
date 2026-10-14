@@ -7,6 +7,7 @@ import {
   setRootNodeForScheme,
   type IModule,
   type Scheme,
+  type ValidationModule,
 } from '@falang/scheme';
 import { SKETCH_DOCUMENT_TYPES, type SketchDocumentType } from './document-types.js';
 
@@ -28,6 +29,12 @@ export interface IBuildSketchDocumentSchemeParams {
    * Omitted → no copy/paste (headless hosts).
    */
   readonly projectType?: string;
+  /**
+   * Background validation of the document's icons (ADR 0068 (private)) — `createTypescriptValidationModule()`. Honoured only
+   * for a `function` document of a `logic` project (`projectType` `logic`, or omitted by a headless host); ignored for
+   * `text`/`simple-code-*` documents and `*-structure` editors, whose fields aren't type-checked TypeScript.
+   */
+  readonly validationModule?: ValidationModule;
 }
 
 /**
@@ -40,6 +47,9 @@ export const buildSketchDocumentScheme = (params: IBuildSketchDocumentSchemePara
   const { doc } = params;
   const config = SKETCH_DOCUMENT_TYPES[doc.type];
   const extraModules: IModule[] = [...(params.extraModules ?? []), new HistoryModule()];
+  if (params.validationModule && doc.type === 'function' && (params.projectType ?? 'logic') === 'logic') {
+    extraModules.push(params.validationModule);
+  }
   if (typeof params.projectType === 'string') {
     extraModules.push(new CopyPasteModule({ projectType: params.projectType, documentType: doc.type }));
   }

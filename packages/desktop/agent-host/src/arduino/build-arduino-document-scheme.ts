@@ -8,6 +8,7 @@ import {
   setRootNodeForScheme,
   type IModule,
   type Scheme,
+  type ValidationModule,
 } from '@falang/scheme';
 import { arduinoSchemeFactory } from '@falang/desktop-arduino-scheme';
 
@@ -21,6 +22,8 @@ export interface IBuildArduinoDocumentSchemeParams {
   /** The undo stack of a previous scheme of the same document (same node ids) to continue — see `HistoryModule`. */
   readonly historyStore?: HistoryStore;
   /** Driver ids with an instance in the project's `Devices` document — the "Device" menu group lists only their actions. Omit to list all. */
+  /** Background validation of the document's icons (ADR 0068 (private)) — `createTypescriptValidationModule()`; every scheme document gets it. */
+  readonly validationModule?: ValidationModule;
   readonly getConnectedDriverIds?: () => ReadonlySet<string> | undefined;
 }
 
@@ -40,6 +43,7 @@ export const buildArduinoDocumentScheme = (params: IBuildArduinoDocumentSchemePa
     ...(params.extraModules ?? []),
     new HistoryModule({ store: params.historyStore }),
     new CopyPasteModule(ARDUINO_COPY_PASTE_ORIGIN),
+    ...(params.validationModule ? [params.validationModule] : []),
   ];
   const scheme = arduinoSchemeFactory({
     id: doc.id,

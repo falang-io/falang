@@ -1,20 +1,35 @@
 // oxlint-disable max-lines -- grew past 300 lines with ADR 0029 (private)'s watcher/locks/conflict handling and ADR 0025 (private)'s versioning (a handful of small fields/methods; the bulk of that logic lives in `versioning/*.ts` to keep this file's growth minimal); @falang/desktop-app-sketch's DesktopProjectStore (the same shape, further along) carries the identical disable for the same reasons.
 import 'reflect-metadata';
-import { action, autorun, makeObservable, observable, runInAction, toJS, when } from 'mobx';
+import {
+  action,
+  autorun,
+  makeObservable,
+  observable,
+  ObservableMap,
+  reaction,
+  runInAction,
+  toJS,
+  when,
+  type IReactionDisposer,
+} from 'mobx';
 import { isValidFunctionName, type INode, type IProjectDocument } from '@falang/dto';
 import {
+  defaultValidationQueue,
   EVENT_NODE_INSERTED,
   setSchemeStartPosition,
   DebuggerModule,
   TOKEN_HISTORY,
+  TOKEN_VALIDATION_STORE,
   type HistoryStore,
   type Scheme,
   type DebugSessionStore,
   type IDebugSessionStartParams,
   type TVersionDiffSide,
+  type ValidationModule,
+  type ValidationStore,
 } from '@falang/scheme';
 import type { AgentSession, IAgentDocumentResolver } from '@falang/agent';
-import { TOKEN_TYPESCRIPT_PROJECT_SERVICE } from '@falang/typescript-scheme';
+import { createTypescriptValidationModule, TOKEN_TYPESCRIPT_PROJECT_SERVICE } from '@falang/typescript-scheme';
 import type { IDocumentLock, IProjectChangeEvent } from '@falang/desktop-project-fs';
 import { resolveService, type DependencyContainer } from '@falang/di';
 import type { INodeTreeDiff, ISnapshotDocument } from '@falang/versioning';
@@ -148,6 +163,12 @@ export class ArduinoProjectStore {
   readonly reloadVersions = observable.map<string, number>();
 
   private readonly schemes = new Map<string, Scheme>();
+  /** Background-validation modules of the built schemes (their queue keys give the active tab priority). */
+  private readonly validationModules = new Map<string, ValidationModule>();
+  /** The built schemes' validation stores — observable, so a tab badge appears once its scheme is built (ADR 0068 (private)). */
+  private readonly validationStores = new ObservableMap<string, ValidationStore>();
+  private readonly validationPriorityDisposer: IReactionDisposer;
+  private readonly createValidation: () => ValidationModule;
   /**
    * Undo stacks of documents whose scheme `rebuildOpenSchemes` disposed: `buildScheme` hands the stack to the rebuilt
    * scheme (same node ids), so a driver change doesn't wipe undo history. Dropped wherever the document's tree changes
@@ -166,14 +187,26 @@ export class ArduinoProjectStore {
   private pendingDriverRebuild = false;
   private isDisposed = false;
 
-  constructor(projectDir: string) {
+  constructor(projectDir: string, options: { createValidationModule?: () => ValidationModule } = {}) {
     this.projectDir = projectDir;
+    this.createValidation = options.createValidationModule ?? createTypescriptValidationModule;
     // The project container (portable Monaco lib + the Arduino builtin declarations, the TypeScript project service, the
     // light theme — app-arduino's whole UI is light, see ADR 0020 (private)'s "Implementation notes (light theme for
     // app-arduino …)") is `@falang/desktop-agent-host`'s `createArduinoProjectContainer` — the same function a headless
     // host calls.
     this.container = createArduinoProjectContainer();
     makeObservable(this);
+    // The active tab's validation jobs go first on the window-wide queue; `null` for a tab without validation or no tab.
+    this.validationPriorityDisposer = reaction(
+      () => {
+        const id = this.activeTabId;
+        return id !== null && this.validationStores.has(id)
+          ? (this.validationModules.get(id)?.getSchemeKey() ?? null)
+          : null;
+      },
+      (key) => defaultValidationQueue.setPriorityScheme(key),
+      { fireImmediately: true },
+    );
     this.electronVersionStore = new ElectronVersionStore(projectDir);
     this.versionHistory = new VersionHistoryStore({
       store: this.electronVersionStore,
@@ -355,6 +388,7 @@ export class ArduinoProjectStore {
     if (existingScheme) {
       existingScheme.dispose();
       this.schemes.delete(id);
+      this.forgetValidation(id);
     }
     this.carriedHistories.delete(id);
     runInAction(() => this.reloadVersions.set(id, (this.reloadVersions.get(id) ?? 0) + 1));
@@ -543,6 +577,7 @@ export class ArduinoProjectStore {
     if (scheme) {
       scheme.dispose();
       this.schemes.delete(id);
+      this.forgetValidation(id);
     }
     this.carriedHistories.delete(id);
   }
@@ -613,6 +648,7 @@ export class ArduinoProjectStore {
     }
     const scheme = this.buildScheme(doc);
     this.schemes.set(docId, scheme);
+    this.registerValidationStore(docId, scheme);
     setTimeout(() => {
       setSchemeStartPosition(scheme);
     }, 10);
@@ -843,6 +879,8 @@ export class ArduinoProjectStore {
         scheme.dispose();
       }
       this.schemes.clear();
+      // Each rebuilt scheme gets a NEW validation module (a disposed one is never reused).
+      this.forgetAllValidation();
       for (const id of this.openTabIds) this.reloadVersions.set(id, (this.reloadVersions.get(id) ?? 0) + 1);
     });
   }
@@ -914,9 +952,43 @@ export class ArduinoProjectStore {
     // cleanup contract), so this is fire-and-forget here; the window-close path awaits the same method
     // directly instead (see `main/index.ts`'s graceful-close flow).
     this.flushPendingSaves().catch((error: unknown) => reportError('Failed to flush pending saves', error));
+    this.validationPriorityDisposer();
+    defaultValidationQueue.setPriorityScheme(null);
     for (const scheme of this.schemes.values()) scheme.dispose();
     this.schemes.clear();
+    this.forgetAllValidation();
     this.carriedHistories.clear();
+  }
+
+  /**
+   * Error/warning counts of a document's background validation (ADR 0068 (private)) — `{ 0, 0 }` while its scheme is not
+   * built or has no validation. Observable: an `observer` tab badge follows it.
+   */
+  getValidationCounts(docId: string): { errors: number; warnings: number } {
+    const store = this.validationStores.get(docId);
+    return store ? { errors: store.errorCount, warnings: store.warningCount } : { errors: 0, warnings: 0 };
+  }
+
+  private createValidationModule(docId: string): ValidationModule {
+    const module = this.createValidation();
+    this.validationModules.set(docId, module);
+    return module;
+  }
+
+  private registerValidationStore(docId: string, scheme: Scheme): void {
+    if (!this.validationModules.has(docId)) return;
+    runInAction(() => this.validationStores.set(docId, resolveService(TOKEN_VALIDATION_STORE, scheme.container)));
+  }
+
+  /** Drops a disposed scheme's validation module/store (the module itself is disposed with the scheme). */
+  private forgetValidation(docId: string): void {
+    this.validationModules.delete(docId);
+    runInAction(() => this.validationStores.delete(docId));
+  }
+
+  private forgetAllValidation(): void {
+    this.validationModules.clear();
+    runInAction(() => this.validationStores.clear());
   }
 
   private buildScheme(doc: DesktopDocument): Scheme {
@@ -930,6 +1002,7 @@ export class ArduinoProjectStore {
       doc,
       parentContainer: this.container,
       historyStore: this.carriedHistories.get(doc.id),
+      validationModule: this.createValidationModule(doc.id),
       getConnectedDriverIds: () => this.getConnectedDriverIds(),
       extraModules: [new DebuggerModule({ session: this.debugSession, documentId: doc.id })],
     });

@@ -4,7 +4,13 @@ import 'reflect-metadata';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import type { INode } from '@falang/dto';
 import type { IProjectTree } from '@falang/desktop-project-fs';
-import { CMD_INSERT_NODE } from '@falang/scheme';
+import {
+  CMD_INSERT_NODE,
+  defaultValidationQueue,
+  ValidationModule,
+  ValidationQueue,
+  type INodeValidator,
+} from '@falang/scheme';
 import { ScriptedLlmClient } from '@falang/agent';
 import type { IDriverConfig } from '../../shared/driver-config.js';
 import type { IDriverListEntry, IDriverListPayload, TDriverScope } from '../../shared/driver-ipc-types.js';
@@ -350,6 +356,56 @@ describe('ArduinoProjectStore — drivers', () => {
       expect(JSON.stringify(store.getDocument('fn')?.root)).toContain('driver-action::second::on');
     } finally {
       store.dispose();
+    }
+  });
+});
+
+describe('ArduinoProjectStore — background validation (ADR 0068)', () => {
+  const rootErrorValidator: INodeValidator<{ ok: true }> = {
+    source: 'fake',
+    describe: (node) => (node.name === 'function' ? { ok: true } : null),
+    check: () => [{ message: 'broken', severity: 'error' }],
+  };
+
+  it('validates every scheme document and replaces the module when schemes are rebuilt', async () => {
+    setUpProject({ drivers: [], loadErrors: [] });
+    const queue = new ValidationQueue({
+      concurrency: 1,
+      schedule: (fn) => {
+        Promise.resolve().then(fn);
+      },
+    });
+    const modules: ValidationModule[] = [];
+    const disposeSpies: ReturnType<typeof vi.spyOn>[] = [];
+    const store = new ArduinoProjectStore('/fake/project', {
+      createValidationModule: () => {
+        const module = new ValidationModule({ validators: [rootErrorValidator], queue });
+        modules.push(module);
+        disposeSpies.push(vi.spyOn(module, 'dispose'));
+        return module;
+      },
+    });
+    try {
+      await vi.waitFor(() => expect(store.isLoadingTree).toBe(false));
+      store.openTab('fn');
+      store.getScheme('fn');
+      await queue.idle();
+      expect(store.getValidationCounts('fn')).toEqual({ errors: 1, warnings: 0 });
+      expect(modules).toHaveLength(1);
+
+      await store.rebuildOpenSchemes();
+      expect(disposeSpies[0]).toHaveBeenCalled();
+      expect(store.getValidationCounts('fn')).toEqual({ errors: 0, warnings: 0 });
+      store.getScheme('fn');
+      await queue.idle();
+      expect(modules).toHaveLength(2);
+      expect(store.getValidationCounts('fn')).toEqual({ errors: 1, warnings: 0 });
+
+      store.closeTab('fn');
+      expect(store.getValidationCounts('fn')).toEqual({ errors: 0, warnings: 0 });
+    } finally {
+      store.dispose();
+      defaultValidationQueue.setPriorityScheme(null);
     }
   });
 });
