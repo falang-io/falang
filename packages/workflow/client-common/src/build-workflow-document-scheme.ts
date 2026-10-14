@@ -7,6 +7,7 @@ import {
   type IModule,
   type ITheme,
   type Scheme,
+  type ValidationModule,
 } from '@falang/scheme';
 import { objectsStructureSchemeFactory } from '@falang/typescript-scheme';
 import { TRIGGER_FUNCTION_NAME } from '@falang/workflow-dto';
@@ -38,6 +39,12 @@ export interface IBuildWorkflowDocumentSchemeParams {
   readonly onSchemeCreated?: (scheme: Scheme) => void;
   /** A read-only scheme (no inline editor, context menus or mutation commands) — an admin viewing someone else's project. */
   readonly readOnly?: boolean;
+  /**
+   * Background validation of the document's icons (ADR 0068 (private)) — `createTypescriptValidationModule()`. Honoured for
+   * `function`/`trigger-function` documents only (not `objects-structure`); the host keeps the instance to read its queue key.
+   * Left out for throwaway, headless and print/diff schemes.
+   */
+  readonly validationModule?: ValidationModule;
 }
 
 /** The project type a workflow scheme copies icons from / pastes them into (`CopyPasteModule`). */
@@ -73,6 +80,7 @@ export const buildWorkflowDocumentScheme = (params: IBuildWorkflowDocumentScheme
   // (one agent request = one undo group per document touched) — registered per agent-editable scheme (`objects-structure`
   // too, since 2026-09-27), unlike `AgentModule` itself, which hosts no longer use.
   if (isAgentEditableType(doc.type)) extraModules.push(new HistoryModule());
+  if (isFunctionDoc && params.validationModule) extraModules.push(params.validationModule);
   extraModules.push(
     new CopyPasteModule({
       projectType: WORKFLOW_PROJECT_TYPE,

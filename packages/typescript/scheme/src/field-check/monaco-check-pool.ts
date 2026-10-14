@@ -59,6 +59,9 @@ export interface IMonacoCheckPoolOptions {
 /** TypeScript's `DiagnosticCategory.Error`. */
 const ERROR_CATEGORY = 1;
 
+const WORKER_RETRIES = 100;
+const WORKER_RETRY_DELAY_MS = 100;
+
 let slotCounter = 0;
 
 interface ISlot {
@@ -165,7 +168,7 @@ export class MonacoCheckPool {
     try {
       const monaco = this.getMonacoFn();
       slot.model.setValue(fullText);
-      const getWorker = await monaco.typescript.getTypeScriptWorker();
+      const getWorker = await this.getWorkerFactory(monaco);
       const worker = await getWorker(slot.uri);
       const [syntactic, semantic] = await Promise.all([
         worker.getSyntacticDiagnostics(slot.fileName),
@@ -182,6 +185,28 @@ export class MonacoCheckPool {
       );
     } finally {
       this.release(slot);
+    }
+  }
+
+  /**
+   * Monaco loads its TypeScript contribution lazily, when the first `typescript` model appears (creating a slot's model
+   * starts that), and `getTypeScriptWorker()` throws "TypeScript not registered!" until it has loaded — so retry briefly.
+   */
+  private async getWorkerFactory(monaco: ICheckMonaco) {
+    for (let attempt = 0; ; attempt += 1) {
+      try {
+        // oxlint-disable-next-line no-await-in-loop -- sequential retries
+        return await monaco.typescript.getTypeScriptWorker();
+      } catch (error) {
+        // Monaco rejects with a bare string here, not an Error.
+        const message = error instanceof Error ? error.message : String(error);
+        const notRegistered = /not registered/i.test(message);
+        if (!notRegistered || attempt >= WORKER_RETRIES) throw error;
+        // oxlint-disable-next-line no-await-in-loop -- a short wait between attempts
+        await new Promise((resolve) => {
+          setTimeout(resolve, WORKER_RETRY_DELAY_MS);
+        });
+      }
     }
   }
 

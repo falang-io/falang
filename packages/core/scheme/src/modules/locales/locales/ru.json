@@ -54,5 +54,16 @@
     "value": "Значение",
     "no-variables": "Нет переменных в области видимости",
     "output": "Вывод"
+  },
+  "validation": {
+    "pill-errors_one": "{{count}} ошибка",
+    "pill-errors_few": "{{count}} ошибки",
+    "pill-errors_many": "{{count}} ошибок",
+    "pill-errors_other": "{{count}} ошибки",
+    "pill-warnings_one": "{{count}} предупреждение",
+    "pill-warnings_few": "{{count}} предупреждения",
+    "pill-warnings_many": "{{count}} предупреждений",
+    "pill-warnings_other": "{{count}} предупреждения",
+    "pill-hint": "Нажмите, чтобы перейти к следующей проблеме"
   }
 }

@@ -1,5 +1,12 @@
 import { container, resolveService } from '@falang/di';
-import { CMD_INSERT_NODE, TOKEN_COPY_PASTE, TOKEN_HISTORY, registerGlobalTokens } from '@falang/scheme';
+import {
+  CMD_INSERT_NODE,
+  TOKEN_COPY_PASTE,
+  TOKEN_HISTORY,
+  TOKEN_VALIDATION_STORE,
+  registerGlobalTokens,
+} from '@falang/scheme';
+import { createTypescriptValidationModule } from '@falang/typescript-scheme';
 import { afterEach, describe, expect, it } from 'vitest';
 import {
   buildWorkflowDocumentScheme,
@@ -40,6 +47,14 @@ describe('buildWorkflowDocumentScheme', () => {
     expect(() => scheme.infra.structure.factory('telegram-send-message')).not.toThrow();
     expect(() => scheme.infra.structure.factory('no-such-kind')).toThrow();
     expect(scheme.container.isRegistered(TOKEN_HISTORY, true)).toBe(true);
+  });
+
+  it('registers background validation only for function-like documents and only when a module is passed', () => {
+    expect(build('function').container.isRegistered(TOKEN_VALIDATION_STORE, true)).toBe(false);
+    const validated = build('function', { validationModule: createTypescriptValidationModule() });
+    expect(validated.container.isRegistered(TOKEN_VALIDATION_STORE, true)).toBe(true);
+    const structure = build('objects-structure', { validationModule: createTypescriptValidationModule() });
+    expect(structure.container.isRegistered(TOKEN_VALIDATION_STORE, true)).toBe(false);
   });
 
   it('builds a trigger-function and an objects-structure document with their own roots (both agent-editable)', () => {

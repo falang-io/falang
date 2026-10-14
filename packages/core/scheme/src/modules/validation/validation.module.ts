@@ -7,6 +7,7 @@ import type { CssClassesStore } from '../../store/css-classes.store.js';
 import type { IModule } from '../../utils/i-module.js';
 import { resolveVisibleIconId } from '../../utils/resolve-visible-icon-id.js';
 import { ValidationLayer } from './validation.layer.js';
+import { ValidationPill } from './validation-pill.cmp.js';
 import { defaultValidationQueue, type ValidationQueue } from './validation.queue.js';
 import { ValidationStore } from './validation.store.js';
 import { TOKEN_VALIDATION_STORE } from './validation.store.token.js';
@@ -95,6 +96,7 @@ export class ValidationModule implements IModule {
     this.cssClasses = cssClasses;
     cssClasses.addRootExtraCss(() => validationCss);
     scheme.extraView.registerSchemeLayer(ValidationLayer, 91);
+    scheme.extraView.registerCoreSchemeLayer(ValidationPill, 91);
     store.setVisibleIdResolver((nodeId) => resolveVisibleIconId(scheme, nodeId));
 
     const validators = [...this.ownValidators];

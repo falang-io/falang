@@ -129,4 +129,23 @@ describe('MonacoCheckPool', () => {
     await expect(pool.check('a')).rejects.toThrow('worker down');
     expect(failing).not.toHaveBeenCalled();
   });
+
+  it('waits for the lazily loaded TypeScript contribution ("TypeScript not registered!")', async () => {
+    const fake = createFake((text) => [error(text, 'oops')]);
+    const real = fake.monaco.typescript.getTypeScriptWorker;
+    let failures = 2;
+    fake.monaco.typescript.getTypeScriptWorker = () => {
+      if (failures > 0) {
+        failures -= 1;
+        // Monaco itself rejects with a bare string.
+        // oxlint-disable-next-line prefer-promise-reject-errors
+        return Promise.reject('TypeScript not registered!');
+      }
+      return real();
+    };
+    const pool = new MonacoCheckPool({ getMonaco: () => fake.monaco, getLibKey: () => 'k' });
+    const diagnostics = await pool.check('oops');
+    expect(diagnostics.map((d) => d.message)).toEqual(['bad oops']);
+    expect(failures).toBe(0);
+  });
 });

@@ -1,10 +1,20 @@
 import { eventTracker } from './analytics/event-tracker.js';
 // oxlint-disable max-lines -- versioning (ADR 0025 (private)) added a handful of small fields/methods; the bulk of the new logic itself lives in `versioning/*.ts` to keep this file's growth minimal.
 import 'reflect-metadata';
-import { action, makeObservable, observable, reaction, runInAction, when, type IReactionDisposer } from 'mobx';
+import {
+  action,
+  makeObservable,
+  observable,
+  ObservableMap,
+  reaction,
+  runInAction,
+  when,
+  type IReactionDisposer,
+} from 'mobx';
 import { readSchemeTree, type AgentSession, type IJsonFilesDiagnostic } from '@falang/agent';
 import {
   type Scheme,
+  defaultValidationQueue,
   DebugSessionStore,
   DebuggerModule,
   type IDebugSessionStartParams,
@@ -15,9 +25,13 @@ import {
   scrollToNode,
   setSchemeStartPosition,
   TOKEN_HISTORY,
+  TOKEN_VALIDATION_STORE,
   type TVersionDiffSide,
+  type ValidationModule,
+  type ValidationStore,
 } from '@falang/scheme';
 import {
+  createTypescriptValidationModule,
   registerTypescriptProjectService,
   updateTypesRegistryFromINode,
   TOKEN_TYPESCRIPT_PROJECT_SERVICE,
@@ -216,6 +230,11 @@ export class WorkflowStore implements IWorkflowAgentStore {
   private readonly workspaceSyncDisposer: () => void;
   private readonly keepAliveDisposer: IReactionDisposer;
   private readonly schemes = new Map<string, Scheme>();
+  /** Background-validation modules of the built function/trigger schemes (their queue keys give the active tab priority). */
+  private readonly validationModules = new Map<string, ValidationModule>();
+  /** The built schemes' validation stores — observable, so a tab badge appears once its scheme is built (ADR 0068 (private)). */
+  private readonly validationStores = new ObservableMap<string, ValidationStore>();
+  private readonly validationPriorityDisposer: IReactionDisposer;
   private readonly followRunDisposer: IReactionDisposer;
   private readonly persistBreakpointsDisposer: IReactionDisposer;
   private readonly httpVersionStore: HttpVersionStore;
@@ -349,6 +368,18 @@ export class WorkflowStore implements IWorkflowAgentStore {
       (id) => {
         if (id) this.touchKeepAlive(id);
       },
+      { fireImmediately: true },
+    );
+    // The active tab's validation jobs go first on the window-wide queue; `null` while a non-scheme view is shown.
+    this.validationPriorityDisposer = reaction(
+      () => {
+        if (this.activeView !== null) return null;
+        const id = this.activeTabId;
+        return id !== null && this.validationStores.has(id)
+          ? (this.validationModules.get(id)?.getSchemeKey() ?? null)
+          : null;
+      },
+      (key) => defaultValidationQueue.setPriorityScheme(key),
       { fireImmediately: true },
     );
     // Restore/persist the open tabs and mirror the active one into the URL (`workspace-sync.ts`).
@@ -682,6 +713,8 @@ export class WorkflowStore implements IWorkflowAgentStore {
     if (scheme) {
       scheme.dispose();
       this.schemes.delete(id);
+      this.validationModules.delete(id);
+      this.validationStores.delete(id);
     }
   }
 
@@ -788,6 +821,26 @@ export class WorkflowStore implements IWorkflowAgentStore {
     return this.schemes.has(docId);
   }
 
+  /**
+   * Error/warning counts of a document's background validation (ADR 0068 (private)) — `{ 0, 0 }` while its scheme is not
+   * built or has no validation (objects-structure). Observable: an `observer` tab badge follows it.
+   */
+  getValidationCounts(docId: string): { errors: number; warnings: number } {
+    const store = this.validationStores.get(docId);
+    return store ? { errors: store.errorCount, warnings: store.warningCount } : { errors: 0, warnings: 0 };
+  }
+
+  private createValidationModule(docId: string): ValidationModule {
+    const module = createTypescriptValidationModule();
+    this.validationModules.set(docId, module);
+    return module;
+  }
+
+  private registerValidationStore(docId: string, scheme: Scheme): void {
+    if (!this.validationModules.has(docId)) return;
+    runInAction(() => this.validationStores.set(docId, resolveService(TOKEN_VALIDATION_STORE, scheme.container)));
+  }
+
   getScheme(docId: string): Scheme {
     const existing = this.schemes.get(docId);
     if (existing) return existing;
@@ -796,6 +849,7 @@ export class WorkflowStore implements IWorkflowAgentStore {
     if (doc.pinned) throw new Error(`Document ${docId} is pinned and has no scheme editor`);
     const scheme = this.buildScheme(doc);
     this.schemes.set(docId, scheme);
+    this.registerValidationStore(docId, scheme);
     setTimeout(() => {
       setSchemeStartPosition(scheme);
     }, 10);
@@ -952,8 +1006,12 @@ export class WorkflowStore implements IWorkflowAgentStore {
     this.vendorData.dispose();
     this.agentInterfaceDisposer();
     this.agentSession.cancel();
+    this.validationPriorityDisposer();
+    defaultValidationQueue.setPriorityScheme(null);
     for (const scheme of this.schemes.values()) scheme.dispose();
     this.schemes.clear();
+    this.validationModules.clear();
+    this.validationStores.clear();
   }
 
   /** Structural edits are never reachable from the read-only UI — this only catches a missed entry point. */
@@ -980,6 +1038,7 @@ export class WorkflowStore implements IWorkflowAgentStore {
       getFieldOptionsProvider: () => createFieldOptionsProvider(this.projectId),
       getActivepiecesCatalogProvider: () => createActivepiecesCatalogProvider(),
       getActivepiecesFieldOptionsProvider: () => createActivepiecesFieldOptionsProvider(this.projectId),
+      ...(isFunctionDoc ? { validationModule: this.createValidationModule(doc.id) } : {}),
       defaultInsertNodeName: () => (this.agentSettings.configured && this.magicInsert.enabled ? MAGIC_NAME : 'action'),
       onSchemeCreated: (created) => {
         if (isFunctionDoc && !this.readOnly) this.magicRuns.registerHost(doc.id, created);

@@ -54,5 +54,12 @@
     "value": "Value",
     "no-variables": "No variables in scope",
     "output": "Output"
+  },
+  "validation": {
+    "pill-errors_one": "{{count}} error",
+    "pill-errors_other": "{{count}} errors",
+    "pill-warnings_one": "{{count}} warning",
+    "pill-warnings_other": "{{count}} warnings",
+    "pill-hint": "Click to go to the next problem"
   }
 }
