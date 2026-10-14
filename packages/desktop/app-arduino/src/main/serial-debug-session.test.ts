@@ -16,7 +16,17 @@ const fakeMonitor = (): { monitor: IPortMonitor; written: string[] } => {
   const written: string[] = [];
   const stdin = new PassThrough();
   stdin.on('data', (chunk: Buffer) => written.push(chunk.toString('utf8')));
-  return { monitor: { stdin, stdout, kill: vi.fn(() => stdout.destroy()) }, written };
+  return {
+    monitor: {
+      stdin,
+      stdout,
+      kill: vi.fn(() => {
+        stdout.destroy();
+        return Promise.resolve();
+      }),
+    },
+    written,
+  };
 };
 
 const emitLines = (stream: PassThrough, ...lines: string[]): void => {

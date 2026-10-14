@@ -2,7 +2,7 @@ import type { IPortMonitor } from '@falang/desktop-arduino-cli';
 import type { IDebugBreakpoint, IDebugMap, IDebugVariable, TDebugEvent, TDebugResumeMode } from '@falang/debug';
 
 export interface ISerialDebugSessionParams {
-  /** An already-opened serial channel (see `monitorPort` — opened by the caller, e.g. `debug-session-registry.ts`, so this class stays unit-testable with a fake `IPortMonitor` instead of a real subprocess). */
+  /** An already-opened serial channel (see `monitorPort` — opened by the caller, e.g. `debug-session-registry.ts`, so this class stays unit-testable with a fake `IPortMonitor` instead of a real serial port). */
   readonly monitor: IPortMonitor;
   readonly debugMap: IDebugMap;
   readonly breakpoints: readonly IDebugBreakpoint[];
@@ -30,6 +30,7 @@ export class SerialDebugSession {
   private readonly breakpointIndexes = new Set<number>();
   private buffer = '';
   private terminated = false;
+  private stopping: Promise<void> | null = null;
   private pausedIndex: number | null = null;
   private pausedVariables: IDebugVariable[] = [];
   /** Set only when `pauseOnEntry` requested a synthetic breakpoint on trace index 0 — cleared after the first pause, so that one pause reports `reason: 'entry'` instead of `'breakpoint'` even though it's implemented the same way on the wire. */
@@ -75,11 +76,14 @@ export class SerialDebugSession {
   }
 
   stop(): Promise<void> {
-    if (this.terminated) return Promise.resolve();
-    this.terminated = true;
-    this.monitor.kill();
-    this.onEvent({ type: 'terminated', reason: 'stopped' });
-    return Promise.resolve();
+    if (!this.terminated) {
+      this.terminated = true;
+      this.onEvent({ type: 'terminated', reason: 'stopped' });
+    }
+    // Also after the board ended the session on its own, so the port is surely released; resolves
+    // once it is, which lets the next session open the same port.
+    this.stopping ??= this.monitor.kill();
+    return this.stopping;
   }
 
   private resolveIndex(location: IDebugBreakpoint): number | null {

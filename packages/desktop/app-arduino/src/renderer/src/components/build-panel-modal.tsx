@@ -140,7 +140,13 @@ export const BuildPanelModal: React.FC<Props> = observer(({ store, open, onClose
           <Button loading={busy} disabled={!port} onClick={() => runBuild(true)}>
             Upload
           </Button>
-          <Tooltip title={debugUnsupported ? 'The serial debugger is not supported on Windows yet.' : null}>
+          <Tooltip
+            title={
+              debugUnsupported
+                ? 'The serial port module failed to load, so the debugger is unavailable. Reinstalling the app may help.'
+                : null
+            }
+          >
             <Button
               loading={busy}
               disabled={!port || debugUnsupported}

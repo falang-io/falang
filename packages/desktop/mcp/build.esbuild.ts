@@ -8,7 +8,8 @@ import { copyTypescriptLibs } from '../../../scripts/release/copy-typescript-lib
  * with no `package.json` of its own, so Node's module-type detection for a directly-executed file
  * with no ancestor `"type"` field defaults to CommonJS — matching this package's own
  * `"type": "commonjs"` anyway. No `external` beyond Node's own builtins (which esbuild's
- * `platform: 'node'` already keeps as `require(...)` calls without being told to) — see
+ * `platform: 'node'` already keeps as `require(...)` calls without being told to) and the lazily
+ * loaded `@serialport/*` (see below) — see
  * ADR 0029 (private)'s phase E task description. Only `server/mcp.js` and
  * `server/stdio.js` are ever imported from `@modelcontextprotocol/sdk`, so esbuild's own
  * import-graph tracing keeps the Streamable-HTTP-only dependencies (`express`, `hono`, …) out of the
@@ -24,6 +25,9 @@ const run = async (): Promise<void> => {
     entryPoints: ['src/main.ts'],
     format: 'cjs',
     logLevel: 'info',
+    // The serial port packages are loaded lazily by `@falang/desktop-arduino-cli`'s `monitorPort`, which
+    // this bundle never calls; bundling them would only drag in a native addon it can't load.
+    external: ['@serialport/*'],
     outfile: 'dist/index.js',
     platform: 'node',
     target: 'node24',

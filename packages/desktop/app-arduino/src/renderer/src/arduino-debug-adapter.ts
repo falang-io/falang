@@ -62,12 +62,22 @@ export class ArduinoDebugAdapter implements IDebugAdapter {
       return;
     }
 
-    await globalThis.falang.debug.start({
-      port: entry.port,
-      debugMap: outcome.debugMap,
-      breakpoints: [...params.breakpoints],
-      pauseOnEntry: params.pauseOnEntry,
-    });
+    try {
+      await globalThis.falang.debug.start({
+        port: entry.port,
+        debugMap: outcome.debugMap,
+        breakpoints: [...params.breakpoints],
+        pauseOnEntry: params.pauseOnEntry,
+      });
+    } catch (error) {
+      // The serial port couldn't be opened (gone, busy, no permission) — end the session like the
+      // other failures above instead of leaving the panel waiting for a board that will never attach.
+      this.emit({
+        type: 'terminated',
+        reason: 'failed',
+        message: `Could not open ${entry.port}: ${error instanceof Error ? error.message : String(error)}`,
+      });
+    }
   }
 
   setBreakpoints(breakpoints: readonly IDebugBreakpoint[]): Promise<void> {

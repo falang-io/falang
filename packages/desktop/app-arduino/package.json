@@ -43,6 +43,8 @@
     "@falang/typescript-dto": "*",
     "@falang/typescript-scheme": "*",
     "@falang/versioning": "*",
+    "@serialport/bindings-cpp": "^13.0.1",
+    "@serialport/stream": "^13.0.0",
     "@types/node": "^25.5.0",
     "@types/react": "^19.2.14",
     "@types/react-dom": "^19.2.3",

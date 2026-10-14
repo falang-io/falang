@@ -7,9 +7,9 @@ import { copyTypescriptLibs } from '../../../scripts/release/copy-typescript-lib
  * `resolve-compile-worker-command.ts` expects (`node <resourcesPath>/compile-worker/index.js`, no
  * `node_modules` shipped alongside it), copied there by `electron-builder.yml`'s `extraResources`.
  * Same shape as `@falang/desktop-mcp`'s own `build.esbuild.ts` and `app-sketch`'s own
- * `build-export-worker.esbuild.ts` — CJS output, no `external` beyond Node's own builtins, run before
- * `electron-builder` via this package's own `prebuild:*` npm hooks (not part of `out/`, electron-vite's
- * own build output). Deliberately *not* under `dist/`: this package's own `electron-builder.yml` sets
+ * `build-export-worker.esbuild.ts` — CJS output, no `external` beyond Node's own builtins and the
+ * lazily loaded `@serialport/*` (see below), run before `electron-builder` via this package's own
+ * `prebuild:*` npm hooks (not part of `out/`, electron-vite's own build output). Deliberately *not* under `dist/`: this package's own `electron-builder.yml` sets
  * `directories.output: dist` for the final packaged installers — `worker-dist` avoids that collision
  * and gets its own bare entry in the repo root `.gitignore`, same treatment as `dist`/`out`.
  */
@@ -19,6 +19,9 @@ const run = async (): Promise<void> => {
     entryPoints: ['src/main/compile-worker/worker-main.ts'],
     format: 'cjs',
     logLevel: 'info',
+    // The serial port packages are loaded lazily by `@falang/desktop-arduino-cli`'s `monitorPort`, which
+    // this bundle never calls; bundling them would only drag in a native addon it can't load.
+    external: ['@serialport/*'],
     outfile: 'worker-dist/index.js',
     platform: 'node',
     target: 'node24',

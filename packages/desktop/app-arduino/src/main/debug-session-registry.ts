@@ -15,11 +15,19 @@ export type { IStartDebugSessionParams } from '../shared/start-debug-session-par
  */
 let activeSession: SerialDebugSession | null = null;
 
-export const startDebugSession = (params: IStartDebugSessionParams, onEvent: (event: TDebugEvent) => void): void => {
-  activeSession?.stop().catch(() => {
+export const startDebugSession = async (
+  params: IStartDebugSessionParams,
+  onEvent: (event: TDebugEvent) => void,
+): Promise<void> => {
+  // Awaited, not fire-and-forget: the previous session may hold the very port this one is about to
+  // open, and a serial port can only be open once.
+  await activeSession?.stop().catch(() => {
     // Best-effort — the previous session's port may already be gone.
   });
-  const monitor = monitorPort({ port: params.port });
+  activeSession = null;
+  // Rejects when the port can't be opened (gone, busy, no permission); the IPC call then rejects
+  // and the renderer reports it.
+  const monitor = await monitorPort({ port: params.port });
   activeSession = new SerialDebugSession({
     monitor,
     debugMap: params.debugMap,

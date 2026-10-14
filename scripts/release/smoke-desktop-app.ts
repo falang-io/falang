@@ -8,7 +8,8 @@
  *     Node mode and answers a job — the path that used to spawn `node` from `PATH`;
  *  2. the bundled MCP server starts the same way and answers `tools/list` over stdio, exactly as a
  *     project's `.mcp.json` makes a coding agent launch it;
- *  3. the app itself opens a window and renders without a page error.
+ *  3. the app itself opens a window and renders without a page error (for `arduino`, the serial
+ *     debugger's native addon also loads in the main process).
  *
  * Usage: `npx tsx scripts/release/smoke-desktop-app.ts <sketch|arduino> [--screenshot <file.png>]`
  * from the repository root, after `electron-builder --dir` (or a full build) for that app.
@@ -19,7 +20,7 @@ import * as os from 'node:os';
 import * as path from 'node:path';
 import { Client } from '@modelcontextprotocol/sdk/client/index.js';
 import { getDefaultEnvironment, StdioClientTransport } from '@modelcontextprotocol/sdk/client/stdio.js';
-import { _electron as electron } from 'playwright';
+import { _electron as electron, type Page } from 'playwright';
 import { createProject } from '@falang/desktop-project-fs';
 import { runInWorkerProcess } from '@falang/desktop-worker-process';
 
@@ -33,6 +34,8 @@ interface IAppSpec {
   /** Throws unless the worker's answer proves a real compile happened (not just that the bundle loaded). */
   readonly checkWorkerResult: (result: unknown) => void;
   readonly projectType: string;
+  /** App-specific checks in the opened window, through the preload API (`window.falang`). */
+  readonly checkInWindow?: (window: Page) => Promise<void>;
 }
 
 /** A minimal `function` document (header/body/footer) — the shape the compilers' own tests build by hand. */
@@ -91,6 +94,20 @@ const APPS: Record<TAppKind, IAppSpec> = {
       }
     },
     projectType: 'arduino',
+    // The serial debugger's native addon (`@serialport/bindings-cpp`) must load in the packaged main process — it breaks
+    // if its `.node` file is left inside `app.asar` or the prebuild for this OS is missing. `checkCli` reports it even
+    // when `arduino-cli` itself is not installed (the CI runners have none).
+    checkInWindow: async (window) => {
+      const status = await window.evaluate(() =>
+        (
+          globalThis as unknown as {
+            falang: { arduino: { checkCli: () => Promise<{ serialMonitorSupported: boolean }> } };
+          }
+        ).falang.arduino.checkCli(),
+      );
+      if (!status.serialMonitorSupported) throw new Error('the serial port addon failed to load in the packaged app');
+      console.log('  serial port addon loads in the main process');
+    },
   },
 };
 
@@ -193,7 +210,12 @@ const checkMcpServer = async (app: IPackagedApp, spec: IAppSpec, tempDir: string
   }
 };
 
-const checkWindow = async (app: IPackagedApp, tempDir: string, screenshot: string | null): Promise<void> => {
+const checkWindow = async (
+  app: IPackagedApp,
+  spec: IAppSpec,
+  tempDir: string,
+  screenshot: string | null,
+): Promise<void> => {
   const env: Record<string, string> = {};
   for (const [key, value] of Object.entries(process.env)) {
     if (typeof value === 'string' && key !== 'ELECTRON_RUN_AS_NODE') env[key] = value;
@@ -215,6 +237,7 @@ const checkWindow = async (app: IPackagedApp, tempDir: string, screenshot: strin
     if (screenshot) await window.screenshot({ path: screenshot });
     if (pageErrors.length > 0) throw new Error(`page errors:\n${pageErrors.join('\n')}`);
     console.log(`  window rendered: "${await window.title()}"`);
+    await spec.checkInWindow?.(window);
   } finally {
     await electronApp.close();
   }
@@ -237,7 +260,7 @@ const main = async (): Promise<void> => {
     console.log('2/3 bundled MCP server');
     await checkMcpServer(app, spec, tempDir);
     console.log('3/3 application window');
-    await checkWindow(app, tempDir, screenshot);
+    await checkWindow(app, spec, tempDir, screenshot);
     console.log('Smoke test passed.');
   } finally {
     await fs.rm(tempDir, { recursive: true, force: true });

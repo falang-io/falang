@@ -70,9 +70,10 @@ head:
 
 <ul>
   <li>
-    Debugging over the serial port has been verified on a real board on Linux only. On macOS it should work but has not
-    been tried on hardware yet. On Windows it is not supported yet, and the <b>Upload (debug)</b> button is disabled.
-    Normal compile and upload work everywhere arduino-cli does.
+    Debugging over the serial port works on Linux, macOS and Windows. It has been verified on a real board on Linux
+    only; on macOS and Windows it uses the same serial port library but has not been tried on hardware yet. If the
+    <b>Upload (debug)</b> button is disabled, the app's serial port module failed to load — reinstalling the app should
+    fix it. Normal compile and upload work everywhere arduino-cli does.
   </li>
   <li>
     Only plain numbers and booleans can be shown as variables today — the firmware-side monitor has no way to send an

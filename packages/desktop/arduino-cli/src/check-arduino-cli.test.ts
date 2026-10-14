@@ -7,7 +7,8 @@ vi.mock('./resolve-arduino-cli.js', () => ({
   resolveArduinoCli: vi.fn(() => Promise.resolve('/opt/homebrew/bin/arduino-cli')),
 }));
 
-const serialMonitorSupported = process.platform !== 'win32';
+// The real native addon is loaded here (it has a prebuild for every OS the tests run on).
+const serialMonitorSupported = true;
 
 const mockedRunArduinoCli = vi.mocked(runArduinoCli);
 

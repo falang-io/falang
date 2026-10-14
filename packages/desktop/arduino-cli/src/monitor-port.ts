@@ -1,6 +1,5 @@
-import { execFileSync } from 'node:child_process';
-import { closeSync, constants, openSync } from 'node:fs';
-import { ReadStream, WriteStream } from 'node:tty';
+import type { autoDetect as autoDetectBinding } from '@serialport/bindings-cpp';
+import type { SerialPortStream } from '@serialport/stream';
 
 export interface IMonitorPortParams {
   readonly port: string;
@@ -10,101 +9,112 @@ export interface IMonitorPortParams {
 export interface IPortMonitor {
   readonly stdin: NodeJS.WritableStream;
   readonly stdout: NodeJS.ReadableStream;
-  kill(): void;
+  /** Closes the port; resolves once it is closed, so the same port can be opened again right away. Idempotent. */
+  kill(): Promise<void>;
 }
 
 /** Also the baud rate a debug build's `falang_wait_attach()` must `Serial.begin()` at — see `compile-arduino-project.ts`'s `injectSetupDebugAttach`, which imports this rather than hardcoding a second copy of the number. */
 export const DEFAULT_BAUDRATE = 115_200;
 
 /**
+ * Loaded on first use, never at module load: this package is also bundled (through
+ * `@falang/desktop-arduino-compiler`) into esbuild bundles that never open a port — the Arduino app's
+ * compile worker and `@falang/desktop-mcp` — and `@serialport/bindings-cpp` loads its native `.node`
+ * file the moment it is required. Those bundles mark both packages `external`.
+ */
+const loadSerialPort = async (): Promise<{
+  readonly SerialPortStream: typeof SerialPortStream;
+  readonly autoDetect: typeof autoDetectBinding;
+}> => {
+  const [{ SerialPortStream: Stream }, { autoDetect }] = await Promise.all([
+    import('@serialport/stream'),
+    import('@serialport/bindings-cpp'),
+  ]);
+  return { SerialPortStream: Stream, autoDetect };
+};
+
+/**
+ * Whether `monitorPort` can work here: whether `@serialport/bindings-cpp`'s native addon loads for
+ * this OS/architecture. It ships prebuilds for Linux, macOS and Windows (x64 and arm64), so `false`
+ * means a broken install or package (e.g. the `.node` file left inside `app.asar`) — the build panel
+ * then disables "Upload (debug)" with a hint instead of failing when a session starts.
+ */
+export const isSerialMonitorSupported = async (): Promise<boolean> => {
+  try {
+    const { autoDetect } = await loadSerialPort();
+    autoDetect();
+    return true;
+  } catch {
+    return false;
+  }
+};
+
+/** A close failure (the device already vanished) still leaves the port closed for our purposes. */
+const ignoreCloseError = (): void => {
+  // Intentionally empty.
+};
+
+/**
  * A long-lived bidirectional serial channel over the same USB port `uploadSketch` just flashed
- * through — no subprocess, no native addon: `stty` configures the port's line discipline (`raw`, no
- * echo, the given baud rate), then the device file is opened once (`O_RDWR | O_NOCTTY`) and read and
- * written through `node:tty`'s `ReadStream`/`WriteStream` — the exact machinery Node itself uses for
- * `process.stdin`/`process.stdout` when they are a terminal, and the only way to talk to a tty
- * device from Node without a blocking read (libuv re-opens the device in non-blocking mode and
- * polls it on the event loop).
+ * through, opened with `@serialport/stream` + `@serialport/bindings-cpp` (a N-API native addon with
+ * prebuilds for Linux, macOS and Windows, loaded without a rebuild under Electron). Resolves once the
+ * port is open and rejects with the binding's own error (no such port, busy, no permission) — so a
+ * failure surfaces to the caller instead of as a stream `error` later. The returned monitor's
+ * `stdin`/`stdout` are the same duplex stream; `stdout` emits `close` when the port closes, either
+ * through `kill()` or because the board was unplugged.
  *
- * History, both found on real Uno hardware (ADR 0021 (private), 2026-09-21):
+ * Opening the port asserts DTR, which resets an Uno-class board — the firmware's
+ * `falang_wait_attach()` re-sends its `R` line until the host answers, so that's harmless.
  *
- * - **Was** piping `arduino-cli monitor`'s own stdin/stdout, per the ADR's §6 original design.
- *   Writes to that process's stdin never reached the device when it was driven by another process —
- *   a plain pipe, a pseudo-terminal as stdin only, and a fully-interactive pseudo-terminal all
- *   failed identically — so `arduino-cli` was dropped from this path entirely.
- * - **Then** `fs.createReadStream`/`createWriteStream` on the device path. Those work while the
- *   board is talking, but `fs.read` runs as a *blocking* `read(2)` on a libuv threadpool thread: a
- *   silent board (paused at a breakpoint, or unplugged) leaves that thread stuck in the kernel for
- *   as long as no byte arrives, `destroy()` can't interrupt it, and Node's own exit then waits on the
- *   threadpool forever — `process.exit()` after `kill()` hung a scratch process outright. Each
- *   stop/start cycle against a silent board also leaked one of the pool's four threads and left a
- *   zombie reader racing the new session for the next bytes.
+ * History (ADR 0021 (private), 2026-09-21; ADR 0050 (private)) — every earlier transport was POSIX-only:
  *
- * `O_NOCTTY` matters: the Electron main process may well be a session leader without a controlling
- * terminal (any GUI launch), and a session leader opening a tty without that flag *acquires* it as
- * its controlling terminal — after which unplugging the board (a tty hangup) would `SIGHUP` the
- * whole app. Verified under `setsid` that nothing here acquires one.
+ * - **Was** piping `arduino-cli monitor`'s own stdin/stdout. Writes to that process's stdin never
+ *   reached the device when it was driven by another process (a plain pipe, a pseudo-terminal as
+ *   stdin only and a fully-interactive pseudo-terminal all failed identically).
+ * - **Then** `stty` + `fs.createReadStream`/`createWriteStream` on the device path: `fs.read` is a
+ *   *blocking* `read(2)` on a libuv threadpool thread, so a silent board kept that thread in the
+ *   kernel, `destroy()` couldn't interrupt it and `process.exit()` hung.
+ * - **Then** `stty` + `node:tty` streams over one `O_RDWR | O_NOCTTY` descriptor — non-blocking and
+ *   verified on a real Uno, but with no Windows equivalent (no `stty`, no tty devices).
  *
- * POSIX-only (`stty` plus tty device files, present on Linux and macOS, not Windows) — on Windows
- * it throws and `isSerialMonitorSupported` lets the UI hide the debug upload instead; a Windows
- * transport is a known follow-up, not guessed at without a Windows machine to verify against.
+ * `@serialport/bindings-cpp` reads without blocking a pool thread on every OS (an event-loop poller on
+ * Linux/macOS, overlapped I/O on Windows), and closing a silent port lets the process exit at once.
+ * On Linux/macOS it opens the device with `O_NOCTTY` too, so unplugging the board can't `SIGHUP` a
+ * GUI-launched Electron main.
  *
  * The caller owns framing/parsing on top of this raw byte stream (see the Arduino app's
  * `SerialDebugSession`, which speaks `falang_debug.h`'s wire protocol over it) — this module only
  * knows how to open and close the channel.
  */
-const openStreams = (fd: number): { readonly stdout: ReadStream; readonly stdin: WriteStream } => {
-  const stdout = new ReadStream(fd);
-  try {
-    return { stdout, stdin: new WriteStream(fd) };
-  } catch (error) {
-    stdout.destroy();
-    throw error;
-  }
-};
-
-/** Whether `monitorPort` can work on this OS at all — it needs `stty` and POSIX tty devices, so not on Windows. */
-export const isSerialMonitorSupported = (platform: NodeJS.Platform = process.platform): boolean => platform !== 'win32';
-
-/**
- * `stty`'s arguments for configuring `port`. The device flag differs: GNU coreutils (Linux) takes
- * `-F <device>`, BSD `stty` (macOS) takes `-f <device>` and rejects `-F` outright — so the debugger
- * was broken on macOS too until this split (ADR 0050 (private), "B2").
- */
-export const sttyArgs = (port: string, baudrate: number, platform: NodeJS.Platform = process.platform): string[] => [
-  platform === 'darwin' ? '-f' : '-F',
-  port,
-  'raw',
-  String(baudrate),
-  '-echo',
-];
-
-export const monitorPort = ({ port, baudrate = DEFAULT_BAUDRATE }: IMonitorPortParams): IPortMonitor => {
-  if (!isSerialMonitorSupported()) {
-    throw new Error('The serial debugger is not supported on Windows yet.');
-  }
-  execFileSync('stty', sttyArgs(port, baudrate));
-  // oxlint-disable-next-line no-bitwise -- `open(2)` flags are a bitmask by definition
-  const fd = openSync(port, constants.O_RDWR | constants.O_NOCTTY);
-  const streams = ((): ReturnType<typeof openStreams> => {
-    try {
-      return openStreams(fd);
-    } catch (error) {
-      closeSync(fd);
-      throw error;
-    }
-  })();
-  let closed = false;
+export const monitorPort = async ({ port, baudrate = DEFAULT_BAUDRATE }: IMonitorPortParams): Promise<IPortMonitor> => {
+  const { SerialPortStream: Stream, autoDetect } = await loadSerialPort();
+  const serial = await new Promise<SerialPortStream>((resolve, reject) => {
+    const opened: SerialPortStream = new Stream({ binding: autoDetect(), path: port, baudRate: baudrate }, (error) => {
+      if (error) reject(error);
+      else resolve(opened);
+    });
+  });
+  // An unhandled `error` event would crash the Electron main process. Read/write failures after open
+  // (a write after the port closed, an unplugged board) end the session instead: closing the port
+  // fires `close`, which `SerialDebugSession` already reports as a terminated session.
+  serial.on('error', () => {
+    if (serial.isOpen) serial.close(ignoreCloseError);
+  });
+  let closing: Promise<void> | null = null;
   return {
-    stdin: streams.stdin,
-    stdout: streams.stdout,
+    stdin: serial,
+    stdout: serial,
     kill: () => {
-      if (closed) return;
-      closed = true;
-      streams.stdout.destroy();
-      streams.stdin.destroy();
-      // libuv re-opened the device by path for each stream (see above), so the original descriptor is
-      // ours alone to close — the streams' own handles close theirs.
-      closeSync(fd);
+      closing ??= new Promise<void>((resolve) => {
+        if (!serial.isOpen) {
+          serial.destroy();
+          resolve();
+          return;
+        }
+        // A close error (the device already vanished) still leaves the port closed for our purposes.
+        serial.close(() => resolve());
+      });
+      return closing;
     },
   };
 };

@@ -337,11 +337,13 @@ export const registerIpcHandlers = (
         .catch(blockedBuildOutcome),
   );
 
-  ipcMain.handle(IPC.debugStart, (_event, params: IStartDebugSessionParams): void => {
-    startDebugSession(params, (debugEvent) => {
-      getMainWindow()?.webContents.send(IPC.debugEvent, debugEvent);
-    });
-  });
+  ipcMain.handle(
+    IPC.debugStart,
+    (_event, params: IStartDebugSessionParams): Promise<void> =>
+      startDebugSession(params, (debugEvent) => {
+        getMainWindow()?.webContents.send(IPC.debugEvent, debugEvent);
+      }),
+  );
   ipcMain.handle(
     IPC.debugSetBreakpoints,
     (_event, breakpoints: IDebugBreakpoint[]): Promise<void> => setDebugBreakpoints(breakpoints),
