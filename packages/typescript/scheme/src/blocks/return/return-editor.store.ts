@@ -2,7 +2,7 @@ import type { IBlockEditorFactoryParams } from '@falang/scheme';
 import { computed, makeObservable } from 'mobx';
 import { CodeModelStore } from '../../block-elements/code/code-model.store.js';
 import { ExpressionBlockEditorStore } from '../../monaco/scope/expression-block-editor.store.js';
-import { buildTypedValueHiddenPrefix } from '../../monaco/scope/typed-value-hidden-prefix.js';
+import { returnValuePrefix } from '../../field-check/prefix-builders.js';
 import { decodeLegacyHtml } from '../expression/decode-legacy-html.js';
 import { isInValueReturningFunction, RETURN_VALUE_NAME } from './return-value.js';
 
@@ -24,9 +24,7 @@ export class ReturnEditorStore extends ExpressionBlockEditorStore<string> {
   }
 
   @computed get valueHiddenPrefix(): string {
-    return this.returnsValue
-      ? buildTypedValueHiddenPrefix(this.hiddenScopeCode, `typeof ${RETURN_VALUE_NAME}`)
-      : this.hiddenScopeCode;
+    return returnValuePrefix(this.hiddenScopeCode, this.returnsValue, RETURN_VALUE_NAME);
   }
 
   getData(): string {

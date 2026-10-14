@@ -28,3 +28,4 @@ export * from './block-elements/new-variable/new-variable.store.js';
 export * from './block-elements/new-variable/new-variable.editing.cmp.js';
 export * from './cmp/ts-select.js';
 export * from './cmp/typescript-block-container.js';
+export * from './field-check/index.js';

@@ -3,6 +3,7 @@ import type monaco from 'monaco-editor';
 import { action, computed, makeObservable, observable } from 'mobx';
 import type { TNumberComputed } from '@falang/scheme';
 import { getMonaco } from '../../monaco/get-monaco.js';
+import { buildModelText, MODULE_MARKER } from '../../field-check/model-text.js';
 
 // `setHiddenAreas` is an internal monaco API not present in the public `IStandaloneCodeEditor` typings.
 interface IEditorWithHiddenAreas {
@@ -24,14 +25,6 @@ export interface ICodeModelConstructorParams {
   /** When true, an empty value is not highlighted as an error even if the model has error markers. */
   allowEmpty?: boolean;
 }
-
-/**
- * Appended after `hiddenSuffix` on its own hidden line. Without it, a file with no `import`/`export`
- * is a TS global script, so `declare const`s from `hiddenPrefix` leak into the shared global scope
- * of the language service — two fields declaring the same scope variable name then collide with
- * "Cannot redeclare block-scoped variable". Forcing module detection scopes them per-file instead.
- */
-const MODULE_MARKER = '\nexport {};';
 
 export class CodeModelStore {
   readonly fileName: string;
@@ -79,7 +72,7 @@ export class CodeModelStore {
   }
 
   @computed get fullValue(): string {
-    return `${this.hiddenPrefix}${this.value}${this.effectiveHiddenSuffix}`;
+    return buildModelText(this.hiddenPrefix, this.value, this.hiddenSuffix);
   }
 
   /** `hiddenSuffix` plus the trailing `MODULE_MARKER`. */

@@ -91,6 +91,13 @@ export const setMonacoLibVariant = (variant: TMonacoLibVariant, extraDeclaration
   if (initialized && monacoNamespace) applyLibVariant(monacoNamespace);
 };
 
+/**
+ * Identifies the lib every `'typescript'` model currently type-checks against (the variant plus the host's extra
+ * declarations): a check result is only valid for the key it was computed under. Includes the *desired* state, which
+ * `getMonaco()` applies before the next worker call.
+ */
+export const getMonacoLibKey = (): string => `${desiredLibVariant}\u0000${desiredExtraDeclarations}`;
+
 const THEME_CLASSES = ['vs', 'vs-dark', 'hc-black', 'hc-light'];
 
 /**

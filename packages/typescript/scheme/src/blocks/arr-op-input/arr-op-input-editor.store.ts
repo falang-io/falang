@@ -2,11 +2,7 @@ import type { zod } from '@falang/dto';
 import type { IBlockEditorFactoryParams } from '@falang/scheme';
 import type { arrPushDto } from '@falang/typescript-dto';
 import { action, computed, makeObservable, observable, reaction } from 'mobx';
-import {
-  ARRAY_TYPE_ALIAS_DECL,
-  ARRAY_UNKNOWN_TYPE_EXPRESSION,
-  buildArrayElementTypeExpression,
-} from '@falang/typescript-common';
+import { buildArrayElementTypeExpression } from '@falang/typescript-common';
 import { CodeModelStore } from '../../block-elements/code/code-model.store.js';
 import { TemplateStringStore } from '../../block-elements/template-string/template-string.store.js';
 import {
@@ -15,7 +11,7 @@ import {
 } from '../../block-elements/template-string/string-value-expression.js';
 import { ExpressionBlockEditorStore } from '../../monaco/scope/expression-block-editor.store.js';
 import { probeIsStringType } from '../../monaco/scope/probe-string-type.js';
-import { buildTypedValueHiddenPrefix } from '../../monaco/scope/typed-value-hidden-prefix.js';
+import { arrayElementValuePrefix, arrayFieldPrefix } from '../../field-check/prefix-builders.js';
 
 export type IArrOpInput = zod.infer<typeof arrPushDto>;
 
@@ -64,13 +60,12 @@ export class ArrOpInputBlockEditorStore extends ExpressionBlockEditorStore<IArrO
   }
 
   @computed get arrHiddenPrefix(): string {
-    return buildTypedValueHiddenPrefix(this.hiddenScopeCode + ARRAY_TYPE_ALIAS_DECL, ARRAY_UNKNOWN_TYPE_EXPRESSION);
+    return arrayFieldPrefix(this.hiddenScopeCode);
   }
 
   /** Types the value field as the `arr` field's element type, inferred from whatever's currently typed there. */
   @computed get valueHiddenPrefix(): string {
-    const elementType = buildArrayElementTypeExpression(this.arrCodeStore.value);
-    return buildTypedValueHiddenPrefix(this.hiddenScopeCode, elementType);
+    return arrayElementValuePrefix(this.hiddenScopeCode, this.arrCodeStore.value);
   }
 
   /** Whether the value is currently edited as text (the array holds strings). */

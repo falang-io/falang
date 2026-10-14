@@ -1,12 +1,11 @@
 import type { zod } from '@falang/dto';
 import type { IBlockEditorFactoryParams } from '@falang/scheme';
 import type { createVarDto, variableInfoZod } from '@falang/typescript-dto';
-import { variableInfoToTsType } from '@falang/typescript-dto';
 import { action, computed, makeObservable, observable } from 'mobx';
 import { defaultVariableType } from '../object-property/object-property-editor.store.js';
 import { CodeModelStore } from '../../block-elements/code/code-model.store.js';
 import { ExpressionBlockEditorStore } from '../../monaco/scope/expression-block-editor.store.js';
-import { buildTypedValueHiddenPrefix } from '../../monaco/scope/typed-value-hidden-prefix.js';
+import { createVarValuePrefix } from '../../field-check/prefix-builders.js';
 
 export type ICreateVar = zod.infer<typeof createVarDto>;
 type IVariableType = zod.infer<typeof variableInfoZod>;
@@ -34,7 +33,7 @@ export class CreateVarBlockEditorStore extends ExpressionBlockEditorStore<ICreat
 
   /** Types the value field's editor as the variable's own declared type, e.g. `let x: string = ` for `x`. */
   @computed get valueHiddenPrefix(): string {
-    return buildTypedValueHiddenPrefix(this.hiddenScopeCode, variableInfoToTsType(this.data.variableType));
+    return createVarValuePrefix(this.hiddenScopeCode, this.data.variableType);
   }
 
   getData(): ICreateVar {
