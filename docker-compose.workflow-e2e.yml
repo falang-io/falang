@@ -305,8 +305,14 @@ services:
     # plain `node`-under-`npm` reproduction never saw the signal); `sh -c 'exec ...'` replaces the
     # shell with that same process instead of forking it, so the process this stack's `down`
     # signals *is* the Node process. Needed for `NODE_V8_COVERAGE` below to ever flush — see
-    # ADR 0012 (private).
-    command: ['sh', '-c', 'exec npx tsx src/main.ts']
+    # ADR 0012 (private). Not `npx tsx` either: `npx` is one more Node wrapper that doesn't forward
+    # the signal, so `backend` itself never wrote its coverage file (only the wrappers did) — the
+    # same fix `docker/runner.Dockerfile` already carries.
+    command: ['sh', '-c', 'exec ../../../node_modules/.bin/tsx src/main.ts']
+    # The coverage shutdown hook (`create-app.ts`) stops every runner pod, waits
+    # `RUNNER_COVERAGE_FLUSH_GRACE_MS` (5s) for their coverage pushes and only then exits — more
+    # than compose's default 10s before `SIGKILL` once a few pods are running.
+    stop_grace_period: 60s
     environment:
       - PORT=4000
       # `/internal/*` is served ONLY on this second port; the public port 404s it.
@@ -402,14 +408,14 @@ services:
       - S3_ACCESS_KEY=falang
       - S3_SECRET_KEY=falangfalang
       - S3_FORCE_PATH_STYLE=true
-      # V8 coverage for `backend` itself only — runner pods do NOT inherit this (or any other
-      # unlisted var): unlike the pre-k8s child-process runner, a pod's env is the explicit
-      # allowlist `RunnerProcessManager.start()` builds, and coverage was never added to it. This
-      # is a known, already-documented gap, not something this stack's kind migration introduced —
-      # see the ADR's "Implementation notes (Phase 2, core mechanism)" section ("A real gap found
-      # doing this"). Flushed on `docker compose down`'s `SIGTERM` via `main.ts`'s coverage
-      # shutdown hook.
-      - NODE_V8_COVERAGE=/coverage/node
+      # V8 coverage for `backend` and its build workers (child processes inherit it). Runner pods
+      # don't share this directory: when it is set, `RunnerProcessManager` gives each pod its own
+      # `NODE_V8_COVERAGE=/tmp` and the pod pushes its file to `InternalCoverageController` on
+      # `SIGTERM`, which writes it here (ADR 0016 (private), "Runner-pod coverage collection").
+      # Flushed on `docker compose down`'s `SIGTERM` via `create-app.ts`'s coverage shutdown hook. Only set by `npm run coverage:e2e` (`BACKEND_V8_COVERAGE=/coverage/node`):
+      # an empty value leaves coverage off, so a plain `npm run test-e2e` no longer piles up
+      # gigabytes of root-owned coverage files under `coverage/e2e-node`.
+      - NODE_V8_COVERAGE=${BACKEND_V8_COVERAGE:-}
     ports:
       - '4001:4000'
       # Internal API for runner pods in `kind` (reached via the docker-network gateway, host port 4011).

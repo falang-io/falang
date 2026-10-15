@@ -32,12 +32,12 @@ const loadSnakeDocuments = (): readonly IProjectDocument[] =>
  * spins up a fresh `ts.Program` per `arr-*`/`foreach` node to resolve a property-path array type, and
  * this project has several; under a full-suite parallel run (many worker processes competing for CPU)
  * the default 30s budget was seen to time out even though this passes comfortably in well under 20s
- * run in isolation.
+ * run in isolation — and ~80s under coverage instrumentation (`npm run coverage:unit`).
  */
-const SMOKE_TEST_TIMEOUT_MS = 60_000;
+const SMOKE_TEST_TIMEOUT_MS = 180_000;
 
 // Real ts.Program type-check / app boot (~15s alone); the package has no own vitest config, so the default 5s/10s would flake under a full parallel run.
-vi.setConfig({ testTimeout: 60_000 });
+vi.setConfig({ testTimeout: 180_000 });
 
 describe('compileRustProject: real-project smoke test (ADR 0019 (private), "Rust target — old-app layout")', () => {
   it(

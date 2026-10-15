@@ -5,8 +5,9 @@ import { typeCheckProject } from './type-check-project.js';
 
 // `typeCheckProject` spins up a real TS program — cold-start cost (loading `.d.ts` lib files
 // etc.) can exceed vitest's default 5s test timeout when this file runs alongside the rest of the
-// monorepo's suite (confirmed flaky at the default timeout; reliably under it at 20s).
-vi.setConfig({ testTimeout: 20_000 });
+// monorepo's suite (confirmed flaky at the default timeout; reliably under it at 20s) — and ~26s
+// under coverage instrumentation (`npm run coverage:unit`), hence 60s.
+vi.setConfig({ testTimeout: 60_000 });
 
 const VALID_ACTIVITIES = "export const logActivity = async (message: string): Promise<string> => message;\n";
 

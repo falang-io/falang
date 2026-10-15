@@ -15,18 +15,26 @@ export default defineConfig({
     exclude: ['**/node_modules/**', '**/dist/**', '**/temp/**', '**/.stryker-tmp/**'],
     // NOTE: per-test timeouts belong in each project's own config — with `projects`, root-level
     // `test` options don't reach them. `packages/logic/constructor/vitest.config.ts` raises its own
-    // for that reason.
+    // for that reason. CLI flags do reach every project, which is how `npm run coverage:unit` raises
+    // the defaults (`--testTimeout`/`--hookTimeout`) and caps `--maxWorkers` for the slower
+    // instrumented run — a package without its own config would otherwise time out at 5s.
     coverage: {
       // Generate a report even when some test file fails — otherwise Vitest silently writes
       // nothing at all (see ADR 0012 (private), bug #1).
       reportOnFailure: true,
+      // Vitest empties `reportsDirectory` (default `./coverage`) before a run — the whole tree,
+      // including `coverage/e2e-*` from `npm run coverage:e2e`, which a later `coverage:unit` must not
+      // throw away (and, being root-owned, used to fail with EACCES). Matches `mcr.config.unit.mjs`'s
+      // `outputDir`.
+      reportsDirectory: './coverage/unit',
       // `vitest-monocart-coverage` writes `mcr`'s own portable "raw" format (in addition to the
       // human-facing `v8`/`console-details` reports) so this run's output can be merged with e2e
       // coverage by `scripts/merge-coverage.mjs` — see the ADR above. Every package's own
       // `npm run coverage -w <pkg>` keeps the plain `@vitest/coverage-v8` provider from the shared
-      // `vitest.config.ts`, unaffected by this.
+      // `vitest.config.ts`, unaffected by this. Wrapped so a module compiled from memory under a
+      // made-up filename can't abort the report (see the wrapper's own header).
       provider: 'custom',
-      customProviderModule: 'vitest-monocart-coverage',
+      customProviderModule: './scripts/vitest-coverage-provider.mjs',
       coverageReportOptions: mcrCoverageOptions,
     },
   },

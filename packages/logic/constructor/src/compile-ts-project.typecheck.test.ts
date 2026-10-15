@@ -102,5 +102,6 @@ describe('compileTsProject: real-project type-check (ADR 0019 (private))', () =>
     const diagnostics = ts.getPreEmitDiagnostics(program).filter((diagnostic) => Boolean(diagnostic.file));
 
     expect(formatDiagnostics(diagnostics)).toEqual([]);
-  }, 60_000);
+    // Generous, not a performance target: ~85s under coverage instrumentation (`npm run coverage:unit`).
+  }, 180_000);
 });
