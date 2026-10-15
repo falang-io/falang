@@ -1,8 +1,11 @@
-import { HttpException } from '@nestjs/common';
+import { BadGatewayException, HttpException, PreconditionFailedException } from '@nestjs/common';
 import type { ConfigService } from '@nestjs/config';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import type { AgentSettingsService } from '../admin/app-settings/agent-settings.service.js';
 import type { ProjectsService } from '../projects/projects/projects.service.js';
+import { metricsRegistry } from '../metrics/metrics-registry.js';
+import '../metrics/metrics.js';
+import { AgentChatVendorError } from './agent-chat-transport.js';
 import { AgentChatService } from './agent-chat.service.js';
 import type { DbAgentUsageSink } from './db-agent-usage-sink.js';
 import type { IAgentUsageSink } from './agent-usage-sink.js';
@@ -113,5 +116,86 @@ describe('AgentChatService usage sink', () => {
     await service.chat('p1', 'u1', body as never);
 
     expect(custom.afterCall).toHaveBeenCalledWith(expect.objectContaining({ usage: null }));
+  });
+
+  const metricValue = async (line: string): Promise<number> => {
+    const text = await metricsRegistry.render();
+    const found = text.split('\n').find((row) => row.startsWith(`${line} `));
+    return found ? Number(found.slice(line.length + 1)) : 0;
+  };
+  const vendorErrors = (): Promise<number> => metricValue('falang_agent_chat_calls_total{result="vendor_error"}');
+
+  const makeService = (custom: ReturnType<typeof makeSink>) =>
+    new AgentChatService(projectsService, agentSettings, config, makeSink() as unknown as DbAgentUsageSink, custom);
+
+  it('turns an AgentChatVendorError into a 502 with the reason, counts it and skips afterCall', async () => {
+    callOpenAiChat.mockRejectedValue(new AgentChatVendorError('vendor said no: ETIMEDOUT', 3));
+    const custom = makeSink();
+    const before = await vendorErrors();
+
+    const caught = await makeService(custom)
+      .chat('p1', 'u1', body as never)
+      .catch((error: unknown) => error);
+
+    expect(caught).toBeInstanceOf(BadGatewayException);
+    expect((caught as BadGatewayException).getStatus()).toBe(502);
+    expect((caught as BadGatewayException).message).toBe('vendor said no: ETIMEDOUT');
+    expect(custom.beforeCall).toHaveBeenCalledTimes(1);
+    expect(custom.afterCall).not.toHaveBeenCalled();
+    expect(await vendorErrors()).toBe(before + 1);
+  });
+
+  it('lets a non-vendor error through unchanged and skips afterCall', async () => {
+    const boom = new TypeError('bug');
+    callOpenAiChat.mockRejectedValue(boom);
+    const custom = makeSink();
+    const before = await vendorErrors();
+
+    await expect(makeService(custom).chat('p1', 'u1', body as never)).rejects.toBe(boom);
+
+    expect(custom.afterCall).not.toHaveBeenCalled();
+    expect(await vendorErrors()).toBe(before + 1);
+  });
+
+  it('answers 412 when the agent is not configured: no sink, no vendor call, counted as rejected', async () => {
+    const unconfigured = { resolve: vi.fn(() => Promise.resolve(null)) } as unknown as AgentSettingsService;
+    const custom = makeSink();
+    const service = new AgentChatService(
+      projectsService,
+      unconfigured,
+      config,
+      makeSink() as unknown as DbAgentUsageSink,
+      custom,
+    );
+    const before = await metricValue('falang_agent_chat_calls_total{result="rejected"}');
+
+    await expect(service.chat('p1', 'u1', body as never)).rejects.toBeInstanceOf(PreconditionFailedException);
+
+    expect(custom.beforeCall).not.toHaveBeenCalled();
+    expect(callOpenAiChat).not.toHaveBeenCalled();
+    expect(await metricValue('falang_agent_chat_calls_total{result="rejected"}')).toBe(before + 1);
+  });
+
+  it.each([
+    ['0', 600_000],
+    ['abc', 600_000],
+    ['-5', 600_000],
+    ['1234', 1234],
+  ])('AGENT_CHAT_TIMEOUT_MS=%s gives a %i ms vendor timeout', async (value, expected) => {
+    const cfg = {
+      get: vi.fn((key: string) => (key === 'AGENT_CHAT_TIMEOUT_MS' ? value : '')),
+    } as unknown as ConfigService;
+    const service = new AgentChatService(
+      projectsService,
+      agentSettings,
+      cfg,
+      makeSink() as unknown as DbAgentUsageSink,
+    );
+
+    await service.chat('p1', 'u1', body as never);
+
+    expect(callOpenAiChat).toHaveBeenCalledWith(
+      expect.objectContaining({ transport: expect.objectContaining({ timeoutMs: expected }) }),
+    );
   });
 });

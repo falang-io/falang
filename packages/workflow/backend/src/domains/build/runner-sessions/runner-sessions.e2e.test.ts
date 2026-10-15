@@ -1,9 +1,14 @@
-// oxlint-disable no-undefined, unicorn/no-useless-undefined, unicorn/consistent-function-scoping, unicorn/no-await-expression-member, unicorn/catch-error-name, oxc/no-map-spread -- test fakes: resolving/rejecting with nothing, small local helpers and one-off spreads read better than the lint-preferred shapes.
+// oxlint-disable max-lines, no-await-in-loop, no-undefined, unicorn/no-useless-undefined, unicorn/consistent-function-scoping, unicorn/no-await-expression-member, unicorn/catch-error-name, oxc/no-map-spread -- test fakes: resolving/rejecting with nothing, small local helpers and one-off spreads read better than the lint-preferred shapes.
 import type { INestApplication } from '@nestjs/common';
+import { getRepositoryToken } from '@nestjs/typeorm';
+import type { Repository } from 'typeorm';
 import request from 'supertest';
-import { afterEach, beforeEach, describe, expect, it } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import { Project } from '../../projects/projects/project.entity.js';
 import { auth, createTestApp, login } from '../../../test-utils/e2e-app.js';
-import { RunnerSessionsService } from './runner-sessions.service.js';
+import type { IRunnerSessionSink } from './runner-session-hooks.js';
+import { RunnerSession } from './runner-session.entity.js';
+import { MAX_SESSIONS_LIMIT, RunnerSessionsService } from './runner-sessions.service.js';
 
 const T0 = new Date('2026-10-01T10:00:00Z');
 const minutes = (base: Date, count: number): Date => new Date(base.getTime() + count * 60_000);
@@ -22,6 +27,16 @@ describe('runner sessions (ADR 0067)', () => {
   afterEach(async () => {
     await app.close();
   });
+
+  const withSink = () => {
+    const sink = { onOpened: vi.fn(), onHeartbeat: vi.fn(), onClosed: vi.fn() };
+    const service = new RunnerSessionsService(
+      app.get<Repository<RunnerSession>>(getRepositoryToken(RunnerSession)),
+      app.get<Repository<Project>>(getRepositoryToken(Project)),
+      sink as IRunnerSessionSink,
+    );
+    return { service, sink };
+  };
 
   const registerUser = async (username: string): Promise<string> => {
     await request(app.getHttpServer()).post('/auth/register').send({ username, password: 'password123' });
@@ -52,7 +67,13 @@ describe('runner sessions (ADR 0067)', () => {
     await sessions.open(dev('p1'), minutes(T0, 5));
     const open = await sessions.listOpen();
     expect(open).toHaveLength(1);
-    expect(open[0]).toMatchObject({ env: 'dev', buildId: null, startedAt: T0, lastSeenAt: minutes(T0, 5), endedAt: null });
+    expect(open[0]).toMatchObject({
+      env: 'dev',
+      buildId: null,
+      startedAt: T0,
+      lastSeenAt: minutes(T0, 5),
+      endedAt: null,
+    });
   });
 
   it('closes with the given reason and end time; closing nothing is a no-op', async () => {
@@ -125,6 +146,146 @@ describe('runner sessions (ADR 0067)', () => {
     });
   });
 
+  describe('closeAllOpen', () => {
+    it('closes every open session of every deployment with one end time, skipping closed ones', async () => {
+      await sessions.open(dev('p1'), T0);
+      await sessions.open(prod('p1', 'v1'), T0);
+      await sessions.open(dev('p2'), minutes(T0, 1));
+      await sessions.close('workflow-dev-p2', 'idle', minutes(T0, 5));
+
+      await sessions.closeAllOpen('shutdown', minutes(T0, 20));
+
+      expect(await sessions.listOpen()).toEqual([]);
+      const p1 = await sessions.listForProject('p1');
+      expect(p1.map((row) => [row.endReason, row.endedAt])).toEqual([
+        ['shutdown', minutes(T0, 20)],
+        ['shutdown', minutes(T0, 20)],
+      ]);
+      const [p2] = await sessions.listForProject('p2');
+      expect(p2).toMatchObject({ endReason: 'idle', endedAt: minutes(T0, 5) });
+    });
+
+    it('calls sink.onClosed for each session it closes, but not for already-closed ones', async () => {
+      const { service, sink } = withSink();
+      await service.open(dev('p1'), T0);
+      await service.open(prod('p1', 'v1'), T0);
+      await service.open(dev('p2'), T0);
+      await service.close('workflow-dev-p2', 'idle', minutes(T0, 5));
+      sink.onClosed.mockClear();
+
+      await service.closeAllOpen('shutdown', minutes(T0, 20));
+
+      expect(sink.onClosed).toHaveBeenCalledTimes(2);
+      for (const [session] of sink.onClosed.mock.calls as [{ endedAt: Date; endReason: string }][]) {
+        expect(session).toMatchObject({ endedAt: minutes(T0, 20), endReason: 'shutdown' });
+      }
+    });
+  });
+
+  describe('sink failures', () => {
+    it('records the session even if onOpened throws, and the chain keeps working', async () => {
+      const { service, sink } = withSink();
+      sink.onOpened.mockRejectedValueOnce(new Error('meter down'));
+
+      await service.open(dev('p1'), T0);
+      await service.open(dev('p2'), T0);
+
+      expect((await service.listOpen()).map((row) => row.projectId)).toEqual(['p1', 'p2']);
+      expect(sink.onOpened).toHaveBeenCalledTimes(2);
+    });
+
+    it('closes the row even if onClosed throws, and later operations still run', async () => {
+      const { service, sink } = withSink();
+      sink.onClosed.mockRejectedValue(new Error('meter down'));
+      await service.open(dev('p1'), T0);
+
+      await service.close('workflow-dev-p1', 'idle', minutes(T0, 3));
+      await service.open(dev('p1'), minutes(T0, 4));
+
+      const rows = await service.listForProject('p1');
+      expect(rows).toHaveLength(2);
+      expect(rows[1]).toMatchObject({ endReason: 'idle', endedAt: minutes(T0, 3) });
+      expect(rows[0]?.endedAt).toBeNull();
+    });
+
+    it('still heartbeats the row when onHeartbeat throws', async () => {
+      const { service, sink } = withSink();
+      sink.onHeartbeat.mockRejectedValue(new Error('meter down'));
+      await service.open(dev('p1'), T0);
+
+      await service.reconcile([dev('p1')], minutes(T0, 2), minutes(T0, 2));
+      await service.reconcile([dev('p1')], minutes(T0, 3), minutes(T0, 3));
+
+      expect(sink.onHeartbeat).toHaveBeenCalledTimes(2);
+      expect((await service.listOpen())[0]?.lastSeenAt).toEqual(minutes(T0, 3));
+    });
+
+    it('a rejected task does not wedge the chain: the next call still runs', async () => {
+      await sessions.open(dev('p1'), T0);
+      const repo = app.get<Repository<RunnerSession>>(getRepositoryToken(RunnerSession));
+      const find = vi.spyOn(repo, 'find').mockRejectedValueOnce(new Error('db blip'));
+
+      await expect(sessions.close('workflow-dev-p1', 'idle', minutes(T0, 1))).rejects.toThrow('db blip');
+      find.mockRestore();
+      await sessions.close('workflow-dev-p1', 'idle', minutes(T0, 2));
+
+      expect(await sessions.listOpen()).toEqual([]);
+    });
+  });
+
+  describe('listings', () => {
+    it('listOpen is oldest first; listOpenForProject filters by project and open state', async () => {
+      await sessions.open(dev('p2'), minutes(T0, 2));
+      await sessions.open(dev('p1'), T0);
+      await sessions.open(prod('p1', 'v1'), minutes(T0, 1));
+      await sessions.close('workflow-p1-v1', 'idle', minutes(T0, 9));
+
+      expect((await sessions.listOpen()).map((row) => row.projectId)).toEqual(['p1', 'p2']);
+      const forP1 = await sessions.listOpenForProject('p1');
+      expect(forP1.map((row) => row.deploymentName)).toEqual(['workflow-dev-p1']);
+      expect(await sessions.listOpenForProject('nobody')).toEqual([]);
+    });
+
+    it('listForProject honours before/limit, clamps the limit and ignores other projects', async () => {
+      for (let i = 0; i < 4; i += 1) {
+        await sessions.open(dev('p1'), minutes(T0, i * 10));
+        await sessions.close('workflow-dev-p1', 'idle', minutes(T0, i * 10 + 5));
+      }
+      await sessions.open(dev('p2'), T0);
+
+      const all = await sessions.listForProject('p1');
+      expect(all.map((row) => row.startedAt)).toEqual([30, 20, 10, 0].map((m) => minutes(T0, m)));
+      expect(await sessions.listForProject('p1', { limit: 2 })).toHaveLength(2);
+      expect(await sessions.listForProject('p1', { limit: 0 })).toHaveLength(1);
+      expect(await sessions.listForProject('p1', { limit: -7 })).toHaveLength(1);
+      expect(await sessions.listForProject('p1', { limit: 99_999 })).toHaveLength(4);
+      expect(MAX_SESSIONS_LIMIT).toBe(500);
+      const older = await sessions.listForProject('p1', { before: minutes(T0, 20) });
+      expect(older.map((row) => row.startedAt)).toEqual([minutes(T0, 10), T0]);
+    });
+
+    it('listForUser returns only the owner projects with names; empty without projects', async () => {
+      const alice = await registerUser('alice');
+      const bob = await registerUser('bob');
+      const aliceProject = await createProject(alice, 'Alice bot');
+      const bobProject = await createProject(bob, 'Bob bot');
+      await sessions.open(dev(aliceProject), T0);
+      await sessions.open(dev(bobProject), minutes(T0, 1));
+      await sessions.open(prod(aliceProject, 'v1'), minutes(T0, 2));
+      const projects = app.get<Repository<Project>>(getRepositoryToken(Project));
+      const aliceId = (await projects.findOneByOrFail({ id: aliceProject })).ownerId;
+
+      const rows = await sessions.listForUser(aliceId);
+      expect(rows.map((row) => [row.projectName, row.env])).toEqual([
+        ['Alice bot', 'prod'],
+        ['Alice bot', 'dev'],
+      ]);
+      expect(await sessions.listForUser(aliceId, { limit: 1 })).toHaveLength(1);
+      expect(await sessions.listForUser(aliceId, { before: minutes(T0, 2) })).toHaveLength(1);
+      expect(await sessions.listForUser('00000000-0000-4000-8000-000000000000')).toEqual([]);
+    });
+  });
+
   describe('HTTP', () => {
     it('lists the project sessions for the owner, newest first, with limit and before', async () => {
       const token = await registerUser('alice');
@@ -133,8 +294,13 @@ describe('runner sessions (ADR 0067)', () => {
       await sessions.close(`workflow-dev-${projectId}`, 'idle', minutes(T0, 30));
       await sessions.open(prod(projectId, 'v1'), minutes(T0, 60));
 
-      const all = await request(app.getHttpServer()).get(`/projects/${projectId}/runner-sessions`).set(auth(token)).expect(200);
-      const body = all.body as { sessions: { env: string; startedAt: string; endedAt: string | null; endReason: string | null }[] };
+      const all = await request(app.getHttpServer())
+        .get(`/projects/${projectId}/runner-sessions`)
+        .set(auth(token))
+        .expect(200);
+      const body = all.body as {
+        sessions: { env: string; startedAt: string; endedAt: string | null; endReason: string | null }[];
+      };
       expect(body.sessions.map((s) => s.env)).toEqual(['prod', 'dev']);
       expect(body.sessions[1]).toMatchObject({ endedAt: minutes(T0, 30).toISOString(), endReason: 'idle' });
       expect(body.sessions[0]?.endedAt).toBeNull();
@@ -151,7 +317,10 @@ describe('runner sessions (ADR 0067)', () => {
         .expect(200);
       expect((older.body as { sessions: { env: string }[] }).sessions.map((s) => s.env)).toEqual(['dev']);
 
-      await request(app.getHttpServer()).get(`/projects/${projectId}/runner-sessions?limit=abc`).set(auth(token)).expect(400);
+      await request(app.getHttpServer())
+        .get(`/projects/${projectId}/runner-sessions?limit=abc`)
+        .set(auth(token))
+        .expect(400);
     });
 
     it('is readable by an admin, 404 for another user', async () => {
@@ -161,7 +330,10 @@ describe('runner sessions (ADR 0067)', () => {
       const projectId = await createProject(aliceToken);
       await sessions.open(dev(projectId), T0);
 
-      await request(app.getHttpServer()).get(`/projects/${projectId}/runner-sessions`).set(auth(adminToken)).expect(200);
+      await request(app.getHttpServer())
+        .get(`/projects/${projectId}/runner-sessions`)
+        .set(auth(adminToken))
+        .expect(200);
       await request(app.getHttpServer()).get(`/projects/${projectId}/runner-sessions`).set(auth(bobToken)).expect(404);
     });
 
@@ -185,7 +357,10 @@ describe('runner sessions (ADR 0067)', () => {
         ['One', 'dev'],
       ]);
 
-      await request(app.getHttpServer()).get(`/admin/users/${aliceId}/runner-sessions`).set(auth(aliceToken)).expect(403);
+      await request(app.getHttpServer())
+        .get(`/admin/users/${aliceId}/runner-sessions`)
+        .set(auth(aliceToken))
+        .expect(403);
       await request(app.getHttpServer())
         .get('/admin/users/00000000-0000-4000-8000-000000000000/runner-sessions')
         .set(auth(adminToken))
