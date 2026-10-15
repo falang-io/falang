@@ -247,7 +247,9 @@ export const emitArrInsert = (node: INode, ctx: IGoStatementContext): string => 
   const arr = compileGoExpr(data.arr, ctx, node.id);
   const start = compileGoExpr(data.start, ctx, node.id);
   const insertArr = compileGoExpr(data.insertArr, ctx, node.id);
-  return `${arr} = append(${arr}[:${start}:${start}], append(${insertArr}, ${arr}[${start}:]...)...);`;
+  // Both appends grow the left half (capacity capped at `start` by the three-index slice), so the first
+  // one always reallocates and `insertArr`'s own backing array — possibly shared with another slice — is never written.
+  return `${arr} = append(append(${arr}[:${start}:${start}], ${insertArr}...), ${arr}[${start}:]...);`;
 };
 
 interface IArrSliceData {
@@ -271,6 +273,8 @@ export const emitArrSlice = (
   // increment-style expression statements) — discard via `_` when the DSL gives no variable name.
   if (variable === '') return { code: `_ = ${arr}[${start}:${end}];` };
   const goType = variableInfoToGoType(arrType, ctx.params.structNames);
-  const code = `var ${variable} ${goType} = ${arr}[${start}:${end}];`;
+  // A real copy, like TypeScript's `slice`: a bare re-slice would share the source's backing array, so
+  // `c[0] = x` or an `append` into spare capacity would silently change the source array.
+  const code = `var ${variable} ${goType} = append(${goType}(nil), ${arr}[${start}:${end}]...);`;
   return { code, returnBinding: { name: variable, type: arrType } };
 };

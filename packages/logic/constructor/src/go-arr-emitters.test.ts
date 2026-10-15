@@ -42,10 +42,10 @@ describe('go arr-* emitters', () => {
     expect(out).toMatchInlineSnapshot(`
       {
         "arr-insert scalar": "// icon-start:arr-insert:n
-      nums = append(nums[:1:1], append(other, nums[1:]...)...);
+      nums = append(append(nums[:1:1], other...), nums[1:]...);
       // icon-end:arr-insert:n",
         "arr-insert struct array": "// icon-start:arr-insert:n
-      pts = append(pts[:i:i], append(pts, pts[i:]...)...);
+      pts = append(append(pts[:i:i], pts...), pts[i:]...);
       // icon-end:arr-insert:n",
         "arr-pop scalar": "// icon-start:arr-pop:n
       var v int32 = nums[len(nums)-1];
@@ -75,7 +75,7 @@ describe('go arr-* emitters', () => {
       _ = nums[0:2];
       // icon-end:arr-slice:n",
         "arr-slice scalar": "// icon-start:arr-slice:n
-      var s []int32 = nums[0:2];
+      var s []int32 = append([]int32(nil), nums[0:2]...);
       // icon-end:arr-slice:n",
         "arr-unshift scalar": "// icon-start:arr-unshift:n
       nums = append([]int32{i}, nums...);
@@ -124,8 +124,17 @@ describe('go arr-* emitters', () => {
 });
 
 describe('go arr-insert aliasing', () => {
-  // `append(insertArr, arr[start:]...)` appends into insertArr's own backing array when it has spare
-  // capacity, so a caller's other slice sharing that array can observe the write. Only the left half is
-  // capped with a three-index slice. Needs a decision (copy insertArr first) and a compile-and-run test.
-  it.todo('does not write into the spare capacity of insertArr');
+  it('does not write into the spare capacity of insertArr', () => {
+    const code = compile([node('arr-insert', { arr: 'nums', start: '1', insertArr: 'other' })], scope);
+    // insertArr only ever appears as an append *argument*, never as the destination of an append.
+    expect(code).toContain('nums = append(append(nums[:1:1], other...), nums[1:]...);');
+    expect(code).not.toMatch(/append\(other,/);
+  });
+});
+
+describe('go arr-slice copying', () => {
+  it('copies the sliced range so the result never shares a backing array with the source', () => {
+    const code = compile([node('arr-slice', { arr: 'nums', variable: 's', start: '0', end: '2' })], scope);
+    expect(code).toContain('var s []int32 = append([]int32(nil), nums[0:2]...);');
+  });
 });

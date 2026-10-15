@@ -131,3 +131,13 @@ export const arrUnshift = (id: string, arr: string, value: string): INode => ({
   name: 'arr-unshift',
   data: { arr, value },
 });
+export const arrInsert = (id: string, arr: string, start: string, insertArr: string): INode => ({
+  id,
+  name: 'arr-insert',
+  data: { arr, start, insertArr },
+});
+export const arrSlice = (id: string, arr: string, variable: string, start: string, end: string): INode => ({
+  id,
+  name: 'arr-slice',
+  data: { arr, variable, start, end },
+});
