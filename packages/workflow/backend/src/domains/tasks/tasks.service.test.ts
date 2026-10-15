@@ -307,3 +307,65 @@ describe('TasksService.resolve', () => {
     );
   });
 });
+
+describe('TasksService.resolve answer data validation (400, nothing signalled or written)', () => {
+  const typedOptions: ITaskOption[] = [
+    { label: 'Void', dataType: 'void' },
+    { label: 'Text', dataType: 'string' },
+    { label: 'Num', dataType: 'number' },
+    { label: 'Flag', dataType: 'boolean' },
+  ];
+
+  it.each([
+    ['Void', 'unexpected'],
+    ['Void', 0],
+    ['Text', 5],
+    ['Text', null],
+    ['Num', '5'],
+    ['Num', null],
+    ['Flag', 'true'],
+    ['Flag', 1],
+  ])('rejects %s with data %j', async (answer, data) => {
+    const { service, repo, signalWorkflow, ensureRunnerRunning } = makeService();
+    const { taskId } = await service.createOrGet('p1', createInput({ options: typedOptions }));
+
+    await expect(
+      service.resolve('owner-1', taskId, { answer, data: data as string | number | boolean }, 'user-1'),
+    ).rejects.toBeInstanceOf(BadRequestException);
+
+    expect(repo.rows[0]?.status).toBe('open');
+    expect(ensureRunnerRunning).not.toHaveBeenCalled();
+    expect(signalWorkflow).not.toHaveBeenCalled();
+  });
+
+  it.each(['Text', 'Num', 'Flag'])('rejects %s when the data is omitted entirely', async (answer) => {
+    const { service, signalWorkflow } = makeService();
+    const { taskId } = await service.createOrGet('p1', createInput({ options: typedOptions }));
+
+    await expect(service.resolve('owner-1', taskId, { answer }, 'user-1')).rejects.toBeInstanceOf(BadRequestException);
+    expect(signalWorkflow).not.toHaveBeenCalled();
+  });
+
+  it.each([
+    ['Text', 'hello'],
+    ['Num', 7],
+    ['Flag', false],
+  ])('accepts %s with data %j and forwards it in the signal', async (answer, data) => {
+    const { service, signalWorkflow } = makeService();
+    const { taskId } = await service.createOrGet('p1', createInput({ options: typedOptions }));
+
+    await service.resolve('owner-1', taskId, { answer, data }, 'user-1');
+
+    expect(signalWorkflow.mock.calls[0]?.[4]).toMatchObject({ value: answer, data });
+  });
+});
+
+describe('TasksService.createOrGet when save fails without a racing winner', () => {
+  it('rethrows the original error instead of inventing a task id', async () => {
+    const { service, repo } = makeService();
+    repo.save.mockImplementationOnce(() => Promise.reject(new Error('connection lost')));
+
+    await expect(service.createOrGet('p1', createInput())).rejects.toThrow('connection lost');
+    expect(repo.rows).toHaveLength(0);
+  });
+});
