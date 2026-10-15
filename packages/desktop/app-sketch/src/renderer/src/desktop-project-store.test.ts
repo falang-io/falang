@@ -2,6 +2,7 @@
 // oxlint-disable max-lines -- crossed 300 lines with the new "function name validation" describe
 // block; not accumulated complexity worth splitting the file over.
 import 'reflect-metadata';
+import { isObservable } from 'mobx';
 import { describe, it, expect, vi } from 'vitest';
 import type { INode, IProjectDocument } from '@falang/dto';
 import type { IProjectTree } from '@falang/desktop-project-fs';
@@ -642,6 +643,144 @@ describe('DesktopProjectStore — background validation (ADR 0068)', () => {
     } finally {
       logic.store.dispose();
       text.store.dispose();
+    }
+  });
+});
+
+describe('DesktopProjectStore — pending saves reach the disk (ADR 0029 (private), "edits never reach disk" / "closing without saving")', () => {
+  const setUpProject = (initialLocks: unknown[] = []) => {
+    const rootNode: INode = {
+      id: 'fn-root',
+      name: 'function',
+      children: [
+        { id: 'fn-header', name: 'function-header', data: '' },
+        { id: 'fn-body', name: 'function-body', children: [], data: { parameters: [] } },
+        { id: 'fn-footer', name: 'function-footer', data: '' },
+      ],
+    };
+    const document = { id: 'fn', name: 'main', root: rootNode, type: 'function' };
+    const write = vi.fn().mockResolvedValue(null);
+    const tree: IProjectTree = {
+      documents: [{ id: 'fn', folderId: null, name: 'main', type: 'function' }],
+      folders: [],
+    };
+    const onChanged = vi.fn().mockReturnValue(vi.fn());
+    const locksRead = vi.fn().mockResolvedValue(initialLocks);
+    (globalThis as { falang?: unknown }).falang = {
+      codeExport: { onProgress: vi.fn().mockReturnValue(vi.fn()) },
+      logicExport: { onProgress: vi.fn().mockReturnValue(vi.fn()), readConfig: vi.fn().mockResolvedValue(null) },
+      document: { read: vi.fn().mockResolvedValue(document), write },
+      locks: { read: locksRead },
+      project: { listTree: vi.fn().mockResolvedValue(tree), onChanged },
+    };
+    return { write, locksRead, emit: (event: { kind: string }) => onChanged.mock.calls[0]?.[0](event) };
+  };
+  const edit = (store: DesktopProjectStore): void => {
+    store.getScheme('fn').commands.dispatchCommand(CMD_INSERT_NODE, {
+      index: 0,
+      node: { id: 'edited-node', name: 'action', data: 'x = 1' },
+      parentId: 'fn-body',
+    });
+  };
+  const open = async (): Promise<DesktopProjectStore> => {
+    const store = new DesktopProjectStore('/fake/project', 'logic');
+    await vi.waitFor(() => expect(store.isLoadingTree).toBe(false));
+    return store;
+  };
+
+  it('saveDocumentNow hands over a plain, structured-cloneable snapshot (not a MobX proxy)', async () => {
+    const { write } = setUpProject();
+    const store = await open();
+    try {
+      edit(store);
+      store.saveDocumentNow('fn');
+      await vi.waitFor(() => expect(write).toHaveBeenCalled());
+      const written = write.mock.calls[0]?.[1];
+      expect(() => structuredClone(written)).not.toThrow();
+      expect(isObservable(written.root)).toBe(false);
+      expect(JSON.stringify(written)).toContain('edited-node');
+    } finally {
+      store.dispose();
+    }
+  });
+
+  it('flushPendingSaves writes a pending debounced edit right away, exactly once', async () => {
+    const { write } = setUpProject();
+    const store = await open();
+    try {
+      edit(store);
+      expect(write).not.toHaveBeenCalled();
+      await store.flushPendingSaves();
+      expect(write).toHaveBeenCalledTimes(1);
+      expect(JSON.stringify(write.mock.calls[0]?.[1])).toContain('edited-node');
+      // The debounce timer was cleared by the flush: no second write later.
+      await new Promise((resolve) => {
+        setTimeout(resolve, 700);
+      });
+      expect(write).toHaveBeenCalledTimes(1);
+    } finally {
+      store.dispose();
+    }
+  });
+
+  it('flushPendingSaves with nothing pending writes nothing', async () => {
+    const { write } = setUpProject();
+    const store = await open();
+    try {
+      store.getScheme('fn');
+      await store.flushPendingSaves();
+      expect(write).not.toHaveBeenCalled();
+    } finally {
+      store.dispose();
+    }
+  });
+
+  it('flushPendingSaves reports a failed write instead of throwing (the window must still be able to close)', async () => {
+    const { write } = setUpProject();
+    write.mockRejectedValue(new Error('disk full'));
+    const errorSpy = vi.spyOn(console, 'error').mockImplementation(() => 0 as never);
+    const store = await open();
+    try {
+      edit(store);
+      await expect(store.flushPendingSaves()).resolves.toBeUndefined();
+      expect(write).toHaveBeenCalledTimes(1);
+    } finally {
+      store.dispose();
+      errorSpy.mockRestore();
+    }
+  });
+
+  it('dispose flushes a pending edit instead of discarding it (switching projects)', async () => {
+    const { write } = setUpProject();
+    const store = await open();
+    edit(store);
+    expect(write).not.toHaveBeenCalled();
+    store.dispose();
+    // Well inside the 500 ms debounce: the write must come from dispose's flush, not the leftover timer.
+    await vi.waitFor(() => expect(write).toHaveBeenCalledTimes(1), { timeout: 250 });
+    expect(JSON.stringify(write.mock.calls[0]?.[1])).toContain('edited-node');
+  });
+
+  it('autosave is suspended while the document is locked, and resumes once the lock clears', async () => {
+    const lock = {
+      documentId: 'fn',
+      owner: 'mcp',
+      acquiredAt: new Date().toISOString(),
+      expiresAt: new Date(Date.now() + 60_000).toISOString(),
+    };
+    const { write, locksRead, emit } = setUpProject([lock]);
+    const store = await open();
+    try {
+      await vi.waitFor(() => expect(store.getLock('fn')).toBeDefined());
+      edit(store);
+      await store.flushPendingSaves();
+      expect(write).not.toHaveBeenCalled();
+      locksRead.mockResolvedValue([]);
+      emit({ kind: 'locks' });
+      await vi.waitFor(() => expect(write).toHaveBeenCalledTimes(1));
+      expect(JSON.stringify(write.mock.calls[0]?.[1])).toContain('edited-node');
+    } finally {
+      store.dispose();
     }
   });
 });
