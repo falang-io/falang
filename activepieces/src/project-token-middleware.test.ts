@@ -136,6 +136,17 @@ describe('requireProjectToken', () => {
       expect(fetchMock).toHaveBeenCalledTimes(1);
     });
 
+    it('sweeps expired entries when the cache is full, keeping live ones cached', async () => {
+      for (let index = 0; index < 500; index += 1) await run(`old${index}`, 'tok');
+      vi.advanceTimersByTime(61_000);
+      for (let index = 0; index < 500; index += 1) await run(`live${index}`, 'tok');
+      await run('extra', 'tok'); // the cache is full: expired entries are swept
+      fetchMock.mockClear();
+      const live = await run('live0', 'tok');
+      expect(live.next).toHaveBeenCalledTimes(1);
+      expect(fetchMock).not.toHaveBeenCalled();
+    });
+
     it('over 1000 entries the oldest is evicted (so it is re-verified), never the new one admitted unchecked', async () => {
       await run('first', 'tok');
       for (let index = 0; index < 1000; index += 1) await run(`p${index}`, 'tok');
