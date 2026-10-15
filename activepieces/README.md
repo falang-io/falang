@@ -23,3 +23,5 @@ installed once by `main.ts` (`installEgress()`):
 
 Limitations: requests that pass their own `agent` (or `HTTP(S)_PROXY`-aware clients that build one), raw `net`/TCP
 clients (database pieces: `postgres`, `mysql`, `mongodb`, `imap`, `smtp`) and SOCKS are not routed.
+
+Tests: `npm test` here. Coverage (merged into the repo-wide report): `npm run coverage:services` from the repository root.

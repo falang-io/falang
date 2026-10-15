@@ -30,6 +30,8 @@ PROXY_TOKENS=s3cret npm start          # or: docker build -t falang-proxy . && d
 npm run check && npm test
 ```
 
+Coverage (merged into the repo-wide report): `npm run coverage:services` from the repository root.
+
 ## Examples
 
 ```sh
