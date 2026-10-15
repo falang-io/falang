@@ -5,6 +5,7 @@ import type { Piece } from '@activepieces/pieces-framework';
 import { createApp } from '../app.js';
 import { getPiece } from '../pieces/registry.js';
 import { resolveAuthValue } from '../pieces/auth-resolver.js';
+import { NotFoundError } from '../credentials.js';
 
 vi.mock('../pieces/registry.js', () => ({ getPiece: vi.fn() }));
 vi.mock('../pieces/auth-resolver.js', () => ({ resolveAuthValue: vi.fn() }));
@@ -96,5 +97,31 @@ describe('POST /credentials/:credentialId/pieces/:pieceName/triggers/:triggerNam
     ).send({ propsValue: {} });
 
     expect(res.status).toBe(400);
+  });
+
+  it('defaults propsValue to {} and maps NotFoundError to 404, other errors to 500', async () => {
+    const run = vi.fn().mockResolvedValue([]);
+    vi.mocked(getPiece).mockReturnValue({
+      getTrigger: () => ({ type: TriggerStrategy.POLLING, onEnable: vi.fn(), run }),
+    } as unknown as Piece);
+    const app = createApp();
+    const ok = await authedPost(app, '/credentials/c/pieces/mock/triggers/no-props-test/poll').send(PROJECT_FIELDS);
+    expect(ok.status).toBe(200);
+
+    vi.mocked(resolveAuthValue).mockRejectedValueOnce(new NotFoundError('no such credential'));
+    const missing = await authedPost(app, '/credentials/c/pieces/mock/triggers/not-found-test/poll').send(
+      PROJECT_FIELDS,
+    );
+    expect(missing.status).toBe(404);
+    expect(missing.body).toEqual({ message: 'no such credential' });
+
+    vi.mocked(resolveAuthValue).mockRejectedValueOnce(new Error('boom'));
+    const failed = await authedPost(app, '/credentials/c/pieces/mock/triggers/error-test/poll').send(PROJECT_FIELDS);
+    expect(failed.status).toBe(500);
+    expect(failed.body).toEqual({ message: 'boom' });
+
+    vi.mocked(resolveAuthValue).mockRejectedValueOnce('weird');
+    const unknown = await authedPost(app, '/credentials/c/pieces/mock/triggers/unknown-test/poll').send(PROJECT_FIELDS);
+    expect(unknown.body).toEqual({ message: 'Unknown error' });
   });
 });

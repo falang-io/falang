@@ -140,4 +140,31 @@ describe('POST /credentials/:credentialId/pieces/:pieceName/actions/:actionName/
 
     expect(res.status).toBe(401);
   });
+
+  it('defaults propsValue to {} when the body omits it', async () => {
+    const run = vi.fn().mockResolvedValue(1);
+    vi.mocked(getPiece).mockReturnValue({ getAction: () => ({ run }) } as unknown as Piece);
+    const res = await authedPost(createApp(), '/credentials/cred-1/pieces/mock/actions/create_item/run').send(
+      PROJECT_FIELDS,
+    );
+    expect(res.status).toBe(200);
+    expect(run).toHaveBeenCalledWith(expect.objectContaining({ propsValue: {} }));
+  });
+
+  it('500s with the error message, or "Unknown error" for a non-Error throw', async () => {
+    const path = '/credentials/cred-1/pieces/mock/actions/create_item/run';
+    vi.mocked(getPiece).mockReturnValue({
+      getAction: () => ({ run: vi.fn().mockRejectedValue(new Error('boom')) }),
+    } as unknown as Piece);
+    const failed = await authedPost(createApp(), path).send(PROJECT_FIELDS);
+    expect(failed.status).toBe(500);
+    expect(failed.body).toEqual({ message: 'boom' });
+
+    vi.mocked(getPiece).mockReturnValue({
+      getAction: () => ({ run: vi.fn().mockRejectedValue('weird') }),
+    } as unknown as Piece);
+    const unknown = await authedPost(createApp(), path).send(PROJECT_FIELDS);
+    expect(unknown.status).toBe(500);
+    expect(unknown.body).toEqual({ message: 'Unknown error' });
+  });
 });
