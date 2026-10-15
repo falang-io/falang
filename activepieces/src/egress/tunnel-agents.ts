@@ -43,7 +43,7 @@ export const openConnectTunnel = (
     : net.connect({ host: proxyHost, port: proxyPort });
 
   let settled = false;
-  const finish = (error: Error | null): void => {
+  const finish = (error: Error | null, rest?: Buffer): void => {
     if (settled) return;
     settled = true;
     socket.setTimeout(0);
@@ -54,6 +54,14 @@ export const openConnectTunnel = (
     if (error) {
       socket.destroy();
       callback(error);
+    } else if (rest && rest.length > 0) {
+      // Bytes of the tunnelled protocol that arrived in the same packet as the proxy's reply. Listeners are already
+      // detached and `settled` is set (so this can never re-enter `onData`); the socket is paused while the bytes are
+      // pushed back, so nothing is emitted before the consumer attaches, then resumed after the current tick, once the consumer had a chance to attach.
+      socket.pause();
+      socket.unshift(rest);
+      callback(null, socket);
+      setImmediate(() => socket.resume());
     } else {
       callback(null, socket);
     }
@@ -73,8 +81,7 @@ export const openConnectTunnel = (
       return;
     }
     const rest = buffered.subarray(end + 4);
-    if (rest.length > 0) socket.unshift(rest);
-    finish(null);
+    finish(null, rest);
   }
   function onError(error: Error): void {
     finish(error);
