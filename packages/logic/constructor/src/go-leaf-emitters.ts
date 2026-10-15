@@ -247,7 +247,9 @@ export const emitArrInsert = (node: INode, ctx: IGoStatementContext): string => 
   const arr = compileGoExpr(data.arr, ctx, node.id);
   const start = compileGoExpr(data.start, ctx, node.id);
   const insertArr = compileGoExpr(data.insertArr, ctx, node.id);
-  return `${arr} = append(${arr}[:${start}:${start}], append(${insertArr}, ${arr}[${start}:]...)...);`;
+  // Both appends grow the left half (capacity capped at `start` by the three-index slice), so the first
+  // one always reallocates and `insertArr`'s own backing array — possibly shared with another slice — is never written.
+  return `${arr} = append(append(${arr}[:${start}:${start}], ${insertArr}...), ${arr}[${start}:]...);`;
 };
 
 interface IArrSliceData {
