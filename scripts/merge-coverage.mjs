@@ -114,8 +114,13 @@ const coverageOptions = {
   // bare file name here — the directory comes from `info.distFile`, the served module's own path.
   // Without this every browser-side module failed `sourceFilter` and the whole client coverage was
   // dropped from the combined report.
+  //
+  // The services (`coverage:services`) run with their own directory as the root, so their sources come as `src/x.ts`
+  // while `info.distFile` is `proxy/src/x.ts` — take the repo-relative `distFile` then, or `proxy/src/app.ts` and
+  // `activepieces/src/app.ts` would both land on `src/app.ts`.
   sourcePath: (filePath, info) => {
     const distFile = typeof info?.distFile === 'string' ? info.distFile : null;
+    if (distFile && filePath.startsWith('src/') && distFile.endsWith(`/${filePath}`)) return rebase(distFile);
     const full =
       distFile && !filePath.includes('/') ? path.posix.join(path.posix.dirname(distFile), filePath) : filePath;
     return rebase(full);
