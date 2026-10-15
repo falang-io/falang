@@ -32,7 +32,10 @@ COPY packages/workflow/runner/package.json packages/workflow/runner/
 COPY packages/workflow/scheme/package.json packages/workflow/scheme/
 COPY playground/package.json playground/
 COPY playground-workflow/package.json playground-workflow/
-RUN npm ci
+# Only the mocks workspace (express + tsx): installing the whole tree pulled `better-sqlite3` (a native
+# dependency of `@falang/workflow-backend`) whose prebuilt download can fail, and this slim image has no
+# Python/compiler for the source-build fallback. The mocks service imports no other workspace package.
+RUN npm ci --workspace=@falang/workflow-mocks --include-workspace-root=false
 
 COPY . .
 

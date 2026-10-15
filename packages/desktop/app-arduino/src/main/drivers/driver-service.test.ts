@@ -19,6 +19,9 @@ import {
   type IDriverServiceDeps,
 } from './driver-service.js';
 
+// Each test runs the real validateDriverBundle (ts.Program type-check, ~0.2-1.9s alone); the package has no own vitest config, so the default 5s flakes under a parallel coverage run.
+vi.setConfig({ testTimeout: 30_000 });
+
 const bundleOf = (id: string, marker = 'v1'): IDriverBundle => {
   const base = buildTemplateBundle(id, `${id} ${marker}`);
   return { ...base, files: { ...base.files, [`${id}.h`]: `${base.files[`${id}.h`]}// ${marker}\n` } };
