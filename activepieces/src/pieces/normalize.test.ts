@@ -378,3 +378,67 @@ describe('normalizePiece: trigger strategy filtering', () => {
     expect(normalizePiece('p', piece).triggers.map((t) => t.name)).toEqual(['new_item']);
   });
 });
+
+describe('normalizePiece: defensive fallbacks on hand-built auth objects', () => {
+  const stub = (auth: Record<string, unknown>) =>
+    ({ displayName: 'Stub', auth, actions: () => ({}), triggers: () => ({}) }) as unknown as Parameters<
+      typeof normalizePiece
+    >[1];
+
+  it('falls back to default BasicAuth labels, and to no fields for CUSTOM_AUTH/unsupported auth without props', () => {
+    expect(
+      normalizePiece('b', stub({ type: 'BASIC_AUTH', displayName: 'Basic', required: true })).auth?.fields,
+    ).toEqual([
+      { name: 'username', kind: 'text', displayName: 'Username' },
+      { name: 'password', kind: 'secret', displayName: 'Password' },
+    ]);
+    expect(normalizePiece('c', stub({ type: 'CUSTOM_AUTH', displayName: 'Custom' })).auth?.fields).toEqual([]);
+    expect(normalizePiece('o', stub({ type: 'OIDC', displayName: 'Other' })).auth?.fields).toEqual([]);
+  });
+
+  it('OAUTH2 without props or scope yields only the fixed fields, an empty scope and the default extra', () => {
+    const auth = normalizePiece('o', stub({ type: 'OAUTH2', displayName: 'OA', authUrl: 'a', tokenUrl: 't' })).auth;
+    expect(auth?.fields.map((field) => field.name)).toEqual([
+      'client_id',
+      'client_secret',
+      'access_token',
+      'refresh_token',
+      'expires_at',
+      'oauth_data',
+    ]);
+    expect(auth?.oauth2).toEqual({
+      authUrl: 'a',
+      tokenUrl: 't',
+      scope: [],
+      extra: { access_type: 'offline', prompt: 'consent' },
+    });
+  });
+
+  it('passes pkce, pkceMethod, authorizationMethod and prompt through, ignoring non-string extra values', () => {
+    const auth = normalizePiece(
+      'o',
+      stub({
+        type: 'OAUTH2',
+        displayName: 'OA',
+        authUrl: 'a',
+        tokenUrl: 't',
+        scope: ['s'],
+        pkce: true,
+        pkceMethod: 'S256',
+        authorizationMethod: 'BODY',
+        prompt: 'none',
+        extra: { access_type: 'online', bad: 1 },
+      }),
+    ).auth;
+    expect(auth?.oauth2).toEqual({
+      authUrl: 'a',
+      tokenUrl: 't',
+      scope: ['s'],
+      extra: { access_type: 'online', prompt: 'consent' },
+      pkce: true,
+      pkceMethod: 'S256',
+      authorizationMethod: 'BODY',
+      prompt: 'none',
+    });
+  });
+});
