@@ -3,12 +3,16 @@ import { BuildService } from './build.service.js';
 
 type TArgs = ConstructorParameters<typeof BuildService>;
 
-const makeService = (scheduleClient: { deleteAllForProject: ReturnType<typeof vi.fn> }) => {
+const makeService = (
+  scheduleClient: { deleteAllForProject: ReturnType<typeof vi.fn> },
+  filesRemove?: ReturnType<typeof vi.fn>,
+) => {
   const order: string[] = [];
-  const stub = (name: string) => vi.fn(() => {
-    order.push(name);
-    return Promise.resolve();
-  });
+  const stub = (name: string) =>
+    vi.fn(() => {
+      order.push(name);
+      return Promise.resolve();
+    });
   const versions = { delete: stub('versions.delete') };
   const projectsService = { getOwnedProject: vi.fn().mockResolvedValue({}), delete: stub('project.delete') };
   const args = [
@@ -26,7 +30,7 @@ const makeService = (scheduleClient: { deleteAllForProject: ReturnType<typeof vi
     versions,
     '/tmp/build',
     {},
-    { removeProjectFiles: stub('files.remove') },
+    { removeProjectFiles: filesRemove ?? stub('files.remove') },
     { deleteProject: stub('journal.delete') },
   ] as unknown as TArgs;
   return { service: new BuildService(...args), order };
@@ -50,5 +54,23 @@ describe('BuildService.deleteProject', () => {
     await service.deleteProject('p1', 'owner-1');
 
     expect(order).toContain('project.delete');
+  });
+
+  it('removes the project files (storage objects) before the project row', async () => {
+    const { service, order } = makeService({ deleteAllForProject: vi.fn().mockResolvedValue([]) });
+
+    await service.deleteProject('p1', 'owner-1');
+
+    expect(order.indexOf('files.remove')).toBeGreaterThanOrEqual(0);
+    expect(order.indexOf('files.remove')).toBeLessThan(order.indexOf('project.delete'));
+  });
+
+  it('does not delete the project row when removing its files fails', async () => {
+    const filesRemove = vi.fn().mockRejectedValue(new Error('s3 down'));
+    const { service, order } = makeService({ deleteAllForProject: vi.fn().mockResolvedValue([]) }, filesRemove);
+
+    await expect(service.deleteProject('p1', 'owner-1')).rejects.toThrow('s3 down');
+
+    expect(order).not.toContain('project.delete');
   });
 });
