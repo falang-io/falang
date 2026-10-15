@@ -75,7 +75,7 @@ describe('go arr-* emitters', () => {
       _ = nums[0:2];
       // icon-end:arr-slice:n",
         "arr-slice scalar": "// icon-start:arr-slice:n
-      var s []int32 = nums[0:2];
+      var s []int32 = append([]int32(nil), nums[0:2]...);
       // icon-end:arr-slice:n",
         "arr-unshift scalar": "// icon-start:arr-unshift:n
       nums = append([]int32{i}, nums...);
@@ -129,5 +129,12 @@ describe('go arr-insert aliasing', () => {
     // insertArr only ever appears as an append *argument*, never as the destination of an append.
     expect(code).toContain('nums = append(append(nums[:1:1], other...), nums[1:]...);');
     expect(code).not.toMatch(/append\(other,/);
+  });
+});
+
+describe('go arr-slice copying', () => {
+  it('copies the sliced range so the result never shares a backing array with the source', () => {
+    const code = compile([node('arr-slice', { arr: 'nums', variable: 's', start: '0', end: '2' })], scope);
+    expect(code).toContain('var s []int32 = append([]int32(nil), nums[0:2]...);');
   });
 });
