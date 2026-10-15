@@ -61,6 +61,19 @@ describe('SessionGapAutoVersionInterceptor', () => {
     expect(service.markEdited).not.toHaveBeenCalled();
   });
 
+  it.each([
+    ['without a user', writeRequest({ user: null })],
+    ['without a projectId', writeRequest({ params: {} })],
+  ])('still passes a request %s through when matches() would let it in (defensive guard)', async (_name, request) => {
+    const { interceptor, service } = makeInterceptor({});
+    vi.spyOn(interceptor as unknown as { matches: (...args: unknown[]) => boolean }, 'matches').mockReturnValue(true);
+
+    await expect(firstValueFrom(interceptor.intercept(makeContext(request), handler))).resolves.toBe('response');
+
+    expect(service.autoVersionBeforeEdit).not.toHaveBeenCalled();
+    expect(service.markEdited).not.toHaveBeenCalled();
+  });
+
   it('logs a markEdited failure and still returns the response', async () => {
     const logger = vi.spyOn(Logger.prototype, 'error').mockImplementation(noop);
     const { interceptor } = makeInterceptor({ markEdited: vi.fn().mockRejectedValue(new Error('db down')) });
