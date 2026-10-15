@@ -221,7 +221,9 @@ export const emitArrSlice = (
   const end = compileExpr(data.end, ctx, node.id);
   const variable = data.variable.trim();
   const cppType = variableInfoToCppType(arrType, ctx.params.structNames);
-  const code = `${cppType} ${variable} = ${cppType}(${arr}.begin() + (${start}), ${arr}.begin() + (${end}));`;
-  if (variable === '') return { code };
+  const sliced = `${cppType}(${arr}.begin() + (${start}), ${arr}.begin() + (${end}))`;
+  // Without a variable name the slice is evaluated and discarded — `<type> = <expr>;` is not valid C++.
+  if (variable === '') return { code: `(void)${sliced};` };
+  const code = `${cppType} ${variable} = ${sliced};`;
   return { code, returnBinding: { name: variable, type: arrType } };
 };
