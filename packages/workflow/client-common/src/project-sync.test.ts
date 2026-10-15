@@ -246,27 +246,128 @@ describe('ProjectSync', () => {
       expect(api.updateDocument).not.toHaveBeenCalled();
     });
 
-    it('an edit during an in-flight save produces another PATCH with the newer state', async () => {
-      const resolvers: (() => void)[] = [];
-      api.updateDocument.mockImplementation(() => new Promise<null>((resolve) => resolvers.push(() => resolve(null))));
-      const { sync } = makeSync();
-      await settle();
-      const d = doc({ v: 1 });
-      sync.scheduleSaveDocument(d);
-      vi.advanceTimersByTime(500);
-      expect(api.updateDocument).toHaveBeenCalledTimes(1);
-      (d as { data: unknown }).data = { v: 2 };
-      sync.scheduleSaveDocument(d);
-      vi.advanceTimersByTime(500);
-      expect(api.updateDocument).toHaveBeenCalledTimes(2);
-      expect(api.updateDocument.mock.calls[0][2].root).toEqual({ v: 1 });
-      expect(api.updateDocument.mock.calls[1][2].root).toEqual({ v: 2 });
-      for (const resolve of resolvers) resolve();
-    });
+    describe('serialised writes of one document', () => {
+      const manual = () => {
+        const calls: { resolve: () => void; reject: (e: unknown) => void }[] = [];
+        api.updateDocument.mockImplementation(
+          () => new Promise<null>((resolve, reject) => calls.push({ resolve: () => resolve(null), reject })),
+        );
+        return calls;
+      };
+      const edit = (d: unknown, v: number) => {
+        (d as { data: unknown }).data = { v };
+      };
 
-    // Saves of one document are not serialised: the second PATCH is sent while the first is still in flight, so a
-    // slow first response could in principle be applied by the server after the second. Product decision pending.
-    it.todo('serialises PATCHes of one document (the next one waits for the in-flight one)');
+      it('the next PATCH waits for the in-flight one and then goes out with the newer state', async () => {
+        const calls = manual();
+        const { sync } = makeSync();
+        await settle();
+        const d = doc({ v: 1 });
+        sync.scheduleSaveDocument(d);
+        vi.advanceTimersByTime(500);
+        edit(d, 2);
+        sync.scheduleSaveDocument(d);
+        vi.advanceTimersByTime(500);
+        await settle();
+        expect(api.updateDocument).toHaveBeenCalledTimes(1);
+        calls[0].resolve();
+        await settle();
+        expect(api.updateDocument).toHaveBeenCalledTimes(2);
+        expect(api.updateDocument.mock.calls[0][2].root).toEqual({ v: 1 });
+        expect(api.updateDocument.mock.calls[1][2].root).toEqual({ v: 2 });
+        calls[1].resolve();
+      });
+
+      it('edits during the flight collapse into exactly one next PATCH with the last state', async () => {
+        const calls = manual();
+        const { sync } = makeSync();
+        await settle();
+        const d = doc({ v: 1 });
+        sync.scheduleSaveDocument(d);
+        vi.advanceTimersByTime(500);
+        for (const v of [2, 3, 4]) {
+          edit(d, v);
+          sync.scheduleSaveDocument(d);
+          vi.advanceTimersByTime(500);
+        }
+        await settle();
+        calls[0].resolve();
+        await settle();
+        expect(api.updateDocument).toHaveBeenCalledTimes(2);
+        expect(api.updateDocument.mock.calls[1][2].root).toEqual({ v: 4 });
+        calls[1].resolve();
+        await settle();
+        vi.advanceTimersByTime(2000);
+        expect(api.updateDocument).toHaveBeenCalledTimes(2);
+      });
+
+      it('a failed PATCH does not block the next one', async () => {
+        const calls = manual();
+        const { sync } = makeSync();
+        await settle();
+        const d = doc({ v: 1 });
+        sync.scheduleSaveDocument(d);
+        vi.advanceTimersByTime(500);
+        edit(d, 2);
+        sync.scheduleSaveDocument(d);
+        vi.advanceTimersByTime(500);
+        calls[0].reject(new Error('boom'));
+        await settle();
+        expect(api.updateDocument).toHaveBeenCalledTimes(2);
+        calls[1].resolve();
+      });
+
+      it('flushSaveCustomDocument and updateDocumentRemote wait for the in-flight save', async () => {
+        const calls = manual();
+        const { sync } = makeSync();
+        await settle();
+        const d = { id: 'd1', name: 'I', type: 'custom', customData: { x: 1 } } as never;
+        sync.scheduleSaveCustomDocument(d);
+        vi.advanceTimersByTime(500);
+        expect(api.updateDocument).toHaveBeenCalledTimes(1);
+        let flushed = false;
+        const flush = sync.flushSaveCustomDocument(d).then(() => (flushed = true));
+        sync.updateDocumentRemote('d1', { name: 'renamed' });
+        await settle();
+        expect(api.updateDocument).toHaveBeenCalledTimes(1);
+        calls[0].resolve();
+        await settle();
+        expect(api.updateDocument).toHaveBeenCalledTimes(2);
+        expect(flushed).toBe(false);
+        calls[1].resolve();
+        await flush;
+        expect(flushed).toBe(true);
+        await settle();
+        expect(api.updateDocument).toHaveBeenCalledTimes(3);
+        expect(api.updateDocument.mock.calls[2][2]).toEqual({ name: 'renamed' });
+        calls[2].resolve();
+      });
+
+      it('flushPendingSaves waits for an already in-flight PATCH', async () => {
+        const calls = manual();
+        const { sync } = makeSync();
+        await settle();
+        sync.scheduleSaveDocument(doc({ v: 1 }));
+        vi.advanceTimersByTime(500);
+        let done = false;
+        const flushed = sync.flushPendingSaves().then(() => (done = true));
+        await settle();
+        expect(done).toBe(false);
+        calls[0].resolve();
+        await flushed;
+        expect(done).toBe(true);
+      });
+
+      it('different documents do not block each other', async () => {
+        manual();
+        const { sync } = makeSync();
+        await settle();
+        sync.scheduleSaveDocument({ id: 'a', name: 'a', type: 'function', folderId: null, data: { v: 1 } } as never);
+        sync.scheduleSaveDocument({ id: 'b', name: 'b', type: 'function', folderId: null, data: { v: 1 } } as never);
+        vi.advanceTimersByTime(500);
+        expect(api.updateDocument).toHaveBeenCalledTimes(2);
+      });
+    });
 
     it("passes the tab's own lock owner so a save does not 409 against itself", async () => {
       const { sync, hooks } = makeSync();
@@ -275,9 +376,11 @@ describe('ProjectSync', () => {
       sync.scheduleSaveDocument(doc({ v: 1 }));
       vi.advanceTimersByTime(500);
       expect(api.updateDocument.mock.calls[0][2]).toEqual({ name: 'doc', root: { v: 1 }, lockOwner: 'tab-1' });
+      await settle();
       sync.scheduleSaveCustomDocument(doc(undefined));
       vi.advanceTimersByTime(500);
       expect(api.updateDocument.mock.calls[1][2]).toMatchObject({ lockOwner: 'tab-1' });
+      await settle();
       await sync.flushSaveCustomDocument(doc(undefined));
       expect(api.updateDocument.mock.calls[2][2]).toMatchObject({ lockOwner: 'tab-1' });
       hooks.owner = null;

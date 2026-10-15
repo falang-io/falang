@@ -182,8 +182,8 @@ export class ProjectSync {
     // A rename changes the compiled function's name — a folder move doesn't, but it's not worth
     // distinguishing for a flag that only costs an extra build.
     this.markChanged();
-    workflowApi
-      .updateDocument(this.projectId, id, input)
+    this.pendingSaves
+      .exclusive(id, () => workflowApi.updateDocument(this.projectId, id, input))
       .catch((error: unknown) => this.handleDocumentSaveError(id, error));
   }
 
@@ -192,7 +192,9 @@ export class ProjectSync {
     this.pendingSaves.cancel(id);
     this.suspendedSaves.delete(id);
     this.markChanged();
-    workflowApi.deleteDocument(this.projectId, id).catch((error: unknown) => this.handleDocumentSaveError(id, error));
+    this.pendingSaves
+      .exclusive(id, () => workflowApi.deleteDocument(this.projectId, id))
+      .catch((error: unknown) => this.handleDocumentSaveError(id, error));
   }
 
   /**
@@ -231,11 +233,13 @@ export class ProjectSync {
     if (this.readOnly) return;
     this.pendingSaves.cancel(doc.id);
     const data = doc.customData;
-    await workflowApi.updateDocument(this.projectId, doc.id, {
-      name: doc.name,
-      data,
-      ...this.ownLockOwnerBody(doc.id),
-    });
+    await this.pendingSaves.exclusive(doc.id, () =>
+      workflowApi.updateDocument(this.projectId, doc.id, {
+        name: doc.name,
+        data,
+        ...this.ownLockOwnerBody(doc.id),
+      }),
+    );
   }
 
   /** `{ lockOwner }` when this tab holds its own agent-lock on `documentId`, `{}` otherwise — spread into a save's body so it doesn't 409 against a lock it holds itself (ADR 0034 §2.4). */
