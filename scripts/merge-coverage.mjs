@@ -37,6 +37,20 @@ const assertReadable = (dir) => {
 };
 for (const dir of [...INPUT_DIRS, NODE_DATA_DIR]) assertReadable(dir);
 
+// Optional inputs — `npm run coverage:services` (activepieces/, proxy/) and `npm run coverage:logic`
+// (docker-based logic e2e). Merged only when their raw output exists.
+const OPTIONAL_DIRS = [
+  './coverage/services/proxy/raw',
+  './coverage/services/activepieces/raw',
+  './coverage/logic/raw',
+].filter((dir) => fs.existsSync(dir));
+for (const dir of OPTIONAL_DIRS) assertReadable(dir);
+process.stdout.write(
+  OPTIONAL_DIRS.length > 0
+    ? `merge-coverage: optional inputs included: ${OPTIONAL_DIRS.join(', ')}\n`
+    : 'merge-coverage: optional inputs included: none (coverage:services / coverage:logic not run)\n',
+);
+
 // `backend` writes its own file only if `SIGTERM` reaches the Node process and its shutdown hook
 // finishes before compose's `SIGKILL` — a wrapper in between (`npm run`, `npx`) or a too-short
 // `stop_grace_period` silently loses it, leaving only build-worker files (their own processes) and
@@ -76,7 +90,7 @@ const coverageOptions = {
   outputDir: './coverage/combined',
 
   // `mcr`'s own portable "raw" format, produced by both the unit run and the e2e browser run.
-  inputDir: INPUT_DIRS,
+  inputDir: [...INPUT_DIRS, ...OPTIONAL_DIRS],
   // The literal `NODE_V8_COVERAGE` directory `backend`/`runner` wrote inside their container,
   // bind-mounted to this host path — loaded automatically by `generate()`, in addition to
   // `inputDir` above (see `mcr`'s own `readFromDir`/`addFromDir`, which parses Node's native
