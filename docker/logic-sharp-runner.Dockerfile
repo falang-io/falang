@@ -5,9 +5,8 @@
 #
 # Like the Go/Rust harnesses (and unlike the cpp harness's debian-slim/apt compromise), the official
 # image pulled fine in this environment, so this is a major-version pin: .NET 8 (LTS; the patch level
-# floats with the `8.0` tag). The full SDK
-# image, not the smaller `runtime`/`aspnet` ones — this harness compiles source, it doesn't just run a
-# prebuilt assembly.
+# floats with the `8.0` tag). The full SDK image, not the smaller `runtime`/`aspnet` ones — this harness
+# compiles source, it doesn't just run a prebuilt assembly.
 FROM mcr.microsoft.com/dotnet/sdk:8.0
 
 # Keeps generated numbers/dates formatted identically regardless of any host locale the container might
