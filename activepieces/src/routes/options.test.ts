@@ -4,6 +4,7 @@ import type { Piece } from '@activepieces/pieces-framework';
 import { createApp } from '../app.js';
 import { getPiece } from '../pieces/registry.js';
 import { resolveAuthValue } from '../pieces/auth-resolver.js';
+import { NotFoundError } from '../credentials.js';
 
 vi.mock('../pieces/registry.js', () => ({ getPiece: vi.fn() }));
 vi.mock('../pieces/auth-resolver.js', () => ({ resolveAuthValue: vi.fn() }));
@@ -106,5 +107,33 @@ describe('GET /credentials/:credentialId/pieces/:pieceName/actions/:actionName/f
     );
 
     expect(res.status).toBe(400);
+  });
+
+  it('500s a dropdown without an options resolver, and maps resolver failures to 404/500', async () => {
+    const path = '/credentials/cred-1/pieces/mock/actions/create_item/fields/assignee/options';
+    vi.mocked(getPiece).mockReturnValue({
+      getAction: () => ({ props: { assignee: { type: 'DROPDOWN' } } }),
+    } as unknown as Piece);
+    const noResolver = await authedGet(createApp(), path).query(PROJECT_QUERY);
+    expect(noResolver.status).toBe(500);
+    expect(noResolver.body.message).toMatch(/no "options" resolver/);
+
+    const options = vi.fn().mockResolvedValue({ options: [] });
+    vi.mocked(getPiece).mockReturnValue({
+      getAction: () => ({ props: { assignee: { type: 'MULTI_SELECT_DROPDOWN', options } } }),
+    } as unknown as Piece);
+
+    vi.mocked(resolveAuthValue).mockRejectedValueOnce(new NotFoundError('no such credential'));
+    const missing = await authedGet(createApp(), path).query(PROJECT_QUERY);
+    expect(missing.status).toBe(404);
+
+    vi.mocked(resolveAuthValue).mockRejectedValueOnce(new Error('boom'));
+    const failed = await authedGet(createApp(), path).query(PROJECT_QUERY);
+    expect(failed.status).toBe(500);
+    expect(failed.body).toEqual({ message: 'boom' });
+
+    vi.mocked(resolveAuthValue).mockRejectedValueOnce('weird');
+    const unknown = await authedGet(createApp(), path).query(PROJECT_QUERY);
+    expect(unknown.body).toEqual({ message: 'Unknown error' });
   });
 });
