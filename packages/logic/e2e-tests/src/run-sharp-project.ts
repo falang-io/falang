@@ -77,8 +77,16 @@ const CACHE_ENV_ARGS = ['-e', 'DOTNET_CLI_HOME=/tmp', '-e', 'DOTNET_NOLOGO=1', '
  * occasional workload notice to stdout, which would otherwise be indistinguishable from `result.txt`
  * lines. The built assembly is then run via `dotnet main.dll` rather than `dotnet run`, which would
  * re-enter the build machinery and print again.
+ *
+ * The script first appends a passwd entry for the container's uid when the host's uid has none (the image
+ * makes /etc/passwd writable): .NET 8.0.32's named mutexes (CLI first-run, NuGet restore's
+ * `NuGet-Migrations`) fail for a uid without one. The step prints nothing to stdout and a failed build
+ * still yields a non-zero exit code.
  */
-const BUILD_AND_RUN_SCRIPT = 'dotnet build main.csproj -v q --nologo >/dev/null && dotnet bin/Debug/net8.0/main.dll';
+const BUILD_AND_RUN_SCRIPT = [
+  'id -un >/dev/null 2>&1 || echo "runner:x:$(id -u):$(id -g)::/tmp:/bin/sh" >> /etc/passwd',
+  'dotnet build main.csproj -v q --nologo >/dev/null && dotnet bin/Debug/net8.0/main.dll',
+].join('; ');
 
 /** Builds and runs a generated C# project directory inside the `logic-sharp-runner` image, returning stdout split into lines — same shape as `runCppProjectInDocker`/`runGoProjectInDocker`/`runRustProjectInDocker`. */
 export const runSharpProjectInDocker = async (projectDir: string): Promise<string[]> => {
