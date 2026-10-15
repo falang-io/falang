@@ -15,7 +15,7 @@
     "coverage:unit": "vitest run --coverage -c vitest.config.root.ts --maxWorkers=50% --testTimeout=120000 --hookTimeout=120000",
     "coverage:e2e": "./scripts/coverage-e2e-dirs.sh prepare && (./scripts/kind-e2e-setup.sh && . ./scripts/temporal-e2e-env.sh && COLLECT_COVERAGE=true BACKEND_V8_COVERAGE=/coverage/node docker compose -f docker-compose.workflow-e2e.yml run --build --rm e2e-tests && npm run test-e2e:workflow && docker compose -f docker-compose.workflow-e2e.yml down -v); status=$?; ./scripts/coverage-e2e-dirs.sh finalize; exit $status",
     "coverage:services": "./scripts/coverage-services.sh",
-    "coverage:logic": "rm -rf coverage/logic && ./scripts/build-logic-cpp-runner-image.sh && ./scripts/build-logic-go-runner-image.sh && ./scripts/build-logic-rust-runner-image.sh && ./scripts/build-logic-sharp-runner-image.sh && vitest run --coverage -c scripts/vitest.config.logic.mjs --root packages/logic/e2e-tests --testTimeout=120000 --hookTimeout=120000",
+    "coverage:logic": "rm -rf coverage/logic && ./scripts/build-logic-cpp-runner-image.sh && ./scripts/build-logic-go-runner-image.sh && ./scripts/build-logic-rust-runner-image.sh && ./scripts/build-logic-sharp-runner-image.sh && vitest run --coverage -c scripts/vitest.config.logic.mjs --testTimeout=120000 --hookTimeout=120000",
     "coverage:merge": "node scripts/merge-coverage.mjs",
     "coverage": "npm run coverage:unit; unit=$?; npm run coverage:services; services=$?; npm run coverage:e2e && npm run coverage:merge && exit $((unit || services))",
     "generate:driver-format": "tsx plugins/falang/scripts/generate-driver-format.mts",
