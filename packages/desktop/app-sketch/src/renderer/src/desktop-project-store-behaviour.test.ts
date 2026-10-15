@@ -1,3 +1,4 @@
+// oxlint-disable typescript-eslint/no-explicit-any, require-await, no-undefined, unicorn/no-useless-undefined, no-promise-executor-return, unicorn/consistent-function-scoping, unicorn/no-object-as-default-parameter -- fake-IPC harness: loosely typed `window.falang` stand-in, async mock fns and resolver capture
 // @vitest-environment jsdom
 // oxlint-disable max-lines -- one fake-IPC harness shared by many small behaviour groups; splitting would duplicate it.
 import 'reflect-metadata';
