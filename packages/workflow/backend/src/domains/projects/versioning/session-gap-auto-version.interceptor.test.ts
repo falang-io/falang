@@ -8,6 +8,9 @@ import type { VersioningService } from './versioning.service.js';
 const makeContext = (request: Record<string, unknown>): ExecutionContext =>
   ({ switchToHttp: () => ({ getRequest: () => request }) }) as unknown as ExecutionContext;
 
+// oxlint-disable-next-line no-empty-function -- silences the expected logger output.
+const noop = () => {};
+
 const handler: CallHandler = { handle: () => of('response') };
 
 const writeRequest = (overrides: Record<string, unknown> = {}) => ({
@@ -23,8 +26,8 @@ const makeInterceptor = (
   service: Partial<Record<'autoVersionBeforeEdit' | 'markEdited', ReturnType<typeof vi.fn>>>,
 ) => {
   const full = {
-    autoVersionBeforeEdit: vi.fn().mockResolvedValue(undefined),
-    markEdited: vi.fn().mockResolvedValue(undefined),
+    autoVersionBeforeEdit: vi.fn().mockResolvedValue(null),
+    markEdited: vi.fn().mockResolvedValue(null),
     ...service,
   };
   return { interceptor: new SessionGapAutoVersionInterceptor(full as unknown as VersioningService), service: full };
@@ -45,7 +48,7 @@ describe('SessionGapAutoVersionInterceptor', () => {
   });
 
   it.each([
-    ['a request without a user', writeRequest({ user: undefined })],
+    ['a request without a user', writeRequest({ user: null })],
     ['a request without a projectId', writeRequest({ params: {} })],
     ['a GET', writeRequest({ method: 'GET' })],
     ['a non-content route', writeRequest({ path: '/projects/p1/commits' })],
@@ -59,17 +62,19 @@ describe('SessionGapAutoVersionInterceptor', () => {
   });
 
   it('logs a markEdited failure and still returns the response', async () => {
-    const logger = vi.spyOn(Logger.prototype, 'error').mockImplementation(() => undefined);
+    const logger = vi.spyOn(Logger.prototype, 'error').mockImplementation(noop);
     const { interceptor } = makeInterceptor({ markEdited: vi.fn().mockRejectedValue(new Error('db down')) });
 
     await expect(firstValueFrom(interceptor.intercept(makeContext(writeRequest()), handler))).resolves.toBe('response');
-    await new Promise((resolve) => setImmediate(resolve));
+    await new Promise<void>((resolve) => {
+      setImmediate(resolve);
+    });
 
     expect(logger).toHaveBeenCalledWith(expect.stringContaining('markEdited failed'), expect.any(String));
   });
 
   it('logs an auto-version failure and still lets the edit through', async () => {
-    const logger = vi.spyOn(Logger.prototype, 'error').mockImplementation(() => undefined);
+    const logger = vi.spyOn(Logger.prototype, 'error').mockImplementation(noop);
     const { interceptor, service } = makeInterceptor({
       autoVersionBeforeEdit: vi.fn().mockRejectedValue(new Error('boom')),
     });

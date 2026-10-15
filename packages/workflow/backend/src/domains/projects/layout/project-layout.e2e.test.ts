@@ -149,7 +149,7 @@ describe('project layout helpers and write error paths (e2e harness)', () => {
     const tree = await documents.listTree(projectId, ownerId);
 
     expect(tree.find((doc) => doc.id === id)?.lockedUntil).toEqual(expect.any(String));
-    expect(tree.filter((doc) => doc.id !== id).every((doc) => doc.lockedUntil === undefined)).toBe(true);
+    for (const other of tree.filter((doc) => doc.id !== id)) expect(other).not.toHaveProperty('lockedUntil');
   });
 
   it('listFull masks integration secrets in the integrations document', async () => {

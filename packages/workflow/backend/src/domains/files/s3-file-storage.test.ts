@@ -2,6 +2,7 @@ import { PassThrough, Readable } from 'node:stream';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { NotFound } from '@aws-sdk/client-s3';
 import { NotFoundException } from '@nestjs/common';
+import { S3FileStorage } from './s3-file-storage.js';
 
 const state = vi.hoisted(() => ({
   sent: [] as { name: string; input: Record<string, unknown> }[],
@@ -10,29 +11,25 @@ const state = vi.hoisted(() => ({
 }));
 
 vi.mock('@aws-sdk/lib-storage', () => ({
-  Upload: class {
-    private readonly params: { Body: Readable };
-    constructor(options: { params: { Body: Readable } }) {
-      this.params = options.params;
-    }
-    done() {
-      return state.uploadImpl(this.params);
-    }
-  },
+  Upload: vi.fn().mockImplementation(function uploadStub(options: { params: { Body: Readable } }) {
+    return { done: () => state.uploadImpl(options.params) };
+  }),
 }));
 
 vi.mock('@aws-sdk/client-s3', async (importOriginal) => {
-  const original = await importOriginal<typeof import('@aws-sdk/client-s3')>();
-  class FakeClient {
-    send(command: { constructor: { name: string }; input: Record<string, unknown> }) {
-      state.sent.push({ name: command.constructor.name, input: command.input });
-      return state.sendImpl(command);
-    }
-  }
-  return { ...original, S3Client: FakeClient };
+  const original = await importOriginal<Record<string, unknown>>();
+  return {
+    ...original,
+    S3Client: vi.fn().mockImplementation(function clientStub() {
+      return {
+        send: (command: { constructor: { name: string }; input: Record<string, unknown> }) => {
+          state.sent.push({ name: command.constructor.name, input: command.input });
+          return state.sendImpl(command);
+        },
+      };
+    }),
+  };
 });
-
-const { S3FileStorage } = await import('./s3-file-storage.js');
 
 const makeStorage = () =>
   new S3FileStorage({
