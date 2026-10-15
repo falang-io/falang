@@ -31,15 +31,13 @@ export class SessionGapAutoVersionInterceptor implements NestInterceptor {
   }
 
   intercept(context: ExecutionContext, next: CallHandler): Observable<unknown> {
-    const request = context
-      .switchToHttp()
-      .getRequest<{
-        method: string;
-        path?: string;
-        url: string;
-        params: Record<string, string>;
-        user?: IJwtPayloadUser;
-      }>();
+    const request = context.switchToHttp().getRequest<{
+      method: string;
+      path?: string;
+      url: string;
+      params: Record<string, string>;
+      user?: IJwtPayloadUser;
+    }>();
     const projectId = request.params?.projectId;
     const path = request.path ?? request.url.split('?')[0];
 
@@ -47,6 +45,8 @@ export class SessionGapAutoVersionInterceptor implements NestInterceptor {
       return next.handle();
     }
 
+    // Unreachable while `matches()` checks both; kept so a later change to `matches()` can't start auto-versioning
+    // without a user, and to narrow both for the code below.
     const { user } = request;
     if (!user || !projectId) {
       return next.handle();
