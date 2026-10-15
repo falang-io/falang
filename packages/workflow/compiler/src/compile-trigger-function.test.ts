@@ -182,3 +182,16 @@ describe('compileTriggerFunction', () => {
     );
   });
 });
+
+describe('compileTriggerFunction: malformed documents', () => {
+  it('throws when the trigger-function-body child is missing', () => {
+    const node: INode = {
+      id: 'fn1',
+      name: 'trigger-function',
+      children: [{ id: 'header', name: 'function-header', data: '' }],
+    };
+    expect(() => compileTriggerFunction(node, 'onMessage', [telegramIntegration])).toThrow(
+      /missing its trigger-function-body child/,
+    );
+  });
+});

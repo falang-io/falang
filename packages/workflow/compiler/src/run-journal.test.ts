@@ -200,3 +200,9 @@ describe('activity journal metadata', () => {
     expect(code).toContain("export const __falangActivityParams: Record<string, string[]> = {'vAct':['model'");
   });
 });
+
+describe('parseActivityParamNames: malformed signature', () => {
+  it('throws on an unbalanced parameter list instead of returning a partial list', () => {
+    expect(() => parseActivityParamNames('broken(a: string, b: number')).toThrow(/Unbalanced parameter list/);
+  });
+});
