@@ -133,3 +133,42 @@ describe('question-emitters: optionDataTypes sends full option data to the ask a
     expect(result).toContain('humanTaskAsk(`Approve?`, order, ["Approve","Reject"])');
   });
 });
+
+describe('question-emitters: answerScope.perOptionData binds a typed `data` per option branch', () => {
+  it('binds `data` only in branches whose option has a non-void dataType, never in void or fixed (timeout) ones', () => {
+    const descriptor = buildDescriptor({
+      questionFields: [
+        { name: 'title', label: 'Title', kind: 'template-string' },
+        { name: 'payload', label: 'Payload', kind: 'expression' },
+        { name: 'timeout', label: 'Timeout', kind: 'text' },
+      ],
+      timeoutField: 'timeout',
+      answerScope: { variableName: 'task', type: { type: 'any' }, perOptionData: true },
+    });
+    const emitters = buildQuestionEmitters([buildIntegration(descriptor)]);
+    const node: INode = {
+      id: 'q1',
+      name: 'human-task',
+      data: { title: 'Approve?', payload: 'order', timeout: '1h', options: ['Approve', 'Reject', 'Count', 'Flag'] },
+      children: [
+        optionNode('q1-approve', { label: 'Approve', dataType: 'void' }),
+        optionNode('q1-reject', { label: 'Reject', dataType: 'string' }),
+        optionNode('q1-count', { label: 'Count', dataType: 'number' }),
+        optionNode('q1-flag', { label: 'Flag', dataType: 'boolean' }),
+        optionNode('q1-timeout', { label: 'timeout', dataType: 'string', fixed: true }),
+      ],
+    };
+
+    const result = compileStatements([node], noResolveFunctionName, {}, emitters);
+
+    expect(result).toContain('const data = q_q1Payload!.data as string;');
+    expect(result).toContain('const data = q_q1Payload!.data as number;');
+    expect(result).toContain('const data = q_q1Payload!.data as boolean;');
+    // exactly the three typed options bind it: not the void one, not the fixed timeout one
+    expect(result.match(/const data = /g)).toHaveLength(3);
+    const approveCase = result.slice(result.indexOf('case "Approve"'), result.indexOf('case "Reject"'));
+    expect(approveCase).not.toContain('const data');
+    const timeoutCase = result.slice(result.indexOf('case "__timeout__"'));
+    expect(timeoutCase).not.toContain('const data');
+  });
+});
