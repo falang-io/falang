@@ -4,17 +4,9 @@ import { observer } from 'mobx-react-lite';
 import Form from 'antd/es/form';
 import FormItem from 'antd/es/form/FormItem/index.js';
 import Input from 'antd/es/input/index.js';
-import Select from 'antd/es/select/index.js';
 import Button from 'antd/es/button/index.js';
+import { VariableTypeSelect } from '../../block-elements/variable-type/variable-type-select.cmp.js';
 import type { FunctionBodyBlockEditorStore } from './function-body-editor.store.js';
-
-const typeOptions = ['string', 'boolean', 'number', 'array', 'struct', 'void', 'enum', 'any'] as const;
-type TTypeOption = (typeof typeOptions)[number];
-
-const elementTypeOptions = ['string', 'boolean', 'number', 'struct', 'void', 'enum', 'any'] as const;
-type TElementTypeOption = (typeof elementTypeOptions)[number];
-
-const dimensionsOptions = [1, 2, 3, 4] as const;
 
 export const FunctionBodySidebarEditorComponent: TBlockEditorView<FunctionBodyBlockEditorStore> = observer(
   ({ editor }) => {
@@ -47,162 +39,32 @@ export const FunctionBodySidebarEditorComponent: TBlockEditorView<FunctionBodyBl
                   </Button>
                 </div>
               </FormItem>
-              <FormItem label="Type" style={{ marginBottom: 8 }}>
-                <Select
-                  value={paramType.type}
-                  onChange={(value) => editor.setParameterType(index, value as TTypeOption)}
-                  style={{ width: '100%' }}
-                >
-                  {typeOptions.map((t) => (
-                    <Select.Option key={t} value={t}>
-                      {t}
-                    </Select.Option>
-                  ))}
-                </Select>
-              </FormItem>
-              {paramType.type === 'array' && (
-                <>
-                  <FormItem label="Element type" style={{ marginBottom: 8 }}>
-                    <Select
-                      value={paramType.elementType.type}
-                      onChange={(value) => editor.setParameterArrayElementType(index, value as TElementTypeOption)}
-                      style={{ width: '100%' }}
-                    >
-                      {elementTypeOptions.map((t) => (
-                        <Select.Option key={t} value={t}>
-                          {t}
-                        </Select.Option>
-                      ))}
-                    </Select>
-                  </FormItem>
-                  {paramType.elementType.type === 'struct' && (
-                    <FormItem label="Element struct" style={{ marginBottom: 8 }}>
-                      <Select
-                        value={paramType.elementType.id}
-                        onChange={(value) => editor.setParameterArrayElementStructId(index, value)}
-                        style={{ width: '100%' }}
-                      >
-                        <Select.Option value="">—</Select.Option>
-                        {structTypes.map((t) => (
-                          <Select.Option key={t.id} value={t.id}>
-                            {t.name || t.id}
-                          </Select.Option>
-                        ))}
-                      </Select>
-                    </FormItem>
-                  )}
-                  <FormItem label="Dimensions" style={{ marginBottom: 0 }}>
-                    <Select
-                      value={paramType.dimensions}
-                      onChange={(value) => editor.setParameterArrayDimensions(index, value)}
-                      style={{ width: '100%' }}
-                    >
-                      {dimensionsOptions.map((d) => (
-                        <Select.Option key={d} value={d}>
-                          {d}
-                        </Select.Option>
-                      ))}
-                    </Select>
-                  </FormItem>
-                </>
-              )}
-              {paramType.type === 'struct' && (
-                <FormItem label="Struct" style={{ marginBottom: 0 }}>
-                  <Select
-                    value={paramType.id}
-                    onChange={(value) => editor.setParameterStructId(index, value)}
-                    style={{ width: '100%' }}
-                  >
-                    <Select.Option value="">—</Select.Option>
-                    {structTypes.map((t) => (
-                      <Select.Option key={t.id} value={t.id}>
-                        {t.name || t.id}
-                      </Select.Option>
-                    ))}
-                  </Select>
-                </FormItem>
-              )}
+              <VariableTypeSelect
+                variant="form"
+                value={paramType}
+                lastInForm
+                onChange={(next) => next && editor.setParameterVariableType(index, next)}
+                projectService={projectService}
+                structTypes={structTypes}
+              />
             </div>
           );
         })}
         <Button block onClick={() => editor.addParameter()}>
           + parameter
         </Button>
-        <FormItem label="Return type" style={{ marginTop: 12, marginBottom: 8 }}>
-          <Select
-            value={data.returnValue?.type ?? 'void'}
-            onChange={(value) => editor.setReturnValueType(value as TTypeOption)}
-            style={{ width: '100%' }}
-          >
-            {typeOptions.map((t) => (
-              <Select.Option key={t} value={t}>
-                {t}
-              </Select.Option>
-            ))}
-          </Select>
-        </FormItem>
-        {data.returnValue?.type === 'array' && (
-          <>
-            <FormItem label="Element type" style={{ marginBottom: 8 }}>
-              <Select
-                value={data.returnValue.elementType.type}
-                onChange={(value) => editor.setReturnValueArrayElementType(value as TElementTypeOption)}
-                style={{ width: '100%' }}
-              >
-                {elementTypeOptions.map((t) => (
-                  <Select.Option key={t} value={t}>
-                    {t}
-                  </Select.Option>
-                ))}
-              </Select>
-            </FormItem>
-            {data.returnValue.elementType.type === 'struct' && (
-              <FormItem label="Element struct" style={{ marginBottom: 8 }}>
-                <Select
-                  value={data.returnValue.elementType.id}
-                  onChange={(value) => editor.setReturnValueArrayElementStructId(value)}
-                  style={{ width: '100%' }}
-                >
-                  <Select.Option value="">—</Select.Option>
-                  {structTypes.map((t) => (
-                    <Select.Option key={t.id} value={t.id}>
-                      {t.name || t.id}
-                    </Select.Option>
-                  ))}
-                </Select>
-              </FormItem>
-            )}
-            <FormItem label="Dimensions" style={{ marginBottom: 8 }}>
-              <Select
-                value={data.returnValue.dimensions}
-                onChange={(value) => editor.setReturnValueArrayDimensions(value)}
-                style={{ width: '100%' }}
-              >
-                {dimensionsOptions.map((d) => (
-                  <Select.Option key={d} value={d}>
-                    {d}
-                  </Select.Option>
-                ))}
-              </Select>
-            </FormItem>
-          </>
-        )}
-        {data.returnValue?.type === 'struct' && (
-          <FormItem label="Struct" style={{ marginBottom: 0 }}>
-            <Select
-              value={data.returnValue.id}
-              onChange={(value) => editor.setReturnValueStructId(value)}
-              style={{ width: '100%' }}
-            >
-              <Select.Option value="">—</Select.Option>
-              {structTypes.map((t) => (
-                <Select.Option key={t.id} value={t.id}>
-                  {t.name || t.id}
-                </Select.Option>
-              ))}
-            </Select>
-          </FormItem>
-        )}
+        <div style={{ marginTop: 12 }}>
+          <VariableTypeSelect
+            variant="form"
+            label="Return type"
+            value={data.returnValue}
+            voidIsUndefined
+            lastInForm
+            onChange={(next) => editor.setReturnValueVariableType(next)}
+            projectService={projectService}
+            structTypes={structTypes}
+          />
+        </div>
       </Form>
     );
   },

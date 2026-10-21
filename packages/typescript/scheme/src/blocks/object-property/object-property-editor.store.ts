@@ -3,49 +3,12 @@ import type { zod } from '@falang/dto';
 import { BlockEditorStore, type IBlockEditorFactoryParams } from '@falang/scheme';
 import { action, makeObservable, observable } from 'mobx';
 import type { objectPropertyDto, variableInfoZod } from '@falang/typescript-dto';
+import { buildDefaultVariableType } from '../../block-elements/variable-type/variable-type-model.js';
 import { TOKEN_TYPESCRIPT_PROJECT_SERVICE } from '../../typescript-project-service/typescript-project.service.token.js';
 import type { TypescriptProjectService } from '../../typescript-project-service/typescript-project.service.js';
 
 export type IObjectProperty = zod.infer<typeof objectPropertyDto>;
 type IVariableType = zod.infer<typeof variableInfoZod>;
-
-export const defaultVariableType = (type: IVariableType['type']): IVariableType => {
-  switch (type) {
-    case 'string': {
-      return { type: 'string' };
-    }
-    case 'boolean': {
-      return { type: 'boolean' };
-    }
-    case 'number': {
-      return { type: 'number', numberType: { type: 'any' } };
-    }
-    case 'array': {
-      return { type: 'array', elementType: { type: 'string' }, dimensions: 1 };
-    }
-    case 'struct': {
-      return { type: 'struct', id: '' };
-    }
-    case 'enum': {
-      return { type: 'enum', schemeId: '', iconId: '' };
-    }
-    case 'void': {
-      return { type: 'void' };
-    }
-    case 'any': {
-      return { type: 'any' };
-    }
-    case 'never': {
-      return { type: 'never' };
-    }
-    case 'union': {
-      return { type: 'union', unionTypes: [] };
-    }
-    default: {
-      return { type: 'string' };
-    }
-  }
-};
 
 export class ObjectPropertyBlockEditorStore extends BlockEditorStore<IObjectProperty> {
   @observable data: IObjectProperty;
@@ -70,8 +33,12 @@ export class ObjectPropertyBlockEditorStore extends BlockEditorStore<IObjectProp
     this.data = { ...this.data, name };
   }
 
+  @action setVariableType(variableType: IVariableType) {
+    this.data = { ...this.data, variableType };
+  }
+
   @action setType(type: IVariableType['type']) {
-    this.data = { ...this.data, variableType: defaultVariableType(type) };
+    this.data = { ...this.data, variableType: buildDefaultVariableType(type, this.projectService) };
   }
 
   @action setArrayElementType(type: IVariableType['type']) {
@@ -79,7 +46,7 @@ export class ObjectPropertyBlockEditorStore extends BlockEditorStore<IObjectProp
     const current = this.data.variableType;
     this.data = {
       ...this.data,
-      variableType: { ...current, elementType: defaultVariableType(type) },
+      variableType: { ...current, elementType: buildDefaultVariableType(type, this.projectService) },
     };
   }
 

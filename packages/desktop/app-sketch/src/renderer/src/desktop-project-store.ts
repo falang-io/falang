@@ -24,7 +24,7 @@ import {
   type ValidationModule,
   type ValidationStore,
 } from '@falang/scheme';
-import { createTypescriptValidationModule } from '@falang/typescript-scheme';
+import { createPortableTypesValidationModule, createTypescriptValidationModule } from '@falang/typescript-scheme';
 import type { IAgentDocumentResolver, AgentSession } from '@falang/agent';
 import {
   EVENT_LINK_CLICKED,
@@ -44,6 +44,7 @@ import {
   ALL_SKETCH_DOCUMENT_TYPES,
   buildDefaultSketchDocumentRoot,
   buildSketchDocumentScheme,
+  SKETCH_VALIDATED_DOCUMENT_TYPES,
   createDesktopAgentDocumentResolver,
   createDesktopAgentSession,
   createSketchProjectContainer,
@@ -166,6 +167,7 @@ export class DesktopProjectStore {
   private readonly validationStores = new ObservableMap<string, ValidationStore>();
   private readonly validationPriorityDisposer: IReactionDisposer;
   private readonly createValidation: () => ValidationModule;
+  private readonly createStructureValidation: () => ValidationModule;
   private readonly saveTimers = new Map<string, ReturnType<typeof setTimeout>>();
   private readonly disposeRegistrySync: () => void;
   private readonly disposeFunctionsRegistrySync: () => void;
@@ -178,10 +180,15 @@ export class DesktopProjectStore {
   constructor(
     projectDir: string,
     projectType: string,
-    options: { createValidationModule?: () => ValidationModule } = {},
+    options: {
+      createValidationModule?: () => ValidationModule;
+      createStructureValidationModule?: () => ValidationModule;
+    } = {},
   ) {
     this.projectDir = projectDir;
-    this.createValidation = options.createValidationModule ?? createTypescriptValidationModule;
+    this.createValidation =
+      options.createValidationModule ?? (() => createTypescriptValidationModule({ portableTypes: true }));
+    this.createStructureValidation = options.createStructureValidationModule ?? createPortableTypesValidationModule;
     this.projectType = projectType;
     // The project container (Monaco lib variant for this project type, the documents registry, the TypeScript project
     // service, the light theme) is `@falang/desktop-agent-host`'s `createSketchProjectContainer` — the same function a
@@ -216,6 +223,7 @@ export class DesktopProjectStore {
     // alone (ADR 0036 (private), "Opening a document the agent touches" amendment).
     this.agentSession = createDesktopAgentSession({
       product: 'sketch',
+      portableNumbers: this.projectType === 'logic',
       llmClient: new ElectronLlmClient(),
       store: this,
       documentResolver: this.agentDocumentResolver,
@@ -855,8 +863,8 @@ export class DesktopProjectStore {
     return store ? { errors: store.errorCount, warnings: store.warningCount } : { errors: 0, warnings: 0 };
   }
 
-  private createValidationModule(docId: string): ValidationModule {
-    const module = this.createValidation();
+  private createValidationModule(docId: string, docType: string): ValidationModule {
+    const module = docType === 'function' ? this.createValidation() : this.createStructureValidation();
     this.validationModules.set(docId, module);
     return module;
   }
@@ -881,13 +889,13 @@ export class DesktopProjectStore {
     // `buildSketchDocumentScheme` adds `HistoryModule` to every document type (Edit → Undo/Redo work everywhere); one
     // request from the project's single `AgentSession` (see the `agentSession` field above) is one undo group on
     // whichever agent-capable scheme it touches.
-    // Background validation (ADR 0068 (private)) only for `logic` `function` documents — the builder ignores the module otherwise.
-    const validate = doc.type === 'function' && this.projectType === 'logic';
+    // Background validation (ADR 0068 (private)) for `logic` `function`/structure documents — the builder ignores the module otherwise.
+    const validate = SKETCH_VALIDATED_DOCUMENT_TYPES.has(doc.type) && this.projectType === 'logic';
     const scheme = buildSketchDocumentScheme({
       doc,
       parentContainer: this.container,
       projectType: this.projectType,
-      ...(validate ? { validationModule: this.createValidationModule(doc.id) } : {}),
+      ...(validate ? { validationModule: this.createValidationModule(doc.id, doc.type) } : {}),
     });
     // No types-registry update here, unlike an earlier version: `doc.root`'s reassignment by the sync is itself the MobX
     // trigger the project-wide `disposeTypesRegistrySync` autorun (see the constructor) reacts to — the same "no per-tab

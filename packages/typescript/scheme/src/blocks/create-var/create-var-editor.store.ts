@@ -2,7 +2,7 @@ import type { zod } from '@falang/dto';
 import type { IBlockEditorFactoryParams } from '@falang/scheme';
 import type { createVarDto, variableInfoZod } from '@falang/typescript-dto';
 import { action, computed, makeObservable, observable } from 'mobx';
-import { defaultVariableType } from '../object-property/object-property-editor.store.js';
+import { buildDefaultVariableType } from '../../block-elements/variable-type/variable-type-model.js';
 import { CodeModelStore } from '../../block-elements/code/code-model.store.js';
 import { ExpressionBlockEditorStore } from '../../monaco/scope/expression-block-editor.store.js';
 import { createVarValuePrefix } from '../../field-check/prefix-builders.js';
@@ -27,6 +27,10 @@ export class CreateVarBlockEditorStore extends ExpressionBlockEditorStore<ICreat
     makeObservable(this);
   }
 
+  get typePickerProjectService() {
+    return this.projectService;
+  }
+
   get structTypes() {
     return this.projectService ? [...this.projectService.typesRegistry.types.values()] : [];
   }
@@ -49,8 +53,12 @@ export class CreateVarBlockEditorStore extends ExpressionBlockEditorStore<ICreat
     this.data = { ...this.data, name };
   }
 
+  @action setVariableType(variableType: IVariableType) {
+    this.data = { ...this.data, variableType };
+  }
+
   @action setType(type: IVariableType['type']) {
-    this.data = { ...this.data, variableType: defaultVariableType(type) };
+    this.data = { ...this.data, variableType: buildDefaultVariableType(type, this.projectService) };
   }
 
   @action setArrayElementType(type: IVariableType['type']) {
@@ -58,7 +66,7 @@ export class CreateVarBlockEditorStore extends ExpressionBlockEditorStore<ICreat
     const current = this.data.variableType;
     this.data = {
       ...this.data,
-      variableType: { ...current, elementType: defaultVariableType(type) },
+      variableType: { ...current, elementType: buildDefaultVariableType(type, this.projectService) },
     };
   }
 

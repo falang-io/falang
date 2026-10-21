@@ -3,52 +3,13 @@ import type { zod } from '@falang/dto';
 import { BlockEditorStore, type IBlockEditorFactoryParams } from '@falang/scheme';
 import { action, makeObservable, observable } from 'mobx';
 import type { externalApiItemDto, functionBodyParameterZod, variableInfoZod } from '@falang/typescript-dto';
+import { buildDefaultVariableType } from '../../block-elements/variable-type/variable-type-model.js';
 import { TOKEN_TYPESCRIPT_PROJECT_SERVICE } from '../../typescript-project-service/typescript-project.service.token.js';
 import type { TypescriptProjectService } from '../../typescript-project-service/typescript-project.service.js';
 
 export type IExternalApiItem = zod.infer<typeof externalApiItemDto>;
 export type IExternalApiItemParameter = zod.infer<typeof functionBodyParameterZod>;
 type IVariableType = zod.infer<typeof variableInfoZod>;
-
-/** Duplicated from `function-body-editor.store.ts`/`object-property-editor.store.ts` — same accepted
- * per-block-kind duplication already established for this domain, see ADR 0019 (private) notes. */
-export const defaultVariableType = (type: IVariableType['type']): IVariableType => {
-  switch (type) {
-    case 'string': {
-      return { type: 'string' };
-    }
-    case 'boolean': {
-      return { type: 'boolean' };
-    }
-    case 'number': {
-      return { type: 'number', numberType: { type: 'any' } };
-    }
-    case 'array': {
-      return { type: 'array', elementType: { type: 'string' }, dimensions: 1 };
-    }
-    case 'struct': {
-      return { type: 'struct', id: '' };
-    }
-    case 'enum': {
-      return { type: 'enum', schemeId: '', iconId: '' };
-    }
-    case 'void': {
-      return { type: 'void' };
-    }
-    case 'any': {
-      return { type: 'any' };
-    }
-    case 'never': {
-      return { type: 'never' };
-    }
-    case 'union': {
-      return { type: 'union', unionTypes: [] };
-    }
-    default: {
-      return { type: 'string' };
-    }
-  }
-};
 
 export class ExternalApiItemBlockEditorStore extends BlockEditorStore<IExternalApiItem> {
   @observable data: IExternalApiItem;
@@ -94,10 +55,25 @@ export class ExternalApiItemBlockEditorStore extends BlockEditorStore<IExternalA
     };
   }
 
+  @action setParameterVariableType(index: number, type: IVariableType) {
+    this.data = {
+      ...this.data,
+      parameters: this.data.parameters.map((p, i) => (i === index ? { ...p, type } : p)),
+    };
+  }
+
+  /** `undefined` = no return type. */
+  @action setReturnValueVariableType(returnValue: IVariableType | undefined) {
+    const { returnValue: _old, ...rest } = this.data;
+    this.data = returnValue ? { ...rest, returnValue } : rest;
+  }
+
   @action setParameterType(index: number, type: IVariableType['type']) {
     this.data = {
       ...this.data,
-      parameters: this.data.parameters.map((p, i) => (i === index ? { ...p, type: defaultVariableType(type) } : p)),
+      parameters: this.data.parameters.map((p, i) =>
+        i === index ? { ...p, type: buildDefaultVariableType(type, this.projectService) } : p,
+      ),
     };
   }
 
@@ -108,7 +84,9 @@ export class ExternalApiItemBlockEditorStore extends BlockEditorStore<IExternalA
     this.data = {
       ...this.data,
       parameters: this.data.parameters.map((p, i) =>
-        i === index ? { ...p, type: { ...current, elementType: defaultVariableType(type) } } : p,
+        i === index
+          ? { ...p, type: { ...current, elementType: buildDefaultVariableType(type, this.projectService) } }
+          : p,
       ),
     };
   }
@@ -146,7 +124,7 @@ export class ExternalApiItemBlockEditorStore extends BlockEditorStore<IExternalA
 
   @action setReturnValueType(type: IVariableType['type'] | 'none') {
     const { returnValue: _oldReturnValue, ...rest } = this.data;
-    this.data = type === 'none' ? rest : { ...rest, returnValue: defaultVariableType(type) };
+    this.data = type === 'none' ? rest : { ...rest, returnValue: buildDefaultVariableType(type, this.projectService) };
   }
 
   @action setReturnValueStructId(id: string) {

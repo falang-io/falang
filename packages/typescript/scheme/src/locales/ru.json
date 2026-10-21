@@ -12,5 +12,23 @@
     "arr-insert": "Массив: вставить",
     "arr-slice": "Массив: срез",
     "from-to-cycle": "Цикл (от/до)"
+  },
+  "variable-type": {
+    "type": "тип",
+    "type-form": "Тип",
+    "of": "из",
+    "element-type": "Тип элемента",
+    "struct": "структура",
+    "dim": "изм.",
+    "dimensions": "Размерность",
+    "element-struct": "Структура элемента",
+    "width": "ширина",
+    "digits": "цифр",
+    "decimals": "после запятой"
+  },
+  "portable-types": {
+    "number-any": "Выберите integer, float или decimal — `number` без вида нельзя скомпилировать в C++, Go, Rust и C#.",
+    "any": "Тип `any` нельзя скомпилировать в C++, Go, Rust и C# — выберите конкретный тип.",
+    "enum": "Тип `enum` не поддерживается целями C++, Go, Rust и C# — выберите другой тип."
   }
 }

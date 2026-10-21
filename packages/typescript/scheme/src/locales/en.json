@@ -12,5 +12,23 @@
     "arr-insert": "Array: insert",
     "arr-slice": "Array: slice",
     "from-to-cycle": "For (from/to)"
+  },
+  "variable-type": {
+    "type": "type",
+    "type-form": "Type",
+    "of": "of",
+    "element-type": "Element type",
+    "struct": "struct",
+    "dim": "dim",
+    "dimensions": "Dimensions",
+    "element-struct": "Element struct",
+    "width": "width",
+    "digits": "digits",
+    "decimals": "decimals"
+  },
+  "portable-types": {
+    "number-any": "Choose integer, float or decimal — `number` without a kind can't be compiled to C++, Go, Rust or C#.",
+    "any": "The `any` type can't be compiled to C++, Go, Rust or C# — choose a concrete type.",
+    "enum": "The `enum` type isn't supported by the C++, Go, Rust and C# targets — choose another type."
   }
 }

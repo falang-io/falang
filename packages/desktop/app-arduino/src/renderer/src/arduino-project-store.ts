@@ -189,7 +189,8 @@ export class ArduinoProjectStore {
 
   constructor(projectDir: string, options: { createValidationModule?: () => ValidationModule } = {}) {
     this.projectDir = projectDir;
-    this.createValidation = options.createValidationModule ?? createTypescriptValidationModule;
+    this.createValidation =
+      options.createValidationModule ?? (() => createTypescriptValidationModule({ portableTypes: true }));
     // The project container (portable Monaco lib + the Arduino builtin declarations, the TypeScript project service, the
     // light theme — app-arduino's whole UI is light, see ADR 0020 (private)'s "Implementation notes (light theme for
     // app-arduino …)") is `@falang/desktop-agent-host`'s `createArduinoProjectContainer` — the same function a headless

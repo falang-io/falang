@@ -1,6 +1,8 @@
 import { useService, type IBlockView } from '@falang/scheme';
 import { observer } from 'mobx-react-lite';
 import type { IExternalApiItem, IExternalApiItemParameter } from './external-api-item-editor.store.js';
+import { useNumberTypesMode, viewTypeName } from '../../block-elements/variable-type/use-type-labels.js';
+import type { TNumberTypesMode } from '../../typescript-project-service/typescript-project.service.js';
 import { TypeScriptBlockContainer } from '../../cmp/typescript-block-container.js';
 import { TOKEN_TYPESCRIPT_PROJECT_SERVICE } from '../../typescript-project-service/typescript-project.service.token.js';
 import type { TypesRegistryStore } from '../../typescript-project-service/types-registry.store.js';
@@ -10,26 +12,32 @@ import type { TypesRegistryStore } from '../../typescript-project-service/types-
  * per this package's existing per-block-kind duplication convention (see
  * `external-api-item-editor.store.ts`'s `defaultVariableType` comment for the established precedent).
  */
-const formatParamType = (param: IExternalApiItemParameter, getStructName: (id: string) => string): string => {
+const formatParamType = (
+  param: IExternalApiItemParameter,
+  getStructName: (id: string) => string,
+  mode: TNumberTypesMode,
+): string => {
   const t = param.type;
   if (t.type === 'array') {
-    const elemLabel = t.elementType.type === 'struct' ? getStructName(t.elementType.id) : t.elementType.type;
+    const elemLabel =
+      t.elementType.type === 'struct' ? getStructName(t.elementType.id) : viewTypeName(t.elementType, mode);
     const dimLabel = t.dimensions > 1 ? `[${t.dimensions}]` : '';
     return `${elemLabel}[]${dimLabel}`;
   }
   if (t.type === 'struct') {
     return getStructName(t.id) || t.id || 'struct';
   }
-  return t.type;
+  return viewTypeName(t, mode);
 };
 
 const formatReturnLabel = (
   returnValue: IExternalApiItem['returnValue'],
   getStructName: (id: string) => string,
+  mode: TNumberTypesMode,
 ): string => {
   if (!returnValue) return 'void';
   if (returnValue.type === 'struct') return getStructName(returnValue.id) || returnValue.id || 'struct';
-  return returnValue.type;
+  return viewTypeName(returnValue, mode);
 };
 
 /**
@@ -50,11 +58,12 @@ export const ExternalApiItemBlockComponent: IBlockView<IExternalApiItem> = obser
     // service not registered
   }
 
+  const mode = useNumberTypesMode();
   const getStructName = (id: string): string => typesRegistry?.types.get(id)?.name ?? id;
 
   if (!data) return <div>&nbsp;</div>;
 
-  const returnLabel = formatReturnLabel(data.returnValue, getStructName);
+  const returnLabel = formatReturnLabel(data.returnValue, getStructName, mode);
 
   return (
     <TypeScriptBlockContainer>
@@ -79,7 +88,7 @@ export const ExternalApiItemBlockComponent: IBlockView<IExternalApiItem> = obser
                 <div className="ts-input-value">{param.name || <>&nbsp;</>}</div>
               </td>
               <td>
-                <div className="ts-label">{formatParamType(param, getStructName)}</div>
+                <div className="ts-label">{formatParamType(param, getStructName, mode)}</div>
               </td>
             </tr>
           ))}
