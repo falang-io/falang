@@ -7,6 +7,7 @@ import { TypeScriptBlockContainer } from '../../cmp/typescript-block-container.j
 import { TOKEN_TYPESCRIPT_PROJECT_SERVICE } from '../../typescript-project-service/typescript-project.service.token.js';
 import type { TypesRegistryStore } from '../../typescript-project-service/types-registry.store.js';
 import { CodeViewComponent } from '../../block-elements/code/code.view.cmp.js';
+import { StringValueViewComponent } from '../../block-elements/template-string/string-value-view.cmp.js';
 
 export const CreateVarBlockComponent: IBlockView<ICreateVar> = observer(({ data }) => {
   let typesRegistry: TypesRegistryStore | null = null;
@@ -76,7 +77,11 @@ export const CreateVarBlockComponent: IBlockView<ICreateVar> = observer(({ data 
                 <div className="ts-label">value</div>
               </td>
               <td>
-                <CodeViewComponent value={value} />
+                {variableType.type === 'string' ? (
+                  <StringValueViewComponent value={value} />
+                ) : (
+                  <CodeViewComponent value={value} />
+                )}
               </td>
             </tr>
           )}
