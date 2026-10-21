@@ -10,6 +10,7 @@ import { splitLogSegments } from './log-template.js';
 import { resolveArrayElementType } from './resolve-expression-number-type.js';
 import type { ISharpStatementContext } from './sharp-statement-context.js';
 import { sharpApiFieldName } from './emit-sharp-api-declarations.js';
+import { lowerIncrementStatement } from './increment-statement.js';
 
 interface ICreateVarData {
   readonly name: string;
@@ -32,7 +33,7 @@ export const emitCreateVar = (node: INode, ctx: ISharpStatementContext): string 
 };
 
 export const emitAction = (node: INode, ctx: ISharpStatementContext): string => {
-  const raw = ((node.data as string | undefined) ?? '').trim().replace(/;$/, '');
+  const raw = lowerIncrementStatement(((node.data as string | undefined) ?? '').trim().replace(/;$/, ''));
   if (raw === '') return '';
   return `${compileSharpExpr(raw, ctx, node.id)};`;
 };

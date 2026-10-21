@@ -9,6 +9,7 @@ import { resolveArrayElementType, resolveExpressionNumberType } from './resolve-
 import { splitLogSegments } from './log-template.js';
 import type { ICppStatementContext } from './cpp-statement-context.js';
 import { cppApiGlobalName } from './emit-cpp-api-declarations.js';
+import { lowerIncrementStatement } from './increment-statement.js';
 
 interface ICreateVarData {
   readonly name: string;
@@ -30,7 +31,7 @@ export const emitCreateVar = (node: INode, ctx: ICppStatementContext): string =>
 };
 
 export const emitAction = (node: INode, ctx: ICppStatementContext): string => {
-  const raw = ((node.data as string | undefined) ?? '').trim().replace(/;$/, '');
+  const raw = lowerIncrementStatement(((node.data as string | undefined) ?? '').trim().replace(/;$/, ''));
   if (raw === '') return '';
   return `${compileExpr(raw, ctx, node.id)};`;
 };

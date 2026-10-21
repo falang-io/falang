@@ -9,8 +9,13 @@ describe('arduinoAdapter', () => {
     );
   });
 
-  it('falls back to cppAdapter for a call not in the Arduino whitelist (e.g. Math.pow)', () => {
-    expect(arduinoAdapter.emitCall({ qualifiedCalleeText: 'Math.pow', argCodes: ['2', '3'] })).toBe('std::pow(2, 3)');
+  it('maps Math.* to the plain C / Arduino-core names (std:: overloads do not exist on AVR)', () => {
+    expect(arduinoAdapter.emitCall({ qualifiedCalleeText: 'Math.pow', argCodes: ['2', '3'] })).toBe('pow(2, 3)');
+    expect(arduinoAdapter.emitCall({ qualifiedCalleeText: 'Math.abs', argCodes: ['x'] })).toBe('abs(x)');
+    expect(arduinoAdapter.emitCall({ qualifiedCalleeText: 'Math.min', argCodes: ['a', 'b'] })).toBe('min(a, b)');
+    expect(arduinoAdapter.emitCall({ qualifiedCalleeText: 'Math.random', argCodes: [] })).toBe(
+      '((double)random(2147483647L) / 2147483647.0)',
+    );
   });
 
   it('throws for a call in neither whitelist', () => {

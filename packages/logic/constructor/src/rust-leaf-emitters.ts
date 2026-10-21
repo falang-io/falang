@@ -11,6 +11,7 @@ import { splitLogSegments } from './log-template.js';
 import { resolveRustArrayType, type IRustStatementContext } from './rust-statement-context.js';
 import { rustApiMethodName } from './emit-rust-api-declarations.js';
 import { toOwnedRustValue, toRustArgValue } from './rust-value.js';
+import { lowerIncrementStatement } from './increment-statement.js';
 
 interface ICreateVarData {
   readonly name: string;
@@ -52,7 +53,7 @@ export const emitCreateVar = (node: INode, ctx: IRustStatementContext): string =
 };
 
 export const emitAction = (node: INode, ctx: IRustStatementContext): string => {
-  const raw = ((node.data as string | undefined) ?? '').trim().replace(/;$/, '');
+  const raw = lowerIncrementStatement(((node.data as string | undefined) ?? '').trim().replace(/;$/, ''));
   if (raw === '') return '';
   return `${compileRustExpr(raw, ctx, node.id)};`;
 };

@@ -1,6 +1,24 @@
 import { cppAdapter, type ILanguageAdapter } from '@falang/logic-constructor';
 import { ARDUINO_CALL_MAP, type TArduinoCallEmitter } from '@falang/desktop-arduino-dto';
 
+/**
+ * `Math.*` for Arduino cores. `cppAdapter`'s `std::abs`/`std::min`/`std::round`/… don't compile on AVR: avr-libc has
+ * no `<cmath>` `std::` overloads, and `Arduino.h` defines `abs`, `min`, `max` and `round` as macros, so even
+ * `std::abs(x)` expands into a syntax error. The plain C names work on every core (AVR macros, ESP32 `<math.h>`/`std`
+ * imports); `Math.random` uses the core's `random(max)`.
+ */
+const ARDUINO_MATH_CALL_MAP: Readonly<Record<string, TArduinoCallEmitter>> = {
+  'Math.abs': (args) => `abs(${args.join(', ')})`,
+  'Math.min': (args) => `min(${args.join(', ')})`,
+  'Math.max': (args) => `max(${args.join(', ')})`,
+  'Math.pow': (args) => `pow(${args.join(', ')})`,
+  'Math.sqrt': (args) => `sqrt(${args.join(', ')})`,
+  'Math.floor': (args) => `floor(${args.join(', ')})`,
+  'Math.ceil': (args) => `ceil(${args.join(', ')})`,
+  'Math.round': (args) => `round(${args.join(', ')})`,
+  'Math.random': () => '((double)random(2147483647L) / 2147483647.0)',
+};
+
 const passthroughCall =
   (name: string): TArduinoCallEmitter =>
   (args) =>
@@ -10,7 +28,7 @@ const passthroughCall =
  * A cpp-family adapter — Arduino sketches compile with `avr-g++`/`xtensa-esp32-elf-g++`, so every
  * operator/property/element-access mapping `cppAdapter` already established applies unchanged.
  * Layers an Arduino builtin-call whitelist (`pinMode`/`digitalWrite`/`Serial.*`/…) on top, falling
- * back to `cppAdapter.emitCall` for anything else (`Math.*` keeps working for free). `target` stays
+ * back to `cppAdapter.emitCall` for anything else; `Math.*` has its own Arduino table (`ARDUINO_MATH_CALL_MAP`). `target` stays
  * `'cpp'` (inherited from the spread) — `@falang/logic-constructor` deliberately never learns the
  * word "Arduino" (see ADR 0020 (private)), so there's no `'arduino'` `TExportLanguage` value to
  * set it to; this adapter lives entirely in this app instead.
@@ -30,7 +48,10 @@ export const buildArduinoAdapter = (extraCallNames: readonly string[] = []): ILa
   return {
     ...cppAdapter,
     emitCall: (params) => {
-      const emit = ARDUINO_CALL_MAP[params.qualifiedCalleeText] ?? extraCallMap[params.qualifiedCalleeText];
+      const emit =
+        ARDUINO_CALL_MAP[params.qualifiedCalleeText] ??
+        ARDUINO_MATH_CALL_MAP[params.qualifiedCalleeText] ??
+        extraCallMap[params.qualifiedCalleeText];
       return emit ? emit(params.argCodes) : cppAdapter.emitCall(params);
     },
     // Overrides `cppAdapter`'s own `<sstream>`-based `std::ostringstream` implementation: AVR/ESP32

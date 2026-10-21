@@ -11,6 +11,7 @@ import { castToDeclaredNumber } from './go-numeric-cast.js';
 import { splitLogSegments } from './log-template.js';
 import type { IGoStatementContext } from './go-statement-context.js';
 import { goApiGlobalName } from './emit-go-api-declarations.js';
+import { lowerIncrementStatement } from './increment-statement.js';
 
 interface ICreateVarData {
   readonly name: string;
@@ -32,7 +33,7 @@ export const emitCreateVar = (node: INode, ctx: IGoStatementContext): string => 
 };
 
 export const emitAction = (node: INode, ctx: IGoStatementContext): string => {
-  const raw = ((node.data as string | undefined) ?? '').trim().replace(/;$/, '');
+  const raw = lowerIncrementStatement(((node.data as string | undefined) ?? '').trim().replace(/;$/, ''));
   if (raw === '') return '';
   return `${compileGoExpr(raw, ctx, node.id)};`;
 };

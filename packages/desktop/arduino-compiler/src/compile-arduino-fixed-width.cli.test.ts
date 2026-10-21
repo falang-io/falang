@@ -74,4 +74,45 @@ describe('Arduino sketch with fixed-width integers (ADR 0069 (private))', () => 
       await rm(dir, { recursive: true, force: true });
     }
   });
+  it('compiles Math.* calls, increments and compound assignments for an Uno', async () => {
+    const setup = functionDocument('doc-setup', 'setup', [{ id: 's1', name: 'action', data: 'Serial.begin(9600)' }]);
+    const floatType = { type: 'number', numberType: { type: 'float', floatType: 'float32' } };
+    const loop = functionDocument('doc-loop', 'loop', [
+      createVar('v1', 'x', 'int32', '0'),
+      { id: 'a1', name: 'action', data: 'x--' },
+      { id: 'a2', name: 'action', data: '++x' },
+      { id: 'a3', name: 'action', data: 'x += 5' },
+      { id: 'a4', name: 'action', data: 'x *= 2' },
+      createVar('v2', 'm', 'int32', 'Math.abs(x) % 2 + Math.min(x, 3) + Math.max(x, 1)'),
+      {
+        id: 'v3',
+        name: 'create-var',
+        data: {
+          name: 'r',
+          variableType: floatType,
+          value: 'Math.sqrt(16) + Math.pow(2, 3) + Math.floor(1.5) + Math.ceil(1.5) + Math.round(2.4) + Math.random()',
+        },
+      },
+      { id: 'a5', name: 'action', data: 'Serial.println(m)' },
+      { id: 'a6', name: 'action', data: 'Serial.println(r)' },
+    ]);
+    const { code } = compileArduinoProject({ documents: [setup, loop] });
+
+    expect(code).not.toContain('std::');
+    expect(code).toContain('x = x - 1;');
+    expect(code).toContain('x = x + (5);');
+
+    const cli = await checkArduinoCli();
+    if (!cli.available) return;
+    const dir = await mkdtemp(join(tmpdir(), 'falang-arduino-math-'));
+    try {
+      const sketchDir = await writeSketchFiles(dir, 'sketch', code, []);
+      const result = await compileSketch({ fqbn: 'arduino:avr:uno', sketchDir });
+      if (!result.ok && /platform not installed|Unknown FQBN|No such core/iu.test(result.output)) return;
+      expect(result.output).toContain('Sketch uses');
+      expect(result.ok).toBe(true);
+    } finally {
+      await rm(dir, { recursive: true, force: true });
+    }
+  });
 });

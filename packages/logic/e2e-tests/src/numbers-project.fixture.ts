@@ -132,6 +132,14 @@ export const NUMBERS_PROJECT_DOCUMENTS: readonly IProjectDocument[] = [
       callFunction('c1', DOC.half, ['-7'], 'half'),
       callFunction('c2', DOC.mix, ['200', '1000'], 'mixed'),
       log('l10', 'half=${half} mixed=${mixed}'),
+      // 9. increment / decrement / compound-assignment statements (lowered to `x = x + 1` outside TS)
+      action('i1x', 'e++'),
+      action('i2x', '--n1'),
+      action('i3x', 'ctr.small--'),
+      action('i4x', 'arr[0]++'),
+      action('i5x', 'total += 5'),
+      action('i6x', 'n6 *= 2'),
+      log('l11', 'e=${e} n1=${n1} small=${ctr.small} arr0=${arr[0]} total=${total} n6=${n6}'),
     ],
   }),
 ];
@@ -141,7 +149,7 @@ export const NUMBERS_PROJECT_DOCUMENTS: readonly IProjectDocument[] = [
  * 4000000000+10000000000 = 14000000000; -70000*2 = -140000. -70000/300 = -233 (rem -100); -300/7 = -42 (rem -6);
  * 60000/7 = 8571 (rem 3); -5000000000/3 = -1666666666 (rem -2); 10000000000/7 = 1428571428 (rem 4). 7.9 -> 7,
  * -2.5*3 = -7.5 -> -7, 7.9*2 = 15.8 -> 15. 250-50 = 200, -100+50 = -50, 250-100 = 150, 150/4 = 37. 255-5 = 250.
- * 10+20+30 = 60. -7/2 = -3. 200+1000 = 1200.
+ * 10+20+30 = 60. -7/2 = -3. 200+1000 = 1200. -70000+1 = -69999, 150-1 = 149, 250-1 = 249, 10+1 = 11, 60+5 = 65, 37*2 = 74.
  */
 export const NUMBERS_EXPECTED_RESULT_LINES = [
   'a=100 b=200 c=-300 d=60000 e=-70000 f=4000000000 g=-5000000000 h=10000000000',
@@ -154,4 +162,5 @@ export const NUMBERS_EXPECTED_RESULT_LINES = [
   'small=250 big=9000000000000000000 delta=-12345',
   'total=60 second=20 count=3',
   'half=-3 mixed=1200',
+  'e=-69999 n1=149 small=249 arr0=11 total=65 n6=74',
 ];
