@@ -1,6 +1,7 @@
 // oxlint-disable no-undefined
 import { describe, expect, it } from 'vitest';
-import { describeVariableType, describeVariableTypeForMode } from './describe-variable-type.js';
+import { describeVariableType } from '@falang/typescript-dto';
+import { describeVariableTypeForMode } from './describe-variable-type.js';
 import { buildDefaultVariableType, choiceOf, getTypeChoices } from './variable-type-model.js';
 
 const int32 = { type: 'number', numberType: { type: 'integer', integerType: 'int32' } } as const;
