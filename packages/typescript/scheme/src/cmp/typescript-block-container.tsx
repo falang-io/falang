@@ -76,19 +76,20 @@ const TypescriptContainerDiv = styled.div`
     border-bottom: none;
   }
   /*
-   * Opt-in modifier for rows holding a monaco-backed field (see expression-editor-cell.cmp.tsx).
-   * Monaco's editing container renders at width: calc(100% + 20px), which — under the default
-   * table-layout: auto — feeds back into the cell's own auto-computed width and grows the table
-   * without bound on every keystroke. Fixing the layout and pinning the label column breaks that
-   * feedback loop; the value cell clips monaco's intentional 20px overscan instead of growing.
+   * Opt-in modifier for editor tables holding a monaco-backed field (see expression-editor-cell.cmp.tsx).
+   * Monaco's editing container renders at width: calc(100% + 20px), which — if the value cell's
+   * content counted towards its auto-computed width — would grow the table without bound on every
+   * keystroke. The value cell takes all the remaining width and max-width: 0 keeps its content out of
+   * the column-width computation, so it clips monaco's intentional 20px overscan instead of growing;
+   * the label column stays sized by its text, exactly as in the read-only view (a pinned label width
+   * made longer labels run over the field).
    */
-  table.ts-table--fixed {
-    table-layout: fixed;
-  }
   table.ts-table--fixed td:first-child {
-    width: 56px;
+    white-space: nowrap;
   }
   table.ts-table--fixed td:last-child {
+    width: 100%;
+    max-width: 0;
     overflow: hidden;
   }
   .ts-select-wrapper {
