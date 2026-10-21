@@ -99,10 +99,20 @@ void lcd_parallel_init(uint8_t rs, uint8_t en, uint8_t d4, uint8_t d5, uint8_t d
   ensureInitialized();
 }
 
-void lcd_parallel_print_text(uint8_t col, uint8_t row, const char* text) {
+constexpr int kColumns = 16;
+
+void lcd_parallel_print_text(int col, uint8_t row, const char* text) {
   ensureInitialized();
+  // Clipped to the visible 16 columns instead of wrapping: a negative column skips the text's first
+  // characters (scrolling text leaving on the left), nothing is written past column 15 (otherwise the
+  // controller keeps going into its invisible 40-character line and then onto the other row).
+  while (col < 0 && *text != '\0') {
+    text++;
+    col++;
+  }
+  if (col < 0 || col >= kColumns || *text == '\0') return;
   const uint8_t rowOffsets[2] = {0x00, 0x40};
   uint8_t clampedRow = row > 1 ? 1 : row;
-  command(0x80 | ((col + rowOffsets[clampedRow]) & 0x7F));
-  for (const char* p = text; *p != '\0'; p++) data((uint8_t)*p);
+  command(0x80 | (col + rowOffsets[clampedRow]));
+  for (; col < kColumns && *text != '\0'; col++, text++) data((uint8_t)*text);
 }

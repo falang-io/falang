@@ -18,7 +18,8 @@
  * duplicate-symbol clash, in case a project uses both an I2C and a parallel LCD1602 at once.
  */
 void lcd_parallel_clear();
-void lcd_parallel_print_text(uint8_t col, uint8_t row, const char* text);
+/** `col` may be negative or past 15: the text is clipped to the visible columns (a negative column skips its first characters). */
+void lcd_parallel_print_text(int col, uint8_t row, const char* text);
 
 /**
  * The built-in device entry point (ADR 0032 (private), "Decision

@@ -15,7 +15,8 @@
  * `kDefaultAddress`). This mirrors `driver.config.json`'s `device.fields`, which owns the address now.
  */
 void lcd_clear();
-void lcd_print_text(uint8_t col, uint8_t row, const char* text);
+/** `col` may be negative or past 15: the text is clipped to the visible columns (a negative column skips its first characters). */
+void lcd_print_text(int col, uint8_t row, const char* text);
 
 /**
  * The first built-in device (ADR 0032 (private), "Decision →

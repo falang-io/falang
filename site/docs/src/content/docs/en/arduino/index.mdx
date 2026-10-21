@@ -97,8 +97,10 @@ head:
   </li>
   <li>
     <b>LCD1602 (I2C)</b> and <b>LCD1602 (Parallel)</b> — <i>Clear display</i>, <i>Print text</i> (column, row and text;
-    the text can include expressions as <code>{'${…}'}</code>). Add the display in the <code>Devices</code> document so
-    it is initialized at startup.
+    the text can include expressions as <code>{'${…}'}</code>). The column is a numeric expression, e.g. a variable: the
+    text is clipped to the screen, a negative column skips its first characters (<code>-1</code> starts with the second
+    one), so scrolling text is a loop over the column from <code>15</code> down to minus the text length. Add the
+    display in the <code>Devices</code> document so it is initialized at startup.
   </li>
   <li>
     <b>Addressable RGB strip (WS2812/NeoPixel)</b> — <i>Set pixel color</i> and <i>Show</i> (push the colors to the
