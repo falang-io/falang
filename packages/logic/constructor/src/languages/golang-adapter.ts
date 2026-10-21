@@ -1,7 +1,8 @@
+import type { TNumberTypeDetail } from '@falang/typescript-dto';
 import type { ILanguageAdapter } from '../language-adapter.js';
 import { UnsupportedConstructError } from '../language-adapter.js';
 import { isArrayLikeType, isStringLikeType } from '../type-utils.js';
-import { widthOf } from '../numeric-coercion.js';
+import { needsNumericCast, widthOf } from '../numeric-coercion.js';
 import { variableInfoToGoType } from '../golang-type-name.js';
 
 /** `castNumericOperand` never needs struct/array names — it only ever renders a numeric type. */
@@ -121,7 +122,12 @@ export const golangAdapter: ILanguageAdapter = {
 
   // Go copies by value on plain assignment already (a string/struct value assignment is a full copy)
   // — no ownership conversion needed, unlike Rust's `emitAssignment`.
-  emitAssignment: ({ leftCode, rightCode }) => `${leftCode} = ${rightCode}`,
+  // A number of a different width/kind than the target (a promoted `int16`, a `float64` into an `int32`) needs an
+  // explicit conversion — Go converts nothing implicitly.
+  emitAssignment: ({ leftCode, rightCode, leftNumberType, rightVariableInfo }) =>
+    rightVariableInfo?.type === 'number' && needsNumericCast(rightVariableInfo.numberType, leftNumberType)
+      ? `${leftCode} = ${variableInfoToGoType({ type: 'number', numberType: leftNumberType as TNumberTypeDetail }, NO_STRUCT_NAMES)}(${rightCode})`
+      : `${leftCode} = ${rightCode}`,
 
   // The actual fix for the ADR's numeric-coercion follow-up: Go has no implicit conversion between
   // distinct numeric types at all (unlike C++'s "usual arithmetic conversions"), so a binary operator
@@ -129,7 +135,9 @@ export const golangAdapter: ILanguageAdapter = {
   // operand — `walk-expression.ts`'s binary-expression branch already resolved `to` as the wider of
   // the two via `promoteNumberType`, so this only has to render the conversion syntax.
   castNumericOperand: (code, from, to) =>
-    widthOf(from) === widthOf(to) ? code : `${variableInfoToGoType({ type: 'number', numberType: to }, NO_STRUCT_NAMES)}(${code})`,
+    widthOf(from) === widthOf(to)
+      ? code
+      : `${variableInfoToGoType({ type: 'number', numberType: to }, NO_STRUCT_NAMES)}(${code})`,
 
   // Same `fmt.Sprint`-per-segment posture as `emitLog` (see its own doc comment) — the only
   // difference is `+`-joining the pieces into a `string` *value* here instead of handing them to

@@ -13,6 +13,7 @@ import { golangAdapter } from './languages/golang-adapter.js';
 import { rustAdapter } from './languages/rust-adapter.js';
 import { sharpAdapter } from './languages/sharp-adapter.js';
 import type { IStructDefinition } from './struct-definition.js';
+import { applyTsIntegerSemantics, createTsNumericContext } from './ts-integer-semantics.js';
 
 export interface ICompileExpressionParams {
   readonly expression: string;
@@ -27,6 +28,8 @@ export interface ICompileExpressionParams {
    * ("`compileExpression` has no type registry of its own yet to emit struct bodies").
    */
   readonly structDefinitions?: ReadonlyMap<string, IStructDefinition>;
+  /** `ts`/`js` only: the declared type of the store this expression flows into, for the float-into-integer truncation (ADR 0069 (private) §3). */
+  readonly targetType?: TVariableInfo;
 }
 
 export interface ICompileExpressionSuccess {
@@ -242,6 +245,7 @@ export const compileExpression = ({
   target,
   structNames = new Map(),
   structDefinitions = new Map(),
+  targetType,
 }: ICompileExpressionParams): TCompileExpressionResult => {
   if (!IMPLEMENTED_LANGUAGES.includes(target)) {
     throw new Error(
@@ -251,12 +255,21 @@ export const compileExpression = ({
 
   if (target === 'ts' || target === 'js') {
     const fileText = buildVirtualFileText(expression, scope, structNames, structDefinitions);
-    const { program } = createCheckedProgram(fileText);
+    const { program, sourceFile } = createCheckedProgram(fileText);
     const diagnostics = getDiagnosticMessages(program);
     if (diagnostics.length > 0) {
       return { ok: false, diagnostics };
     }
-    return { ok: true, code: target === 'ts' ? emitTs(expression) : emitJs(expression) };
+    const exprStart = fileText.length - '\n);\n'.length - expression.length;
+    const rewritten = applyTsIntegerSemantics(
+      expression,
+      findExprInitializer(sourceFile),
+      exprStart,
+      sourceFile,
+      createTsNumericContext({ scope, structDefinitions }),
+      targetType,
+    );
+    return { ok: true, code: target === 'ts' ? emitTs(rewritten) : emitJs(rewritten) };
   }
 
   const adapter = LANGUAGE_ADAPTERS[target];

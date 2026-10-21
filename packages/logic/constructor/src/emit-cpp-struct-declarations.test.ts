@@ -10,7 +10,9 @@ describe('emitCppStructDeclarations', () => {
       ['obj-a', { name: 'ObjA', properties: { x: { type: 'number', numberType: int32 } } }],
     ]);
 
-    expect(emitCppStructDeclarations(definitions, new Map([['obj-a', 'ObjA']]))).toBe('struct ObjA {\n  int x;\n};');
+    expect(emitCppStructDeclarations(definitions, new Map([['obj-a', 'ObjA']]))).toBe(
+      'struct ObjA {\n  int32_t x;\n};',
+    );
   });
 
   it('declares a struct nested by value after the struct it depends on, regardless of registry insertion order', () => {

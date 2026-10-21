@@ -76,6 +76,8 @@ export interface ITemplateLiteralSegment {
   readonly isExpr: boolean;
   /** Raw literal text (unescaped) when `isExpr` is `false`; the already-compiled target-language expression code when `isExpr` is `true`. */
   readonly text: string;
+  /** The DSL number type of an interpolated expression, when resolvable (`isExpr` only) — C++ prints an 8-bit integer as a character unless cast. */
+  readonly numberType?: TNumberTypeDetail;
 }
 
 export interface IEmitTemplateLiteralParams {
@@ -131,6 +133,11 @@ export interface ILanguageAdapter {
    * (or, for cpp/sharp, return `code` unchanged, since both already do this widening for free).
    */
   castNumericOperand(code: string, from: TNumberTypeDetail, to: TNumberTypeDetail): string;
+  /**
+   * Rust only: an integer-looking literal next to a float operand (`x * 3` with a float `x`) is a type error there
+   * (`{integer}` is never a float), so the literal is cast to the float's width via `castNumericOperand`.
+   */
+  readonly castsIntegerLiteralInFloatOperation?: boolean;
   /**
    * Emits a TS array literal (`[a, b, c]`) — optional because it was only ever needed by one real
    * fixture (the user's own `example-snake` project's `state.snake.body = [newSnakePoint]`, see

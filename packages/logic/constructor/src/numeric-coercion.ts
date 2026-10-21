@@ -1,21 +1,32 @@
 import ts from 'typescript';
-import type { TNumberTypeDetail, TVariableInfo } from '@falang/typescript-dto';
+import type { TFloatType, TIntegerType, TNumberTypeDetail, TVariableInfo } from '@falang/typescript-dto';
 import type { IStructDefinition } from './struct-definition.js';
 
 export interface INumericTypeContext {
   readonly scope: Readonly<Record<string, TVariableInfo>>;
   readonly structDefinitions: ReadonlyMap<string, IStructDefinition>;
+  /**
+   * Also resolve numeric literals (ADR 0069 (private) §3; a `call-function` result is already a typed scope variable). Off for the
+   * Go/Rust/C#/C++ adapters, whose operand casts must stay exactly as they were (an untyped literal
+   * never needs a cast there); on for the TS/JS integer-semantics rewrite.
+   */
+  readonly resolveLiterals?: boolean;
 }
 
-type TNumberWidth = 'int8' | 'int16' | 'int32' | 'int64' | 'float32' | 'float64';
+type TNumberWidth = TIntegerType | TFloatType;
 
+/** `int8 < uint8 < int16 < uint16 < int32 < uint32 < int64 < uint64 < float32 < float64` (ADR 0069 (private) §2). */
 const WIDTH_RANK: Readonly<Record<TNumberWidth, number>> = {
   int8: 0,
-  int16: 1,
-  int32: 2,
-  int64: 3,
-  float32: 4,
-  float64: 5,
+  uint8: 1,
+  int16: 2,
+  uint16: 3,
+  int32: 4,
+  uint32: 5,
+  int64: 6,
+  uint64: 7,
+  float32: 8,
+  float64: 9,
 };
 
 /**
@@ -42,6 +53,18 @@ export const promoteNumberType = (a: TNumberTypeDetail, b: TNumberTypeDetail): T
   const bWidth = widthOf(b);
   if (!aWidth || !bWidth) return;
   return WIDTH_RANK[aWidth] >= WIDTH_RANK[bWidth] ? a : b;
+};
+
+/** `int8`/`uint8` — C++ iostream treats these as characters. */
+export const isEightBitInteger = (detail: TNumberTypeDetail | undefined): boolean =>
+  detail?.type === 'integer' && (detail.integerType === 'int8' || detail.integerType === 'uint8');
+
+/** Whether a value of number type `from` needs an explicit conversion to be stored into `to` in Go/Rust — only when both widths are known and differ. */
+export const needsNumericCast = (from: TNumberTypeDetail | undefined, to: TNumberTypeDetail | undefined): boolean => {
+  if (!from || !to) return false;
+  const fromWidth = widthOf(from);
+  const toWidth = widthOf(to);
+  return Boolean(fromWidth && toWidth && fromWidth !== toWidth);
 };
 
 const ARITHMETIC_OPERATORS: ReadonlySet<string> = new Set(['+', '-', '*', '/', '%']);
@@ -103,7 +126,45 @@ const resolveArithmeticBinaryInfo = (
  * yet" posture as every other still-open gap this ADR tracks; callers treat `undefined` as "leave this
  * operand alone" rather than guessing at a cast.
  */
+const INT32_INFO: TVariableInfo = { type: 'number', numberType: { type: 'integer', integerType: 'int32' } };
+const FLOAT64_INFO: TVariableInfo = { type: 'number', numberType: { type: 'float', floatType: 'float64' } };
+
+/** An integer-looking literal takes the other operand's type (decided by the caller); a literal with a point or exponent is `float64`. */
+const resolveLiteralInfo = (node: ts.NumericLiteral): TVariableInfo =>
+  /^[0-9]+$/.test(node.getText()) ? INT32_INFO : FLOAT64_INFO;
+
+const isLiteralLike = (node: ts.Expression): boolean => {
+  if (ts.isParenthesizedExpression(node)) return isLiteralLike(node.expression);
+  if (ts.isNumericLiteral(node)) return /^[0-9]+$/.test(node.getText());
+  if (ts.isPrefixUnaryExpression(node) && node.operator === ts.SyntaxKind.MinusToken)
+    return isLiteralLike(node.operand);
+  return false;
+};
+
+/** With `resolveLiterals` on, an integer-looking literal operand adopts the other operand's number type (so `a / 2` is an integer division when `a` is an integer). */
+const resolveLiteralAwareBinaryInfo = (
+  node: ts.BinaryExpression,
+  context: INumericTypeContext,
+  resolve: TResolveVariableInfo,
+): TVariableInfo | undefined => {
+  const operatorText = ts.tokenToString(node.operatorToken.kind);
+  if (!operatorText || !ARITHMETIC_OPERATORS.has(operatorText)) return;
+  const leftIsLiteral = isLiteralLike(node.left);
+  const rightIsLiteral = isLiteralLike(node.right);
+  const leftInfo = resolve(node.left, context);
+  const rightInfo = resolve(node.right, context);
+  if (leftInfo?.type !== 'number' || rightInfo?.type !== 'number') return;
+  if (leftIsLiteral && !rightIsLiteral) return rightInfo;
+  if (rightIsLiteral && !leftIsLiteral) return leftInfo;
+  const promoted = promoteNumberType(leftInfo.numberType, rightInfo.numberType);
+  if (promoted) return { type: 'number', numberType: promoted };
+};
+
 export const resolveVariableInfo: TResolveVariableInfo = (node, context) => {
+  if (context.resolveLiterals) {
+    if (ts.isNumericLiteral(node)) return resolveLiteralInfo(node);
+    if (ts.isBinaryExpression(node)) return resolveLiteralAwareBinaryInfo(node, context, resolveVariableInfo);
+  }
   if (ts.isParenthesizedExpression(node)) return resolveVariableInfo(node.expression, context);
   if (ts.isIdentifier(node)) return context.scope[node.text];
   if (ts.isPropertyAccessExpression(node)) return resolvePropertyAccessInfo(node, context, resolveVariableInfo);

@@ -7,6 +7,7 @@ import { golangAdapter } from './languages/golang-adapter.js';
 import { NodeCompileError } from './node-compile-error.js';
 import { outLevelOf } from './cycle-info.js';
 import { widthOf } from './numeric-coercion.js';
+import { castToDeclaredNumber } from './go-numeric-cast.js';
 import { splitLogSegments } from './log-template.js';
 import type { IGoStatementContext } from './go-statement-context.js';
 import { goApiGlobalName } from './emit-go-api-declarations.js';
@@ -20,7 +21,10 @@ interface ICreateVarData {
 export const emitCreateVar = (node: INode, ctx: IGoStatementContext): string => {
   const data = node.data as ICreateVarData;
   const goType = variableInfoToGoType(data.variableType, ctx.params.structNames);
-  if (data.value?.trim()) return `var ${data.name} ${goType} = ${compileGoExpr(data.value, ctx, node.id)};`;
+  if (data.value?.trim()) {
+    const code = compileGoExpr(data.value, ctx, node.id);
+    return `var ${data.name} ${goType} = ${castToDeclaredNumber(code, data.value, data.variableType, goType, ctx)};`;
+  }
   // `var name Type` (no `:=`, which always requires an initializer) — Go zero-values every field
   // automatically (numeric 0, empty string, false, nil slice, recursively-zeroed struct), matching
   // `emitCreateVar`'s cpp analogue's "never left as uninitialized garbage" intent for free.

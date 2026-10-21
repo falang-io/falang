@@ -12,7 +12,7 @@ describe('variableInfoToCppType', () => {
   it('renders integer/float number types', () => {
     expect(
       variableInfoToCppType({ type: 'number', numberType: { type: 'integer', integerType: 'int32' } }, new Map()),
-    ).toBe('int');
+    ).toBe('int32_t');
     expect(
       variableInfoToCppType({ type: 'number', numberType: { type: 'integer', integerType: 'int64' } }, new Map()),
     ).toBe('int64_t');
@@ -23,9 +23,11 @@ describe('variableInfoToCppType', () => {
 
   it('renders an array wrapped in std::vector, honoring dimensions', () => {
     const elementType: TVariableInfo = { type: 'number', numberType: { type: 'integer', integerType: 'int32' } };
-    expect(variableInfoToCppType({ type: 'array', elementType, dimensions: 1 }, new Map())).toBe('std::vector<int>');
+    expect(variableInfoToCppType({ type: 'array', elementType, dimensions: 1 }, new Map())).toBe(
+      'std::vector<int32_t>',
+    );
     expect(variableInfoToCppType({ type: 'array', elementType, dimensions: 2 }, new Map())).toBe(
-      'std::vector<std::vector<int>>',
+      'std::vector<std::vector<int32_t>>',
     );
   });
 

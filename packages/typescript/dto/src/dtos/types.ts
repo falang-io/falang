@@ -31,7 +31,7 @@ export const SelectOptionTypes = [
 ] as const;
 export type TSelectOptionType = (typeof SelectOptionTypes)[number];
 
-export const IntegerTypes = ['int8', 'int16', 'int32', 'int64'] as const;
+export const IntegerTypes = ['int8', 'uint8', 'int16', 'uint16', 'int32', 'uint32', 'int64', 'uint64'] as const;
 export type TIntegerType = (typeof IntegerTypes)[number];
 
 export const FloatTypes = ['float32', 'float64'] as const;
@@ -156,6 +156,14 @@ export const int32Type: TTypeInfo = {
   numberType: {
     type: 'integer',
     integerType: 'int32',
+  },
+};
+
+export const uint32Type: TTypeInfo = {
+  type: 'number',
+  numberType: {
+    type: 'integer',
+    integerType: 'uint32',
   },
 };
 

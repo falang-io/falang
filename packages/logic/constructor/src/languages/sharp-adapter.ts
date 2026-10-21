@@ -1,5 +1,6 @@
 import type { ILanguageAdapter } from '../language-adapter.js';
 import { UnsupportedConstructError } from '../language-adapter.js';
+import { variableInfoToSharpType } from '../sharp-type-name.js';
 import { isArrayLikeType, isStringLikeType } from '../type-utils.js';
 
 /** Same C-like operator syntax as C++/Go/Rust for everything this whitelist covers; `===`/`!==` still collapse to `==`/`!=` — C# has no separate strict-equality operator for the primitive/value types these expressions deal with. */
@@ -114,19 +115,34 @@ export const sharpAdapter: ILanguageAdapter = {
   // `copySharpValue`, see `sharp-value.ts`), so this is left unconverted rather than speculatively
   // wrapping a case nothing exercises yet. Revisit if a real project needs it, same posture as every
   // other "not yet a repeated need" gap this ADR tracks.
-  emitAssignment: ({ leftCode, rightCode }) => `${leftCode} = ${rightCode}`,
+  // A number-typed target gets an explicit cast: C# arithmetic on `byte`/`sbyte`/`short`/`ushort` is `int` (and
+  // `uint` mixed with `int` is `long`), none of which converts back implicitly (CS0266), and a double expression
+  // doesn't narrow into an integer/float target either.
+  emitAssignment: ({ leftCode, rightCode, leftNumberType, rightIsIntegerLiteral }) => {
+    const isNumeric = leftNumberType && (leftNumberType.type === 'integer' || leftNumberType.type === 'float');
+    // A bare integer literal converts implicitly (when in range).
+    if (!isNumeric || (rightIsIntegerLiteral && leftNumberType.type === 'integer')) return `${leftCode} = ${rightCode}`;
+    return `${leftCode} = (${variableInfoToSharpType({ type: 'number', numberType: leftNumberType }, new Map())})(${rightCode})`;
+  },
 
   // C# already performs this widening implicitly within a binary expression (only narrowing at a
   // declared-type boundary needs an explicit cast — see `sharp-value.ts`'s `toSharpTypedValue`) — this
   // is the gap Go/Rust's own `castNumericOperand` exists to close, not sharp's.
-  castNumericOperand: (code) => code,
+  // Except between two different integer widths: C# has no implicit `ulong` <-> signed mixing (CS0034) and widens
+  // `uint` + `int` to `long`, so the operands are cast to the promoted integer type explicitly.
+  castNumericOperand: (code, from, to) =>
+    from.type === 'integer' && to.type === 'integer' && from.integerType !== to.integerType
+      ? `((${variableInfoToSharpType({ type: 'number', numberType: to }, new Map())})(${code}))`
+      : code,
 
   // Same `+`-concatenation posture as `emitLog` (see its own doc comment for why a leading `""` guard
   // is needed whenever the first segment is an interpolation — C#'s `+` is numeric addition when both
   // operands are numeric).
   emitTemplateLiteral: ({ segments }) => {
     if (segments.length === 0) return '""';
-    const parts = segments.map((segment) => (segment.isExpr ? `(${segment.text})` : escapeCSharpStringLiteral(segment.text)));
+    const parts = segments.map((segment) =>
+      segment.isExpr ? `(${segment.text})` : escapeCSharpStringLiteral(segment.text),
+    );
     const guard = segments[0]?.isExpr ? ['""'] : [];
     return [...guard, ...parts].join(' + ');
   },

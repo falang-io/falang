@@ -1,5 +1,5 @@
 import { registerScopeContributor, type IScopeVariable } from '@falang/typescript-common';
-import { int32Type } from '@falang/typescript-dto';
+import { int32Type, uint32Type } from '@falang/typescript-dto';
 import { MICROS, MILLIS, RANDOM } from '@falang/desktop-arduino-dto/src/arduino-function-nodes.js';
 import type { IDriverConfig } from '@falang/desktop-arduino-dto/src/driver-config.js';
 import { buildDriverActionNodeName } from '@falang/desktop-arduino-dto/src/driver-node-name.js';
@@ -13,7 +13,7 @@ import { PIN_READ_ANALOG, PIN_READ_DIGITAL } from '@falang/desktop-arduino-dto/s
  * Scope contributors (ADR 0068 (private)): the Arduino nodes that declare a variable do it through lowering passes in
  * `@falang/desktop-arduino-compiler` (`create-var` with the same name/type), so the editor's scope walk — which only
  * knows `create-var`/`arr-*` statically — needs the same facts registered by name. Types are the lowering's: `int32`
- * for pin reads / `millis` / `micros` / `random`, the action's `resultType` for a driver action.
+ * for pin reads / `random`, `uint32` for `millis` / `micros`, the action's `resultType` for a driver action.
  */
 const variableFrom = (variable: unknown, type: IScopeVariable['type']): IScopeVariable | undefined => {
   if (typeof variable !== 'string' || variable === '') return;
@@ -25,8 +25,12 @@ const dataOf = (data: unknown): Record<string, unknown> =>
 
 /** Pin reads, `millis`, `micros`, `random` — fixed kinds, idempotent. */
 export const registerArduinoScopeContributors = (): void => {
-  for (const name of [PIN_READ_DIGITAL, PIN_READ_ANALOG, MILLIS, MICROS, RANDOM]) {
+  for (const name of [PIN_READ_DIGITAL, PIN_READ_ANALOG, RANDOM]) {
     registerScopeContributor(name, (data) => variableFrom(dataOf(data)['variable'], int32Type));
+  }
+  // `millis()`/`micros()` return `unsigned long` (ADR 0069 (private)).
+  for (const name of [MILLIS, MICROS]) {
+    registerScopeContributor(name, (data) => variableFrom(dataOf(data)['variable'], uint32Type));
   }
 };
 

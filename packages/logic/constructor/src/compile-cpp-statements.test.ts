@@ -29,8 +29,8 @@ describe('compileCppStatements: leaf statements', () => {
       data: { name: 'x', variableType: int32Type, value: '1 + 2' },
     };
     const withoutValue: INode = { id: 'b', name: 'create-var', data: { name: 'y', variableType: int32Type } };
-    expect(compile([withValue])).toContain('int x = 1 + 2;');
-    expect(compile([withoutValue])).toContain('int y{};');
+    expect(compile([withValue])).toContain('int32_t x = 1 + 2;');
+    expect(compile([withoutValue])).toContain('int32_t y{};');
   });
 
   it('compiles an action node (raw assignment expression) translated to C++', () => {
@@ -68,7 +68,7 @@ describe('compileCppStatements: call-function', () => {
       functionSignatures: new Map([['callee', { cppName: 'ObjASum', returnValue: int32Type }]]),
     };
     const code = compile(nodes, {}, params);
-    expect(code).toContain('int sum = ObjASum(1);');
+    expect(code).toContain('int32_t sum = ObjASum(1);');
     expect(code).toContain('std::cout << "sum: " << sum << std::endl;');
   });
 
@@ -104,7 +104,7 @@ describe('compileCppStatements: call-api', () => {
       },
     ];
     const params: ICppCompileParams = { ...emptyParams, apiEndpoints: new Map([['ep-1', sumEndpoint]]) };
-    expect(compile(nodes, {}, params)).toContain('int sum = (*g_Sum).NumberSum(1);');
+    expect(compile(nodes, {}, params)).toContain('int32_t sum = (*g_Sum).NumberSum(1);');
   });
 
   it('omits the declaration entirely when returnVariable is blank', () => {
@@ -200,8 +200,10 @@ describe('compileCppStatements: foreach over a plain array-typed identifier', ()
       children: [{ id: 'l', name: 'log', data: 'item: ${item}' }],
     };
     const code = compile([node], { items: arrayOfInt32 });
-    expect(code).toContain('for (int item_index = 0; item_index < static_cast<int>(items.size()); item_index++) {');
-    expect(code).toContain('int item = items[item_index];');
+    expect(code).toContain(
+      'for (int32_t item_index = 0; item_index < static_cast<int32_t>(items.size()); item_index++) {',
+    );
+    expect(code).toContain('int32_t item = items[item_index];');
     expect(code).toContain('std::cout << "item: " << item << std::endl;');
   });
 

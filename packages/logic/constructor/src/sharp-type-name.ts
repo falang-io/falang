@@ -10,9 +10,13 @@ import { UnsupportedConstructError } from './language-adapter.js';
  */
 const INTEGER_SHARP_TYPES: Readonly<Record<string, string>> = {
   int8: 'sbyte',
+  uint8: 'byte',
   int16: 'short',
+  uint16: 'ushort',
   int32: 'int',
+  uint32: 'uint',
   int64: 'long',
+  uint64: 'ulong',
 };
 
 const FLOAT_SHARP_TYPES: Readonly<Record<string, string>> = {

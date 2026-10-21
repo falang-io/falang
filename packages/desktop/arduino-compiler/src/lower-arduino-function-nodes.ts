@@ -1,5 +1,5 @@
 import type { INode, IProjectDocument } from '@falang/dto';
-import { int32Type } from '@falang/typescript-dto';
+import { int32Type, uint32Type } from '@falang/typescript-dto';
 import {
   DELAY,
   DELAY_MICROSECONDS,
@@ -19,8 +19,8 @@ import {
  * Desugars the nine Arduino built-in-function node kinds into the plain `action`/`create-var` nodes
  * `@falang/logic-constructor` already knows how to compile — the same "lowering pass, not a new node
  * kind inside the shared compiler" approach `lower-pin-nodes.ts` already established (see
- * ADR 0023 (private)'s "Decision"). A `millis`/`micros`/`random` node becomes a `create-var` typed
- * `int32Type`, matching those calls' own declared `number` return type in `ARDUINO_BUILTIN_DECLARATIONS`.
+ * ADR 0023 (private)'s "Decision"). A `millis`/`micros` node becomes a `create-var` typed
+ * `uint32` (`unsigned long` on every Arduino core, ADR 0069 (private)), `random` one typed `int32`.
  */
 const lowerNode = (node: INode): INode => {
   switch (node.name) {
@@ -53,7 +53,7 @@ const lowerNode = (node: INode): INode => {
       return {
         id: node.id,
         name: 'create-var',
-        data: { name: data.variable, variableType: int32Type, value: 'millis()' },
+        data: { name: data.variable, variableType: uint32Type, value: 'millis()' },
       };
     }
     case MICROS: {
@@ -61,7 +61,7 @@ const lowerNode = (node: INode): INode => {
       return {
         id: node.id,
         name: 'create-var',
-        data: { name: data.variable, variableType: int32Type, value: 'micros()' },
+        data: { name: data.variable, variableType: uint32Type, value: 'micros()' },
       };
     }
     case RANDOM: {

@@ -1,7 +1,8 @@
+import type { TNumberTypeDetail } from '@falang/typescript-dto';
 import type { ILanguageAdapter } from '../language-adapter.js';
 import { UnsupportedConstructError } from '../language-adapter.js';
 import { isArrayLikeType, isStringLikeType } from '../type-utils.js';
-import { widthOf } from '../numeric-coercion.js';
+import { needsNumericCast, widthOf } from '../numeric-coercion.js';
 import { variableInfoToRustType } from '../rust-type-name.js';
 
 /** `castNumericOperand` never needs struct/array names — it only ever renders a numeric type. */
@@ -162,6 +163,10 @@ export const rustAdapter: ILanguageAdapter = {
     if (rightIsIntegerLiteral && leftNumberType?.type === 'float') {
       return `${leftCode} = (${rightCode}) as ${variableInfoToRustType({ type: 'number', numberType: leftNumberType }, NO_STRUCT_NAMES)}`;
     }
+    // A number of a different width/kind than the target (a promoted `i16`, an `f64` into an `i32`).
+    if (rightVariableInfo?.type === 'number' && needsNumericCast(rightVariableInfo.numberType, leftNumberType)) {
+      return `${leftCode} = (${rightCode}) as ${variableInfoToRustType({ type: 'number', numberType: leftNumberType as TNumberTypeDetail }, NO_STRUCT_NAMES)}`;
+    }
     // A third gap in the same family, found only by actually compiling the user's own `example-snake`
     // project (ADR 0019 (private)'s "Rust target — old-app layout" implementation notes): a plain
     // `action` assignment of a struct/array-typed value (e.g. `state.food = foodPoint;`) needs the same
@@ -201,6 +206,8 @@ export const rustAdapter: ILanguageAdapter = {
   // arithmetic operator (confirmed against the reference's operator-precedence table), so an
   // unparenthesized `a + b as f32` would parse as `a + (b as f32)` instead of `(a + b) as f32` for a
   // compound `code` (e.g. the accumulated result of a longer `+` chain one level up).
+  castsIntegerLiteralInFloatOperation: true,
+
   castNumericOperand: (code, from, to) =>
     widthOf(from) === widthOf(to)
       ? code

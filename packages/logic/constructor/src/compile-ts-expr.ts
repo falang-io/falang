@@ -1,3 +1,4 @@
+import type { TVariableInfo } from '@falang/typescript-dto';
 import { compileExpression } from './compile-expression.js';
 import { NodeCompileError } from './node-compile-error.js';
 import type { ITsStatementContext } from './ts-statement-context.js';
@@ -11,13 +12,19 @@ import type { ITsStatementContext } from './ts-statement-context.js';
  * time — a raw expression that doesn't type-check here fails the whole document's compile with a
  * `NodeCompileError` pointing at the offending node.
  */
-export const compileTsExpr = (expression: string, ctx: ITsStatementContext, nodeId: string): string => {
+export const compileTsExpr = (
+  expression: string,
+  ctx: ITsStatementContext,
+  nodeId: string,
+  targetType?: TVariableInfo,
+): string => {
   const result = compileExpression({
     expression,
     scope: ctx.scope,
     target: 'ts',
     structNames: new Map(ctx.params.structNames),
     structDefinitions: ctx.params.structDefinitions,
+    targetType,
   });
   if (!result.ok) throw new NodeCompileError(nodeId, result.diagnostics.join('\n'));
   return result.code;

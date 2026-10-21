@@ -105,7 +105,7 @@ export const emitForeach = (node: INode, ctx: ICppStatementContext, compile: TCo
     nesting: [...ctx.nesting, 'loop'],
   });
   const itemDeclaration = `${variableInfoToCppType(arrType.elementType, ctx.params.structNames)} ${item} = ${arr}[${index}];`;
-  const forBlock = `for (int ${index} = 0; ${index} < static_cast<int>(${arr}.size()); ${index}++) {\n${indentLines(`${itemDeclaration}\n${body}`)}\n}`;
+  const forBlock = `for (int32_t ${index} = 0; ${index} < static_cast<int32_t>(${arr}.size()); ${index}++) {\n${indentLines(`${itemDeclaration}\n${body}`)}\n}`;
   return appendCycleBottom(forBlock, ctx);
 };
 
@@ -121,7 +121,7 @@ export const emitFromToCycle = (node: INode, ctx: ICppStatementContext, compile:
   const to = compileExpr(data.to, ctx, node.id);
   const item = data.item.trim();
   const body = compile(appendOut(node), { scopeOverrides: { [item]: INT32_TYPE }, nesting: [...ctx.nesting, 'loop'] });
-  const forBlock = `for (int ${item} = ${from}; ${item} <= ${to}; ${item}++) {\n${indentLines(body)}\n}`;
+  const forBlock = `for (int32_t ${item} = ${from}; ${item} <= ${to}; ${item}++) {\n${indentLines(body)}\n}`;
   return appendCycleBottom(forBlock, ctx);
 };
 

@@ -49,7 +49,7 @@ describe('cpp arr-* emitters', () => {
       pts.insert(pts.begin() + (i), pts.begin(), pts.end());
       // icon-end:arr-insert:n",
         "arr-pop scalar": "// icon-start:arr-pop:n
-      int v = nums.back();
+      int32_t v = nums.back();
       nums.pop_back();
       // icon-end:arr-pop:n",
         "arr-pop struct": "// icon-start:arr-pop:n
@@ -73,10 +73,10 @@ describe('cpp arr-* emitters', () => {
       nums.erase(nums.begin());
       // icon-end:arr-shift:n",
         "arr-slice discarded": "// icon-start:arr-slice:n
-      (void)std::vector<int>(nums.begin() + (0), nums.begin() + (2));
+      (void)std::vector<int32_t>(nums.begin() + (0), nums.begin() + (2));
       // icon-end:arr-slice:n",
         "arr-slice scalar": "// icon-start:arr-slice:n
-      std::vector<int> s = std::vector<int>(nums.begin() + (0), nums.begin() + (2));
+      std::vector<int32_t> s = std::vector<int32_t>(nums.begin() + (0), nums.begin() + (2));
       // icon-end:arr-slice:n",
         "arr-unshift scalar": "// icon-start:arr-unshift:n
       nums.insert(nums.begin(), i);

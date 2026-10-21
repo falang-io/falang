@@ -51,7 +51,7 @@ describe('lowerArduinoFunctionNodesInDocument', () => {
       name: 'create-var',
       data: {
         name: 'currentMillis',
-        variableType: { type: 'number', numberType: { type: 'integer', integerType: 'int32' } },
+        variableType: { type: 'number', numberType: { type: 'integer', integerType: 'uint32' } },
         value: 'millis()',
       },
     });

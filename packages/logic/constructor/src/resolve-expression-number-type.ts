@@ -45,6 +45,6 @@ export const resolveExpressionNumberType = ({
   const { program, sourceFile } = createCheckedProgram(fileText);
   if (getDiagnosticMessages(program).length > 0) return;
   const exprNode = findExprInitializer(sourceFile);
-  const resolvedInfo = resolveVariableInfo(exprNode, { scope, structDefinitions });
+  const resolvedInfo = resolveVariableInfo(exprNode, { scope, structDefinitions, resolveLiterals: true });
   if (resolvedInfo?.type === 'number') return resolvedInfo.numberType;
 };

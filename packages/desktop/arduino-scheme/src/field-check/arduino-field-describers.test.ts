@@ -18,7 +18,7 @@ import {
   type ICheckedField,
 } from '@falang/typescript-scheme';
 import { validateVariableName } from '@falang/typescript-scheme/src/block-elements/new-variable/validate-variable-name.js';
-import { int32Type } from '@falang/typescript-dto';
+import { int32Type, uint32Type } from '@falang/typescript-dto';
 import { collectScopeVariables } from '@falang/typescript-common';
 import { parseDriverConfig } from '@falang/desktop-arduino-dto/src/driver-config.js';
 import { buildDriverActionNodeName } from '@falang/desktop-arduino-dto/src/driver-node-name.js';
@@ -234,7 +234,7 @@ describe('arduino field describers', () => {
     const later = h.add('z', 'if', 'btn');
     const vars = Object.fromEntries(collectScopeVariables(later as never).map((v) => [v.name, v.type]));
     expect(vars['btn']).toMatchObject(int32);
-    expect(vars['now']).toMatchObject(int32);
+    expect(vars['now']).toMatchObject(uint32Type);
     expect(vars['rnd']).toMatchObject(int32);
     expect(vars['res']).toEqual({ type: 'number', numberType: { type: 'float', floatType: 'float32' } });
     // the field has no default: lowering uses 'result'

@@ -35,7 +35,7 @@ describe('emitCppApiDeclarations', () => {
 
     expect(code).toContain('struct ISum {');
     expect(code).toContain('virtual ~ISum() {}');
-    expect(code).toContain('virtual int NumberSum(int a) = 0;');
+    expect(code).toContain('virtual int32_t NumberSum(int32_t a) = 0;');
     expect(code).toContain('virtual void Ping() = 0;');
     expect(code).toContain('extern ISum* g_Sum;');
   });

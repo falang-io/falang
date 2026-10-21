@@ -5,6 +5,8 @@ import { variableInfoToRustType } from './rust-type-name.js';
 import { rustAdapter } from './languages/rust-adapter.js';
 import { NodeCompileError } from './node-compile-error.js';
 import { outLevelOf } from './cycle-info.js';
+import { needsNumericCast } from './numeric-coercion.js';
+import { resolveExpressionNumberType } from './resolve-expression-number-type.js';
 import { splitLogSegments } from './log-template.js';
 import { resolveRustArrayType, type IRustStatementContext } from './rust-statement-context.js';
 import { rustApiMethodName } from './emit-rust-api-declarations.js';
@@ -16,12 +18,31 @@ interface ICreateVarData {
   readonly value?: string;
 }
 
+/** Rust converts nothing implicitly: a number of a different resolved width than the declared type gets `as T` (a literal or unresolvable expression is left alone). */
+const castToDeclaredNumber = (
+  code: string,
+  expression: string,
+  declared: TVariableInfo,
+  rustType: string,
+  ctx: IRustStatementContext,
+): string => {
+  if (declared.type !== 'number') return code;
+  const resolved = resolveExpressionNumberType({
+    expression,
+    scope: ctx.scope,
+    structNames: new Map(ctx.params.structNames),
+    structDefinitions: ctx.params.structDefinitions,
+  });
+  return needsNumericCast(resolved, declared.numberType) ? `(${code}) as ${rustType}` : code;
+};
+
 /** `Default::default()` covers every type this compiler ever declares a variable of — unlike Go's zero-value-by-declaration (`var name Type;`), Rust has no such implicit-init form, but every generated struct derives `Default` (see `emit-rust-struct-declarations.ts`) and `Vec<T>`/`String`/the numeric/`bool` primitives all implement it in `std` already, so one call covers every case uniformly (same "never left as uninitialized garbage" intent as the cpp/Go analogues). */
 export const emitCreateVar = (node: INode, ctx: IRustStatementContext): string => {
   const data = node.data as ICreateVarData;
   const rustType = variableInfoToRustType(data.variableType, ctx.params.structNames, ctx.params.structDocuments);
   if (data.value?.trim()) {
-    const value = toOwnedRustValue(compileRustExpr(data.value, ctx, node.id), data.variableType.type);
+    const owned = toOwnedRustValue(compileRustExpr(data.value, ctx, node.id), data.variableType.type);
+    const value = castToDeclaredNumber(owned, data.value, data.variableType, rustType, ctx);
     return `let mut ${data.name}: ${rustType} = ${value};`;
   }
   return `let mut ${data.name}: ${rustType} = Default::default();`;

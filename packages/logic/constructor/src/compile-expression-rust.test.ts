@@ -87,8 +87,21 @@ describe('compileExpression: rust target', () => {
     // own `ts.NumericLiteral.text` normalizes `5.0` down to `"5"`, silently dropping exactly the
     // formatting that makes a literal a *float*-literal token in Rust (which has no implicit
     // int-literal-to-float conversion, unlike every other target this compiler supports).
-    const result = compileExpression({ expression: 'a = 5.0', scope: { a: numberType }, target: 'rust' });
+    const result = compileExpression({ expression: 'a = 5.0', scope: { a: floatType }, target: 'rust' });
     expect(result).toEqual({ ok: true, code: 'a = 5.0' });
+  });
+
+  it('casts a float stored into an integer variable, and an integer literal next to a float operand', () => {
+    expect(
+      compileExpression({ expression: 'a = f * 2', scope: { a: numberType, f: floatType }, target: 'rust' }),
+    ).toEqual({
+      ok: true,
+      code: 'a = (f * (2) as f32) as i32',
+    });
+    expect(compileExpression({ expression: 'f * 3', scope: { f: floatType }, target: 'rust' })).toEqual({
+      ok: true,
+      code: 'f * (3) as f32',
+    });
   });
 
   it('escapes a string literal for Rust', () => {

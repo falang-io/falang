@@ -74,7 +74,7 @@ describe('compileStatementList — debug instrumentation (ADR 0021 (private) §4
       [
         '// icon-start:create-var:v1',
         'TRACE(0, []);',
-        'int total{};',
+        'int32_t total{};',
         '// icon-end:create-var:v1',
         '// icon-start:log:l1',
         'TRACE(1, ["total"]);',
@@ -84,7 +84,7 @@ describe('compileStatementList — debug instrumentation (ADR 0021 (private) §4
     );
     expect(debug.sites).toEqual([
       { index: 0, documentId: 'doc-1', nodeId: 'v1', variables: [] },
-      { index: 1, documentId: 'doc-1', nodeId: 'l1', variables: [{ name: 'total', type: 'int' }] },
+      { index: 1, documentId: 'doc-1', nodeId: 'l1', variables: [{ name: 'total', type: 'int32_t' }] },
     ]);
   });
 

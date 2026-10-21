@@ -22,7 +22,7 @@ export const emitCreateVar = (node: INode, ctx: ITsStatementContext): string => 
   const data = node.data as ICreateVarData;
   const tsType = variableInfoToTsTypeName(data.variableType, ctx.params.structNames);
   if (data.value?.trim()) {
-    return `let ${data.name}: ${tsType} = ${compileTsExpr(data.value, ctx, node.id)};`;
+    return `let ${data.name}: ${tsType} = ${compileTsExpr(data.value, ctx, node.id, data.variableType)};`;
   }
   // No initial value — fills every field recursively rather than leaving `undefined`, matching the
   // old app's own `generateEmptyValue.ts` (see `ts-type-name.ts`'s `emitTsEmptyValue`).
@@ -87,7 +87,7 @@ export const emitCallFunction = (
         `call-function is missing argument "${parameter.name}" for "${signature.tsName}"`,
       );
     }
-    return `${parameter.name}: ${compileTsExpr(data.parameters[index], ctx, node.id)}`;
+    return `${parameter.name}: ${compileTsExpr(data.parameters[index], ctx, node.id, parameter.type)}`;
   });
   const call = `await ${signature.tsName}({ ${[...argEntries, '_falangGlobal'].join(', ')} })`;
   const variable = data.returnVariable.trim();
@@ -126,7 +126,7 @@ export const emitCallApi = (
     if (index >= data.parameters.length) {
       throw new NodeCompileError(node.id, `call-api is missing argument "${parameter.name}" for "${endpoint.name}"`);
     }
-    return `${parameter.name}: ${compileTsExpr(data.parameters[index], ctx, node.id)}`;
+    return `${parameter.name}: ${compileTsExpr(data.parameters[index], ctx, node.id, parameter.type)}`;
   });
   const call = `await _falangGlobal.apis.${endpoint.apiDocName}.${endpoint.groupName}.${endpoint.name}(${objectLiteral(argEntries)})`;
   const variable = data.returnVariable.trim();
@@ -148,7 +148,7 @@ export const emitReturn = (node: INode, ctx: ITsStatementContext): string => {
   // `tsReturnTypeName`) — returning a bare `Ret` here needs no explicit `Promise`/cast wrapping, TS
   // auto-wraps it, unlike Go/Rust's own `emitReturn` which needs an explicit numeric-width cast (TS has
   // only one numeric type, see `ts-type-name.ts`'s own doc comment).
-  return `return ${compileTsExpr(expression, ctx, node.id)};`;
+  return `return ${compileTsExpr(expression, ctx, node.id, ctx.scope['returnValue'])};`;
 };
 
 /** `throw new Error(<expr>)` — same "wrap in the target language's real exception type" posture as `cpp-leaf-emitters.ts`'s `std::runtime_error`/`sharp-leaf-emitters.ts`'s `new Exception(...)`. */

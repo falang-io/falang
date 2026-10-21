@@ -4,6 +4,8 @@ import { compileExpr } from './compile-cpp-expr.js';
 import { variableInfoToCppType } from './cpp-type-name.js';
 import { NodeCompileError } from './node-compile-error.js';
 import { crossesSwitchToTarget, outLevelOf } from './cycle-info.js';
+import { isEightBitInteger } from './numeric-coercion.js';
+import { resolveExpressionNumberType } from './resolve-expression-number-type.js';
 import { splitLogSegments } from './log-template.js';
 import type { ICppStatementContext } from './cpp-statement-context.js';
 import { cppApiGlobalName } from './emit-cpp-api-declarations.js';
@@ -33,9 +35,18 @@ export const emitAction = (node: INode, ctx: ICppStatementContext): string => {
 
 export const emitLog = (node: INode, ctx: ICppStatementContext): string => {
   const segments = splitLogSegments((node.data as string | undefined) ?? '');
-  const parts = segments.map((segment) =>
-    segment.isExpr ? compileExpr(segment.text, ctx, node.id) : ctx.params.adapter.formatStringLiteral(segment.text),
-  );
+  const parts = segments.map((segment) => {
+    if (!segment.isExpr) return ctx.params.adapter.formatStringLiteral(segment.text);
+    const code = compileExpr(segment.text, ctx, node.id);
+    // iostream prints `int8_t`/`uint8_t` as a character — print the number.
+    const numberType = resolveExpressionNumberType({
+      expression: segment.text,
+      scope: ctx.scope,
+      structNames: new Map(ctx.params.structNames),
+      structDefinitions: ctx.params.structDefinitions,
+    });
+    return isEightBitInteger(numberType) ? `static_cast<int>(${code})` : code;
+  });
   if (parts.length === 0) return 'std::cout << std::endl;';
   return `std::cout << ${parts.join(' << ')} << std::endl;`;
 };

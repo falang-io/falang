@@ -3,9 +3,13 @@ import { UnsupportedConstructError } from './language-adapter.js';
 
 const INTEGER_RUST_TYPES: Readonly<Record<string, string>> = {
   int8: 'i8',
+  uint8: 'u8',
   int16: 'i16',
+  uint16: 'u16',
   int32: 'i32',
+  uint32: 'u32',
   int64: 'i64',
+  uint64: 'u64',
 };
 
 /** Identity mapping — Rust's own float type names already are `f32`/`f64`. */

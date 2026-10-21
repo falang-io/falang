@@ -21,6 +21,7 @@ export * from './dtos/object-property.dto.js';
 
 export * from './dtos/types.js';
 export * from './render-variable-type.js';
+export * from './describe-variable-type.js';
 export * from './default-value-expression.js';
 
 export * from './function-nodes.js';

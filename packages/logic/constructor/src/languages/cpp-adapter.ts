@@ -1,5 +1,6 @@
 import type { ILanguageAdapter } from '../language-adapter.js';
 import { UnsupportedConstructError } from '../language-adapter.js';
+import { isEightBitInteger } from '../numeric-coercion.js';
 import { isArrayLikeType, isStringLikeType } from '../type-utils.js';
 
 /** JS/TS spells the same operator differently or not at all in C++ (`===`/`!==` have no loose-vs-strict distinction in C++, so both map to `==`/`!=`); anything not listed here (`??`, `**`, bitwise ops, …) is rejected rather than guessed at. */
@@ -132,7 +133,10 @@ export const cppAdapter: ILanguageAdapter = {
   // enclosing scope variable. Needs `<sstream>` — see `compile-cpp-project.ts`'s `PREAMBLE`.
   emitTemplateLiteral: ({ segments }) => {
     if (segments.length === 0) return 'std::string("")';
-    const parts = segments.map((segment) => (segment.isExpr ? segment.text : escapeCppStringLiteral(segment.text)));
+    const parts = segments.map((segment) => {
+      if (!segment.isExpr) return escapeCppStringLiteral(segment.text);
+      return isEightBitInteger(segment.numberType) ? `static_cast<int>(${segment.text})` : segment.text;
+    });
     return `([&]{ std::ostringstream _oss; _oss << ${parts.join(' << ')}; return _oss.str(); }())`;
   },
 };

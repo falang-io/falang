@@ -4,6 +4,53 @@ import { UnsupportedConstructError } from './language-adapter.js';
 import type { INumericTypeContext } from './numeric-coercion.js';
 import { promoteNumberType, resolveVariableInfo } from './numeric-coercion.js';
 
+const unwrapParens = (node: ts.Expression): ts.Expression =>
+  ts.isParenthesizedExpression(node) ? unwrapParens(node.expression) : node;
+
+/** A bare (optionally parenthesized, optionally negated) numeric literal — it adopts its target's type in every native target, so it never needs an assignment cast. */
+const isBareNumericLiteral = (node: ts.Expression): boolean => {
+  const unwrapped = unwrapParens(node);
+  if (ts.isPrefixUnaryExpression(unwrapped) && unwrapped.operator === ts.SyntaxKind.MinusToken) {
+    return isBareNumericLiteral(unwrapped.operand);
+  }
+  return ts.isNumericLiteral(unwrapped);
+};
+
+const isIntegerLiteralOperand = (node: ts.Expression): boolean => {
+  const unwrapped = unwrapParens(node);
+  return ts.isNumericLiteral(unwrapped) && !/[.eE]/.test(unwrapped.getText());
+};
+
+/** See `ILanguageAdapter.castsIntegerLiteralInFloatOperation`. */
+const castIntegerLiteralOperand = (
+  node: ts.BinaryExpression,
+  operatorText: string,
+  leftCode: string,
+  rightCode: string,
+  adapter: ILanguageAdapter,
+  numericContext: INumericTypeContext,
+): string | undefined => {
+  if (!adapter.castsIntegerLiteralInFloatOperation) return;
+  const literalIsLeft = isIntegerLiteralOperand(node.left);
+  if (literalIsLeft === isIntegerLiteralOperand(node.right)) return;
+  const literalNode = literalIsLeft ? node.left : node.right;
+  const otherInfo = resolveVariableInfo(literalIsLeft ? node.right : node.left, {
+    ...numericContext,
+    resolveLiterals: true,
+  });
+  if (otherInfo?.type !== 'number' || otherInfo.numberType.type !== 'float') return;
+  const literalType = resolveVariableInfo(literalNode, { ...numericContext, resolveLiterals: true });
+  if (literalType?.type !== 'number') return;
+  const cast = adapter.castNumericOperand(
+    literalIsLeft ? leftCode : rightCode,
+    literalType.numberType,
+    otherInfo.numberType,
+  );
+  return literalIsLeft
+    ? `${cast} ${adapter.mapBinaryOperator(operatorText)} ${rightCode}`
+    : `${leftCode} ${adapter.mapBinaryOperator(operatorText)} ${cast}`;
+};
+
 /**
  * Applies `castNumericOperand` to `leftCode`/`rightCode` when both operands of a binary expression
  * resolve to a (possibly different) DSL numeric width — the numeric-coercion mechanism described in
@@ -20,6 +67,8 @@ const applyNumericCoercion = (
   numericContext: INumericTypeContext | undefined,
 ): string | undefined => {
   if (!numericContext) return;
+  const literalCast = castIntegerLiteralOperand(node, operatorText, leftCode, rightCode, adapter, numericContext);
+  if (literalCast) return literalCast;
   const leftInfo = resolveVariableInfo(node.left, numericContext);
   const rightInfo = resolveVariableInfo(node.right, numericContext);
   if (leftInfo?.type !== 'number' || rightInfo?.type !== 'number') return;
@@ -29,9 +78,6 @@ const applyNumericCoercion = (
   const castRight = adapter.castNumericOperand(rightCode, rightInfo.numberType, promoted);
   return `${castLeft} ${adapter.mapBinaryOperator(operatorText)} ${castRight}`;
 };
-
-const unwrapParens = (node: ts.Expression): ts.Expression =>
-  ts.isParenthesizedExpression(node) ? unwrapParens(node.expression) : node;
 
 const resolveNumberTypeOf = (node: ts.Expression, numericContext: INumericTypeContext | undefined) => {
   const info = numericContext && resolveVariableInfo(node, numericContext);
@@ -58,6 +104,7 @@ const isIntegerLookingLiteral = (node: ts.Expression, sourceFile: ts.SourceFile)
 const buildTemplateLiteralSegments = (
   node: ts.TemplateLiteral,
   emit: (child: ts.Expression) => string,
+  numericContext?: INumericTypeContext,
 ): ITemplateLiteralSegment[] => {
   const segments: ITemplateLiteralSegment[] = [];
   if (ts.isNoSubstitutionTemplateLiteral(node)) {
@@ -66,7 +113,11 @@ const buildTemplateLiteralSegments = (
   }
   if (node.head.text !== '') segments.push({ isExpr: false, text: node.head.text });
   for (const span of node.templateSpans) {
-    segments.push({ isExpr: true, text: emit(span.expression) });
+    segments.push({
+      isExpr: true,
+      text: emit(span.expression),
+      numberType: resolveNumberTypeOf(span.expression, numericContext),
+    });
     if (span.literal.text !== '') segments.push({ isExpr: false, text: span.literal.text });
   }
   return segments;
@@ -82,11 +133,12 @@ const emitTemplateLiteralExpression = (
   node: ts.TemplateLiteral,
   adapter: ILanguageAdapter,
   emit: (child: ts.Expression) => string,
+  numericContext?: INumericTypeContext,
 ): string => {
   if (!adapter.emitTemplateLiteral) {
     throw new UnsupportedConstructError(`Template literals are not portable to ${adapter.target}`);
   }
-  return adapter.emitTemplateLiteral({ segments: buildTemplateLiteralSegments(node, emit) });
+  return adapter.emitTemplateLiteral({ segments: buildTemplateLiteralSegments(node, emit, numericContext) });
 };
 
 /** Pulled out of `emitPortableExpression` for the same `eslint(complexity)`-budget reason `emitTemplateLiteralExpression` was. */
@@ -107,7 +159,9 @@ const emitBinaryExpressionNode = (
       leftNumberType: resolveNumberTypeOf(node.left, numericContext),
       rightCode: emit(node.right),
       rightIsIntegerLiteral: isIntegerLookingLiteral(node.right, sourceFile),
-      rightVariableInfo: numericContext && resolveVariableInfo(node.right, numericContext),
+      rightVariableInfo:
+        numericContext &&
+        resolveVariableInfo(node.right, { ...numericContext, resolveLiterals: !isBareNumericLiteral(node.right) }),
       checker,
     });
   }
@@ -134,7 +188,7 @@ export const emitPortableExpression = (
     return adapter.formatStringLiteral(node.text);
   }
   if (ts.isTemplateLiteral(node)) {
-    return emitTemplateLiteralExpression(node, adapter, emit);
+    return emitTemplateLiteralExpression(node, adapter, emit, numericContext);
   }
   if (ts.isNumericLiteral(node)) {
     // `node.text` (not used here) is TypeScript's *normalized* numeric value — `5.0` becomes `"5"`,

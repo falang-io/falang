@@ -118,4 +118,21 @@ describe('function file projection', () => {
       expect((error as ProjectionError).diagnostics[0]).toMatchObject({ file: 'functions/score.ts', line: 2 });
     }
   });
+
+  it('round-trips the unsigned integer widths (ADR 0069 (private))', () => {
+    const uint = (integerType: string) => ({ numberType: { integerType, type: 'integer' }, type: 'number' }) as const;
+    const root = fn(
+      [
+        node('create-var', { name: 'a', value: '1', variableType: uint('uint8') }),
+        node('create-var', { name: 'b', value: '2', variableType: uint('uint64') }),
+      ],
+      { parameters: [{ name: 'p', type: uint('uint16') }], returnValue: uint('uint32') },
+    );
+    const text = projectFunctionFile(root, 'score', ctx);
+    expect(text).toContain('let a: uint8 = 1;');
+    expect(text).toContain('p: uint16');
+    expect(text).toContain('Promise<uint32>');
+    const parsed = parseFunctionFile(text, 'functions/score.ts', 'score', ctx);
+    expect(canonicalKey(parsed)).toBe(canonicalKey(root));
+  });
 });

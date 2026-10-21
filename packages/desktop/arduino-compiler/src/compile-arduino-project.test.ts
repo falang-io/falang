@@ -253,7 +253,7 @@ describe('compileArduinoProject — debug instrumentation (ADR 0021 (private) §
     expect(byNode.get('a1')).toMatchObject({
       documentId: 'doc-loop',
       nodeId: 'a1',
-      variables: [{ name: 'x', type: 'int' }],
+      variables: [{ name: 'x', type: 'int32_t' }],
     });
   });
 

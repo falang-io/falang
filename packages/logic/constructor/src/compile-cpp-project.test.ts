@@ -110,9 +110,9 @@ describe('compileCppProject', () => {
       documents: [functionDocument('doc-callee', 'increment', callee), functionDocument('doc-caller', 'main', caller)],
     });
 
-    expect(code).toContain('int increment(int n) {');
+    expect(code).toContain('int32_t increment(int32_t n) {');
     expect(code).toContain('return n + 1;');
-    expect(code).toContain('int result = increment(5);');
+    expect(code).toContain('int32_t result = increment(5);');
   });
 
   it('emits a real int main() calling the entry document when entryDocumentId is given', () => {

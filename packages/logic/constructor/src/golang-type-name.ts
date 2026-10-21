@@ -3,9 +3,13 @@ import { UnsupportedConstructError } from './language-adapter.js';
 
 const INTEGER_GO_TYPES: Readonly<Record<string, string>> = {
   int8: 'int8',
+  uint8: 'uint8',
   int16: 'int16',
+  uint16: 'uint16',
   int32: 'int32',
+  uint32: 'uint32',
   int64: 'int64',
+  uint64: 'uint64',
 };
 
 const FLOAT_GO_TYPES: Readonly<Record<string, string>> = {

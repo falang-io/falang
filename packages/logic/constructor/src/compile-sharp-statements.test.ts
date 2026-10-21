@@ -50,7 +50,7 @@ describe('compileSharpStatements: leaf statements', () => {
 
   it('compiles an action node (raw assignment expression) translated to C#', () => {
     const node: INode = { id: 'a', name: 'action', data: 'x = x + 1' };
-    expect(compile([node], { x: int32Type })).toContain('x = x + 1;');
+    expect(compile([node], { x: int32Type })).toContain('x = (int)(x + 1);');
   });
 
   it('compiles a log node into a concatenated Console.WriteLine', () => {
