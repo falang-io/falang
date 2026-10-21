@@ -113,14 +113,14 @@ describe('compileExpression: rust target', () => {
     expect(result).toEqual({ ok: true, code: '"hello \\"world\\""' });
   });
 
-  it('maps .length on a string scope variable to .len()', () => {
+  it('maps .length on a string scope variable to (.len() as i32)', () => {
     const result = compileExpression({ expression: 's.length', scope: { s: stringType }, target: 'rust' });
-    expect(result).toEqual({ ok: true, code: 's.len()' });
+    expect(result).toEqual({ ok: true, code: '(s.len() as i32)' });
   });
 
-  it('maps .length on an array scope variable to .len()', () => {
+  it('maps .length on an array scope variable to (.len() as i32)', () => {
     const result = compileExpression({ expression: 'items.length', scope: { items: stringArrayType }, target: 'rust' });
-    expect(result).toEqual({ ok: true, code: 'items.len()' });
+    expect(result).toEqual({ ok: true, code: '(items.len() as i32)' });
   });
 
   it('leaves a struct field access unchanged, unlike Go — Rust has no export-capitalization rule', () => {

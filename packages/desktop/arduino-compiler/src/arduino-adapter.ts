@@ -1,4 +1,4 @@
-import { cppAdapter, type ILanguageAdapter } from '@falang/logic-constructor';
+import { cppAdapter, isStringLikeType, type ILanguageAdapter } from '@falang/logic-constructor';
 import { ARDUINO_CALL_MAP, type TArduinoCallEmitter } from '@falang/desktop-arduino-dto';
 
 /**
@@ -47,6 +47,11 @@ export const buildArduinoAdapter = (extraCallNames: readonly string[] = []): ILa
   );
   return {
     ...cppAdapter,
+    // Arduino's `String` has `length()`, not `std::string`'s `size()`; it is unsigned, so it is cast like `size()`.
+    emitPropertyAccess: (params) =>
+      params.propertyName === 'length' && isStringLikeType(params.receiverType, params.checker)
+        ? `static_cast<int32_t>(${params.receiverCode}.length())`
+        : cppAdapter.emitPropertyAccess(params),
     emitCall: (params) => {
       const emit =
         ARDUINO_CALL_MAP[params.qualifiedCalleeText] ??

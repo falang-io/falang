@@ -69,7 +69,7 @@ head:
   <li>
     <b>Built-in functions</b>: <b>Delay</b>, <b>Delay (microseconds)</b>, <b>Millis</b>, <b>Micros</b>, <b>Random</b>,{' '}
     <b>Random seed</b>, <b>Serial begin</b>, <b>Serial print</b>, <b>Serial println</b>. Their arguments are fixed
-    numbers; to print a variable, write <code>Serial.println(x)</code> in an action.
+    numbers; to print a variable (a number, a string or a boolean), write <code>Serial.println(x)</code> in an action.
   </li>
   <li>
     <b>Driver actions</b> — one icon per action of each installed driver, titled "&lt;driver&gt;: &lt;action&gt;", for
@@ -79,9 +79,11 @@ head:
 <p>
   Variables can be integers (signed and unsigned, 8 to 64 bits), floats, exact decimals and booleans — see{' '}
   <a href="../logic/#number-types">Number types</a>; on a board, <code>float</code> defaults to <code>float32</code>
-  (an Uno has no 64-bit floating point), and <b>Millis</b>/<b>Micros</b> store an unsigned <code>uint32</code>. Strings, arrays and
-  structures are not supported in Arduino projects yet, and neither are the <b>Log</b> and <b>Throw</b> icons — the
-  board has no console or exceptions.
+  (an Uno has no 64-bit floating point), and <b>Millis</b>/<b>Micros</b> store an unsigned <code>uint32</code>. Strings work
+  too (they become the Arduino <code>String</code> class; <code>text.length</code>, <code>+</code>,{' '}
+  <code>==</code> and <code>{'`${…}`'}</code> templates are supported). Arrays and structures are not supported in
+  Arduino projects yet, and neither are the <b>Log</b> and <b>Throw</b> icons — the board has no console or
+  exceptions.
 </p>
 
 #### Bundled drivers

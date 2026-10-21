@@ -100,7 +100,8 @@ export const rustAdapter: ILanguageAdapter = {
       propertyName === 'length' &&
       (isArrayLikeType(receiverType, checker) || isStringLikeType(receiverType, checker))
     ) {
-      return `${receiverCode}.len()`;
+      // `len()` is an unsigned `usize`; a DSL `length` is a signed `i32` (`-v.len()` doesn't compile).
+      return `(${receiverCode}.len() as i32)`;
     }
     const property = checker.getPropertyOfType(receiverType, propertyName);
     if (property) {

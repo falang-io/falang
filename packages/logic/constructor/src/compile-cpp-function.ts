@@ -25,11 +25,12 @@ export const buildCppSignatureLine = (
   parameters: readonly IFunctionBodyParameter[],
   returnValue: TVariableInfo | undefined,
   structNames: ReadonlyMap<string, string>,
+  stringType?: string,
 ): string => {
   const cppParams = parameters
-    .map((parameter) => `${variableInfoToCppType(parameter.type, structNames)} ${parameter.name}`)
+    .map((parameter) => `${variableInfoToCppType(parameter.type, structNames, stringType)} ${parameter.name}`)
     .join(', ');
-  const returnType = returnValue ? variableInfoToCppType(returnValue, structNames) : 'void';
+  const returnType = returnValue ? variableInfoToCppType(returnValue, structNames, stringType) : 'void';
   return `${returnType} ${cppName}(${cppParams})`;
 };
 
@@ -55,7 +56,7 @@ export const compileCppFunction = (
     );
   }
   const { parameters, returnValue } = getFunctionSignature(functionNode);
-  const signatureLine = buildCppSignatureLine(cppName, parameters, returnValue, params.structNames);
+  const signatureLine = buildCppSignatureLine(cppName, parameters, returnValue, params.structNames, params.stringType);
 
   const parameterScope: Record<string, TVariableInfo> = {};
   for (const parameter of parameters) parameterScope[parameter.name] = parameter.type;

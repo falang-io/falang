@@ -23,6 +23,8 @@ export interface ICppCompileParams {
   readonly adapter: ILanguageAdapter;
   readonly extraDeclarations?: readonly string[];
   readonly apiEndpoints: ReadonlyMap<string, IExternalApiEndpoint>;
+  /** The C++ type a `string` compiles to (default `std::string`; Arduino passes `String`). */
+  readonly stringType?: string;
 }
 
 // `TNestingFrame`/`ICycleInfo` live in `cycle-info.ts` (shared with the C# target, whose multi-level

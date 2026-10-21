@@ -88,7 +88,8 @@ export const cppAdapter: ILanguageAdapter = {
       propertyName === 'length' &&
       (isArrayLikeType(receiverType, checker) || isStringLikeType(receiverType, checker))
     ) {
-      return `${receiverCode}.size()`;
+      // `size()` is an unsigned `size_t`: `-s.length` or `i < -s.length` would wrap around. A `number` is signed.
+      return `static_cast<int32_t>(${receiverCode}.size())`;
     }
     // A plain (non-function) data field on an object type — the only shape a struct's own
     // properties ever take, since `variableInfoToTsType` never renders methods. Anything callable

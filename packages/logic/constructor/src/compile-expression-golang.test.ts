@@ -58,18 +58,18 @@ describe('compileExpression: golang target', () => {
     expect(result).toEqual({ ok: true, code: '"hello"' });
   });
 
-  it('maps .length on a string scope variable to the len() builtin', () => {
+  it('maps .length on a string scope variable to int32(len())', () => {
     const result = compileExpression({ expression: 's.length', scope: { s: stringType }, target: 'golang' });
-    expect(result).toEqual({ ok: true, code: 'len(s)' });
+    expect(result).toEqual({ ok: true, code: 'int32(len(s))' });
   });
 
-  it('maps .length on an array scope variable to the len() builtin', () => {
+  it('maps .length on an array scope variable to int32(len())', () => {
     const result = compileExpression({
       expression: 'items.length',
       scope: { items: stringArrayType },
       target: 'golang',
     });
-    expect(result).toEqual({ ok: true, code: 'len(items)' });
+    expect(result).toEqual({ ok: true, code: 'int32(len(items))' });
   });
 
   it('capitalizes a struct field access, matching Go export-field naming rules', () => {
@@ -122,12 +122,20 @@ describe('compileExpression: golang target', () => {
 
   describe('numeric coercion (ADR 0019 (private) follow-up: Go has no implicit int/float conversion)', () => {
     it('casts an int32 operand up to float32 when mixed with a float32 one', () => {
-      const result = compileExpression({ expression: 'a + b', scope: { a: numberType, b: floatType }, target: 'golang' });
+      const result = compileExpression({
+        expression: 'a + b',
+        scope: { a: numberType, b: floatType },
+        target: 'golang',
+      });
       expect(result).toEqual({ ok: true, code: 'float32(a) + b' });
     });
 
     it('casts the right operand instead when the float32 one is on the left', () => {
-      const result = compileExpression({ expression: 'b + a', scope: { a: numberType, b: floatType }, target: 'golang' });
+      const result = compileExpression({
+        expression: 'b + a',
+        scope: { a: numberType, b: floatType },
+        target: 'golang',
+      });
       expect(result).toEqual({ ok: true, code: 'b + float32(a)' });
     });
 
@@ -148,7 +156,11 @@ describe('compileExpression: golang target', () => {
     });
 
     it('also coerces a comparison operator, not just arithmetic ones', () => {
-      const result = compileExpression({ expression: 'a < b', scope: { a: numberType, b: floatType }, target: 'golang' });
+      const result = compileExpression({
+        expression: 'a < b',
+        scope: { a: numberType, b: floatType },
+        target: 'golang',
+      });
       expect(result).toEqual({ ok: true, code: 'float32(a) < b' });
     });
   });

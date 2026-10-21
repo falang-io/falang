@@ -24,10 +24,17 @@ const FLOAT_CPP_TYPES: Readonly<Record<string, string>> = {
  * fall back to, so every unresolvable case throws `UnsupportedConstructError` (surfaced by callers
  * the same way an adapter's own unsupported-construct error is, rather than emitting invalid C++).
  */
-export const variableInfoToCppType = (type: TVariableInfo, structNames: ReadonlyMap<string, string>): string => {
+/** The C++ string type unless a target says otherwise — Arduino cores have no `std::string` (no STL on AVR) and pass `String`. */
+export const CPP_STD_STRING_TYPE = 'std::string';
+
+export const variableInfoToCppType = (
+  type: TVariableInfo,
+  structNames: ReadonlyMap<string, string>,
+  stringType: string = CPP_STD_STRING_TYPE,
+): string => {
   switch (type.type) {
     case 'string': {
-      return 'std::string';
+      return stringType;
     }
     case 'boolean': {
       return 'bool';
@@ -50,7 +57,7 @@ export const variableInfoToCppType = (type: TVariableInfo, structNames: Readonly
     case 'array': {
       // `dimensions` (like `variableInfoToTsType`'s own `'[]'.repeat(dimensions)`) wraps the single
       // `elementType` N times, rather than `elementType` itself being a nested array type.
-      let cppType = variableInfoToCppType(type.elementType, structNames);
+      let cppType = variableInfoToCppType(type.elementType, structNames, stringType);
       for (let dimension = 0; dimension < type.dimensions; dimension += 1) cppType = `std::vector<${cppType}>`;
       return cppType;
     }

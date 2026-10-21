@@ -93,7 +93,8 @@ export const golangAdapter: ILanguageAdapter = {
       propertyName === 'length' &&
       (isArrayLikeType(receiverType, checker) || isStringLikeType(receiverType, checker))
     ) {
-      return `len(${receiverCode})`;
+      // `len()` is Go's `int`; a DSL `length` is an `int32` like every other default integer.
+      return `int32(len(${receiverCode}))`;
     }
     const property = checker.getPropertyOfType(receiverType, propertyName);
     if (property) {

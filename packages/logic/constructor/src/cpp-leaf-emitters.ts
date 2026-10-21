@@ -19,7 +19,7 @@ interface ICreateVarData {
 
 export const emitCreateVar = (node: INode, ctx: ICppStatementContext): string => {
   const data = node.data as ICreateVarData;
-  const cppType = variableInfoToCppType(data.variableType, ctx.params.structNames);
+  const cppType = variableInfoToCppType(data.variableType, ctx.params.structNames, ctx.params.stringType);
   if (data.value?.trim()) {
     return `${cppType} ${data.name} = ${compileExpr(data.value, ctx, node.id, data.variableType)};`;
   }
@@ -81,7 +81,7 @@ export const emitCallFunction = (
   if (!signature.returnValue) {
     throw new NodeCompileError(node.id, `call-function sets "returnVariable" but "${data.schemeId}" returns void`);
   }
-  const cppType = variableInfoToCppType(signature.returnValue, ctx.params.structNames);
+  const cppType = variableInfoToCppType(signature.returnValue, ctx.params.structNames, ctx.params.stringType);
   return { code: `${cppType} ${variable} = ${call};`, returnBinding: { name: variable, type: signature.returnValue } };
 };
 
@@ -114,7 +114,7 @@ export const emitCallApi = (
   if (!endpoint.returnValue) {
     throw new NodeCompileError(node.id, `call-api sets "returnVariable" but endpoint "${endpoint.name}" returns void`);
   }
-  const cppType = variableInfoToCppType(endpoint.returnValue, ctx.params.structNames);
+  const cppType = variableInfoToCppType(endpoint.returnValue, ctx.params.structNames, ctx.params.stringType);
   return { code: `${cppType} ${variable} = ${call};`, returnBinding: { name: variable, type: endpoint.returnValue } };
 };
 
@@ -172,7 +172,7 @@ export const emitArrPop = (
   const variable = data.variable.trim();
   if (variable === '') return { code: `${arr}.pop_back();` };
   const elementType = resolveArrayIdentifierType(data.arr, ctx, node.id).elementType;
-  const cppType = variableInfoToCppType(elementType, ctx.params.structNames);
+  const cppType = variableInfoToCppType(elementType, ctx.params.structNames, ctx.params.stringType);
   const code = `${cppType} ${variable} = ${arr}.back();\n${arr}.pop_back();`;
   return { code, returnBinding: { name: variable, type: elementType } };
 };
@@ -186,7 +186,7 @@ export const emitArrShift = (
   const variable = data.variable.trim();
   if (variable === '') return { code: `${arr}.erase(${arr}.begin());` };
   const elementType = resolveArrayIdentifierType(data.arr, ctx, node.id).elementType;
-  const cppType = variableInfoToCppType(elementType, ctx.params.structNames);
+  const cppType = variableInfoToCppType(elementType, ctx.params.structNames, ctx.params.stringType);
   const code = `${cppType} ${variable} = ${arr}.front();\n${arr}.erase(${arr}.begin());`;
   return { code, returnBinding: { name: variable, type: elementType } };
 };
@@ -247,7 +247,7 @@ export const emitArrSlice = (
   const start = compileExpr(data.start, ctx, node.id);
   const end = compileExpr(data.end, ctx, node.id);
   const variable = data.variable.trim();
-  const cppType = variableInfoToCppType(arrType, ctx.params.structNames);
+  const cppType = variableInfoToCppType(arrType, ctx.params.structNames, ctx.params.stringType);
   const sliced = `${cppType}(${arr}.begin() + (${start}), ${arr}.begin() + (${end}))`;
   // Without a variable name the slice is evaluated and discarded — `<type> = <expr>;` is not valid C++.
   if (variable === '') return { code: `(void)${sliced};` };

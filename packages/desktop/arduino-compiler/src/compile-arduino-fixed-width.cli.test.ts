@@ -115,4 +115,36 @@ describe('Arduino sketch with fixed-width integers (ADR 0069 (private))', () => 
       await rm(dir, { recursive: true, force: true });
     }
   });
+  it('compiles string variables as Arduino String for an Uno', async () => {
+    const setup = functionDocument('doc-setup', 'setup', [{ id: 's1', name: 'action', data: 'Serial.begin(9600)' }]);
+    const stringType = { type: 'string' };
+    const loop = functionDocument('doc-loop', 'loop', [
+      { id: 'v1', name: 'create-var', data: { name: 'text', variableType: stringType, value: '"Hello, falang!"' } },
+      { id: 'v2', name: 'create-var', data: { name: 'empty', variableType: stringType } },
+      createVar('v3', 'x', 'int32', '0'),
+      { id: 'a1', name: 'action', data: 'x = -text.length' },
+      { id: 'a2', name: 'action', data: 'empty = text + "!"' },
+      { id: 'a3', name: 'action', data: 'empty = `x=${x} ${text}`' },
+      { id: 'a4', name: 'action', data: 'Serial.println(empty)' },
+      { id: 'a5', name: 'action', data: 'Serial.println(text == "Hello, falang!")' },
+    ]);
+    const { code } = compileArduinoProject({ documents: [setup, loop] });
+
+    expect(code).not.toContain('std::');
+    expect(code).toContain('String text = "Hello, falang!";');
+    expect(code).toContain('static_cast<int32_t>(text.length())');
+
+    const cli = await checkArduinoCli();
+    if (!cli.available) return;
+    const dir = await mkdtemp(join(tmpdir(), 'falang-arduino-string-'));
+    try {
+      const sketchDir = await writeSketchFiles(dir, 'sketch', code, []);
+      const result = await compileSketch({ fqbn: 'arduino:avr:uno', sketchDir });
+      if (!result.ok && /platform not installed|Unknown FQBN|No such core/iu.test(result.output)) return;
+      expect(result.output).toContain('Sketch uses');
+      expect(result.ok).toBe(true);
+    } finally {
+      await rm(dir, { recursive: true, force: true });
+    }
+  });
 });

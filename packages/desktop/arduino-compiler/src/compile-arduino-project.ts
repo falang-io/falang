@@ -22,6 +22,9 @@ import { lowerArduinoFunctionNodes } from './lower-arduino-function-nodes.js';
 import { lowerDriverNodes } from './lower-driver-nodes.js';
 import { buildSetupPrologue } from './setup-prologue.js';
 
+/** Arduino cores have no `std::string` (AVR has no STL); a `string` is the core's own `String` class. */
+const ARDUINO_STRING_TYPE = 'String';
+
 const PREAMBLE = '#include <Arduino.h>';
 const DEBUG_HEADER_INCLUDE = '#include "falang_debug.h"';
 export const FALANG_DEBUG_HEADER_FILENAME = 'falang_debug.h';
@@ -169,7 +172,7 @@ export const compileArduinoProject = ({
       parameters: signature.parameters,
     });
     prototypes.push(
-      `${buildCppSignatureLine(document.name, signature.parameters, signature.returnValue, structRegistry.structNames)};`,
+      `${buildCppSignatureLine(document.name, signature.parameters, signature.returnValue, structRegistry.structNames, ARDUINO_STRING_TYPE)};`,
     );
   }
 
@@ -188,6 +191,7 @@ export const compileArduinoProject = ({
     // shared cpp statement compiler still requires this field (added by ADR 0019's `call-api` work,
     // merged after this file was first written), so it's always empty here.
     apiEndpoints: new Map(),
+    stringType: ARDUINO_STRING_TYPE,
   };
 
   // A single project-wide index counter and trace-point collector, shared across every document's
@@ -239,7 +243,11 @@ export const compileArduinoProject = ({
     }
   }
 
-  const structDeclarations = emitCppStructDeclarations(structRegistry.structDefinitions, structRegistry.structNames);
+  const structDeclarations = emitCppStructDeclarations(
+    structRegistry.structDefinitions,
+    structRegistry.structNames,
+    ARDUINO_STRING_TYPE,
+  );
 
   const driverIncludes = usedDrivers.flatMap((driver) => driver.includes).map((fileName) => `#include "${fileName}"`);
   const preamble = [PREAMBLE, ...driverIncludes, ...(debug ? [DEBUG_HEADER_INCLUDE] : [])].join('\n');

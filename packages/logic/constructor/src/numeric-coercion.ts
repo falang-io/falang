@@ -103,6 +103,10 @@ const resolvePropertyAccessInfo = (
   resolve: TResolveVariableInfo,
 ): TVariableInfo | undefined => {
   const receiverInfo = resolve(node.expression, context);
+  // Every adapter renders an array's or string's `length` as a signed 32-bit integer.
+  if (node.name.text === 'length' && (receiverInfo?.type === 'array' || receiverInfo?.type === 'string')) {
+    return { type: 'number', numberType: { type: 'integer', integerType: 'int32' } };
+  }
   if (receiverInfo?.type !== 'struct') return;
   return context.structDefinitions.get(receiverInfo.id)?.properties[node.name.text];
 };

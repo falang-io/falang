@@ -16,7 +16,7 @@ export const applyCppDebugTrace = (node: INode, code: string, ctx: ICppStatement
   const tracedScope = ctx.debug.tracer.selectVariables ? ctx.debug.tracer.selectVariables(ctx.scope) : ctx.scope;
   const variables = Object.entries(tracedScope).map(([name, type]) => ({
     name,
-    type: variableInfoToCppType(type, ctx.params.structNames),
+    type: variableInfoToCppType(type, ctx.params.structNames, ctx.params.stringType),
   }));
   ctx.debug.onTracePoint({ index, documentId: ctx.debug.documentId, nodeId: node.id, variables });
   const traceLine = ctx.debug.tracer.emitTrace(node, index, tracedScope);

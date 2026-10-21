@@ -104,7 +104,7 @@ export const emitForeach = (node: INode, ctx: ICppStatementContext, compile: TCo
     scopeOverrides: { [item]: arrType.elementType, [index]: INT32_TYPE },
     nesting: [...ctx.nesting, 'loop'],
   });
-  const itemDeclaration = `${variableInfoToCppType(arrType.elementType, ctx.params.structNames)} ${item} = ${arr}[${index}];`;
+  const itemDeclaration = `${variableInfoToCppType(arrType.elementType, ctx.params.structNames, ctx.params.stringType)} ${item} = ${arr}[${index}];`;
   const forBlock = `for (int32_t ${index} = 0; ${index} < static_cast<int32_t>(${arr}.size()); ${index}++) {\n${indentLines(`${itemDeclaration}\n${body}`)}\n}`;
   return appendCycleBottom(forBlock, ctx);
 };

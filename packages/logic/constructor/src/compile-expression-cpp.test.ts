@@ -48,17 +48,20 @@ describe('compileExpression: cpp target', () => {
 
   it('compiles a template literal with no interpolation the same way', () => {
     const result = compileExpression({ expression: '`hello`', scope: {}, target: 'cpp' });
-    expect(result).toEqual({ ok: true, code: '([&]{ std::ostringstream _oss; _oss << "hello"; return _oss.str(); }())' });
+    expect(result).toEqual({
+      ok: true,
+      code: '([&]{ std::ostringstream _oss; _oss << "hello"; return _oss.str(); }())',
+    });
   });
 
-  it('maps .length on a string scope variable to .size()', () => {
+  it('maps .length on a string scope variable to static_cast<int32_t>(.size())', () => {
     const result = compileExpression({ expression: 's.length', scope: { s: stringType }, target: 'cpp' });
-    expect(result).toEqual({ ok: true, code: 's.size()' });
+    expect(result).toEqual({ ok: true, code: 'static_cast<int32_t>(s.size())' });
   });
 
-  it('maps .length on an array scope variable to .size()', () => {
+  it('maps .length on an array scope variable to static_cast<int32_t>(.size())', () => {
     const result = compileExpression({ expression: 'items.length', scope: { items: stringArrayType }, target: 'cpp' });
-    expect(result).toEqual({ ok: true, code: 'items.size()' });
+    expect(result).toEqual({ ok: true, code: 'static_cast<int32_t>(items.size())' });
   });
 
   it('maps array element access (arr[index]) to C++ operator[]', () => {

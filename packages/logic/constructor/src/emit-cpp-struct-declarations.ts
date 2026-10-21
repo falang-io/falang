@@ -12,6 +12,7 @@ import { collectStructDependencyIds } from './struct-registry.js';
 export const emitCppStructDeclarations = (
   structDefinitions: ReadonlyMap<string, IStructDefinition>,
   structNames: ReadonlyMap<string, string>,
+  stringType?: string,
 ): string => {
   const declared: string[] = [];
   const visited = new Set<string>();
@@ -28,7 +29,7 @@ export const emitCppStructDeclarations = (
     }
     visited.add(id);
     const fields = Object.entries(definition.properties)
-      .map(([name, type]) => `  ${variableInfoToCppType(type, structNames)} ${name};`)
+      .map(([name, type]) => `  ${variableInfoToCppType(type, structNames, stringType)} ${name};`)
       .join('\n');
     declared.push(`struct ${definition.name} {\n${fields}\n};`);
   };

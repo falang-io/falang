@@ -39,8 +39,14 @@ const PIN_CONSTANTS = ['HIGH', 'LOW', 'INPUT', 'OUTPUT', 'INPUT_PULLUP'] as cons
  */
 export const ANALOG_PIN_CONSTANTS = ['A0', 'A1', 'A2', 'A3', 'A4', 'A5', 'A6', 'A7'] as const;
 
-/** Only the numeric-argument overloads — `Serial.print`/`println`'s string overload needs `@falang/logic-constructor`'s string support, not done in Phase 1. */
 const SERIAL_METHODS = ['begin', 'print', 'println'] as const;
+
+/** `Serial.begin` takes a baud rate; `print`/`println` also print strings (an Arduino `String`) and booleans (as 1/0). */
+const SERIAL_PARAMETER_TYPES: Readonly<Record<(typeof SERIAL_METHODS)[number], string>> = {
+  begin: 'number',
+  print: 'number | string | boolean',
+  println: 'number | string | boolean',
+};
 
 /**
  * Ambient TS declaration lines for `@falang/logic-constructor`'s `ICppCompileParams.extraDeclarations` —
@@ -52,7 +58,7 @@ export const ARDUINO_BUILTIN_DECLARATIONS: readonly string[] = [
   ...PIN_CONSTANTS.map((name) => `declare const ${name}: number;`),
   ...ANALOG_PIN_CONSTANTS.map((name) => `declare const ${name}: number;`),
   ...ARDUINO_FUNCTIONS.map((fn) => `declare function ${fn.name}${fn.signature};`),
-  `declare const Serial: { ${SERIAL_METHODS.map((method) => `${method}(value: number): void;`).join(' ')} };`,
+  `declare const Serial: { ${SERIAL_METHODS.map((method) => `${method}(value: ${SERIAL_PARAMETER_TYPES[method]}): void;`).join(' ')} };`,
 ];
 
 /** `arduino-adapter.ts`'s `emitCall` whitelist — every entry here is a straight passthrough (Arduino's C++ API calls are already valid C++ syntax, nothing to translate), falling back to `cppAdapter.emitCall` (still gets `Math.*` for free) for anything not listed here. */

@@ -140,6 +140,19 @@ export const NUMBERS_PROJECT_DOCUMENTS: readonly IProjectDocument[] = [
       action('i5x', 'total += 5'),
       action('i6x', 'n6 *= 2'),
       log('l11', 'e=${e} n1=${n1} small=${ctr.small} arr0=${arr[0]} total=${total} n6=${n6}'),
+      // 10. a length is a signed number (C++ size() is unsigned)
+      createVar('ln1', 'neg', int32, '-arr.length'),
+      createVar('ln2', 'below', int32, '0'),
+      {
+        id: 'ln3',
+        name: 'if',
+        data: 'neg < -arr.length + 1',
+        children: [
+          { id: 'ln3-then', name: 'if-child', children: [action('ln4', 'below = 1')] },
+          { id: 'ln3-else', name: 'if-child' },
+        ],
+      },
+      log('l12', 'neg=${neg} below=${below}'),
     ],
   }),
 ];
@@ -163,4 +176,5 @@ export const NUMBERS_EXPECTED_RESULT_LINES = [
   'total=60 second=20 count=3',
   'half=-3 mixed=1200',
   'e=-69999 n1=149 small=249 arr0=11 total=65 n6=74',
+  'neg=-3 below=1',
 ];
