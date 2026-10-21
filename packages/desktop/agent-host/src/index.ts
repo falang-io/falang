@@ -31,6 +31,7 @@ export {
 } from './sketch/document-types.js';
 export {
   buildSketchDocumentScheme,
+  SKETCH_VALIDATED_DOCUMENT_TYPES,
   type IBuildSketchDocumentSchemeParams,
 } from './sketch/build-sketch-document-scheme.js';
 export { createSketchProjectContainer } from './sketch/create-sketch-project-container.js';
@@ -57,3 +58,4 @@ export {
   type IUndoRedoDeps,
   type TUndoTarget,
 } from './undo-routing.js';
+export { PortableNumbersContextProvider, PORTABLE_NUMBERS_CONTEXT } from './create-desktop-agent-session.js';

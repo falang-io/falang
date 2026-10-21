@@ -72,7 +72,7 @@ describe('buildSketchDocumentScheme', () => {
     }
   });
 
-  it('adds the validation module only to a function document of a logic project', () => {
+  it('adds the validation module only to function and structure documents of a logic project', () => {
     registerGlobalTokens();
     const make = (type: keyof typeof SKETCH_DOCUMENT_TYPES, projectType: string) =>
       buildSketchDocumentScheme({
@@ -84,12 +84,14 @@ describe('buildSketchDocumentScheme', () => {
     const schemes = {
       logicFn: make('function', 'logic'),
       logicStruct: make('objects-structure', 'logic'),
+      textStruct: make('objects-structure', 'text'),
       textFn: make('text-function', 'text'),
       code: make('simple-code-ts', 'simple-code-ts'),
     };
     try {
       expect(hasValidation(schemes.logicFn)).toBe(true);
-      expect(hasValidation(schemes.logicStruct)).toBe(false);
+      expect(hasValidation(schemes.logicStruct)).toBe(true);
+      expect(hasValidation(schemes.textStruct)).toBe(false);
       expect(hasValidation(schemes.textFn)).toBe(false);
       expect(hasValidation(schemes.code)).toBe(false);
     } finally {

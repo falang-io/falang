@@ -20,6 +20,9 @@ export const createSketchProjectContainer = (projectType: string): DependencyCon
   const child = container.createChildContainer();
   registerProjectDocumentsRegistry(child);
   registerTypescriptProjectService(child);
-  resolveService(TOKEN_TYPESCRIPT_PROJECT_SERVICE, child).setTheme('light');
+  const projectService = resolveService(TOKEN_TYPESCRIPT_PROJECT_SERVICE, child);
+  projectService.setTheme('light');
+  // ADR 0069: a logic project compiles to C++/Go/Rust/C#, so numbers are integer/float/decimal, not a bare `number`.
+  if (projectType === 'logic') projectService.setNumberTypesMode('portable');
   return child;
 };

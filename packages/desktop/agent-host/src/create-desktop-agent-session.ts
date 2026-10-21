@@ -4,6 +4,7 @@ import {
   type IAgentDocumentResolver,
   type IAgentNodeKindFilter,
   type IAgentToolProvider,
+  type IAgentContextProvider,
   type ILlmClient,
 } from '@falang/agent';
 import type { Scheme } from '@falang/scheme';
@@ -13,6 +14,16 @@ import {
   isAgentCapableDocumentType,
   type TDesktopAgentProduct,
 } from './agent-capable-documents.js';
+
+/** ADR 0069 (private): the one context line of a project whose numbers must be compilable by C++/Go/Rust/C#. */
+export const PORTABLE_NUMBERS_CONTEXT =
+  "Number variables must use numberType integer (with integerType), float (with floatType) or decimal (digits, decimals); never numberType any — it can't be compiled.";
+
+export class PortableNumbersContextProvider implements IAgentContextProvider {
+  describe(): string {
+    return PORTABLE_NUMBERS_CONTEXT;
+  }
+}
 
 export interface IDesktopAgentDocument {
   readonly id: string;
@@ -62,6 +73,11 @@ export interface ICreateDesktopAgentSessionDeps {
   readonly documentResolver?: IAgentDocumentResolver;
   /** Host-defined extra tools (ADR 0054 (private) §6: the Arduino `DriverToolProvider`). */
   readonly toolProviders?: readonly IAgentToolProvider[];
+  /**
+   * Tell the model numbers must be integer/float/decimal (ADR 0069 (private)). Default: `true` for `arduino`, `false` for
+   * `sketch` (only `logic` projects compile to non-TS targets — the host passes `true` for those).
+   */
+  readonly portableNumbers?: boolean;
   /** Trims what `get_node_kinds` lists (never what validates) — the Arduino host hides actions of drivers with no device in `Devices`. */
   readonly nodeKindFilter?: IAgentNodeKindFilter;
 }
@@ -85,6 +101,7 @@ export const createDesktopAgentSession = (deps: ICreateDesktopAgentSessionDeps):
           .filter((doc) => isAgentCapableDocumentType(product, doc.type))
           .map((doc) => ({ id: doc.id, name: doc.name, type: doc.type })),
       ),
+      ...((deps.portableNumbers ?? product === 'arduino') ? [new PortableNumbersContextProvider()] : []),
     ],
     {
       documentResolver: deps.documentResolver ?? createDesktopAgentDocumentResolver(product, store),

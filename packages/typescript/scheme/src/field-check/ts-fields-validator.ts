@@ -6,6 +6,7 @@ import { TOKEN_TYPESCRIPT_PROJECT_SERVICE } from '../typescript-project-service/
 import type { TypescriptProjectService } from '../typescript-project-service/typescript-project.service.js';
 import { getCodeFieldText, isCodeFieldSkipped, type ICheckedField } from './checked-field.js';
 import { describeCheckedFields } from './describe-checked-fields.js';
+import { createPortableTypesValidator } from '../portable-types/portable-types-validator.js';
 import { MonacoCheckPool } from './monaco-check-pool.js';
 
 export const TYPESCRIPT_VALIDATION_SOURCE = 'typescript';
@@ -24,6 +25,8 @@ export const getDefaultCheckPool = (): MonacoCheckPool => {
 export interface ITsFieldsValidatorOptions {
   /** Defaults to `getDefaultCheckPool()`. */
   pool?: MonacoCheckPool;
+  /** Also check that types are compilable by the portable targets (ADR 0069 (private)); a no-op unless the project is in `portable` number mode. */
+  portableTypes?: boolean;
 }
 
 const resolveProjectService = (ctx: IValidationContext): TypescriptProjectService | null => {
@@ -98,6 +101,7 @@ export const createTypescriptFieldsValidator = (
 /** The validators of a TypeScript scheme — pass to `ValidationModule({ validators })`. */
 export const createTypescriptValidators = (options: ITsFieldsValidatorOptions = {}): INodeValidator[] => [
   createTypescriptFieldsValidator(options) as INodeValidator,
+  ...(options.portableTypes ? [createPortableTypesValidator() as INodeValidator] : []),
 ];
 
 /** `new ValidationModule` with the TypeScript field validator, wired in one line by a host. */

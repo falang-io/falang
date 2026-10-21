@@ -11,6 +11,13 @@ import {
 } from '@falang/scheme';
 import { SKETCH_DOCUMENT_TYPES, type SketchDocumentType } from './document-types.js';
 
+/** Document types of a `logic` project that get background validation. */
+export const SKETCH_VALIDATED_DOCUMENT_TYPES: ReadonlySet<string> = new Set([
+  'function',
+  'objects-structure',
+  'external-api-structure',
+]);
+
 export interface IBuildSketchDocumentSchemeParams {
   /** The document to open — `root` is its stored tree, absent for a never-edited one (the node kind's factory default is used). */
   readonly doc: {
@@ -30,9 +37,10 @@ export interface IBuildSketchDocumentSchemeParams {
    */
   readonly projectType?: string;
   /**
-   * Background validation of the document's icons (ADR 0068 (private)) — `createTypescriptValidationModule()`. Honoured only
-   * for a `function` document of a `logic` project (`projectType` `logic`, or omitted by a headless host); ignored for
-   * `text`/`simple-code-*` documents and `*-structure` editors, whose fields aren't type-checked TypeScript.
+   * Background validation of the document's icons (ADR 0068 (private)) — `createTypescriptValidationModule()` for a
+   * `function` document, `createPortableTypesValidationModule()` for `objects-structure`/`external-api-structure` (ADR 0069
+   * (private): their property types must be compilable). Honoured only in a `logic` project (`projectType` `logic`, or omitted
+   * by a headless host); ignored for `text`/`simple-code-*` documents, whose fields aren't type-checked TypeScript.
    */
   readonly validationModule?: ValidationModule;
 }
@@ -47,7 +55,11 @@ export const buildSketchDocumentScheme = (params: IBuildSketchDocumentSchemePara
   const { doc } = params;
   const config = SKETCH_DOCUMENT_TYPES[doc.type];
   const extraModules: IModule[] = [...(params.extraModules ?? []), new HistoryModule()];
-  if (params.validationModule && doc.type === 'function' && (params.projectType ?? 'logic') === 'logic') {
+  if (
+    params.validationModule &&
+    SKETCH_VALIDATED_DOCUMENT_TYPES.has(doc.type) &&
+    (params.projectType ?? 'logic') === 'logic'
+  ) {
     extraModules.push(params.validationModule);
   }
   if (typeof params.projectType === 'string') {

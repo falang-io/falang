@@ -1,5 +1,6 @@
 import type { INodeConfig, NodesStack } from '@falang/dto';
 import { zod } from '@falang/dto';
+import { NUMBER_TYPE_NODE_KIND_NOTES } from './node-kind-notes-numbers.js';
 import { SQL_VENDOR_NODE_KIND_NOTES, VENDOR_NODE_KIND_NOTES } from './node-kind-notes-vendors.js';
 
 /**
@@ -133,6 +134,7 @@ const ALL_NODE_KIND_NOTES: Record<string, string> = {
   ...NODE_KIND_NOTES,
   ...VENDOR_NODE_KIND_NOTES,
   ...SQL_VENDOR_NODE_KIND_NOTES,
+  ...NUMBER_TYPE_NODE_KIND_NOTES,
 };
 
 /** Node kinds some config names explicitly — `slots`: a fixed `childTuple` position (e.g.

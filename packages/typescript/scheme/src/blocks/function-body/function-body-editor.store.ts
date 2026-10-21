@@ -3,50 +3,13 @@ import type { zod } from '@falang/dto';
 import { BlockEditorStore, type IBlockEditorFactoryParams } from '@falang/scheme';
 import { action, makeObservable, observable } from 'mobx';
 import type { functionBodyDto, functionBodyParameterZod, variableInfoZod } from '@falang/typescript-dto';
+import { buildDefaultVariableType } from '../../block-elements/variable-type/variable-type-model.js';
 import { TOKEN_TYPESCRIPT_PROJECT_SERVICE } from '../../typescript-project-service/typescript-project.service.token.js';
 import type { TypescriptProjectService } from '../../typescript-project-service/typescript-project.service.js';
 
 export type IfunctionBody = zod.infer<typeof functionBodyDto>;
 export type IfunctionBodyParameter = zod.infer<typeof functionBodyParameterZod>;
 type IVariableType = zod.infer<typeof variableInfoZod>;
-
-const defaultVariableType = (type: IVariableType['type']): IVariableType => {
-  switch (type) {
-    case 'string': {
-      return { type: 'string' };
-    }
-    case 'boolean': {
-      return { type: 'boolean' };
-    }
-    case 'number': {
-      return { type: 'number', numberType: { type: 'any' } };
-    }
-    case 'array': {
-      return { type: 'array', elementType: { type: 'string' }, dimensions: 1 };
-    }
-    case 'struct': {
-      return { type: 'struct', id: '' };
-    }
-    case 'enum': {
-      return { type: 'enum', schemeId: '', iconId: '' };
-    }
-    case 'void': {
-      return { type: 'void' };
-    }
-    case 'any': {
-      return { type: 'any' };
-    }
-    case 'never': {
-      return { type: 'never' };
-    }
-    case 'union': {
-      return { type: 'union', unionTypes: [] };
-    }
-    default: {
-      return { type: 'string' };
-    }
-  }
-};
 
 export class FunctionBodyBlockEditorStore extends BlockEditorStore<IfunctionBody> {
   @observable data: IfunctionBody;
@@ -88,10 +51,25 @@ export class FunctionBodyBlockEditorStore extends BlockEditorStore<IfunctionBody
     };
   }
 
+  @action setParameterVariableType(index: number, type: IVariableType) {
+    this.data = {
+      ...this.data,
+      parameters: this.data.parameters.map((p, i) => (i === index ? { ...p, type } : p)),
+    };
+  }
+
+  /** `undefined` = void (no `returnValue`). */
+  @action setReturnValueVariableType(returnValue: IVariableType | undefined) {
+    // oxlint-disable-next-line no-undefined -- clears a previously-set return type back to "omitted"
+    this.data = { ...this.data, returnValue: returnValue && returnValue.type !== 'void' ? returnValue : undefined };
+  }
+
   @action setParameterType(index: number, type: IVariableType['type']) {
     this.data = {
       ...this.data,
-      parameters: this.data.parameters.map((p, i) => (i === index ? { ...p, type: defaultVariableType(type) } : p)),
+      parameters: this.data.parameters.map((p, i) =>
+        i === index ? { ...p, type: buildDefaultVariableType(type, this.projectService) } : p,
+      ),
     };
   }
 
@@ -102,7 +80,9 @@ export class FunctionBodyBlockEditorStore extends BlockEditorStore<IfunctionBody
     this.data = {
       ...this.data,
       parameters: this.data.parameters.map((p, i) =>
-        i === index ? { ...p, type: { ...current, elementType: defaultVariableType(type) } } : p,
+        i === index
+          ? { ...p, type: { ...current, elementType: buildDefaultVariableType(type, this.projectService) } }
+          : p,
       ),
     };
   }
@@ -147,7 +127,7 @@ export class FunctionBodyBlockEditorStore extends BlockEditorStore<IfunctionBody
       this.data = { ...this.data, returnValue: undefined };
       return;
     }
-    this.data = { ...this.data, returnValue: defaultVariableType(type) };
+    this.data = { ...this.data, returnValue: buildDefaultVariableType(type, this.projectService) };
   }
 
   @action setReturnValueArrayElementType(type: IVariableType['type']) {
@@ -155,7 +135,7 @@ export class FunctionBodyBlockEditorStore extends BlockEditorStore<IfunctionBody
     if (!returnValue || returnValue.type !== 'array') return;
     this.data = {
       ...this.data,
-      returnValue: { ...returnValue, elementType: defaultVariableType(type) },
+      returnValue: { ...returnValue, elementType: buildDefaultVariableType(type, this.projectService) },
     };
   }
 

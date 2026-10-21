@@ -23,6 +23,10 @@ export const createArduinoProjectContainer = (): DependencyContainer => {
   setMonacoLibVariant('portable', ARDUINO_BUILTIN_DECLARATIONS.join('\n'));
   const child = container.createChildContainer();
   registerTypescriptProjectService(child);
-  resolveService(TOKEN_TYPESCRIPT_PROJECT_SERVICE, child).setTheme('light');
+  const projectService = resolveService(TOKEN_TYPESCRIPT_PROJECT_SERVICE, child);
+  projectService.setTheme('light');
+  // ADR 0069: portable number types; a float is 4 bytes on AVR (`double` is the same as `float`).
+  projectService.setNumberTypesMode('portable');
+  projectService.setDefaultFloatType('float32');
   return child;
 };

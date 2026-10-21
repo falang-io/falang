@@ -2,6 +2,7 @@ import type { IBlockView } from '@falang/scheme';
 import { useService } from '@falang/scheme';
 import { observer } from 'mobx-react-lite';
 import type { IObjectProperty } from './object-property-editor.store.js';
+import { useNumberTypesMode, viewTypeName } from '../../block-elements/variable-type/use-type-labels.js';
 import { TypeScriptBlockContainer } from '../../cmp/typescript-block-container.js';
 import { TOKEN_TYPESCRIPT_PROJECT_SERVICE } from '../../typescript-project-service/typescript-project.service.token.js';
 import type { TypesRegistryStore } from '../../typescript-project-service/types-registry.store.js';
@@ -19,6 +20,7 @@ export const ObjectPropertyBlockComponent: IBlockView<IObjectProperty> = observe
     // service not registered
   }
 
+  const mode = useNumberTypesMode();
   const getStructName = (id: string): string => typesRegistry?.types.get(id)?.name ?? id;
 
   if (!data) return <div>&nbsp;</div>;
@@ -36,7 +38,7 @@ export const ObjectPropertyBlockComponent: IBlockView<IObjectProperty> = observe
             <td>
               <div className="ts-label">type</div>
             </td>
-            <td>{variableType.type}</td>
+            <td>{viewTypeName(variableType, mode)}</td>
           </tr>
           {variableType.type === 'array' && (
             <>
@@ -44,7 +46,7 @@ export const ObjectPropertyBlockComponent: IBlockView<IObjectProperty> = observe
                 <td>
                   <div className="ts-label">of</div>
                 </td>
-                <td>{variableType.elementType.type}</td>
+                <td>{viewTypeName(variableType.elementType, mode)}</td>
               </tr>
               {variableType.elementType.type === 'struct' && (
                 <tr>
