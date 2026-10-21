@@ -4,6 +4,7 @@ import {
   emitCppStructDeclarations,
   buildCppSignatureLine,
   compileCppFunction,
+  FALANG_DECIMAL_CPP_RUNTIME,
   getFunctionSignature,
   NodeCompileError,
   type ICppCompileParams,
@@ -162,7 +163,11 @@ export const compileArduinoProject = ({
   for (const document of functionDocuments) {
     if (!document.root) continue;
     const signature = getFunctionSignature(document.root);
-    functionSignatures.set(document.id, { cppName: document.name, returnValue: signature.returnValue });
+    functionSignatures.set(document.id, {
+      cppName: document.name,
+      returnValue: signature.returnValue,
+      parameters: signature.parameters,
+    });
     prototypes.push(
       `${buildCppSignatureLine(document.name, signature.parameters, signature.returnValue, structRegistry.structNames)};`,
     );
@@ -239,7 +244,16 @@ export const compileArduinoProject = ({
   const driverIncludes = usedDrivers.flatMap((driver) => driver.includes).map((fileName) => `#include "${fileName}"`);
   const preamble = [PREAMBLE, ...driverIncludes, ...(debug ? [DEBUG_HEADER_INCLUDE] : [])].join('\n');
 
-  const code = [preamble, structDeclarations, prototypes.join('\n'), functionBlocks.join('\n\n')]
+  // The decimal runtime (ADR 0069 (private) §4) is inlined only when something uses it. It is written without free
+  // functions or free function templates (static members and hidden friends), which is what keeps the Arduino
+  // sketch preprocessor — it generates prototypes for the free functions it finds — from tripping on it.
+  const decimalRuntime = [structDeclarations, prototypes.join('\n'), functionBlocks.join('\n')].some((text) =>
+    text.includes('FalangDecimal'),
+  )
+    ? FALANG_DECIMAL_CPP_RUNTIME
+    : '';
+
+  const code = [preamble, decimalRuntime, structDeclarations, prototypes.join('\n'), functionBlocks.join('\n\n')]
     .filter((section) => section !== '')
     .join('\n\n');
 

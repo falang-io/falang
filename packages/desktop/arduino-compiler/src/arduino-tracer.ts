@@ -41,7 +41,8 @@ export const createArduinoTracer = (): ITraceEmitter => ({
       const cast = classifyDebugVariableType(type);
       // `selectVariables` already dropped anything `cast` would be null for — this is just the
       // compiler's own contract, not a runtime possibility to guard against here.
-      return `falang_var(${String(varIndex)}, (${cast ?? 'int32_t'})${name});`;
+      const value = type.type === 'number' && type.numberType.type === 'decimal' ? `${name}.toDouble()` : name;
+      return `falang_var(${String(varIndex)}, (${cast ?? 'int32_t'})${value});`;
     });
     const body = [...varLines, 'falang_pause();'].join('\n');
     return `if (falang_trace(${String(index)})) {\n${indent(body)}\n}`;
