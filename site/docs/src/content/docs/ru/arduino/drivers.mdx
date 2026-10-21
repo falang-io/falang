@@ -79,10 +79,13 @@ head:
   </li>
   <li>
     <code>actions</code> — по одному на каждую понятную пользователю операцию: <code>id</code>, <code>label</code>,{' '}
-    <code>notes</code>, <code>fields</code> (<code>pin</code>, <code>number</code>, <code>string</code>,{' '}
-    <code>boolean</code>, <code>select</code>, <code>new-variable</code>) и <code>codeTemplate</code> с подстановками{' '}
-    <code>{'${поле}'}</code>; у действия с полем <code>new-variable</code> задаётся ещё и <code>resultType</code> (
-    <code>int</code>, <code>float</code>, <code>bool</code> или <code>string</code>);
+    <code>notes</code>, <code>fields</code> (<code>pin</code>, <code>number</code>, <code>number-expression</code>,{' '}
+    <code>string</code>, <code>boolean</code>, <code>select</code>, <code>new-variable</code>) и{' '}
+    <code>codeTemplate</code> с подстановками <code>{'${поле}'}</code>; у действия с полем <code>new-variable</code>{' '}
+    задаётся ещё и <code>resultType</code> (<code>int</code>, <code>float</code>, <code>bool</code> или{' '}
+    <code>string</code>). <code>number</code> — число, вводимое в числовое поле, <code>number-expression</code> —
+    числовое выражение в поле кода: число, переменная или <code>pos + 1</code> (так устроен столбец в драйверах LCD1602
+    — например, для бегущей строки);
   </li>
   <li>
     необязательный раздел <code>device</code> — поля и <code>setupTemplate</code>: драйвер можно добавить в документ{' '}

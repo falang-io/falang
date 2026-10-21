@@ -78,7 +78,7 @@ instead of pasting raw C++ into `action` strings — it becomes pickable icons a
    other driver. Keep state in file-scope statics; use only what the target board's core provides.
 3. Describe it in `config`: `id` (kebab-case), `label`, `notes` (plain English), `includes`/`sourceFiles`, one
    `declarations` line per function (`declare function bmp280_init(address: number): void;`), and one **action per
-   user-visible operation** with `fields` (`pin`, `number`, `string`, `boolean`, `select`, `new-variable`), a
+   user-visible operation** with `fields` (`pin`, `number`, `number-expression`, `string`, `boolean`, `select`, `new-variable`), a
    `codeTemplate` using `${field}` and, for a value-returning action, a `new-variable` field plus `resultType`
    (`int`/`float`/`bool`/`string`). Fill in `notes` on every action. If the part needs initialisation in `setup()`
    (an I2C address, a pin), add a `device` section with `fields` and a `setupTemplate` — the user then lists it in

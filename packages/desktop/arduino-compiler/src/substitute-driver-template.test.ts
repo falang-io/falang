@@ -66,6 +66,24 @@ describe('substituteDriverTemplate', () => {
     expect(code).toBe('lcd_print_text(0, 1, `Row: ${row}`)');
   });
 
+  it('splices a number-expression field verbatim when it is one operand, parenthesized otherwise', () => {
+    const action: IDriverActionDescriptor = {
+      id: 'print-text',
+      label: 'Print text',
+      fields: [
+        { name: 'col', label: 'Column', kind: 'number-expression', default: '0' },
+        { name: 'text', label: 'Text', kind: 'string' },
+      ],
+      codeTemplate: 'lcd_print_text(${col} * 2, 0, ${text})',
+    };
+    expect(substituteDriverTemplate(action, { col: 'pos', text: 'x' })).toBe('lcd_print_text(pos * 2, 0, `x`)');
+    expect(substituteDriverTemplate(action, { col: ' 15 ', text: 'x' })).toBe('lcd_print_text(15 * 2, 0, `x`)');
+    expect(substituteDriverTemplate(action, { col: 'pos + 1', text: 'x' })).toBe(
+      'lcd_print_text((pos + 1) * 2, 0, `x`)',
+    );
+    expect(substituteDriverTemplate(action, { text: 'x' })).toBe('lcd_print_text(0 * 2, 0, `x`)');
+  });
+
   it('falls back to a field default when data has no entry for it', () => {
     const action: IDriverActionDescriptor = {
       id: 'set-angle',

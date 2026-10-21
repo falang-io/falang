@@ -46,7 +46,7 @@ A driver is one JSON document (`*.falang-driver.json`, the shape `validate_drive
 | --- | --- | --- | --- |
 | `name` | string | yes | pattern `^[a-zA-Z_]\w*$` |
 | `label` | string | yes |  |
-| `kind` | `"pin"` \| `"number"` \| `"string"` \| `"boolean"` \| `"select"` \| `"new-variable"` | yes |  |
+| `kind` | `"pin"` \| `"number"` \| `"number-expression"` \| `"string"` \| `"boolean"` \| `"select"` \| `"new-variable"` | yes |  |
 | `default` | string | no |  |
 | `min` | number | no |  |
 | `max` | number | no |  |
@@ -72,7 +72,7 @@ A driver is one JSON document (`*.falang-driver.json`, the shape `validate_drive
 | --- | --- | --- | --- |
 | `name` | string | yes | pattern `^[a-zA-Z_]\w*$` |
 | `label` | string | yes |  |
-| `kind` | `"pin"` \| `"number"` \| `"string"` \| `"boolean"` \| `"select"` \| `"new-variable"` | yes |  |
+| `kind` | `"pin"` \| `"number"` \| `"number-expression"` \| `"string"` \| `"boolean"` \| `"select"` \| `"new-variable"` | yes |  |
 | `default` | string | no |  |
 | `min` | number | no |  |
 | `max` | number | no |  |
@@ -89,7 +89,8 @@ A driver is one JSON document (`*.falang-driver.json`, the shape `validate_drive
 
 - `files` must contain exactly the names in `config.sourceFiles` ∪ `config.includes` — no more, no fewer; file names are flat (no `/`).
 - A `${name}` in a `codeTemplate` or `device.setupTemplate` must be a declared field of that action/device. Values are substituted verbatim into C++; a `string` field is a TypeScript string expression.
-- An action has at most one `new-variable` field, and `resultType` (`int` / `float` / `bool` / `string`) is set exactly when it has one. A `select` field needs `options`, whose `value`s are integer literals. `device.fields` cannot be `new-variable`.
+- An action has at most one `new-variable` field, and `resultType` (`int` / `float` / `bool` / `string`) is set exactly when it has one. A `select` field needs `options`, whose `value`s are integer literals. `device.fields` cannot be `new-variable` or `number-expression`.
+- `number` is a literal the user types into a number input (`min`/`max` apply); `number-expression` is a TypeScript expression of type `number` edited in a scope-aware code field — a literal, a variable (`pos`) or `pos + 1` — for a value computed at run time (e.g. the column of scrolling text). `min`/`max` are not checked for it.
 - Every C function the templates call must be declared in `config.declarations` (`declare function name(arg: number): number;`) with a unique prefix: names are checked against built-ins and every other driver.
 - `notes` (driver, action) is plain English for the LLM and the node-kinds catalog — always fill it in.
 
@@ -177,6 +178,7 @@ A driver is one JSON document (`*.falang-driver.json`, the shape `validate_drive
                       "enum": [
                         "pin",
                         "number",
+                        "number-expression",
                         "string",
                         "boolean",
                         "select",
@@ -271,6 +273,7 @@ A driver is one JSON document (`*.falang-driver.json`, the shape `validate_drive
                     "enum": [
                       "pin",
                       "number",
+                      "number-expression",
                       "string",
                       "boolean",
                       "select",

@@ -25,6 +25,10 @@ const dummyFieldValue = (field: IDriverFieldDescriptor): string => {
     case 'number': {
       return field.default ?? String(field.min ?? 0);
     }
+    case 'number-expression': {
+      // The synthetic document has no variables in scope, so a default naming one would fail here.
+      return '0';
+    }
     case 'select': {
       return field.options?.[0]?.value ?? '0';
     }

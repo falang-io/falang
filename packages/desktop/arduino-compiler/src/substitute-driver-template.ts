@@ -16,6 +16,23 @@ const BACKSLASH = '\\';
 export const toTsTemplateLiteral = (value: string): string =>
   `\`${value.replaceAll(BACKSLASH, BACKSLASH + BACKSLASH).replaceAll('`', `${BACKSLASH}\``)}\``;
 
+/** A plain literal or a dotted name — safe to splice into any template position without parentheses. */
+const SIMPLE_OPERAND = /^-?[\w.]+$/;
+
+/**
+ * A `number-expression` value is user-typed TypeScript (`pos + 1`), so it is parenthesized unless it is a single
+ * operand — a template like `${col} * 2` must not turn `pos + 1` into `pos + 1 * 2`. An empty value stays empty, so
+ * the type check reports it as a syntax error on the lowered node rather than hiding it.
+ */
+const substitutedValue = (field: IDriverFieldDescriptor, raw: string): string => {
+  if (field.kind === 'string') return toTsTemplateLiteral(raw);
+  if (field.kind === 'number-expression') {
+    const trimmed = raw.trim();
+    return trimmed === '' || SIMPLE_OPERAND.test(trimmed) ? trimmed : `(${trimmed})`;
+  }
+  return raw;
+};
+
 /**
  * Substitutes every non-`new-variable` field's value into `template`'s `${name}` placeholders — see
  * `driver-config.ts`'s field-kind doc comments for the substitution rule per kind. `data` is a flat
@@ -47,7 +64,7 @@ export const substituteTemplate = (
   for (const field of fields) {
     if (field.kind === 'new-variable') continue;
     const raw = data[field.name] ?? field.default ?? '';
-    values.set(field.name, field.kind === 'string' ? toTsTemplateLiteral(raw) : raw);
+    values.set(field.name, substitutedValue(field, raw));
   }
   return template.replaceAll(/\$\{([a-zA-Z_]\w*)\}/g, (match: string, name: string) => values.get(name) ?? match);
 };

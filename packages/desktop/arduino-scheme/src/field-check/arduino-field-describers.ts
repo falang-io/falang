@@ -5,11 +5,15 @@ import {
   registerFieldDescriber,
   registerFieldDescriberResolver,
   templateField,
+  typedField,
   type ICheckedField,
   type IFieldCheckContext,
   type TFieldDescriber,
 } from '@falang/typescript-scheme';
-import { driverActionVariableName } from '@falang/desktop-arduino-dto/src/driver-result-type.js';
+import {
+  driverActionVariableName,
+  NUMBER_EXPRESSION_TYPE,
+} from '@falang/desktop-arduino-dto/src/driver-result-type.js';
 import { MICROS, MILLIS, RANDOM } from '@falang/desktop-arduino-dto/src/arduino-function-nodes.js';
 import { PIN_READ_ANALOG, PIN_READ_DIGITAL } from '@falang/desktop-arduino-dto/src/pin-nodes.js';
 import { TOKEN_DRIVER_REGISTRY } from '../driver-nodes/driver-registry-token.js';
@@ -36,7 +40,8 @@ const getRegistry = (ctx: IFieldCheckContext): DriverRegistryStore | null => {
 };
 
 /**
- * Driver action fields: `string` is a scope-checked template body, `new-variable` declares an identifier; `pin`,
+ * Driver action fields: `string` is a scope-checked template body, `number-expression` an expression of type
+ * `number`, `new-variable` declares an identifier; `pin`,
  * `select`, `boolean` and `number` are plain controls. An empty `string` field is a valid (empty) template body, so
  * nothing is `allowEmpty` here; an empty `new-variable` is checked as it stands, like the editor's store does.
  */
@@ -51,6 +56,8 @@ const describeDriverAction = (
     // Same fallback as `DriverActionBlockEditorStore`'s constructor: stored value, else the field default.
     const value = textOf(data[field.name], field.default ?? '');
     if (field.kind === 'string') fields.push(templateField(node, ctx, field.name, value));
+    else if (field.kind === 'number-expression')
+      fields.push(typedField(node, ctx, field.name, value, NUMBER_EXPRESSION_TYPE));
     else if (field.kind === 'new-variable')
       fields.push(identifierField(node, ctx, field.name, driverActionVariableName(data, field)));
   }

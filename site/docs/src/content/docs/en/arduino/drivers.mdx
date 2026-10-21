@@ -79,10 +79,13 @@ head:
   </li>
   <li>
     <code>actions</code> — one per user-visible operation: <code>id</code>, <code>label</code>, <code>notes</code>,{' '}
-    <code>fields</code> (<code>pin</code>, <code>number</code>, <code>string</code>, <code>boolean</code>,{' '}
-    <code>select</code>, <code>new-variable</code>) and a <code>codeTemplate</code> with <code>{'${field}'}</code>{' '}
-    placeholders; an action with a <code>new-variable</code> field also sets a <code>resultType</code> (<code>int</code>
-    , <code>float</code>, <code>bool</code> or <code>string</code>);
+    <code>fields</code> (<code>pin</code>, <code>number</code>, <code>number-expression</code>, <code>string</code>,{' '}
+    <code>boolean</code>, <code>select</code>, <code>new-variable</code>) and a <code>codeTemplate</code> with{' '}
+    <code>{'${field}'}</code> placeholders; an action with a <code>new-variable</code> field also sets a{' '}
+    <code>resultType</code> (<code>int</code>, <code>float</code>, <code>bool</code> or <code>string</code>).{' '}
+    <code>number</code> is a literal typed into a number input, <code>number-expression</code> is a numeric expression
+    in a code field — a literal, a variable or <code>pos + 1</code> (the LCD1602 drivers' column works this way, e.g.
+    for scrolling text);
   </li>
   <li>
     optionally <code>device</code> — fields and a <code>setupTemplate</code>: the driver can then be added in the{' '}

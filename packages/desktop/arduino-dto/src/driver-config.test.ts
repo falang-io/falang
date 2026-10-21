@@ -120,6 +120,17 @@ describe('parseDriverConfig — device section (ADR 0032 (private))', () => {
     expect(() => parseDriverConfig(config)).toThrow(/cannot be "new-variable"/);
   });
 
+  it('rejects a "number-expression" field in a device section — a setup line has no variables in scope', () => {
+    const config = validDeviceConfig();
+    config.device.fields.push({
+      name: 'contrast',
+      label: 'Contrast',
+      kind: 'number-expression',
+      default: '0',
+    } as never);
+    expect(() => parseDriverConfig(config)).toThrow(/cannot be "number-expression"/);
+  });
+
   it('has no device section by default', () => {
     const config = parseDriverConfig(validConfig());
     expect(config.device).toBeUndefined();

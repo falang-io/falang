@@ -35,7 +35,11 @@ const driver = parseDriverConfig({
   label: 'Display',
   includes: ['d.h'],
   sourceFiles: ['d.h', 'd.cpp'],
-  declarations: ['declare function disp_print(a: string): void;', 'declare function disp_read(): number;'],
+  declarations: [
+    'declare function disp_print(a: string): void;',
+    'declare function disp_read(): number;',
+    'declare function disp_at(col: number, a: string): void;',
+  ],
   actions: [
     {
       id: 'print',
@@ -53,11 +57,21 @@ const driver = parseDriverConfig({
       codeTemplate: 'const ${result} = disp_read()',
       resultType: 'float',
     },
+    {
+      id: 'print-at',
+      label: 'Print at',
+      fields: [
+        { name: 'col', label: 'Column', kind: 'number-expression', default: '0' },
+        { name: 'text', label: 'Text', kind: 'string', default: 'hi' },
+      ],
+      codeTemplate: 'disp_at(${col}, ${text})',
+    },
   ],
 });
 
 const PRINT = buildDriverActionNodeName('disp', 'print');
 const READ = buildDriverActionNodeName('disp', 'read');
+const PRINT_AT = buildDriverActionNodeName('disp', 'print-at');
 
 const build = () => {
   registerGlobalTokens();
@@ -127,6 +141,24 @@ describe('arduino field describers', () => {
     expect(identifier.scopeNames).toContain('taken');
     expect(readEditor.variableStore.value).toBe('res');
     readEditor.dispose();
+  });
+
+  it('a number-expression field is checked as a number in the editor scope, the same code as the editor model', () => {
+    const h = build();
+    scheme = h.scheme;
+    h.add('v', 'create-var', {
+      name: 'pos',
+      variableType: { type: 'number', numberType: { type: 'any' } },
+      value: '0',
+    });
+    const node = h.add('a', PRINT_AT, { col: 'pos + 1', text: 'x' });
+    const editor = (driverActionBlockConfig.editor as any).editorFactory(paramsFor(node, h.scheme));
+    const texts = codeTexts(describeCheckedFields(node, h.ctx));
+    expect(texts['col']).toBe(editor.expressionStores.get('col').fullValue);
+    expect(texts['col']).toContain('pos');
+    expect(texts['col']).toContain('declare var _value: number;\n_value = \npos + 1');
+    expect(editor.getData()).toMatchObject({ col: 'pos + 1', text: 'x' });
+    editor.dispose();
   });
 
   it('a missing stored value takes the field default', () => {

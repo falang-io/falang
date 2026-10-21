@@ -31,3 +31,9 @@ export const driverActionVariableName = (
   const stored = data[field.name];
   return (typeof stored === 'string' && stored) || field.default || 'result';
 };
+
+/** The type a `number-expression` driver field is checked against (renders as TypeScript `number`) — shared by the block editor's hidden prefix and the background field check, so the two build identical code. */
+export const NUMBER_EXPRESSION_TYPE: TVariableInfo = {
+  type: 'number',
+  numberType: { type: 'float', floatType: 'float64' },
+};

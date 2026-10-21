@@ -11,7 +11,20 @@ import { zod } from '@falang/dto';
  * default-`data` preset — see the ADR's "Implementation notes (Phase B/C)" for the full reasoning).
  */
 
-export const DRIVER_FIELD_KINDS = ['pin', 'number', 'string', 'boolean', 'select', 'new-variable'] as const;
+/**
+ * `number` is a literal typed in a numeric input; `number-expression` is a TypeScript expression of type `number`
+ * edited in a scope-aware code field (a literal like `0`, a variable like `pos`, `pos + 1`), so an action can take a
+ * value computed at run time — e.g. the column of a scrolling text. Actions only: a `device` setup line has no scope.
+ */
+export const DRIVER_FIELD_KINDS = [
+  'pin',
+  'number',
+  'number-expression',
+  'string',
+  'boolean',
+  'select',
+  'new-variable',
+] as const;
 export type TDriverFieldKind = (typeof DRIVER_FIELD_KINDS)[number];
 
 export const DRIVER_RESULT_TYPES = ['int', 'float', 'bool', 'string'] as const;
@@ -173,6 +186,12 @@ const validateDeviceFields = (device: IDriverDeviceDescriptor): void => {
   if (newVariableField) {
     throw new DriverConfigValidationError(
       `device: field "${newVariableField.name}" cannot be "new-variable" — a setup line declares nothing`,
+    );
+  }
+  const expressionField = device.fields.find((field) => field.kind === 'number-expression');
+  if (expressionField) {
+    throw new DriverConfigValidationError(
+      `device: field "${expressionField.name}" cannot be "number-expression" — a setup line has no variables in scope`,
     );
   }
 };

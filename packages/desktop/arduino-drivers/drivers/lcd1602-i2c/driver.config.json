@@ -20,16 +20,14 @@
     },
     {
       "id": "print-text",
-      "notes": "Writes text at a column (0-15) and row (0-1); text is a TypeScript string, so interpolations like `T=${t}` work.",
+      "notes": "Writes text at a column (0-15) and row (0-1). The column is a numeric TypeScript expression — a literal like `0` or a variable like `pos`, e.g. for scrolling text; the text is clipped to the 16 visible columns, so a negative column skips its first characters (column -1 starts with the second character) and nothing is written past column 15. Text is a TypeScript string, so interpolations like `T=${t}` work.",
       "label": "Print text",
       "fields": [
         {
           "name": "col",
           "label": "Column (0-15)",
-          "kind": "number",
-          "default": "0",
-          "min": 0,
-          "max": 15
+          "kind": "number-expression",
+          "default": "0"
         },
         {
           "name": "row",

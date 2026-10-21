@@ -3,6 +3,8 @@ import { resolveService } from '@falang/di';
 import type { IBlockConfig, IBlockEditorFactoryParams, IBlockView, TBlockEditorView } from '@falang/scheme';
 import { CELL_SIZE_2, EditorType, getGlobalI18n, useService } from '@falang/scheme';
 import {
+  CodeModelStore,
+  CodeViewComponent,
   collectNodeScope,
   ExpressionBlockEditorStore,
   ExpressionEditorCellComponent,
@@ -14,8 +16,9 @@ import {
   TypeScriptBlockContainer,
 } from '@falang/typescript-scheme';
 import { observer } from 'mobx-react-lite';
-import { action, observable, makeObservable } from 'mobx';
+import { action, computed, observable, makeObservable } from 'mobx';
 import type { IDriverActionDescriptor, IDriverFieldDescriptor } from '@falang/desktop-arduino-dto/src/driver-config.js';
+import { NUMBER_EXPRESSION_TYPE } from '@falang/desktop-arduino-dto/src/driver-result-type.js';
 import { TOKEN_DRIVER_REGISTRY } from './driver-registry-token.js';
 import type { DriverRegistryStore } from './driver-registry.store.js';
 
@@ -26,6 +29,7 @@ const fieldValueView = (field: IDriverFieldDescriptor, value = ''): React.ReactN
   if (field.kind === 'string') return <TemplateStringViewComponent value={value} />;
   if (field.kind === 'select') return field.options?.find((option) => option.value === value)?.label ?? value;
   if (field.kind === 'new-variable') return value || <>&nbsp;</>;
+  if (field.kind === 'number-expression') return <CodeViewComponent value={value} />;
   return value;
 };
 
@@ -63,6 +67,8 @@ class DriverActionBlockEditorStore extends ExpressionBlockEditorStore<TDriverAct
   readonly variableStore: NewVariableStore | undefined;
   /** One per "string"-kind field — lets the field's value contain a real, scope-checked `${expr}` interpolation, the same mechanism `@falang/typescript-scheme`'s `log` node uses (see ADR 0023 (private)'s driver actions ADR). */
   readonly templateStores = new Map<string, TemplateStringStore>();
+  /** One per "number-expression"-kind field — a scope-aware code field typed `number` (e.g. an LCD column taken from a variable). */
+  readonly expressionStores = new Map<string, CodeModelStore>();
 
   constructor(params: IBlockEditorFactoryParams<TDriverActionData>) {
     super(params);
@@ -89,11 +95,26 @@ class DriverActionBlockEditorStore extends ExpressionBlockEditorStore<TDriverAct
             getScopeCode: () => this.hiddenScopeCode,
           }),
         );
+      } else if (field.kind === 'number-expression') {
+        this.expressionStores.set(
+          field.name,
+          new CodeModelStore({
+            id: params.icon.id,
+            name: field.name,
+            value,
+            hiddenPrefix: this.numberExpressionPrefix,
+          }),
+        );
       } else {
         this.values.set(field.name, value);
       }
     }
     makeObservable(this);
+  }
+
+  /** The same prefix the background check builds (`arduino-field-describers.ts`), so the editor and the check agree. */
+  @computed get numberExpressionPrefix(): string {
+    return this.buildHiddenPrefixForType(NUMBER_EXPRESSION_TYPE);
   }
 
   /** The action with labels/option labels in `language` — controls and stored values keep using the base `driverAction`. */
@@ -108,6 +129,7 @@ class DriverActionBlockEditorStore extends ExpressionBlockEditorStore<TDriverAct
   getData(): TDriverActionData {
     const data: Record<string, string> = Object.fromEntries(this.values);
     for (const [name, store] of this.templateStores) data[name] = store.value;
+    for (const [name, store] of this.expressionStores) data[name] = store.value;
     const newVariableField = this.driverAction.fields.find((field) => field.kind === 'new-variable');
     if (newVariableField && this.variableStore) data[newVariableField.name] = this.variableStore.value;
     return data;
@@ -115,6 +137,7 @@ class DriverActionBlockEditorStore extends ExpressionBlockEditorStore<TDriverAct
 
   override dispose(): void {
     for (const store of this.templateStores.values()) store.dispose();
+    for (const store of this.expressionStores.values()) store.dispose();
   }
 }
 
@@ -144,6 +167,12 @@ const FieldEditorControl: React.FC<{ field: IDriverFieldDescriptor; editor: Driv
           ))}
         </TsSelect>
       );
+    }
+    if (field.kind === 'number-expression') {
+      const store = editor.expressionStores.get(field.name);
+      // Every "number-expression"-kind field gets one in the constructor — see the loop above.
+      if (!store) return null;
+      return <ExpressionEditorCellComponent store={store} hiddenPrefix={editor.numberExpressionPrefix} />;
     }
     if (field.kind === 'string') {
       const store = editor.templateStores.get(field.name);
