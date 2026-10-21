@@ -28,6 +28,37 @@ import Gallery from '../../../../components/gallery.astro';
   (basic <code>Math</code>, the length and indexing of arrays and strings), so code that would fail on export is flagged
   while you type.
 </p>
+
+#### Number types
+
+<p>
+  A number variable, parameter, return value or structure field always has a kind, because the target languages need
+  one. The type list offers <b>integer</b>, <b>float</b> and <b>decimal</b> instead of a plain <code>number</code>:
+</p>
+<ul>
+  <li>
+    <b>integer</b> — signed <code>int8</code>, <code>int16</code>, <code>int32</code> (the default), <code>int64</code>
+    or unsigned <code>uint8</code>, <code>uint16</code>, <code>uint32</code>, <code>uint64</code>. Division of two
+    integers drops the fractional part (<code>7 / 2</code> is <code>3</code>, <code>-7 / 2</code> is <code>-3</code>) in
+    every language, TypeScript included, and storing a fractional value in an integer variable drops it too. Overflow is
+    whatever the target language does; TypeScript does not wrap around.
+  </li>
+  <li><b>float</b> — <code>float32</code> or <code>float64</code> (the default).</li>
+  <li>
+    <b>decimal</b> — an exact fixed-point number for money and similar values: <i>digits</i> in total (up to 18) and
+    <i>decimals</i> after the point. <code>0.1 + 0.2</code> is exactly <code>0.3</code>; results of multiplication and
+    division, and values stored into a variable with fewer decimals, are rounded half away from zero; a decimal prints
+    with all its decimals (<code>12.50</code>). Mixing a decimal with an integer gives a decimal, with a float gives a
+    float. In TypeScript a decimal is an ordinary <code>number</code> (exact up to 15 significant digits).
+  </li>
+</ul>
+<p>
+  Mixing two widths gives the wider one; at the same width the unsigned one wins, and an integer mixed with a float
+  gives the float. In the expression editor every kind is just <code>number</code>. A scheme saved before number kinds
+  existed shows <code>number</code> as an error on the icon until you pick a kind — nothing is converted
+  automatically. The <code>any</code> type and enums are not offered: no target language compiles them yet.
+</p>
+
 <p>Currently there are four types of schemes:</p>
 <ul>
   <li>
@@ -37,7 +68,7 @@ import Gallery from '../../../../components/gallery.astro';
     <b>Object structure</b>: description of data structures. They can be used as data types in a function.
   </li>
   <li>
-    <b>Enum</b>: a named list of values, also usable as a data type.
+    <b>Enum</b>: a named list of values. Export of enum types is not supported yet.
   </li>
   <li>
     <b>External API</b>. Description of the external API. In the code, depending on the language, objects or interfaces are generated.
