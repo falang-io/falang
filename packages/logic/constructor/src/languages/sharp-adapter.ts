@@ -2,6 +2,7 @@ import type { ILanguageAdapter } from '../language-adapter.js';
 import { UnsupportedConstructError } from '../language-adapter.js';
 import { variableInfoToSharpType } from '../sharp-type-name.js';
 import { isArrayLikeType, isStringLikeType } from '../type-utils.js';
+import { sharpDecimalCodegen } from '../decimal/sharp-decimal.js';
 
 /** Same C-like operator syntax as C++/Go/Rust for everything this whitelist covers; `===`/`!==` still collapse to `==`/`!=` — C# has no separate strict-equality operator for the primitive/value types these expressions deal with. */
 const BINARY_OPERATOR_MAP: Readonly<Record<string, string>> = {
@@ -62,6 +63,7 @@ const escapeCSharpStringLiteral = (value: string): string => {
 /** Fourth, last non-`ts`/`js` target of this pass — C# has a native ternary, syntactically identical to C++/TS, so `emitConditional` doesn't need Rust's/Go's special-casing. Array scope types are old `sharp/generateExpression.ts`'s own `System.Collections.Generic.List<T>` (not a raw C# array), which is why `.length` maps to `.Count` here rather than C#'s array-only `.Length`. */
 export const sharpAdapter: ILanguageAdapter = {
   target: 'sharp',
+  decimal: sharpDecimalCodegen,
 
   formatStringLiteral: (value) => escapeCSharpStringLiteral(value),
   formatNumericLiteral: (text) => text,

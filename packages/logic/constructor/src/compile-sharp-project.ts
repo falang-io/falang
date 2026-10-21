@@ -8,6 +8,7 @@ import { indentLines } from './indent.js';
 import { getFunctionSignature } from './function-signature.js';
 import { buildExternalApiRegistry } from './external-api-registry.js';
 import { emitSharpApiDeclarations } from './emit-sharp-api-declarations.js';
+import { FALANG_DECIMAL_SHARP_RUNTIME } from './decimal/sharp-decimal.js';
 
 /**
  * `System.Linq` is needed by the element-wise copies `sharp-value.ts` emits (`.Select(...).ToList()`),
@@ -147,7 +148,16 @@ export const compileSharpProject = ({ documents, entryDocumentId }: ICompileShar
   // supplies it instead.
   const programClass = `public static partial class ${PROGRAM_CLASS_NAME} {\n${indentLines(classMembers)}\n}`;
 
-  const code = [PREAMBLE, structDeclarations, apiDeclarations.interfaces, programClass]
+  const usesDecimal = [structDeclarations, apiDeclarations.interfaces, programClass].some((text) =>
+    text.includes('FalangDec.'),
+  );
+  const code = [
+    PREAMBLE,
+    usesDecimal ? FALANG_DECIMAL_SHARP_RUNTIME : '',
+    structDeclarations,
+    apiDeclarations.interfaces,
+    programClass,
+  ]
     .filter((section) => section !== '')
     .join('\n\n');
 

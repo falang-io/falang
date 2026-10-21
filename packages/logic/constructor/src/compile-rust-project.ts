@@ -9,6 +9,7 @@ import { getFunctionSignature } from './function-signature.js';
 import { buildExternalApiRegistry } from './external-api-registry.js';
 import { emitRustApisTrait } from './emit-rust-api-declarations.js';
 import type { ICompiledProjectFiles } from './compiled-project-files.js';
+import { FALANG_DECIMAL_RUST_MODULE, RUST_DECIMAL_MODULE_NAME, RUST_DECIMAL_USE } from './decimal/rust-decimal.js';
 
 export interface ICompileRustProjectParams {
   /** A project's full document set — `type === 'function'` documents compile to one Rust module file each, `type === OBJECTS_STRUCTURE_NAME` documents to one struct-declarations file each; anything else is skipped, same posture as `compileGoProject`. */
@@ -99,7 +100,10 @@ const withAllocHeader = (code: string): string => (code.includes('alloc::') ? `e
  */
 const withRandHeader = (code: string): string => (code.includes('rand::') ? `use rand::Rng;\n\n${code}` : code);
 
-const withFileHeaders = (code: string): string => withRandHeader(withAllocHeader(code));
+const withDecimalHeader = (code: string): string =>
+  code.includes('FalangDecimal') ? `${RUST_DECIMAL_USE}\n\n${code}` : code;
+
+const withFileHeaders = (code: string): string => withDecimalHeader(withRandHeader(withAllocHeader(code)));
 
 const buildFunctionSignatures = (
   functionDocuments: readonly IProjectDocument[],
@@ -206,8 +210,15 @@ export const compileRustProject = ({
   const apisTrait = emitRustApisTrait(apiRegistry, structRegistry.structNames, structRegistry.structDocumentName);
   files['falang_global.rs'] = withFileHeaders(apisTrait);
 
+  const usesDecimal = Object.values(files).some((text) => text.includes('FalangDecimal'));
+  if (usesDecimal) files[`${RUST_DECIMAL_MODULE_NAME}.rs`] = FALANG_DECIMAL_RUST_MODULE;
+
   const modDeclarations = [...objectsDocuments, ...functionDocuments].map((document) => `pub mod ${document.name};`);
-  const modSections = [FILE_ATTRIBUTES, ['pub mod falang_global;', ...modDeclarations].join('\n')];
+  const decimalDeclaration = usesDecimal ? [`pub mod ${RUST_DECIMAL_MODULE_NAME};`] : [];
+  const modSections = [
+    FILE_ATTRIBUTES,
+    ['pub mod falang_global;', ...decimalDeclaration, ...modDeclarations].join('\n'),
+  ];
   if (entryDocumentId) modSections.push(buildEntryReExport(entryDocumentId, functionSignatures));
   files['mod.rs'] = modSections.join('\n\n');
 

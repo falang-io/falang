@@ -48,3 +48,22 @@ export const resolveExpressionNumberType = ({
   const resolvedInfo = resolveVariableInfo(exprNode, { scope, structDefinitions, resolveLiterals: true });
   if (resolvedInfo?.type === 'number') return resolvedInfo.numberType;
 };
+
+/**
+ * The element type of an array-typed expression (one dimension peeled), when it resolves — for the value of an
+ * `arr-push`/`arr-unshift`, whose store target is that element type (ADR 0069 (private) §4). `undefined` (never a
+ * throw) for anything unresolvable.
+ */
+export const resolveArrayElementType = ({
+  expression,
+  scope,
+  structNames = new Map(),
+  structDefinitions = new Map(),
+}: IResolveExpressionNumberTypeParams): TVariableInfo | undefined => {
+  const fileText = buildVirtualFileText(expression, scope, structNames, structDefinitions);
+  const { program, sourceFile } = createCheckedProgram(fileText);
+  if (getDiagnosticMessages(program).length > 0) return;
+  const info = resolveVariableInfo(findExprInitializer(sourceFile), { scope, structDefinitions });
+  if (info?.type !== 'array') return;
+  return info.dimensions > 1 ? { ...info, dimensions: info.dimensions - 1 } : info.elementType;
+};

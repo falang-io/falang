@@ -22,13 +22,15 @@ const castReturnExprIfNeeded = (code: string, expression: string, ctx: IRustStat
     structNames: new Map(ctx.params.structNames),
     structDefinitions: ctx.params.structDefinitions,
   });
-  if (!resolvedNumberType || widthOf(resolvedNumberType) === widthOf(ctx.returnValue.numberType)) return code;
+  // A decimal return type (no width) is converted by the expression compiler itself.
+  if (!resolvedNumberType || !widthOf(ctx.returnValue.numberType)) return code;
+  if (widthOf(resolvedNumberType) === widthOf(ctx.returnValue.numberType)) return code;
   return `(${code}) as ${variableInfoToRustType(ctx.returnValue, new Map(ctx.params.structNames), ctx.params.structDocuments)}`;
 };
 
 export const emitReturn = (node: INode, ctx: IRustStatementContext): string => {
   const expression = ((node.data as string | undefined) ?? '').trim();
   if (expression === '') return 'return;';
-  const code = compileRustExpr(expression, ctx, node.id);
+  const code = compileRustExpr(expression, ctx, node.id, ctx.returnValue);
   return `return ${castReturnExprIfNeeded(code, expression, ctx)};`;
 };

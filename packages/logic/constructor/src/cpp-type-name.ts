@@ -39,6 +39,7 @@ export const variableInfoToCppType = (type: TVariableInfo, structNames: Readonly
       const { numberType } = type;
       if (numberType.type === 'integer') return INTEGER_CPP_TYPES[numberType.integerType];
       if (numberType.type === 'float') return FLOAT_CPP_TYPES[numberType.floatType];
+      if (numberType.type === 'decimal') return `FalangDecimal<${numberType.decimals}>`;
       throw new UnsupportedConstructError(`Number type not portable to C++: ${numberType.type}`);
     }
     case 'struct': {

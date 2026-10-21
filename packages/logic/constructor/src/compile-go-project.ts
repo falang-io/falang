@@ -7,6 +7,7 @@ import { NodeCompileError } from './node-compile-error.js';
 import { getFunctionSignature } from './function-signature.js';
 import { buildExternalApiRegistry } from './external-api-registry.js';
 import { emitGoApiDeclarations } from './emit-go-api-declarations.js';
+import { FALANG_DECIMAL_GO_RUNTIME } from './decimal/go-decimal.js';
 
 export interface ICompileGoProjectParams {
   /** A project's full document set — `type === 'function'` documents compile to Go function definitions, `type === OBJECTS_STRUCTURE_NAME` documents contribute struct declarations; anything else is skipped, same posture as `compileCppProject`. */
@@ -69,7 +70,11 @@ export const compileGoProject = ({ documents, entryDocumentId }: ICompileGoProje
     if (!document.root) continue;
     const signature = getFunctionSignature(document.root);
     const goName = resolveGoFunctionName(document.name, entryDocumentId);
-    functionSignatures.set(document.id, { goName, returnValue: signature.returnValue });
+    functionSignatures.set(document.id, {
+      goName,
+      returnValue: signature.returnValue,
+      parameters: signature.parameters,
+    });
   }
 
   const params: IGoCompileParams = {
@@ -100,9 +105,11 @@ export const compileGoProject = ({ documents, entryDocumentId }: ICompileGoProje
   const apiDeclarations = emitGoApiDeclarations(apiRegistry, structRegistry.structNames);
   const mainBlock = entryDocumentId ? buildMain(entryDocumentId, functionSignatures) : '';
 
-  const body = [structDeclarations, apiDeclarations, functionBlocks.join('\n\n'), mainBlock]
+  const functionsText = [structDeclarations, apiDeclarations, functionBlocks.join('\n\n'), mainBlock]
     .filter((section) => section !== '')
     .join('\n\n');
+  // The decimal helpers only when something calls them; they import nothing (ADR 0069 (private) §4).
+  const body = functionsText.includes('falangDec') ? `${functionsText}\n\n${FALANG_DECIMAL_GO_RUNTIME}` : functionsText;
 
   // Go rejects an unused import at compile time (unlike C++'s harmless unused #include), so `fmt`/
   // `math` are only added when the compiled body actually needs them — a plain substring scan over

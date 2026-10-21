@@ -3,7 +3,11 @@ import type { ILanguageAdapter, ITemplateLiteralSegment } from './language-adapt
 import { UnsupportedConstructError } from './language-adapter.js';
 import type { INumericTypeContext } from './numeric-coercion.js';
 import { promoteNumberType, resolveVariableInfo } from './numeric-coercion.js';
+import { emitCallExpression, emitLeafExpression } from './walk-leaf.js';
+import type { IDecimalWalkEnv, IEmitPortableExpressionOptions } from './walk-decimal.js';
+import { emitDecimalOperation, emitWithOptions, printDecimalSegment, withLiterals } from './walk-decimal.js';
 
+export type { IEmitPortableExpressionOptions } from './walk-decimal.js';
 const unwrapParens = (node: ts.Expression): ts.Expression =>
   ts.isParenthesizedExpression(node) ? unwrapParens(node.expression) : node;
 
@@ -105,6 +109,7 @@ const buildTemplateLiteralSegments = (
   node: ts.TemplateLiteral,
   emit: (child: ts.Expression) => string,
   numericContext?: INumericTypeContext,
+  decimalEnv?: IDecimalWalkEnv,
 ): ITemplateLiteralSegment[] => {
   const segments: ITemplateLiteralSegment[] = [];
   if (ts.isNoSubstitutionTemplateLiteral(node)) {
@@ -113,11 +118,13 @@ const buildTemplateLiteralSegments = (
   }
   if (node.head.text !== '') segments.push({ isExpr: false, text: node.head.text });
   for (const span of node.templateSpans) {
-    segments.push({
-      isExpr: true,
-      text: emit(span.expression),
-      numberType: resolveNumberTypeOf(span.expression, numericContext),
-    });
+    const code = emit(span.expression);
+    const printed = decimalEnv && printDecimalSegment(code, span.expression, decimalEnv);
+    segments.push(
+      printed
+        ? { isExpr: true, text: printed }
+        : { isExpr: true, text: code, numberType: resolveNumberTypeOf(span.expression, numericContext) },
+    );
     if (span.literal.text !== '') segments.push({ isExpr: false, text: span.literal.text });
   }
   return segments;
@@ -134,11 +141,14 @@ const emitTemplateLiteralExpression = (
   adapter: ILanguageAdapter,
   emit: (child: ts.Expression) => string,
   numericContext?: INumericTypeContext,
+  decimalEnv?: IDecimalWalkEnv,
 ): string => {
   if (!adapter.emitTemplateLiteral) {
     throw new UnsupportedConstructError(`Template literals are not portable to ${adapter.target}`);
   }
-  return adapter.emitTemplateLiteral({ segments: buildTemplateLiteralSegments(node, emit, numericContext) });
+  return adapter.emitTemplateLiteral({
+    segments: buildTemplateLiteralSegments(node, emit, numericContext, decimalEnv),
+  });
 };
 
 /** Pulled out of `emitPortableExpression` for the same `eslint(complexity)`-budget reason `emitTemplateLiteralExpression` was. */
@@ -149,9 +159,14 @@ const emitBinaryExpressionNode = (
   adapter: ILanguageAdapter,
   numericContext: INumericTypeContext | undefined,
   emit: (child: ts.Expression) => string,
+  decimalEnv?: IDecimalWalkEnv,
 ): string => {
   const operatorText = ts.tokenToString(node.operatorToken.kind);
   if (!operatorText) throw new UnsupportedConstructError(`Unsupported binary operator token for ${adapter.target}`);
+  if (decimalEnv) {
+    const decimalCode = emitDecimalOperation(node, operatorText, checker, adapter, decimalEnv, emit);
+    if (typeof decimalCode === 'string') return decimalCode;
+  }
   if (operatorText === '=') {
     return adapter.emitAssignment({
       leftCode: emit(node.left),
@@ -177,47 +192,35 @@ export const emitPortableExpression = (
   checker: ts.TypeChecker,
   adapter: ILanguageAdapter,
   numericContext?: INumericTypeContext,
+  options?: IEmitPortableExpressionOptions,
 ): string => {
   const emit = (child: ts.Expression): string =>
     emitPortableExpression(child, sourceFile, checker, adapter, numericContext);
+  const decimalEnv: IDecimalWalkEnv | undefined = numericContext && {
+    adapter,
+    numericContext: withLiterals(numericContext),
+    emit,
+    sourceFile,
+  };
+  if (options && decimalEnv && (options.targetType || options.print)) {
+    return emitWithOptions(node, adapter, decimalEnv, options);
+  }
 
   if (ts.isParenthesizedExpression(node)) {
     return `(${emit(node.expression)})`;
   }
-  if (ts.isStringLiteral(node)) {
-    return adapter.formatStringLiteral(node.text);
-  }
   if (ts.isTemplateLiteral(node)) {
-    return emitTemplateLiteralExpression(node, adapter, emit, numericContext);
+    return emitTemplateLiteralExpression(node, adapter, emit, numericContext, decimalEnv);
   }
-  if (ts.isNumericLiteral(node)) {
-    // `node.text` (not used here) is TypeScript's *normalized* numeric value — `5.0` becomes `"5"`,
-    // `1e7` becomes `"10000000"`, `0xFF` becomes `"255"` — the scanner strips exactly the formatting
-    // (decimal point, exponent, hex/octal/binary base) that distinguishes an int-looking literal from
-    // a float-looking one. Every adapter's `formatNumericLiteral` mostly passes this straight through,
-    // so on cpp/Go/C# (which all implicitly convert an integer literal to a float-typed context) the
-    // normalization is harmless — but Rust's integer-literal and float-literal *tokens* are distinct
-    // kinds with no implicit conversion between them (see `montecarlo-project.fixture.ts`'s own top
-    // comment for the real compile error this caused), so losing the `.0` here silently produces
-    // invalid Rust. `node.getText(sourceFile)` preserves the literal's exact original spelling instead.
-    return adapter.formatNumericLiteral(node.getText(sourceFile));
-  }
-  if (node.kind === ts.SyntaxKind.TrueKeyword) {
-    return adapter.formatBooleanLiteral(true);
-  }
-  if (node.kind === ts.SyntaxKind.FalseKeyword) {
-    return adapter.formatBooleanLiteral(false);
-  }
-  if (ts.isIdentifier(node)) {
-    return node.text;
-  }
+  const leaf = emitLeafExpression(node, sourceFile, adapter);
+  if (leaf !== null) return leaf;
   if (ts.isPrefixUnaryExpression(node)) {
     const operatorText = ts.tokenToString(node.operator);
     if (!operatorText) throw new UnsupportedConstructError(`Unsupported unary operator token for ${adapter.target}`);
     return `${adapter.mapUnaryOperator(operatorText)}${emit(node.operand)}`;
   }
   if (ts.isBinaryExpression(node)) {
-    return emitBinaryExpressionNode(node, sourceFile, checker, adapter, numericContext, emit);
+    return emitBinaryExpressionNode(node, sourceFile, checker, adapter, numericContext, emit, decimalEnv);
   }
   if (ts.isConditionalExpression(node)) {
     return adapter.emitConditional({
@@ -235,10 +238,7 @@ export const emitPortableExpression = (
     });
   }
   if (ts.isCallExpression(node)) {
-    return adapter.emitCall({
-      qualifiedCalleeText: node.expression.getText(sourceFile),
-      argCodes: node.arguments.map(emit),
-    });
+    return emitCallExpression(node, sourceFile, adapter, emit, decimalEnv);
   }
   if (ts.isArrayLiteralExpression(node)) {
     if (!adapter.emitArrayLiteral) {

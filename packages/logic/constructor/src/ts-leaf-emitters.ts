@@ -1,11 +1,12 @@
 import type { INode } from '@falang/dto';
 import type { TVariableInfo } from '@falang/typescript-dto';
-import { compileTsExpr } from './compile-ts-expr.js';
+import { compileTsExpr, compileTsExprForPrint } from './compile-ts-expr.js';
 import { NodeCompileError } from './node-compile-error.js';
 import { outLevelOf } from './cycle-info.js';
 import { splitLogSegments } from './log-template.js';
 import { emitTsEmptyValue, variableInfoToTsTypeName } from './ts-type-name.js';
 import { resolveTsArrayType } from './ts-array-type.js';
+import { resolveArrayElementType } from './resolve-expression-number-type.js';
 import type { ITsStatementContext } from './ts-statement-context.js';
 
 /** `{ a: 1, b: 2 }`, or the bare `{ }` for zero entries (avoiding a naive `{ ${[].join(', ')} }`'s stray double space) — `emitCallApi`'s own object-literal argument, the only call site here that can legitimately have zero entries (unlike `emitCallFunction`, which always has at least `_falangGlobal`). */
@@ -51,7 +52,9 @@ const escapeTemplateLiteralText = (value: string): string =>
 export const emitLog = (node: INode, ctx: ITsStatementContext): string => {
   const segments = splitLogSegments((node.data as string | undefined) ?? '');
   const parts = segments.map((segment) =>
-    segment.isExpr ? `\${${compileTsExpr(segment.text, ctx, node.id)}}` : escapeTemplateLiteralText(segment.text),
+    segment.isExpr
+      ? `\${${compileTsExprForPrint(segment.text, ctx, node.id)}}`
+      : escapeTemplateLiteralText(segment.text),
   );
   return `console.log(\`${parts.join('')}\`);`;
 };
@@ -212,6 +215,15 @@ export const emitArrShift = (
   };
 };
 
+/** The element type of `arr`, the store target of a pushed value (a decimal, ADR 0069 (private) §4). */
+const elementTypeOf = (arr: string, ctx: ITsStatementContext): TVariableInfo | undefined =>
+  resolveArrayElementType({
+    expression: arr,
+    scope: ctx.scope,
+    structNames: new Map(ctx.params.structNames),
+    structDefinitions: ctx.params.structDefinitions,
+  });
+
 interface IArrPushOrUnshiftData {
   readonly arr: string;
   readonly value: string;
@@ -220,13 +232,13 @@ interface IArrPushOrUnshiftData {
 export const emitArrPush = (node: INode, ctx: ITsStatementContext): string => {
   const data = node.data as IArrPushOrUnshiftData;
   const arr = compileTsExpr(data.arr, ctx, node.id);
-  return `${arr}.push(${compileTsExpr(data.value, ctx, node.id)});`;
+  return `${arr}.push(${compileTsExpr(data.value, ctx, node.id, elementTypeOf(data.arr, ctx))});`;
 };
 
 export const emitArrUnshift = (node: INode, ctx: ITsStatementContext): string => {
   const data = node.data as IArrPushOrUnshiftData;
   const arr = compileTsExpr(data.arr, ctx, node.id);
-  return `${arr}.unshift(${compileTsExpr(data.value, ctx, node.id)});`;
+  return `${arr}.unshift(${compileTsExpr(data.value, ctx, node.id, elementTypeOf(data.arr, ctx))});`;
 };
 
 interface IArrInsertData {

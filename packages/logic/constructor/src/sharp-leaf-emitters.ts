@@ -1,12 +1,13 @@
 import type { INode } from '@falang/dto';
 import type { IArrayTypeInfo, TVariableInfo } from '@falang/typescript-dto';
-import { compileSharpExpr } from './compile-sharp-expr.js';
+import { compileSharpExpr, compileSharpExprForPrint } from './compile-sharp-expr.js';
 import { sharpAdapter } from './languages/sharp-adapter.js';
 import { defaultSharpValue, variableInfoToSharpType } from './sharp-type-name.js';
 import { toSharpTypedValue } from './sharp-value.js';
 import { NodeCompileError } from './node-compile-error.js';
 import { crossesSwitchToTarget, outLevelOf } from './cycle-info.js';
 import { splitLogSegments } from './log-template.js';
+import { resolveArrayElementType } from './resolve-expression-number-type.js';
 import type { ISharpStatementContext } from './sharp-statement-context.js';
 import { sharpApiFieldName } from './emit-sharp-api-declarations.js';
 
@@ -21,7 +22,7 @@ export const emitCreateVar = (node: INode, ctx: ISharpStatementContext): string 
   const sharpType = variableInfoToSharpType(data.variableType, ctx.params.structNames);
   if (data.value?.trim()) {
     const value = toSharpTypedValue(
-      compileSharpExpr(data.value, ctx, node.id),
+      compileSharpExpr(data.value, ctx, node.id, data.variableType),
       data.variableType,
       ctx.params.structNames,
     );
@@ -53,7 +54,7 @@ export const emitLog = (node: INode, ctx: ISharpStatementContext): string => {
   if (segments.length === 0) return 'Console.WriteLine();';
   const parts = segments.map((segment) =>
     segment.isExpr
-      ? `(${compileSharpExpr(segment.text, ctx, node.id)})`
+      ? `(${compileSharpExprForPrint(segment.text, ctx, node.id)})`
       : sharpAdapter.formatStringLiteral(segment.text),
   );
   const guard = segments[0]?.isExpr ? ['""'] : [];
@@ -81,8 +82,8 @@ export const emitCallFunction = (
   if (!signature) throw new NodeCompileError(node.id, `call-function references unknown document "${data.schemeId}"`);
   const args = data.parameters
     .map((parameter, index) => {
-      const code = compileSharpExpr(parameter, ctx, node.id);
       const parameterType = signature.parameters[index]?.type;
+      const code = compileSharpExpr(parameter, ctx, node.id, parameterType);
       return parameterType ? toSharpTypedValue(code, parameterType, ctx.params.structNames) : code;
     })
     .join(', ');
@@ -122,8 +123,8 @@ export const emitCallApi = (
   if (!endpoint) throw new NodeCompileError(node.id, `call-api references unknown endpoint "${data.iconId}"`);
   const args = data.parameters
     .map((parameter, index) => {
-      const code = compileSharpExpr(parameter, ctx, node.id);
       const parameterType = endpoint.parameters[index]?.type;
+      const code = compileSharpExpr(parameter, ctx, node.id, parameterType);
       return parameterType ? toSharpTypedValue(code, parameterType, ctx.params.structNames) : code;
     })
     .join(', ');
@@ -144,7 +145,7 @@ export const emitCallApi = (
 export const emitReturn = (node: INode, ctx: ISharpStatementContext): string => {
   const expression = ((node.data as string | undefined) ?? '').trim();
   if (expression === '') return 'return;';
-  const code = compileSharpExpr(expression, ctx, node.id);
+  const code = compileSharpExpr(expression, ctx, node.id, ctx.returnValue);
   const value = ctx.returnValue ? toSharpTypedValue(code, ctx.returnValue, ctx.params.structNames) : code;
   return `return ${value};`;
 };
@@ -217,6 +218,13 @@ export const emitArrShift = (
   return { code, returnBinding: { name: variable, type: elementType } };
 };
 
+const arrayTypeRequest = (expression: string, ctx: ISharpStatementContext) => ({
+  expression,
+  scope: ctx.scope,
+  structNames: new Map(ctx.params.structNames),
+  structDefinitions: ctx.params.structDefinitions,
+});
+
 interface IArrPushOrUnshiftData {
   readonly arr: string;
   readonly value: string;
@@ -224,13 +232,15 @@ interface IArrPushOrUnshiftData {
 
 export const emitArrPush = (node: INode, ctx: ISharpStatementContext): string => {
   const data = node.data as IArrPushOrUnshiftData;
-  return `${compileSharpExpr(data.arr, ctx, node.id)}.Add(${compileSharpExpr(data.value, ctx, node.id)});`;
+  const elementType = resolveArrayElementType(arrayTypeRequest(data.arr, ctx));
+  return `${compileSharpExpr(data.arr, ctx, node.id)}.Add(${compileSharpExpr(data.value, ctx, node.id, elementType)});`;
 };
 
 export const emitArrUnshift = (node: INode, ctx: ISharpStatementContext): string => {
   const data = node.data as IArrPushOrUnshiftData;
   const arr = compileSharpExpr(data.arr, ctx, node.id);
-  return `${arr}.Insert(0, ${compileSharpExpr(data.value, ctx, node.id)});`;
+  const elementType = resolveArrayElementType(arrayTypeRequest(data.arr, ctx));
+  return `${arr}.Insert(0, ${compileSharpExpr(data.value, ctx, node.id, elementType)});`;
 };
 
 interface IArrInsertData {

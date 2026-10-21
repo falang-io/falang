@@ -2,6 +2,7 @@ import type { INode } from '@falang/dto';
 import type { TVariableInfo } from '@falang/typescript-dto';
 import type { IDebugTracePoint } from '@falang/debug';
 import type { IStructDefinition } from './struct-definition.js';
+import type { IFunctionBodyParameter } from './function-signature.js';
 import type { ILanguageAdapter } from './language-adapter.js';
 import type { ICycleInfo, TNestingFrame } from './cycle-info.js';
 import type { IExternalApiEndpoint } from './external-api-registry.js';
@@ -10,6 +11,8 @@ import type { IExternalApiEndpoint } from './external-api-registry.js';
 export interface ICppFunctionSignature {
   readonly cppName: string;
   readonly returnValue?: TVariableInfo;
+  /** The declared parameters — a call argument is converted to the parameter's type (a decimal, ADR 0069 (private) §4). */
+  readonly parameters?: readonly IFunctionBodyParameter[];
 }
 
 /** Project-wide inputs every statement/expression emitter needs, threaded down unchanged through the whole compile (see `ICppStatementContext`). `adapter` drives every expression `compileExpr` compiles (see `compile-cpp-expr.ts`) — passing a different `ILanguageAdapter` (e.g. an Arduino-specific one built outside this package) is the intended way to reuse this whole statement compiler for a different C++-family target without this package ever needing to know about it. `extraDeclarations` (see `ICompileExpressionWithAdapterParams`) is the same idea for globals that aren't scope variables at all — a target platform's builtin API. */
@@ -73,6 +76,8 @@ export interface ICppStatementContext {
   readonly cycleInfo: ICycleInfo;
   readonly params: ICppCompileParams;
   readonly debug?: IDebugCompileOptions;
+  /** The current function's declared return type — a `return` value is converted to it (a decimal, ADR 0069 (private) §4). */
+  readonly returnValue?: TVariableInfo;
 }
 
 export interface ICompileChildrenOptions {

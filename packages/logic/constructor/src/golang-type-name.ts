@@ -37,6 +37,7 @@ export const variableInfoToGoType = (type: TVariableInfo, structNames: ReadonlyM
       const { numberType } = type;
       if (numberType.type === 'integer') return INTEGER_GO_TYPES[numberType.integerType];
       if (numberType.type === 'float') return FLOAT_GO_TYPES[numberType.floatType];
+      if (numberType.type === 'decimal') return 'int64';
       throw new UnsupportedConstructError(`Number type not portable to Go: ${numberType.type}`);
     }
     case 'struct': {

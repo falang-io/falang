@@ -1,6 +1,7 @@
 import type ts from 'typescript';
 import type { TExportLanguage } from '@falang/logic-dto';
 import type { TNumberTypeDetail, TVariableInfo } from '@falang/typescript-dto';
+import type { IDecimalCodegen } from './decimal-codegen.js';
 
 /** Thrown by an `ILanguageAdapter` (or the walker itself) for a construct with no portable mapping to that adapter's target — caught by `compileExpression` and turned into a `{ ok: false, diagnostics }` result, the same shape a type-check failure produces. Not a bug: an expression using a construct one target doesn't support is normal, expected input. */
 export class UnsupportedConstructError extends Error {}
@@ -159,4 +160,6 @@ export interface ILanguageAdapter {
    * @throws {UnsupportedConstructError} if the target has no portable template-literal mapping.
    */
   emitTemplateLiteral?(params: IEmitTemplateLiteralParams): string;
+  /** `decimal(D, S)` support (ADR 0069 (private) §4) — a target without it rejects every decimal expression. */
+  readonly decimal?: IDecimalCodegen;
 }

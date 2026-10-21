@@ -2,6 +2,7 @@ import type { ILanguageAdapter } from '../language-adapter.js';
 import { UnsupportedConstructError } from '../language-adapter.js';
 import { isEightBitInteger } from '../numeric-coercion.js';
 import { isArrayLikeType, isStringLikeType } from '../type-utils.js';
+import { cppDecimalCodegen } from '../decimal/cpp-decimal.js';
 
 /** JS/TS spells the same operator differently or not at all in C++ (`===`/`!==` have no loose-vs-strict distinction in C++, so both map to `==`/`!=`); anything not listed here (`??`, `**`, bitwise ops, …) is rejected rather than guessed at. */
 const BINARY_OPERATOR_MAP: Readonly<Record<string, string>> = {
@@ -64,6 +65,7 @@ const escapeCppStringLiteral = (value: string): string => {
 /** First non-`ts`/`js` target, see ADR 0019 (private)'s "Decision" section — `std::vector`/`std::string` assumed for array/string scope types (matching `variableInfoToTsType`'s own array/string rendering), not raw arrays or `char*`. */
 export const cppAdapter: ILanguageAdapter = {
   target: 'cpp',
+  decimal: cppDecimalCodegen,
 
   formatStringLiteral: (value) => escapeCppStringLiteral(value),
   formatNumericLiteral: (text) => text,

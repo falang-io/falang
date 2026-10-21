@@ -1,6 +1,6 @@
 import type { INode } from '@falang/dto';
 import type { TVariableInfo } from '@falang/typescript-dto';
-import { compileRustExpr } from './compile-rust-expr.js';
+import { compileRustExpr, compileRustExprForPrint } from './compile-rust-expr.js';
 import { variableInfoToRustType } from './rust-type-name.js';
 import { rustAdapter } from './languages/rust-adapter.js';
 import { NodeCompileError } from './node-compile-error.js';
@@ -41,7 +41,10 @@ export const emitCreateVar = (node: INode, ctx: IRustStatementContext): string =
   const data = node.data as ICreateVarData;
   const rustType = variableInfoToRustType(data.variableType, ctx.params.structNames, ctx.params.structDocuments);
   if (data.value?.trim()) {
-    const owned = toOwnedRustValue(compileRustExpr(data.value, ctx, node.id), data.variableType.type);
+    const owned = toOwnedRustValue(
+      compileRustExpr(data.value, ctx, node.id, data.variableType),
+      data.variableType.type,
+    );
     const value = castToDeclaredNumber(owned, data.value, data.variableType, rustType, ctx);
     return `let mut ${data.name}: ${rustType} = ${value};`;
   }
@@ -72,7 +75,7 @@ export const emitLog = (node: INode, ctx: IRustStatementContext): string => {
   for (const segment of segments) {
     if (segment.isExpr) {
       format += '{}';
-      args.push(compileRustExpr(segment.text, ctx, node.id));
+      args.push(compileRustExprForPrint(segment.text, ctx, node.id));
     } else {
       format += segment.text.replaceAll('{', '{{').replaceAll('}', '}}');
     }
@@ -113,8 +116,8 @@ export const emitCallFunction = (
   const signature = ctx.params.functionSignatures.get(data.schemeId);
   if (!signature) throw new NodeCompileError(node.id, `call-function references unknown document "${data.schemeId}"`);
   const args = data.parameters.map((parameter, index) => {
-    const code = compileRustExpr(parameter, ctx, node.id);
     const parameterType = signature.parameters[index]?.type;
+    const code = compileRustExpr(parameter, ctx, node.id, parameterType);
     return parameterType ? toRustArgValue(code, parameterType) : code;
   });
   const qualifiedName = `crate::falang::${signature.documentName}::${signature.rustName}`;
@@ -151,8 +154,8 @@ export const emitCallApi = (
   if (!endpoint) throw new NodeCompileError(node.id, `call-api references unknown endpoint "${data.iconId}"`);
   const args = data.parameters
     .map((parameter, index) => {
-      const code = compileRustExpr(parameter, ctx, node.id);
       const parameterType = endpoint.parameters[index]?.type;
+      const code = compileRustExpr(parameter, ctx, node.id, parameterType);
       return parameterType ? toRustArgValue(code, parameterType) : code;
     })
     .join(', ');
@@ -230,7 +233,7 @@ export const emitArrPush = (node: INode, ctx: IRustStatementContext): string => 
   const data = node.data as IArrPushOrUnshiftData;
   const arr = compileRustExpr(data.arr, ctx, node.id);
   const elementType = resolveRustArrayType(data.arr, ctx, node.id).elementType;
-  const value = toOwnedRustValue(compileRustExpr(data.value, ctx, node.id), elementType.type);
+  const value = toOwnedRustValue(compileRustExpr(data.value, ctx, node.id, elementType), elementType.type);
   return `${arr}.push(${value});`;
 };
 
@@ -239,7 +242,7 @@ export const emitArrUnshift = (node: INode, ctx: IRustStatementContext): string 
   const data = node.data as IArrPushOrUnshiftData;
   const arr = compileRustExpr(data.arr, ctx, node.id);
   const elementType = resolveRustArrayType(data.arr, ctx, node.id).elementType;
-  const value = toOwnedRustValue(compileRustExpr(data.value, ctx, node.id), elementType.type);
+  const value = toOwnedRustValue(compileRustExpr(data.value, ctx, node.id, elementType), elementType.type);
   return `${arr}.insert(0, ${value});`;
 };
 

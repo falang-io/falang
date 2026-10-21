@@ -12,11 +12,12 @@ import type { ITsStatementContext } from './ts-statement-context.js';
  * time — a raw expression that doesn't type-check here fails the whole document's compile with a
  * `NodeCompileError` pointing at the offending node.
  */
-export const compileTsExpr = (
+const compileWith = (
   expression: string,
   ctx: ITsStatementContext,
   nodeId: string,
-  targetType?: TVariableInfo,
+  targetType: TVariableInfo | null,
+  print: boolean,
 ): string => {
   const result = compileExpression({
     expression,
@@ -24,8 +25,20 @@ export const compileTsExpr = (
     target: 'ts',
     structNames: new Map(ctx.params.structNames),
     structDefinitions: ctx.params.structDefinitions,
-    targetType,
+    ...(targetType ? { targetType } : {}),
+    print,
   });
   if (!result.ok) throw new NodeCompileError(nodeId, result.diagnostics.join('\n'));
   return result.code;
 };
+
+export const compileTsExpr = (
+  expression: string,
+  ctx: ITsStatementContext,
+  nodeId: string,
+  targetType?: TVariableInfo,
+): string => compileWith(expression, ctx, nodeId, targetType ?? null, false);
+
+/** The expression's value is printed (`log`): a decimal gets exactly its scale's fraction digits (ADR 0069 (private) §4). */
+export const compileTsExprForPrint = (expression: string, ctx: ITsStatementContext, nodeId: string): string =>
+  compileWith(expression, ctx, nodeId, null, true);

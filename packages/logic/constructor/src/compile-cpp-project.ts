@@ -8,6 +8,7 @@ import { getFunctionSignature } from './function-signature.js';
 import { cppAdapter } from './languages/cpp-adapter.js';
 import { buildExternalApiRegistry } from './external-api-registry.js';
 import { emitCppApiDeclarations } from './emit-cpp-api-declarations.js';
+import { FALANG_DECIMAL_CPP_RUNTIME } from './decimal/cpp-decimal.js';
 
 const PREAMBLE = [
   '#include <iostream>',
@@ -88,7 +89,11 @@ export const compileCppProject = ({ documents, entryDocumentId }: ICompileCppPro
     if (!document.root) continue;
     const signature = getFunctionSignature(document.root);
     const cppName = resolveCppFunctionName(document.name, entryDocumentId);
-    functionSignatures.set(document.id, { cppName, returnValue: signature.returnValue });
+    functionSignatures.set(document.id, {
+      cppName,
+      returnValue: signature.returnValue,
+      parameters: signature.parameters,
+    });
     // C++ has no hoisting — a `call-function` can target any document regardless of compile order
     // (see `@falang/workflow-compiler`'s own `compileProject`, which resolves `call-function` the
     // same order-independent way for its TS target), so every function needs a prototype declared
@@ -128,8 +133,13 @@ export const compileCppProject = ({ documents, entryDocumentId }: ICompileCppPro
   const apiDeclarations = emitCppApiDeclarations(apiRegistry, structRegistry.structNames);
   const mainBlock = entryDocumentId ? buildMain(entryDocumentId, functionSignatures) : '';
 
+  // The decimal runtime is only worth its text when something refers to it (ADR 0069 (private) §4).
+  const usesDecimal = [structDeclarations, apiDeclarations, prototypes.join('\n'), functionBlocks.join('\n')].some(
+    (text) => text.includes('FalangDecimal'),
+  );
   const code = [
     PREAMBLE,
+    usesDecimal ? FALANG_DECIMAL_CPP_RUNTIME : '',
     structDeclarations,
     apiDeclarations,
     prototypes.join('\n'),

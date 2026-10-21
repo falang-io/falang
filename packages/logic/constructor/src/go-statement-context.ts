@@ -1,12 +1,15 @@
 import type { INode } from '@falang/dto';
 import type { TVariableInfo } from '@falang/typescript-dto';
 import type { IStructDefinition } from './struct-definition.js';
+import type { IFunctionBodyParameter } from './function-signature.js';
 import type { IExternalApiEndpoint } from './external-api-registry.js';
 
 /** Resolves a `call-function` node's target to the Go function it should call, plus its return type — same role as `cpp-statement-context.ts`'s `ICppFunctionSignature`. */
 export interface IGoFunctionSignature {
   readonly goName: string;
   readonly returnValue?: TVariableInfo;
+  /** The declared parameters — a call argument is converted to the parameter's type (a decimal, ADR 0069 (private) §4). */
+  readonly parameters?: readonly IFunctionBodyParameter[];
 }
 
 /** Project-wide inputs every statement/expression emitter needs, threaded down unchanged through the whole compile. */

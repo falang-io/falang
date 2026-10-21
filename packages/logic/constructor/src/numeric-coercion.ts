@@ -1,6 +1,8 @@
 import ts from 'typescript';
 import type { TFloatType, TIntegerType, TNumberTypeDetail, TVariableInfo } from '@falang/typescript-dto';
 import type { IStructDefinition } from './struct-definition.js';
+import type { IDecimalValue } from './decimal-literal.js';
+import { parseDecimalLiteral } from './decimal-literal.js';
 
 export interface INumericTypeContext {
   readonly scope: Readonly<Record<string, TVariableInfo>>;
@@ -40,6 +42,22 @@ export const widthOf = (detail: TNumberTypeDetail): TNumberWidth | undefined => 
   if (detail.type === 'float') return detail.floatType;
 };
 
+export const isDecimalDetail = (detail: TNumberTypeDetail | undefined): detail is TDecimalDetail =>
+  detail?.type === 'decimal';
+
+export type TDecimalDetail = Extract<TNumberTypeDetail, { type: 'decimal' }>;
+
+/** decimal ⊕ decimal → the wider digits and the larger scale; decimal ⊕ integer → the decimal; decimal ⊕ float → the float (ADR 0069 (private) §4). */
+const promoteDecimalType = (a: TNumberTypeDetail, b: TNumberTypeDetail): TNumberTypeDetail | undefined => {
+  if (a.type === 'decimal' && b.type === 'decimal') {
+    return { type: 'decimal', digits: Math.max(a.digits, b.digits), decimals: Math.max(a.decimals, b.decimals) };
+  }
+  const other = a.type === 'decimal' ? b : a;
+  const decimal = a.type === 'decimal' ? a : b;
+  if (other.type === 'integer') return decimal;
+  if (other.type === 'float') return other;
+};
+
 /**
  * The DSL analogue of C++'s "usual arithmetic conversions" — float always outranks every integer
  * width (mixing an int and a float always promotes to the float, mirroring `objects`' own `ObjCSum`,
@@ -49,6 +67,7 @@ export const widthOf = (detail: TNumberTypeDetail): TNumberWidth | undefined => 
  * downstream, see each adapter's own `castNumericOperand`).
  */
 export const promoteNumberType = (a: TNumberTypeDetail, b: TNumberTypeDetail): TNumberTypeDetail | undefined => {
+  if (a.type === 'decimal' || b.type === 'decimal') return promoteDecimalType(a, b);
   const aWidth = widthOf(a);
   const bWidth = widthOf(b);
   if (!aWidth || !bWidth) return;
@@ -141,6 +160,46 @@ const isLiteralLike = (node: ts.Expression): boolean => {
   return false;
 };
 
+/**
+ * A (possibly parenthesized / signed) numeric literal as an exact decimal value, from its source spelling — `undefined`
+ * for anything that is not just a literal. `scale` is the number of fraction digits written.
+ */
+export const numericLiteralValue = (node: ts.Expression): IDecimalValue | undefined => {
+  if (ts.isParenthesizedExpression(node)) return numericLiteralValue(node.expression);
+  if (ts.isNumericLiteral(node)) return parseDecimalLiteral(node.getText());
+  if (ts.isPrefixUnaryExpression(node) && node.operator === ts.SyntaxKind.MinusToken) {
+    const operand = numericLiteralValue(node.operand);
+    return operand && { raw: -operand.raw, scale: operand.scale };
+  }
+  if (ts.isPrefixUnaryExpression(node) && node.operator === ts.SyntaxKind.PlusToken) {
+    return numericLiteralValue(node.operand);
+  }
+};
+
+const withDecimals = (decimal: TDecimalDetail, scale: number): TVariableInfo => ({
+  type: 'number',
+  numberType: { type: 'decimal', digits: Math.max(decimal.digits, scale), decimals: Math.max(decimal.decimals, scale) },
+});
+
+/** A fractional literal next to a decimal operand is a decimal of its own spelled scale (ADR 0069 (private) §4); the result takes the larger scale. */
+const resolveDecimalLiteralInfo = (
+  node: ts.BinaryExpression,
+  leftInfo: TVariableInfo,
+  rightInfo: TVariableInfo,
+): TVariableInfo | undefined => {
+  if (leftInfo.type !== 'number' || rightInfo.type !== 'number') return;
+  const left = leftInfo.numberType;
+  const right = rightInfo.numberType;
+  if (left.type === 'decimal' && right.type !== 'decimal') {
+    const literal = numericLiteralValue(node.right);
+    if (literal && literal.scale > 0) return withDecimals(left, literal.scale);
+  }
+  if (right.type === 'decimal' && left.type !== 'decimal') {
+    const literal = numericLiteralValue(node.left);
+    if (literal && literal.scale > 0) return withDecimals(right, literal.scale);
+  }
+};
+
 /** With `resolveLiterals` on, an integer-looking literal operand adopts the other operand's number type (so `a / 2` is an integer division when `a` is an integer). */
 const resolveLiteralAwareBinaryInfo = (
   node: ts.BinaryExpression,
@@ -154,6 +213,8 @@ const resolveLiteralAwareBinaryInfo = (
   const leftInfo = resolve(node.left, context);
   const rightInfo = resolve(node.right, context);
   if (leftInfo?.type !== 'number' || rightInfo?.type !== 'number') return;
+  const decimalLiteral = resolveDecimalLiteralInfo(node, leftInfo, rightInfo);
+  if (decimalLiteral) return decimalLiteral;
   if (leftIsLiteral && !rightIsLiteral) return rightInfo;
   if (rightIsLiteral && !leftIsLiteral) return leftInfo;
   const promoted = promoteNumberType(leftInfo.numberType, rightInfo.numberType);

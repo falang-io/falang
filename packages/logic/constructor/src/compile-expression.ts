@@ -28,8 +28,10 @@ export interface ICompileExpressionParams {
    * ("`compileExpression` has no type registry of its own yet to emit struct bodies").
    */
   readonly structDefinitions?: ReadonlyMap<string, IStructDefinition>;
-  /** `ts`/`js` only: the declared type of the store this expression flows into, for the float-into-integer truncation (ADR 0069 (private) §3). */
+  /** The declared type of the store this expression flows into: the float-into-integer truncation of `ts`/`js` (ADR 0069 (private) §3) and every decimal conversion (§4). */
   readonly targetType?: TVariableInfo;
+  /** The value is printed (`log`): a decimal becomes a text with exactly its scale's fraction digits (ADR 0069 (private) §4). */
+  readonly print?: boolean;
 }
 
 export interface ICompileExpressionSuccess {
@@ -199,6 +201,10 @@ export interface ICompileExpressionWithAdapterParams {
    * way to express. Generic on purpose: this package has no opinion on what a caller declares here.
    */
   readonly extraDeclarations?: readonly string[];
+  /** See `ICompileExpressionParams.targetType`. */
+  readonly targetType?: TVariableInfo;
+  /** See `ICompileExpressionParams.print`. */
+  readonly print?: boolean;
 }
 
 /**
@@ -219,6 +225,8 @@ export const compileExpressionWithAdapter = ({
   structNames = new Map(),
   structDefinitions = new Map(),
   extraDeclarations = [],
+  targetType,
+  print,
 }: ICompileExpressionWithAdapterParams): TCompileExpressionResult => {
   const fileText = buildVirtualFileText(expression, scope, structNames, structDefinitions, extraDeclarations);
   const { program, sourceFile } = createCheckedProgram(fileText);
@@ -229,7 +237,10 @@ export const compileExpressionWithAdapter = ({
   try {
     const exprNode = findExprInitializer(sourceFile);
     const numericContext = { scope, structDefinitions };
-    const code = emitPortableExpression(exprNode, sourceFile, program.getTypeChecker(), adapter, numericContext);
+    const code = emitPortableExpression(exprNode, sourceFile, program.getTypeChecker(), adapter, numericContext, {
+      targetType,
+      print,
+    });
     return { ok: true, code };
   } catch (error) {
     if (error instanceof UnsupportedConstructError) {
@@ -246,6 +257,7 @@ export const compileExpression = ({
   structNames = new Map(),
   structDefinitions = new Map(),
   targetType,
+  print,
 }: ICompileExpressionParams): TCompileExpressionResult => {
   if (!IMPLEMENTED_LANGUAGES.includes(target)) {
     throw new Error(
@@ -267,7 +279,7 @@ export const compileExpression = ({
       exprStart,
       sourceFile,
       createTsNumericContext({ scope, structDefinitions }),
-      targetType,
+      { targetType, print },
     );
     return { ok: true, code: target === 'ts' ? emitTs(rewritten) : emitJs(rewritten) };
   }
@@ -276,5 +288,13 @@ export const compileExpression = ({
   if (!adapter) {
     throw new Error(`Target language not implemented yet: ${target}`);
   }
-  return compileExpressionWithAdapter({ expression, scope, adapter, structNames, structDefinitions });
+  return compileExpressionWithAdapter({
+    expression,
+    scope,
+    adapter,
+    structNames,
+    structDefinitions,
+    targetType,
+    print,
+  });
 };

@@ -1,7 +1,7 @@
 import type { INode } from '@falang/dto';
 import type { IArrayTypeInfo, TVariableInfo } from '@falang/typescript-dto';
-import { compileGoExpr } from './compile-go-expr.js';
-import { resolveExpressionNumberType } from './resolve-expression-number-type.js';
+import { compileGoExpr, compileGoExprForPrint } from './compile-go-expr.js';
+import { resolveArrayElementType, resolveExpressionNumberType } from './resolve-expression-number-type.js';
 import { variableInfoToGoType } from './golang-type-name.js';
 import { golangAdapter } from './languages/golang-adapter.js';
 import { NodeCompileError } from './node-compile-error.js';
@@ -22,7 +22,7 @@ export const emitCreateVar = (node: INode, ctx: IGoStatementContext): string => 
   const data = node.data as ICreateVarData;
   const goType = variableInfoToGoType(data.variableType, ctx.params.structNames);
   if (data.value?.trim()) {
-    const code = compileGoExpr(data.value, ctx, node.id);
+    const code = compileGoExpr(data.value, ctx, node.id, data.variableType);
     return `var ${data.name} ${goType} = ${castToDeclaredNumber(code, data.value, data.variableType, goType, ctx)};`;
   }
   // `var name Type` (no `:=`, which always requires an initializer) — Go zero-values every field
@@ -49,7 +49,7 @@ export const emitLog = (node: INode, ctx: IGoStatementContext): string => {
   const segments = splitLogSegments((node.data as string | undefined) ?? '');
   const parts = segments.map((segment) => {
     if (!segment.isExpr) return golangAdapter.formatStringLiteral(segment.text);
-    return `fmt.Sprint(${compileGoExpr(segment.text, ctx, node.id)})`;
+    return `fmt.Sprint(${compileGoExprForPrint(segment.text, ctx, node.id)})`;
   });
   if (parts.length === 0) return 'fmt.Println();';
   return `fmt.Println(${parts.join(' + ')});`;
@@ -73,7 +73,9 @@ export const emitCallFunction = (
   const data = node.data as ICallFunctionData;
   const signature = ctx.params.functionSignatures.get(data.schemeId);
   if (!signature) throw new NodeCompileError(node.id, `call-function references unknown document "${data.schemeId}"`);
-  const args = data.parameters.map((parameter) => compileGoExpr(parameter, ctx, node.id)).join(', ');
+  const args = data.parameters
+    .map((parameter, index) => compileGoExpr(parameter, ctx, node.id, signature.parameters?.[index]?.type))
+    .join(', ');
   const call = `${signature.goName}(${args})`;
   const variable = data.returnVariable.trim();
   if (variable === '') return { code: `${call};` };
@@ -105,7 +107,9 @@ export const emitCallApi = (
   const data = node.data as ICallApiData;
   const endpoint = data.iconId ? ctx.params.apiEndpoints.get(data.iconId) : null;
   if (!endpoint) throw new NodeCompileError(node.id, `call-api references unknown endpoint "${data.iconId}"`);
-  const args = data.parameters.map((parameter) => compileGoExpr(parameter, ctx, node.id)).join(', ');
+  const args = data.parameters
+    .map((parameter, index) => compileGoExpr(parameter, ctx, node.id, endpoint.parameters[index]?.type))
+    .join(', ');
   const call = `${goApiGlobalName(endpoint.apiName)}.${endpoint.name}(${args})`;
   const variable = data.returnVariable.trim();
   if (variable === '') return { code: `${call};` };
@@ -131,14 +135,15 @@ const castReturnExprIfNeeded = (code: string, expression: string, ctx: IGoStatem
     structNames: new Map(ctx.params.structNames),
     structDefinitions: ctx.params.structDefinitions,
   });
-  if (!resolvedNumberType || widthOf(resolvedNumberType) === widthOf(ctx.returnValue.numberType)) return code;
+  if (!resolvedNumberType || !widthOf(ctx.returnValue.numberType)) return code;
+  if (widthOf(resolvedNumberType) === widthOf(ctx.returnValue.numberType)) return code;
   return `${variableInfoToGoType(ctx.returnValue, new Map(ctx.params.structNames))}(${code})`;
 };
 
 export const emitReturn = (node: INode, ctx: IGoStatementContext): string => {
   const expression = ((node.data as string | undefined) ?? '').trim();
   if (expression === '') return 'return;';
-  const code = compileGoExpr(expression, ctx, node.id);
+  const code = compileGoExpr(expression, ctx, node.id, ctx.returnValue);
   return `return ${castReturnExprIfNeeded(code, expression, ctx)};`;
 };
 
@@ -214,6 +219,13 @@ export const emitArrShift = (
   return { code, returnBinding: { name: variable, type: elementType } };
 };
 
+const arrayTypeRequest = (expression: string, ctx: IGoStatementContext) => ({
+  expression,
+  scope: ctx.scope,
+  structNames: new Map(ctx.params.structNames),
+  structDefinitions: ctx.params.structDefinitions,
+});
+
 interface IArrPushOrUnshiftData {
   readonly arr: string;
   readonly value: string;
@@ -222,7 +234,8 @@ interface IArrPushOrUnshiftData {
 export const emitArrPush = (node: INode, ctx: IGoStatementContext): string => {
   const data = node.data as IArrPushOrUnshiftData;
   const arr = compileGoExpr(data.arr, ctx, node.id);
-  return `${arr} = append(${arr}, ${compileGoExpr(data.value, ctx, node.id)});`;
+  const elementType = resolveArrayElementType(arrayTypeRequest(data.arr, ctx));
+  return `${arr} = append(${arr}, ${compileGoExpr(data.value, ctx, node.id, elementType)});`;
 };
 
 export const emitArrUnshift = (node: INode, ctx: IGoStatementContext): string => {
@@ -230,7 +243,7 @@ export const emitArrUnshift = (node: INode, ctx: IGoStatementContext): string =>
   const arr = compileGoExpr(data.arr, ctx, node.id);
   const elementType = resolveArrayIdentifierType(data.arr, ctx, node.id).elementType;
   const goType = variableInfoToGoType(elementType, ctx.params.structNames);
-  return `${arr} = append([]${goType}{${compileGoExpr(data.value, ctx, node.id)}}, ${arr}...);`;
+  return `${arr} = append([]${goType}{${compileGoExpr(data.value, ctx, node.id, elementType)}}, ${arr}...);`;
 };
 
 interface IArrInsertData {

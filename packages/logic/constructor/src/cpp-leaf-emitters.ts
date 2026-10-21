@@ -1,11 +1,11 @@
 import type { INode } from '@falang/dto';
 import type { IArrayTypeInfo, TVariableInfo } from '@falang/typescript-dto';
-import { compileExpr } from './compile-cpp-expr.js';
+import { compileExpr, compileExprForPrint } from './compile-cpp-expr.js';
 import { variableInfoToCppType } from './cpp-type-name.js';
 import { NodeCompileError } from './node-compile-error.js';
 import { crossesSwitchToTarget, outLevelOf } from './cycle-info.js';
 import { isEightBitInteger } from './numeric-coercion.js';
-import { resolveExpressionNumberType } from './resolve-expression-number-type.js';
+import { resolveArrayElementType, resolveExpressionNumberType } from './resolve-expression-number-type.js';
 import { splitLogSegments } from './log-template.js';
 import type { ICppStatementContext } from './cpp-statement-context.js';
 import { cppApiGlobalName } from './emit-cpp-api-declarations.js';
@@ -19,7 +19,9 @@ interface ICreateVarData {
 export const emitCreateVar = (node: INode, ctx: ICppStatementContext): string => {
   const data = node.data as ICreateVarData;
   const cppType = variableInfoToCppType(data.variableType, ctx.params.structNames);
-  if (data.value?.trim()) return `${cppType} ${data.name} = ${compileExpr(data.value, ctx, node.id)};`;
+  if (data.value?.trim()) {
+    return `${cppType} ${data.name} = ${compileExpr(data.value, ctx, node.id, data.variableType)};`;
+  }
   // Value-initialization (`Type name{};`) rather than a bare `Type name;` — zeroes every member
   // (recursively, for a struct) instead of leaving POD fields indeterminate, matching
   // `@falang/typescript-dto`'s own `defaultValueExpression` intent ("never left as uninitialized
@@ -37,7 +39,7 @@ export const emitLog = (node: INode, ctx: ICppStatementContext): string => {
   const segments = splitLogSegments((node.data as string | undefined) ?? '');
   const parts = segments.map((segment) => {
     if (!segment.isExpr) return ctx.params.adapter.formatStringLiteral(segment.text);
-    const code = compileExpr(segment.text, ctx, node.id);
+    const code = compileExprForPrint(segment.text, ctx, node.id);
     // iostream prints `int8_t`/`uint8_t` as a character — print the number.
     const numberType = resolveExpressionNumberType({
       expression: segment.text,
@@ -69,7 +71,9 @@ export const emitCallFunction = (
   const data = node.data as ICallFunctionData;
   const signature = ctx.params.functionSignatures.get(data.schemeId);
   if (!signature) throw new NodeCompileError(node.id, `call-function references unknown document "${data.schemeId}"`);
-  const args = data.parameters.map((parameter) => compileExpr(parameter, ctx, node.id)).join(', ');
+  const args = data.parameters
+    .map((parameter, index) => compileExpr(parameter, ctx, node.id, signature.parameters?.[index]?.type))
+    .join(', ');
   const call = `${signature.cppName}(${args})`;
   const variable = data.returnVariable.trim();
   if (variable === '') return { code: `${call};` };
@@ -100,7 +104,9 @@ export const emitCallApi = (
   const data = node.data as ICallApiData;
   const endpoint = data.iconId ? ctx.params.apiEndpoints.get(data.iconId) : null;
   if (!endpoint) throw new NodeCompileError(node.id, `call-api references unknown endpoint "${data.iconId}"`);
-  const args = data.parameters.map((parameter) => compileExpr(parameter, ctx, node.id)).join(', ');
+  const args = data.parameters
+    .map((parameter, index) => compileExpr(parameter, ctx, node.id, endpoint.parameters[index]?.type))
+    .join(', ');
   const call = `(*${cppApiGlobalName(endpoint.apiName)}).${endpoint.name}(${args})`;
   const variable = data.returnVariable.trim();
   if (variable === '') return { code: `${call};` };
@@ -113,7 +119,7 @@ export const emitCallApi = (
 
 export const emitReturn = (node: INode, ctx: ICppStatementContext): string => {
   const expression = ((node.data as string | undefined) ?? '').trim();
-  return expression === '' ? 'return;' : `return ${compileExpr(expression, ctx, node.id)};`;
+  return expression === '' ? 'return;' : `return ${compileExpr(expression, ctx, node.id, ctx.returnValue)};`;
 };
 
 export const emitThrow = (node: INode, ctx: ICppStatementContext): string =>
@@ -184,6 +190,13 @@ export const emitArrShift = (
   return { code, returnBinding: { name: variable, type: elementType } };
 };
 
+const arrayTypeRequest = (expression: string, ctx: ICppStatementContext) => ({
+  expression,
+  scope: ctx.scope,
+  structNames: new Map(ctx.params.structNames),
+  structDefinitions: ctx.params.structDefinitions,
+});
+
 interface IArrPushOrUnshiftData {
   readonly arr: string;
   readonly value: string;
@@ -191,13 +204,15 @@ interface IArrPushOrUnshiftData {
 
 export const emitArrPush = (node: INode, ctx: ICppStatementContext): string => {
   const data = node.data as IArrPushOrUnshiftData;
-  return `${compileExpr(data.arr, ctx, node.id)}.push_back(${compileExpr(data.value, ctx, node.id)});`;
+  const elementType = resolveArrayElementType(arrayTypeRequest(data.arr, ctx));
+  return `${compileExpr(data.arr, ctx, node.id)}.push_back(${compileExpr(data.value, ctx, node.id, elementType)});`;
 };
 
 export const emitArrUnshift = (node: INode, ctx: ICppStatementContext): string => {
   const data = node.data as IArrPushOrUnshiftData;
   const arr = compileExpr(data.arr, ctx, node.id);
-  return `${arr}.insert(${arr}.begin(), ${compileExpr(data.value, ctx, node.id)});`;
+  const elementType = resolveArrayElementType(arrayTypeRequest(data.arr, ctx));
+  return `${arr}.insert(${arr}.begin(), ${compileExpr(data.value, ctx, node.id, elementType)});`;
 };
 
 interface IArrInsertData {

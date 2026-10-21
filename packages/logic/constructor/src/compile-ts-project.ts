@@ -10,6 +10,11 @@ import { NodeCompileError } from './node-compile-error.js';
 import { getFunctionSignature } from './function-signature.js';
 import type { ICompiledProjectFiles } from './compiled-project-files.js';
 import type { IStructDefinition } from './struct-definition.js';
+import {
+  FALANG_DECIMAL_TS_FILE_NAME,
+  FALANG_DECIMAL_TS_FUNCTIONS,
+  FALANG_DECIMAL_TS_RUNTIME,
+} from './decimal/ts-decimal.js';
 
 export interface ICompileTsProjectParams {
   /** A project's full document set — `type === 'function'` documents compile to one `.ts` file each, `type === OBJECTS_STRUCTURE_NAME` documents contribute one `.ts` file of struct interfaces each, `type === EXTERNAL_API_STRUCTURE_NAME` documents contribute one `.ts` file of API interfaces each; anything else is skipped, same posture as `compileGoProject`. */
@@ -111,6 +116,21 @@ const buildFunctionImportLines = (
  * unconditionally imports it), just with no `apis` field — same "only emit what's actually configured"
  * posture as the old app's own `TypeScriptLogicBuilder.buildGlobal()` (`if (groupedApis.size) { ... }`).
  */
+/** `_falang_decimal.ts` and the imports of the helpers each file calls — only when some file calls one (ADR 0069 (private) §4). */
+const addDecimalRuntime = (files: Record<string, string>): void => {
+  const known = new Set<string>(FALANG_DECIMAL_TS_FUNCTIONS);
+  let used = false;
+  for (const [fileName, text] of Object.entries(files)) {
+    const names = [...new Set(Array.from(text.matchAll(/\bfalangDec\w+\b/g), (match) => match[0]))]
+      .filter((name) => known.has(name))
+      .toSorted();
+    if (names.length === 0) continue;
+    used = true;
+    files[fileName] = `import { ${names.join(', ')} } from './${FALANG_DECIMAL_TS_FILE_NAME}';\n${text}`;
+  }
+  if (used) files[`${FALANG_DECIMAL_TS_FILE_NAME}.ts`] = FALANG_DECIMAL_TS_RUNTIME;
+};
+
 const buildFalangGlobalFile = (apiDocuments: readonly IProjectDocument[]): string => {
   if (apiDocuments.length === 0) {
     return 'export interface FalangGlobal {\n}';
@@ -230,6 +250,8 @@ export const compileTsProject = ({ documents }: ICompileTsProjectParams): ICompi
       });
     }
   }
+
+  addDecimalRuntime(files);
 
   if (errors.length > 0) throw new TsProjectCompileError(errors, { files });
   return { files };

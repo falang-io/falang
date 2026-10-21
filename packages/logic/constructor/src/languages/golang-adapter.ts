@@ -2,6 +2,7 @@ import type { TNumberTypeDetail } from '@falang/typescript-dto';
 import type { ILanguageAdapter } from '../language-adapter.js';
 import { UnsupportedConstructError } from '../language-adapter.js';
 import { isArrayLikeType, isStringLikeType } from '../type-utils.js';
+import { goDecimalCodegen } from '../decimal/go-decimal.js';
 import { needsNumericCast, widthOf } from '../numeric-coercion.js';
 import { variableInfoToGoType } from '../golang-type-name.js';
 
@@ -68,6 +69,7 @@ export const capitalizeFirst = (value: string): string =>
 /** Second non-`ts`/`js` target — Go has no ternary/conditional-expression construct at all (`if` is a statement, not an expression), and no confirmed old-app fallback for it either (searched `old/packages/infrastructure/logic` for `ConditionalNode` handling in any language's codegen — none exists), so `emitConditional` throws explicitly rather than guessing at a workaround. See ADR 0019 (private)'s Implementation notes. */
 export const golangAdapter: ILanguageAdapter = {
   target: 'golang',
+  decimal: goDecimalCodegen,
 
   formatStringLiteral: (value) => escapeGoStringLiteral(value),
   formatNumericLiteral: (text) => text,

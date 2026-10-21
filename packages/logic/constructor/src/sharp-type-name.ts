@@ -50,6 +50,7 @@ export const variableInfoToSharpType = (type: TVariableInfo, structNames: Readon
       const { numberType } = type;
       if (numberType.type === 'integer') return INTEGER_SHARP_TYPES[numberType.integerType];
       if (numberType.type === 'float') return FLOAT_SHARP_TYPES[numberType.floatType];
+      if (numberType.type === 'decimal') return 'decimal';
       throw new UnsupportedConstructError(`Number type not portable to C#: ${numberType.type}`);
     }
     case 'struct': {

@@ -2,6 +2,7 @@ import type { TNumberTypeDetail } from '@falang/typescript-dto';
 import type { ILanguageAdapter } from '../language-adapter.js';
 import { UnsupportedConstructError } from '../language-adapter.js';
 import { isArrayLikeType, isStringLikeType } from '../type-utils.js';
+import { rustDecimalCodegen } from '../decimal/rust-decimal.js';
 import { needsNumericCast, widthOf } from '../numeric-coercion.js';
 import { variableInfoToRustType } from '../rust-type-name.js';
 
@@ -76,6 +77,7 @@ const escapeRustStringLiteral = (value: string): string => {
 /** Third non-`ts`/`js` target. Unlike Go, Rust's `if` **is** an expression (`if cond { a } else { b }` evaluates to a value) — a real, always-valid mapping for a ternary, not a guess, so `emitConditional` uses it rather than throwing. See ADR 0019 (private)'s Implementation notes for why Go and Rust land on opposite answers here. */
 export const rustAdapter: ILanguageAdapter = {
   target: 'rust',
+  decimal: rustDecimalCodegen,
 
   formatStringLiteral: (value) => escapeRustStringLiteral(value),
   formatNumericLiteral: (text) => text,

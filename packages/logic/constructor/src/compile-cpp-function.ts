@@ -69,6 +69,7 @@ export const compileCppFunction = (
     cycleInfo,
     params,
     debug,
+    returnValue,
   });
   const enterLine = debug ? debug.tracer.emitEnter() : '';
   const leaveLine = debug ? debug.tracer.emitLeave() : '';

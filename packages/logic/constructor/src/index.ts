@@ -36,3 +36,9 @@ export * from './emit-ts-api-declarations.js';
 export * from './compile-ts-statements.js';
 export * from './compile-ts-function.js';
 export * from './compile-ts-project.js';
+export { FALANG_DECIMAL_CPP_RUNTIME } from './decimal/cpp-decimal.js';
+export {
+  FALANG_DECIMAL_TS_FILE_NAME,
+  FALANG_DECIMAL_TS_FUNCTIONS,
+  FALANG_DECIMAL_TS_RUNTIME,
+} from './decimal/ts-decimal.js';
