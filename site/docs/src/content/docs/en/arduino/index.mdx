@@ -77,7 +77,9 @@ head:
   </li>
 </ul>
 <p>
-  Variables can be whole numbers and floating-point numbers of various sizes, and booleans. Strings, arrays and
+  Variables can be integers (signed and unsigned, 8 to 64 bits), floats, exact decimals and booleans — see{' '}
+  <a href="../logic/#number-types">Number types</a>; on a board, <code>float</code> defaults to <code>float32</code>
+  (an Uno has no 64-bit floating point), and <b>Millis</b>/<b>Micros</b> store an unsigned <code>uint32</code>. Strings, arrays and
   structures are not supported in Arduino projects yet, and neither are the <b>Log</b> and <b>Throw</b> icons — the
   board has no console or exceptions.
 </p>
