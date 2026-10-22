@@ -16,6 +16,7 @@ import { isValidFunctionName, type INode, type IProjectDocument } from '@falang/
 import {
   defaultValidationQueue,
   EVENT_NODE_INSERTED,
+  focusNode,
   setSchemeStartPosition,
   DebuggerModule,
   TOKEN_HISTORY,
@@ -65,6 +66,7 @@ import {
   syncDesktopDocumentFromScheme,
 } from '@falang/desktop-agent-host';
 import { createPrintExportHost } from './print/create-print-export-host.js';
+import { SketchCodeViewerStore } from './sketch-code-viewer-store.js';
 import { isArduinoPinnedDocument, REQUIRED_ROOT_DOCUMENT_NAMES } from './pinned-documents.js';
 import { buildReadOnlySchemeForDiff as buildReadOnlySchemeForDiffImpl } from './versioning/build-read-only-scheme-for-diff.js';
 import { ElectronVersionStore } from './versioning/electron-version-store.js';
@@ -145,6 +147,10 @@ export class ArduinoProjectStore {
   @observable diffModalOpen = false;
   /** The PDF export flow (ADR 0048 (private)), `null` while closed. */
   @observable.ref printExport: PrintExportStore | null = null;
+  /** "View code" (Sketch → View Code…, the build panel's button): the sketch as it goes to the board, drivers included. */
+  readonly codeViewer = new SketchCodeViewerStore(() =>
+    globalThis.falang.arduino.generateCode(this.projectDir, this.toProjectDocuments()),
+  );
 
   /** Active locks keyed by `documentId` — see ADR 0029 (private)'s "Document locks" decision. Every lock here is treated as foreign: this store never acquires one itself in v1. */
   readonly locks = observable.map<string, IDocumentLock>();
@@ -557,6 +563,21 @@ export class ArduinoProjectStore {
   @action openTab(id: string): void {
     if (!this.openTabIds.includes(id)) this.openTabIds = [...this.openTabIds, id];
     this.activeTabId = id;
+  }
+
+  /**
+   * Opens (or activates) a document's tab and, given a node, selects it and pans the canvas to it — the code viewer's
+   * click-to-node and a compile error's "go to node". A freshly opened tab's scheme lays its icons out only after mount,
+   * hence the delayed `focusNode` (the same 10 ms the workflow client's `jumpToNode` uses, queued after `getScheme`'s
+   * own start-position timer). The `Devices` document has no scheme: it is only opened.
+   */
+  jumpToNode(docId: string, nodeId?: string): void {
+    const doc = this.getDocument(docId);
+    if (!doc) return;
+    this.openTab(docId);
+    if (!nodeId || doc.type === DEVICES_DOCUMENT_TYPE) return;
+    const scheme = this.getScheme(docId);
+    setTimeout(() => focusNode(scheme, nodeId), 10);
   }
 
   /**

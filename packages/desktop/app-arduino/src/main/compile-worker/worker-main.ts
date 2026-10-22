@@ -21,7 +21,11 @@
 // a *local* file (not just a workspace package) needed this too, unlike `app-sketch`'s own export
 // worker (ADR 0019 (private)), which only ever imports workspace packages directly.
 import { runWorkerMain } from '@falang/desktop-worker-process';
-import { compileArduinoProject, validateDriverBundle } from '@falang/desktop-arduino-compiler';
+import {
+  ArduinoProjectCompileError,
+  compileArduinoProject,
+  validateDriverBundle,
+} from '@falang/desktop-arduino-compiler';
 import type {
   IValidateDriversWorkerItem,
   IValidateDriversWorkerResult,
@@ -67,6 +71,9 @@ runWorkerMain<TWorkerJob, never, TWorkerResult>(async (job) => {
     const result = compileArduinoProject({ documents: job.documents, drivers: job.drivers, debug: job.debug });
     return { ok: true, ...result, usedDriverIds: [...result.usedDriverIds] };
   } catch (error) {
+    if (error instanceof ArduinoProjectCompileError) {
+      return { ok: false, message: error.message, problems: [...error.errors], partialCode: error.partialCode };
+    }
     return { ok: false, message: error instanceof Error ? error.message : String(error) };
   }
 });

@@ -8,6 +8,7 @@ export {
 } from './compile-arduino-project.js';
 export { buildFalangDebugHeader } from './falang-debug-header.js';
 export { collectDriverExtraFiles } from './collect-driver-extra-files.js';
+export { locateSketchDiagnostics, type ILocatedCompilerDiagnostic } from './locate-sketch-diagnostics.js';
 export { validateDriverBundle } from './validate-driver-bundle.js';
 export { findDriverUsages } from './driver-usages.js';
 export type {

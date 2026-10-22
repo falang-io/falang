@@ -81,6 +81,23 @@
       "no-devices": "No devices yet",
       "no-device-drivers": "No installed driver supports a device",
       "unknown-driver": "Unknown driver"
+    },
+    "code-viewer": {
+      "title": "Sketch code",
+      "hint": "Everything that goes to the board: sketch.ino and the drivers' files. Click a line to go to the node it came from.",
+      "partial": "Some documents failed to compile — their code is missing from sketch.ino."
+    },
+    "sketch-problems": {
+      "error": "Error",
+      "warning": "Warning",
+      "no-node": "(not tied to a node)",
+      "show-in-code": "Show in the code"
+    },
+    "build-panel": {
+      "view-code": "View code",
+      "compile-failed_one": "The sketch failed to compile: {{count}} problem. Click it to go to the node.",
+      "compile-failed_other": "The sketch failed to compile: {{count}} problems. Click one to go to its node.",
+      "cli-failed": "arduino-cli reported a failure — the problems are listed below, the full output is further down."
     }
   },
   "version-history": {

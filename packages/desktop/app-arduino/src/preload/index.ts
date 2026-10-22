@@ -15,6 +15,7 @@ import type { ICommitInfo, IProjectSnapshot, TCommitKind } from '@falang/version
 import { IPC } from '../shared/ipc-channels.js';
 import type { IRecentProject } from '../shared/recent-project.js';
 import type { TArduinoBuildOutcome } from '../shared/arduino-build-outcome.js';
+import type { TArduinoGeneratedCode } from '../shared/arduino-sketch-code.js';
 import type { TArduinoDebugUploadOutcome } from '../shared/arduino-debug-outcome.js';
 import type { IStartDebugSessionParams } from '../shared/start-debug-session-params.js';
 import type {
@@ -95,6 +96,9 @@ const falangApi = {
     listBoards: (): Promise<readonly IConnectedBoard[]> => ipcRenderer.invoke(IPC.arduinoListBoards),
     compile: (dir: string, documents: IProjectDocument[], fqbn: string): Promise<TArduinoBuildOutcome> =>
       ipcRenderer.invoke(IPC.arduinoCompile, dir, documents, fqbn),
+    /** The sketch as it would go to the board (`sketch.ino` + driver sources), compiled without writing or building it. */
+    generateCode: (dir: string, documents: IProjectDocument[]): Promise<TArduinoGeneratedCode> =>
+      ipcRenderer.invoke(IPC.arduinoGenerateCode, dir, documents),
     upload: (dir: string, documents: IProjectDocument[], fqbn: string, port: string): Promise<TArduinoBuildOutcome> =>
       ipcRenderer.invoke(IPC.arduinoUpload, dir, documents, fqbn, port),
     uploadDebug: (
@@ -211,6 +215,7 @@ const falangApi = {
     onToggleAgent: subscribe(IPC.menuToggleAgent),
     onExportPdf: subscribe(IPC.menuExportPdf),
     onOpenDrivers: subscribe(IPC.menuOpenDrivers),
+    onViewCode: subscribe(IPC.menuViewCode),
   },
   app: {
     // `main`'s graceful-close flow (see `main/index.ts`) — the window's `close` event is intercepted

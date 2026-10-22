@@ -42,6 +42,7 @@ import type { ICommitInfo, IProjectSnapshot, TCommitKind } from '@falang/version
 import type { IStartDebugSessionParams } from '../shared/start-debug-session-params.js';
 import { IPC } from '../shared/ipc-channels.js';
 import type { ICreateArduinoProjectParams } from '../shared/create-arduino-project-params.js';
+import type { TArduinoGeneratedCode } from '../shared/arduino-sketch-code.js';
 import type { INewProjectLocationSuggestion } from '../shared/new-project-location.js';
 import { DEFAULT_BOARD_FQBN, type IArduinoProjectConfig } from '../shared/board.js';
 import { readArduinoProjectConfig, writeArduinoProjectConfig } from './arduino-project-config.js';
@@ -70,6 +71,7 @@ import {
   buildAndUploadDebugSketch,
   buildAndUploadSketch,
   checkArduinoCli,
+  generateSketchCode,
   listBoards,
 } from './arduino-build.js';
 import {
@@ -321,6 +323,17 @@ export const registerIpcHandlers = (
       .prepareBuildDrivers(dir, documents)
       .then((buildDrivers) => buildAndCompileSketch(dir, documents, fqbn, buildDrivers))
       .catch(blockedBuildOutcome),
+  );
+  ipcMain.handle(
+    IPC.arduinoGenerateCode,
+    (_event, dir: string, documents: IProjectDocument[]): Promise<TArduinoGeneratedCode> =>
+      drivers.service
+        .prepareBuildDrivers(dir, documents)
+        .then((buildDrivers) => generateSketchCode(documents, buildDrivers))
+        .catch((error: unknown) => {
+          const { message } = blockedBuildOutcome(error);
+          return { ok: false, message, problems: [], files: [] };
+        }),
   );
   ipcMain.handle(IPC.arduinoUpload, (_event, dir: string, documents: IProjectDocument[], fqbn: string, port: string) =>
     drivers.service

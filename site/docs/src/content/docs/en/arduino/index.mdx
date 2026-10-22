@@ -134,13 +134,28 @@ head:
     <b>Upload</b> compiles the current schemes and uploads them to the board on the selected port;
   </li>
   <li>
-    <b>Upload (debug)</b> uploads a build with tracing and starts the <a href="./debugging/">debugger</a>.
+    <b>Upload (debug)</b> uploads a build with tracing and starts the <a href="./debugging/">debugger</a>;
+  </li>
+  <li>
+    <b>View code</b> shows the generated code (see below).
   </li>
 </ul>
 <p>
   The generated sketch is <code>src/sketch/sketch.ino</code> in the project folder, together with the drivers it uses;
-  the folder is rewritten on every build. Errors in the schemes are listed with the document name, and an arduino-cli
-  failure shows its full output in the dialog.
+  the folder is rewritten on every build. Problems are listed under the buttons, one row each: an error in a scheme
+  (found before arduino-cli runs) and every arduino-cli (compiler) error or warning. Click a row to open its document
+  and select the icon it comes from; the <code>file:line</code> link of a compiler message opens the code at that line
+  (useful for errors in a driver's own files). arduino-cli's full output stays below the list.
+</p>
+
+#### Viewing the code
+
+<p>
+  <b>Sketch → View Code…</b> (or <b>View code</b> in the build dialog) shows everything that goes to the board:{' '}
+  <code>sketch.ino</code> and, on separate tabs, the source files of the drivers the project uses. Comment lines like{' '}
+  <code>// icon-start:…</code> mark which icon each piece of code comes from — click a line to go to that icon (a line
+  generated from the <code>Devices</code> document opens it). Lines the compiler complained about are highlighted. If
+  some schemes don't compile, their errors are listed above the code and their functions are missing from it.
 </p>
 
 #### Also in the app

@@ -13,6 +13,8 @@ import { SchemeView } from './scheme-view.js';
 import { DevicesEditor } from './devices-editor.js';
 import { IconEditorColumn, ProjectRightSidebar } from './sidebar.js';
 import { BuildPanelModal } from './build-panel-modal.js';
+import { SketchCodeViewerModal } from './sketch-code-viewer-modal.js';
+import { reportError } from '../../../shared/report-error.js';
 import { DocumentLockOverlay } from './document-lock-overlay.js';
 import { DocumentConflictModal } from './document-conflict-modal.js';
 import { appTheme } from '../theme.js';
@@ -118,6 +120,14 @@ export const ProjectWorkspace: React.FC<Props> = observer(({ projectDir }) => {
     return unsubscribe;
   }, [store]);
 
+  useEffect(() => {
+    if (!store) return;
+    const unsubscribe = globalThis.falang.menu.onViewCode(() => {
+      store.codeViewer.openFresh().catch((error: unknown) => reportError('Failed to generate the sketch code', error));
+    });
+    return unsubscribe;
+  }, [store]);
+
   const [treeWidth, onTreeResizeStart] = useResizablePanelWidth('falang:panel-width:project-tree', 220, {
     min: 160,
     max: 480,
@@ -201,6 +211,7 @@ export const ProjectWorkspace: React.FC<Props> = observer(({ projectDir }) => {
         </div>
       </div>
       <BuildPanelModal store={store} open={isBuildPanelOpen} onClose={() => setBuildPanelOpen(false)} />
+      <SketchCodeViewerModal store={store} />
       <DocumentConflictModal />
       {store.printExport && (
         <>

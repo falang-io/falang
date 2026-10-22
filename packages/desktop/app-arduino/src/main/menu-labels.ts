@@ -10,6 +10,7 @@ interface IMenuLabels {
   quit: string;
   sketch: string;
   buildUpload: string;
+  viewCode: string;
   versionHistory: string;
   /** The right sidebar's "Agent" toggle (ADR 0036 (private)) — distinct from `agent` above, which
    *  opens the Settings → Agent… configuration modal. */
@@ -45,6 +46,7 @@ const EN: IMenuLabels = {
   quit: 'Quit',
   sketch: 'Sketch',
   buildUpload: 'Build & Upload…',
+  viewCode: 'View Code…',
   versionHistory: 'Version History',
   agentPanel: 'Agent',
   exportPdf: 'Export PDF…',
@@ -78,6 +80,7 @@ const RU: IMenuLabels = {
   quit: 'Выйти',
   sketch: 'Скетч',
   buildUpload: 'Сборка и загрузка…',
+  viewCode: 'Просмотр кода…',
   versionHistory: 'История версий',
   agentPanel: 'Агент',
   exportPdf: 'Экспорт в PDF…',

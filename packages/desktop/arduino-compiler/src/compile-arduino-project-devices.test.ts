@@ -77,7 +77,9 @@ describe('compileArduinoProject — Devices document setup prologue (ADR 0032 (p
       drivers: [lcdDriver],
     });
 
-    expect(code).toContain('void setup() {\n  pinMode(13, OUTPUT);\n  lcd_init(39);\n');
+    expect(code).toContain(
+      'void setup() {\n  // doc-start:Devices:doc-devices\n  pinMode(13, OUTPUT);\n  lcd_init(39);\n  // doc-end:Devices:doc-devices\n',
+    );
     expect(code).toContain('#include "lcd1602-i2c-driver.h"');
     expect(usedDriverIds).toEqual(new Set(['lcd1602-i2c']));
   });
@@ -97,7 +99,7 @@ describe('compileArduinoProject — Devices document setup prologue (ADR 0032 (p
     });
 
     expect(code).toContain(
-      'void setup() {\n  Serial.begin(115200);\n  falang_wait_attach();\n  pinMode(13, OUTPUT);\n  lcd_init(39);\n',
+      'void setup() {\n  Serial.begin(115200);\n  falang_wait_attach();\n  // doc-start:Devices:doc-devices\n  pinMode(13, OUTPUT);\n  lcd_init(39);\n',
     );
   });
 

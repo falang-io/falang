@@ -57,10 +57,12 @@ export const IPC = {
   // Print / export to PDF (ADR 0048 (private)).
   menuExportPdf: 'menu:export-pdf',
   menuOpenDrivers: 'menu:open-drivers',
+  menuViewCode: 'menu:view-code',
   printToPdf: 'print:to-pdf',
   arduinoCheckCli: 'arduino:check-cli',
   arduinoGetProjectConfig: 'arduino:get-project-config',
   arduinoCompile: 'arduino:compile',
+  arduinoGenerateCode: 'arduino:generate-code',
   arduinoUpload: 'arduino:upload',
   arduinoUploadDebug: 'arduino:upload-debug',
   arduinoListBoards: 'arduino:list-boards',

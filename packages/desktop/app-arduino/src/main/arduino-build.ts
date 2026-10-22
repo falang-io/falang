@@ -1,3 +1,4 @@
+import * as fs from 'node:fs/promises';
 import * as path from 'node:path';
 import type { IProjectDocument } from '@falang/dto';
 import type { IDebugMap } from '@falang/debug';
@@ -5,15 +6,26 @@ import {
   checkArduinoCli,
   compileSketch,
   listBoards,
+  parseCompilerDiagnostics,
   uploadSketch,
   writeSketchFiles,
+  type IArduinoCliResult,
   type IArduinoCliStatus,
   type IConnectedBoard,
   type ISketchExtraFile,
 } from '@falang/desktop-arduino-cli';
 import type { TArduinoBuildOutcome } from '../shared/arduino-build-outcome.js';
 import type { TArduinoDebugUploadOutcome } from '../shared/arduino-debug-outcome.js';
-import { collectDriverExtraFiles, FALANG_DEBUG_HEADER_FILENAME } from '@falang/desktop-arduino-compiler';
+import type {
+  IArduinoCompileProblem,
+  IArduinoSketchFile,
+  TArduinoGeneratedCode,
+} from '../shared/arduino-sketch-code.js';
+import {
+  collectDriverExtraFiles,
+  FALANG_DEBUG_HEADER_FILENAME,
+  locateSketchDiagnostics,
+} from '@falang/desktop-arduino-compiler';
 import type { ILoadedDriver } from './drivers/driver-registry.js';
 import { runCompileJob } from './compile-worker/run-compile-job.js';
 
@@ -25,6 +37,7 @@ import { runCompileJob } from './compile-worker/run-compile-job.js';
  * `src/` itself can't be the sketch folder without renaming the `.ino` to `src.ino`.
  */
 const SKETCH_NAME = 'sketch';
+const SKETCH_FILE_NAME = `${SKETCH_NAME}.ino`;
 
 const sketchBuildDir = (projectDir: string): string => path.join(projectDir, 'src');
 
@@ -39,7 +52,12 @@ type TBuildSketchCodeResult =
       readonly debugHeader?: string;
       readonly debugMap?: IDebugMap;
     }
-  | { readonly ok: false; readonly message: string };
+  | {
+      readonly ok: false;
+      readonly message: string;
+      readonly problems?: readonly IArduinoCompileProblem[];
+      readonly partialCode?: string;
+    };
 
 /**
  * `compileArduinoProject` only makes sense in a real Node process — it pulls in `@falang/logic-constructor`,
@@ -67,6 +85,63 @@ const buildSketchCode = async (
   return { ...outcome, usedDriverIds: new Set(outcome.usedDriverIds) };
 };
 
+/** The sketch as the code viewer shows it: `sketch.ino` first, then every extra file in sketch-folder order (driver sources are read from their driver folders). */
+const readSketchFilesForView = async (
+  code: string,
+  extraFiles: readonly ISketchExtraFile[],
+): Promise<IArduinoSketchFile[]> => {
+  const extra = await Promise.all(
+    extraFiles.map(async (file) => ({
+      path: file.relativePath,
+      content: 'content' in file ? file.content : await fs.readFile(file.sourcePath, 'utf8'),
+    })),
+  );
+  return [{ path: SKETCH_FILE_NAME, content: code }, ...extra];
+};
+
+type TCompileFailure = Extract<TBuildSketchCodeResult, { ok: false }>;
+
+/** A falang-side compile failure as the build panel shows it: the per-document problems plus the code that did compile. */
+const compileErrorOutcome = async (failure: TCompileFailure): Promise<TArduinoBuildOutcome> => ({
+  stage: 'compile-error',
+  message: failure.message,
+  ...(failure.problems ? { problems: failure.problems } : {}),
+  ...(typeof failure.partialCode === 'string' ? { files: await readSketchFilesForView(failure.partialCode, []) } : {}),
+});
+
+/** An `arduino-cli` result plus its gcc diagnostics, each attributed to a document/node when it points at `sketch.ino`. */
+const cliOutcome = async (
+  result: IArduinoCliResult,
+  sketchDir: string,
+  code: string,
+  extraFiles: readonly ISketchExtraFile[],
+): Promise<TArduinoBuildOutcome> => ({
+  stage: 'cli',
+  result,
+  files: await readSketchFilesForView(code, extraFiles),
+  diagnostics: locateSketchDiagnostics(parseCompilerDiagnostics(result.output, sketchDir), SKETCH_FILE_NAME, code),
+});
+
+/** "View code": compiles the sketch (no debug instrumentation) without writing or building anything. */
+export const generateSketchCode = async (
+  documents: readonly IProjectDocument[],
+  drivers: readonly ILoadedDriver[] = [],
+): Promise<TArduinoGeneratedCode> => {
+  const built = await buildSketchCode(documents, drivers);
+  if (!built.ok) {
+    return {
+      ok: false,
+      message: built.message,
+      problems: built.problems ?? [],
+      files: typeof built.partialCode === 'string' ? await readSketchFilesForView(built.partialCode, []) : [],
+    };
+  }
+  return {
+    ok: true,
+    files: await readSketchFilesForView(built.code, collectDriverExtraFiles(drivers, built.usedDriverIds)),
+  };
+};
+
 export const buildAndCompileSketch = async (
   projectDir: string,
   documents: readonly IProjectDocument[],
@@ -74,11 +149,11 @@ export const buildAndCompileSketch = async (
   drivers: readonly ILoadedDriver[] = [],
 ): Promise<TArduinoBuildOutcome> => {
   const built = await buildSketchCode(documents, drivers);
-  if (!built.ok) return { stage: 'compile-error', message: built.message };
+  if (!built.ok) return compileErrorOutcome(built);
   const extraFiles = collectDriverExtraFiles(drivers, built.usedDriverIds);
   const sketchDir = await writeSketchFiles(sketchBuildDir(projectDir), SKETCH_NAME, built.code, extraFiles);
   const result = await compileSketch({ sketchDir, fqbn });
-  return { stage: 'cli', result };
+  return cliOutcome(result, sketchDir, built.code, extraFiles);
 };
 
 export const buildAndUploadSketch = async (
@@ -89,11 +164,11 @@ export const buildAndUploadSketch = async (
   drivers: readonly ILoadedDriver[] = [],
 ): Promise<TArduinoBuildOutcome> => {
   const built = await buildSketchCode(documents, drivers);
-  if (!built.ok) return { stage: 'compile-error', message: built.message };
+  if (!built.ok) return compileErrorOutcome(built);
   const extraFiles = collectDriverExtraFiles(drivers, built.usedDriverIds);
   const sketchDir = await writeSketchFiles(sketchBuildDir(projectDir), SKETCH_NAME, built.code, extraFiles);
   const result = await uploadSketch({ sketchDir, fqbn, port });
-  return { stage: 'cli', result };
+  return cliOutcome(result, sketchDir, built.code, extraFiles);
 };
 
 /**

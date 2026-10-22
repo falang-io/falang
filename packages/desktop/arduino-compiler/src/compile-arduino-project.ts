@@ -108,6 +108,16 @@ const injectSetupPrologue = (setupCode: string, lines: readonly string[]): strin
   return setupCode.slice(0, insertPoint) + inserted + setupCode.slice(insertPoint);
 };
 
+/**
+ * Brackets a compiled document with `// doc-start:<name>:<id>` / `// doc-end:…` marker comments — the
+ * same markers `@falang/workflow-compiler` emits (parsed by `@falang/debug`'s `parseCompiledMarkers`).
+ * Together with the per-statement `icon-start`/`icon-end` markers `@falang/logic-constructor` already
+ * writes, every line of the sketch can be traced back to its document and node: the code viewer's
+ * click-to-node and the attribution of `arduino-cli` (gcc) errors to nodes both rely on it.
+ */
+const wrapDocumentMarker = (document: Pick<IProjectDocument, 'id' | 'name'>, code: string): string =>
+  `// doc-start:${document.name}:${document.id}\n${code}\n// doc-end:${document.name}:${document.id}`;
+
 /** Pulls the function name out of one `declare function name(...): T;` line — `declare const` lines (constants, not calls) are skipped. */
 const extractDeclaredFunctionName = (declaration: string): string | null => {
   const match = /^declare function ([A-Za-z_]\w*)/.exec(declaration);
@@ -218,9 +228,15 @@ export const compileArduinoProject = ({
   // the very first user statement has to be reachable), then the `Devices` document's own pin/device
   // lines. Built once, outside the per-document loop below, since neither depends on which document
   // is currently being compiled.
+  // The `Devices` lines carry that document's own markers (nested inside `setup`'s), so an error in a pin or device line
+  // points at the `Devices` document rather than at `setup`.
+  const devicesPrologueLines =
+    devicesDocument && setupPrologueLines.length > 0
+      ? wrapDocumentMarker(devicesDocument, setupPrologueLines.join('\n')).split('\n')
+      : setupPrologueLines;
   const setupPrologueFullLines = [
     ...(debug ? [`Serial.begin(${String(DEFAULT_BAUDRATE)});`, 'falang_wait_attach();'] : []),
-    ...setupPrologueLines,
+    ...devicesPrologueLines,
   ];
 
   const errors: IArduinoProjectCompileErrorEntry[] = [];
@@ -232,7 +248,7 @@ export const compileArduinoProject = ({
         ? compileCppFunction(document.root, document.name, params, buildDebugOptions(document.id))
         : compileCppFunction(document.root, document.name, params);
       if (document.name === 'setup') compiled = injectSetupPrologue(compiled, setupPrologueFullLines);
-      functionBlocks.push(compiled);
+      functionBlocks.push(wrapDocumentMarker(document, compiled));
     } catch (error) {
       errors.push({
         documentId: document.id,

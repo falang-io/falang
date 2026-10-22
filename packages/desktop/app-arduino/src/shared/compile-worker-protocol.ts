@@ -1,6 +1,7 @@
 import type { IProjectDocument } from '@falang/dto';
 import type { IDebugMap } from '@falang/debug';
 import type { IDriverConfig } from './driver-config.js';
+import type { IArduinoCompileProblem } from './arduino-sketch-code.js';
 import type {
   IDriverValidationProject,
   IDriverValidationResult,
@@ -34,7 +35,14 @@ export type TCompileWorkerResult =
       readonly debugHeader?: string;
       readonly debugMap?: IDebugMap;
     }
-  | { readonly ok: false; readonly message: string };
+  | {
+      readonly ok: false;
+      readonly message: string;
+      /** Set when `compileArduinoProject` threw an `ArduinoProjectCompileError` (per-document failures); absent for a project-level failure such as a missing `setup`. */
+      readonly problems?: IArduinoCompileProblem[];
+      /** The sketch compiled from every document that did compile (`ArduinoProjectCompileError.partialCode`). */
+      readonly partialCode?: string;
+    };
 
 /**
  * ADR 0054 (private): validating a driver bundle (`validateDriverBundle` — stages 1–3 and 5) runs the same

@@ -2,10 +2,14 @@ import type React from 'react';
 import { useEffect, useState } from 'react';
 import { observer } from 'mobx-react-lite';
 import { Alert, Button, Input, Modal, Select, Tooltip, Typography } from 'antd';
+import { getGlobalI18n } from '@falang/scheme';
 import type { IArduinoCliStatus, IConnectedBoard } from '@falang/desktop-arduino-cli';
 import type { ArduinoProjectStore } from '../arduino-project-store.js';
 import { boardLabel } from '../../../shared/board.js';
 import { reportError } from '../../../shared/report-error.js';
+import type { TArduinoBuildOutcome } from '../../../shared/arduino-build-outcome.js';
+import type { ISketchBuildResultForView, ISketchCodeFocus } from '../sketch-code-viewer-store.js';
+import { SketchProblemsList } from './sketch-problems-list.js';
 
 const refreshBoards = (setBoards: (boards: readonly IConnectedBoard[]) => void): void => {
   globalThis.falang.arduino
@@ -13,6 +17,16 @@ const refreshBoards = (setBoards: (boards: readonly IConnectedBoard[]) => void):
     .then(setBoards)
     .catch((error: unknown) => reportError('Failed to list boards', error));
 };
+
+// arduino-cli colours its summary lines; a textarea would show the escape codes literally.
+// oxlint-disable-next-line no-control-regex -- matching the ANSI escape character is the point
+const stripAnsi = (text: string): string => text.replaceAll(/\u001B\[[0-9;]*m/g, '');
+
+/** What the problems list and "show in code" need from a finished build. */
+const toBuildResult = (outcome: TArduinoBuildOutcome): ISketchBuildResultForView =>
+  outcome.stage === 'compile-error'
+    ? { files: outcome.files ?? [], problems: outcome.problems ?? [] }
+    : { files: outcome.files, diagnostics: outcome.diagnostics };
 
 const ARDUINO_CLI_INSTALL_URL = 'https://arduino.github.io/arduino-cli/latest/installation/';
 
@@ -23,6 +37,7 @@ interface Props {
 }
 
 export const BuildPanelModal: React.FC<Props> = observer(({ store, open, onClose }) => {
+  const t = getGlobalI18n().t;
   // The board is chosen once, in the "New Project…" dialog, and never changes after (see
   // ADR 0032 (private), "Decision → 1") — no local `fqbn`
   // state or `Select` here anymore, just `store.board`.
@@ -33,6 +48,7 @@ export const BuildPanelModal: React.FC<Props> = observer(({ store, open, onClose
   const [output, setOutput] = useState('');
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
+  const [buildResult, setBuildResult] = useState<ISketchBuildResultForView | null>(null);
 
   useEffect(() => {
     if (!open) return;
@@ -48,6 +64,7 @@ export const BuildPanelModal: React.FC<Props> = observer(({ store, open, onClose
   const runBuild = async (upload: boolean): Promise<void> => {
     setError(null);
     setOutput('');
+    setBuildResult(null);
     setBusy(true);
     try {
       const documents = store.toProjectDocuments();
@@ -55,12 +72,18 @@ export const BuildPanelModal: React.FC<Props> = observer(({ store, open, onClose
         upload && port
           ? await globalThis.falang.arduino.upload(store.projectDir, documents, fqbn, port)
           : await globalThis.falang.arduino.compile(store.projectDir, documents, fqbn);
+      setBuildResult(toBuildResult(outcome));
       if (outcome.stage === 'compile-error') {
-        setError(outcome.message);
+        // Per-document problems are listed (and clickable) below; a project-level failure has only its message.
+        setError(
+          outcome.problems && outcome.problems.length > 0
+            ? t('desktop-app-arduino:build-panel.compile-failed', { count: outcome.problems.length })
+            : outcome.message,
+        );
         return;
       }
-      setOutput(outcome.result.output);
-      if (!outcome.result.ok) setError('arduino-cli reported a failure — see output below.');
+      setOutput(stripAnsi(outcome.result.output));
+      if (!outcome.result.ok) setError(t('desktop-app-arduino:build-panel.cli-failed'));
     } catch (runError) {
       setError(runError instanceof Error ? runError.message : String(runError));
     } finally {
@@ -75,6 +98,26 @@ export const BuildPanelModal: React.FC<Props> = observer(({ store, open, onClose
    * `ArduinoDebugAdapter` (ADR 0021 (private) §6). Errors surface through `debugSession.lastError`,
    * shown by the panel itself, not this modal — this button doesn't wait for the result.
    */
+  /** A problem row: close this panel so the canvas is visible, then open the document at the node. */
+  const jumpToNode = (documentId: string, nodeId?: string): void => {
+    onClose();
+    store.jumpToNode(documentId, nodeId);
+  };
+
+  /** A diagnostic's `file:line`: the code exactly as this build sent it, scrolled to the line. */
+  const showInCode = (focus: ISketchCodeFocus): void => {
+    if (!buildResult) return;
+    onClose();
+    store.codeViewer.showBuildResult({ ...buildResult, focus });
+  };
+
+  const viewCode = (): void => {
+    onClose();
+    store.codeViewer
+      .openFresh()
+      .catch((viewError: unknown) => reportError('Failed to generate the sketch code', viewError));
+  };
+
   const runDebugUpload = (): Promise<void> => {
     if (!port) return Promise.resolve();
     return store.debugSketch(fqbn, port);
@@ -160,8 +203,19 @@ export const BuildPanelModal: React.FC<Props> = observer(({ store, open, onClose
               Upload (debug)
             </Button>
           </Tooltip>
+          <Button onClick={viewCode} data-testid="build-panel-view-code">
+            {t('desktop-app-arduino:build-panel.view-code')}
+          </Button>
         </div>
         {error && <Alert type="error" message={<span style={{ whiteSpace: 'pre-wrap' }}>{error}</span>} />}
+        {buildResult && (
+          <SketchProblemsList
+            problems={buildResult.problems ?? []}
+            diagnostics={buildResult.diagnostics ?? []}
+            onJumpToNode={jumpToNode}
+            onShowInCode={showInCode}
+          />
+        )}
         {output && (
           <Input.TextArea value={output} readOnly rows={12} style={{ fontFamily: 'monospace', fontSize: 12 }} />
         )}
