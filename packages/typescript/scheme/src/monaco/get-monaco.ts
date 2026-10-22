@@ -18,8 +18,8 @@ type Environment = monaco.Environment;
  * `@falang/typescript-scheme/src/browser.js`, which does it with the real `monaco-editor` package.
  */
 export interface IInstallMonacoOptions {
-  /** Creates the language-service worker (`MonacoEnvironment.getWorker`). */
-  getWorker: () => Worker;
+  /** Creates a language-service worker for a model language `label` (`MonacoEnvironment.getWorker`). */
+  getWorker: (moduleId: string, label: string) => Worker;
 }
 
 type TMonacoApi = typeof monaco;

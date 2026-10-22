@@ -16,6 +16,7 @@ import type {
   IDriverBundle,
 } from '../../shared/driver-ipc-types.js';
 import type { IDriverRuntime } from './driver-runtime.js';
+import { openFolder } from './open-folder.js';
 
 const requireProjectDir = (runtime: IDriverRuntime): string => {
   const dir = runtime.registry.getProjectDir();
@@ -50,11 +51,11 @@ export const registerDriverIpcHandlers = (runtime: IDriverRuntime, getMainWindow
   ipcMain.handle(IPC.driversImportFolder, (_event, dir: string, scope: TDriverEditScope) =>
     service.importFolder(dir, scope),
   );
-  // `shell.openPath` resolves to an error message, or '' on success.
-  ipcMain.handle(IPC.driversOpenFolder, async (_event, id: string, scope: TDriverScope): Promise<string | null> => {
-    const error = await shell.openPath(service.driverDir(id, scope));
-    return error === '' ? null : error;
-  });
+  ipcMain.handle(
+    IPC.driversOpenFolder,
+    (_event, id: string, scope: TDriverScope): Promise<string | null> =>
+      openFolder(service.driverDir(id, scope), { openPath: (dir) => shell.openPath(dir) }),
+  );
   ipcMain.handle(
     IPC.driversCreateFromTemplate,
     (_event, id: string, label: string): Promise<IDriverCreateFromTemplateResult> =>
