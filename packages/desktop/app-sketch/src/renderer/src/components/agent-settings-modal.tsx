@@ -4,6 +4,7 @@ import { observer } from 'mobx-react-lite';
 import { Form, Input, Modal } from 'antd';
 import type { IAgentSettings } from '@falang/desktop-llm-client';
 import { settingsModalStore } from '../settings-modal-store.js';
+import { agentSettingsStore } from '../agent-settings-store.js';
 import { reportError } from '../../../shared/report-error.js';
 
 const EMPTY_SETTINGS: IAgentSettings = { apiKey: '', baseUrl: '', model: '' };
@@ -11,8 +12,8 @@ const EMPTY_SETTINGS: IAgentSettings = { apiKey: '', baseUrl: '', model: '' };
 /**
  * App-wide agent settings (OpenAI-compatible base URL / API key / model) — no per-project credential
  * concept on desktop, unlike the workflow product's `IntegrationInstance` (see
- * ADR 0026 (private)). Persisted in `main`'s `settings.json`, read/written fresh
- * on every open/save rather than kept in a live store — this modal is the only place that reads it,
+ * ADR 0026 (private)). Persisted in `main`'s `settings.json`, read fresh on
+ * every open; a save is also pushed into `agentSettingsStore` so the open agent panel sees it at once,
  * and `ElectronLlmClient` reads it itself on every `complete()` call via `main`.
  */
 export const AgentSettingsModal: React.FC = observer(() => {
@@ -33,6 +34,7 @@ export const AgentSettingsModal: React.FC = observer(() => {
       .then(async (values) => {
         setSaving(true);
         await globalThis.falang.settings.setAgentSettings(values);
+        agentSettingsStore.apply(values);
         setSaving(false);
         settingsModalStore.close();
       })

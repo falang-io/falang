@@ -1,5 +1,5 @@
 import type React from 'react';
-import { useEffect, useState } from 'react';
+import { useEffect } from 'react';
 import { observer } from 'mobx-react-lite';
 import { AgentChatPanel, ResizeHandle, useResizablePanelWidth } from '@falang/antd';
 import { resolveEditorType, TOKEN_INLINE_EDITOR_SERVICE, TOKEN_SCHEME, useService } from '@falang/scheme';
@@ -7,6 +7,8 @@ import { useArduinoProjectStore } from '../arduino-project-store-context.js';
 import { DebuggerPanel } from './debugger-panel.js';
 import { HistoryPanel } from './history-panel.js';
 import { appTheme } from '../theme.js';
+import { agentSettingsStore } from '../agent-settings-store.js';
+import { reportError } from '../../../shared/report-error.js';
 
 const styles: Record<string, React.CSSProperties> = {
   iconEditorSidebar: {
@@ -76,37 +78,11 @@ export const IconEditorColumn: React.FC = observer(() => {
   );
 });
 
-/** `settings:get-agent` once on mount — the app-wide "Settings → Agent…" config (ADR 0026 (private)), unrelated to which document/session is open. No per-run credential/model picker here, unlike the workflow product's own panel (ADR 0031 (private)) — configured just reflects whether Settings has a base URL + model set. */
-const useAgentSettings = (): {
-  readonly configured: boolean;
-  readonly loading: boolean;
-  readonly model: string | null;
-} => {
-  const [loading, setLoading] = useState(true);
-  const [configured, setConfigured] = useState(false);
-  const [model, setModel] = useState<string | null>(null);
+/** Loads the app-wide "Settings → Agent…" config (ADR 0026 (private)) into `agentSettingsStore` once the sidebar mounts; `AgentSettingsModal` updates the store after a save, so the panel never needs a reload to see it. */
+const useLoadAgentSettings = (): void => {
   useEffect(() => {
-    let cancelled = false;
-    globalThis.falang.settings
-      .getAgentSettings()
-      .then((settings) => {
-        if (cancelled) return;
-        setConfigured(Boolean(settings?.baseUrl && settings.model));
-        setModel(settings?.model ?? null);
-      })
-      .catch(() => {
-        if (cancelled) return;
-        setConfigured(false);
-        setModel(null);
-      })
-      .finally(() => {
-        if (!cancelled) setLoading(false);
-      });
-    return () => {
-      cancelled = true;
-    };
+    agentSettingsStore.load().catch((error: unknown) => reportError('Failed to load agent settings', error));
   }, []);
-  return { configured, loading, model };
 };
 
 /**
@@ -119,7 +95,7 @@ const useAgentSettings = (): {
  */
 export const ProjectRightSidebar: React.FC = observer(() => {
   const store = useArduinoProjectStore();
-  const agentSettings = useAgentSettings();
+  useLoadAgentSettings();
   const [width, onResizeStart] = useResizablePanelWidth('falang:panel-width:right-sidebar', 350, {
     min: 260,
     max: 700,
@@ -138,9 +114,9 @@ export const ProjectRightSidebar: React.FC = observer(() => {
               agentSession={store.agentSession}
               history={store.getActiveHistory()}
               getActiveDocumentId={() => store.getAgentActiveDocumentId()}
-              configured={agentSettings.configured}
-              configuredLoading={agentSettings.loading}
-              model={agentSettings.model}
+              configured={agentSettingsStore.configured}
+              configuredLoading={agentSettingsStore.loading}
+              model={agentSettingsStore.model}
               onClose={() => store.toggleRightPanel('agent')}
             />
           </div>
