@@ -80,6 +80,77 @@ describe('SerialDebugSession', () => {
     ]);
   });
 
+  it('decodes string variables: spaces, escapes, an empty string and a truncation mark', () => {
+    const { monitor } = fakeMonitor();
+    const events: TDebugEvent[] = [];
+    const debugMap: IDebugMap = {
+      tracePoints: [
+        {
+          index: 0,
+          documentId: 'doc-1',
+          nodeId: 'n0',
+          variables: [
+            { name: 'a', type: 'String' },
+            { name: 'b', type: 'String' },
+            { name: 'c', type: 'String' },
+          ],
+        },
+      ],
+    };
+    expect(
+      new SerialDebugSession({
+        monitor,
+        debugMap,
+        breakpoints: [{ documentId: 'doc-1', nodeId: 'n0' }],
+        pauseOnEntry: false,
+        onEvent: (event) => events.push(event),
+      }),
+    ).toBeInstanceOf(SerialDebugSession);
+
+    emitLines(
+      monitor.stdout as PassThrough,
+      'R',
+      'P 0 1',
+      String.raw`V 0 s 0 Hello, falang!\n\\dir`,
+      'V 1 s 0 ',
+      'V 2 s 1 abc',
+    );
+
+    expect(events.at(-1)).toMatchObject({
+      type: 'paused',
+      variables: [
+        { name: 'a', value: `Hello, falang!\n${String.raw`\dir`}` },
+        { name: 'b', value: '' },
+        { name: 'c', value: 'abc…' },
+      ],
+    });
+  });
+
+  it('keeps a multi-byte character split across serial chunks intact', () => {
+    const { monitor } = fakeMonitor();
+    const events: TDebugEvent[] = [];
+    const debugMap: IDebugMap = {
+      tracePoints: [{ index: 0, documentId: 'doc-1', nodeId: 'n0', variables: [{ name: 'a', type: 'String' }] }],
+    };
+    expect(
+      new SerialDebugSession({
+        monitor,
+        debugMap,
+        breakpoints: [{ documentId: 'doc-1', nodeId: 'n0' }],
+        pauseOnEntry: false,
+        onEvent: (event) => events.push(event),
+      }),
+    ).toBeInstanceOf(SerialDebugSession);
+
+    const stdout = monitor.stdout as PassThrough;
+    const bytes = Buffer.from('R\nP 0 1\nV 0 s 0 Привет\n', 'utf8');
+    const split = bytes.indexOf(Buffer.from('р', 'utf8')) + 1;
+    stdout.write(bytes.subarray(0, split));
+    stdout.write(bytes.subarray(split));
+
+    expect(events.at(-1)).toMatchObject({ type: 'paused', variables: [{ name: 'a', value: 'Привет' }] });
+  });
+
   it('a trace point with no declared variables pauses immediately, no V line needed', () => {
     const { monitor } = fakeMonitor();
     const events: TDebugEvent[] = [];

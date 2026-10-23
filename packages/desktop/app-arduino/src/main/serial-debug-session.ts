@@ -1,3 +1,4 @@
+import { StringDecoder } from 'node:string_decoder';
 import type { IPortMonitor } from '@falang/desktop-arduino-cli';
 import type { IDebugBreakpoint, IDebugMap, IDebugVariable, TDebugEvent, TDebugResumeMode } from '@falang/debug';
 
@@ -12,8 +13,19 @@ export interface ISerialDebugSessionParams {
 
 const isBreakpointLine = (line: string): boolean => line.length > 0 && line[0] === 'R';
 
-const parseValue = (kind: string, raw: string): number | boolean => {
+const STRING_ESCAPES: Readonly<Record<string, string>> = { n: '\n', r: '\r' };
+
+/** Undoes `falang_debug.h`'s string escaping (`\\` → `\`, `\n` → LF, `\r` → CR). */
+const unescapeString = (text: string): string =>
+  text.replaceAll(/\\(.)/g, (_match, c: string) => STRING_ESCAPES[c] ?? c);
+
+const parseValue = (kind: string, raw: string): number | boolean | string => {
   if (kind === 'b') return raw === '1';
+  if (kind === 's') {
+    // `<truncated 0|1> <text>` — the text may be empty or contain spaces.
+    const text = unescapeString(raw.slice(2));
+    return raw.startsWith('1') ? `${text}…` : text;
+  }
   return Number(raw);
 };
 
@@ -29,6 +41,7 @@ export class SerialDebugSession {
   private readonly onEvent: (event: TDebugEvent) => void;
   private readonly breakpointIndexes = new Set<number>();
   private buffer = '';
+  private readonly decoder = new StringDecoder('utf8');
   private terminated = false;
   private stopping: Promise<void> | null = null;
   private pausedIndex: number | null = null;
@@ -98,7 +111,8 @@ export class SerialDebugSession {
   }
 
   private onData(chunk: Buffer): void {
-    this.buffer += chunk.toString('utf8');
+    // A multi-byte character of a string variable may be split across chunks.
+    this.buffer += this.decoder.write(chunk);
     let newlineIndex = this.buffer.indexOf('\n');
     while (newlineIndex !== -1) {
       const line = this.buffer.slice(0, newlineIndex).replace(/\r$/, '');

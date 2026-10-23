@@ -51,8 +51,8 @@ head:
 <ul>
   <li>The paused icon is highlighted on the canvas, and the view pans to it if it's off-screen.</li>
   <li>
-    The side panel lists the variables in scope at that point that the debugger can show — plain numbers and booleans.
-    Arrays, structs, and strings aren't sent over the wire yet (see "Things to know" below).
+    The side panel lists the variables in scope at that point that the debugger can show — numbers, booleans and
+    strings. Arrays and structs aren't sent over the wire yet (see "Things to know" below).
   </li>
   <li>
     <b>Continue</b> resumes until the next breakpoint.
@@ -76,9 +76,9 @@ head:
     fix it. Normal compile and upload work everywhere arduino-cli does.
   </li>
   <li>
-    Only plain numbers and booleans can be shown as variables today — the firmware-side monitor has no way to send an
-    array, struct, or string value over serial yet. The rest of the debugger (breakpoints, pausing, stepping) works the
-    same regardless.
+    Only numbers, booleans and strings can be shown as variables today — the firmware-side monitor has no way to send an
+    array or struct value over serial yet. A string longer than 64 bytes is shown cut off, ending with "…". The rest of
+    the debugger (breakpoints, pausing, stepping) works the same regardless.
   </li>
   <li>
     Attaching the debugger resets the board — this is normal (opening a serial port does that on most Arduino boards)

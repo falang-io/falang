@@ -5,6 +5,7 @@ import { createArduinoTracer } from './arduino-tracer.js';
 const int32Type: TVariableInfo = { type: 'number', numberType: { type: 'integer', integerType: 'int32' } };
 const floatType: TVariableInfo = { type: 'number', numberType: { type: 'float', floatType: 'float32' } };
 const boolType: TVariableInfo = { type: 'boolean' };
+const stringType: TVariableInfo = { type: 'string' };
 const arrayType: TVariableInfo = { type: 'array', elementType: int32Type, dimensions: 1 };
 
 describe('createArduinoTracer', () => {
@@ -36,10 +37,24 @@ describe('createArduinoTracer', () => {
     );
   });
 
-  it('selectVariables drops types falang_var has no overload for (arrays/structs/strings)', () => {
+  it('passes a string to the String overload as is, without a cast', () => {
     const tracer = createArduinoTracer();
-    const scope = { items: arrayType, count: int32Type };
-    expect(tracer.selectVariables?.(scope)).toEqual({ count: int32Type });
+    const scope = { text: stringType, x: int32Type };
+    expect(tracer.emitTrace({ id: 'n1', name: 'log' }, 1, scope)).toBe(
+      [
+        'if (falang_trace(1)) {',
+        '  falang_var(0, text);',
+        '  falang_var(1, (int32_t)x);',
+        '  falang_pause();',
+        '}',
+      ].join('\n'),
+    );
+  });
+
+  it('selectVariables keeps strings and drops types falang_var has no overload for (arrays/structs)', () => {
+    const tracer = createArduinoTracer();
+    const scope = { items: arrayType, text: stringType, count: int32Type };
+    expect(tracer.selectVariables?.(scope)).toEqual({ text: stringType, count: int32Type });
   });
 
   it('emitTrace only ever sees what selectVariables already narrowed — varIdx stays dense over the traced subset', () => {

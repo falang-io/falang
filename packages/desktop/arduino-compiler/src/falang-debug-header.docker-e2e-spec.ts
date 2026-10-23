@@ -1,4 +1,5 @@
 import { spawn, execFile as execFileCallback } from 'node:child_process';
+import { StringDecoder } from 'node:string_decoder';
 import { promisify } from 'node:util';
 import { mkdtemp, rm, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
@@ -30,11 +31,22 @@ const CMAKE_LISTS = [
 const HOST_ARDUINO_STUB = `#pragma once
 #include <cstdio>
 #include <cstdint>
+#include <string>
+
+class String {
+public:
+  String(const char* text) : value(text) {}
+  const char* c_str() const { return value.c_str(); }
+  unsigned int length() const { return (unsigned int)value.size(); }
+private:
+  std::string value;
+};
 
 class HardwareSerialStub {
 public:
   void print(char c) { std::putchar(c); std::fflush(stdout); }
   void print(int v) { std::printf("%d", v); std::fflush(stdout); }
+  void println() { print('\\n'); }
   void println(char c) { print(c); print('\\n'); }
   void println(int v) { print(v); print('\\n'); }
   void println(float v, int digits) { std::printf("%.*f\\n", digits, v); std::fflush(stdout); }
@@ -47,16 +59,25 @@ static HardwareSerialStub Serial;
 
 /**
  * Hand-written (not compiler-generated — that's `arduino-tracer.ts`'s job, unit-tested separately via
- * exact-string assertions) firmware exercising the real `falang_debug.h` state machine: three sibling
- * trace sites at the same call depth, the first carrying one `int32_t` variable. Mirrors the shape
+ * exact-string assertions) firmware exercising the real `falang_debug.h` state machine: four sibling
+ * trace sites at the same call depth, the first carrying one `int32_t` variable and the last two
+ * strings (escapes, and one cut at `FALANG_DEBUG_STR_MAX` inside a two-byte character). Mirrors the shape
  * `arduino-tracer.ts`'s `emitTrace`/`emitEnter` would actually generate for three statements in a row.
  */
+const LONG_TEXT = `a${'Ж'.repeat(40)}`;
+
 const MAIN_CPP = `#include "falang_debug.h"
+
+static const char* LONG_TEXT = "${LONG_TEXT}";
 
 static void tracePoint(uint16_t idx) {
   FalangDebugFrame frame;
   if (falang_trace(idx)) {
     if (idx == 0) falang_var(0, (int32_t)42);
+    if (idx == 3) {
+      falang_var(0, String("Hi, \\\\ \\n"));
+      falang_var(1, String(LONG_TEXT));
+    }
     falang_pause();
   }
 }
@@ -66,6 +87,7 @@ int main() {
   tracePoint(0);
   tracePoint(1);
   tracePoint(2);
+  tracePoint(3);
   return 0;
 }
 `;
@@ -79,7 +101,7 @@ const buildUserArgs = (): string[] => {
 const buildFixture = async (dir: string): Promise<void> => {
   await writeFile(join(dir, 'CMakeLists.txt'), CMAKE_LISTS);
   await writeFile(join(dir, 'Arduino.h'), HOST_ARDUINO_STUB);
-  await writeFile(join(dir, 'falang_debug.h'), buildFalangDebugHeader(3));
+  await writeFile(join(dir, 'falang_debug.h'), buildFalangDebugHeader(4));
   await writeFile(join(dir, 'main.cpp'), MAIN_CPP);
   await execFile('docker', [
     'run',
@@ -101,8 +123,9 @@ class LineReader {
   private readonly queue: string[] = [];
 
   constructor(stream: NodeJS.ReadableStream) {
+    const decoder = new StringDecoder('utf8');
     stream.on('data', (chunk: Buffer) => {
-      this.buffer += chunk.toString('utf8');
+      this.buffer += decoder.write(chunk);
       let newlineIndex = this.buffer.indexOf('\n');
       while (newlineIndex !== -1) {
         const line = this.buffer.slice(0, newlineIndex).replace(/\r$/, '');
@@ -229,6 +252,25 @@ describe('falang_debug.h protocol — compiled and run on the host (ADR 0021 (pr
 
       expect(await reader.nextLine()).toBe('P 2 1');
       // Finally let it run to completion.
+      write('C');
+
+      await done;
+    },
+    DOCKER_BUILD_TIMEOUT_MS,
+  );
+
+  it(
+    'string variables: escaped onto one line, cut at FALANG_DEBUG_STR_MAX back to a UTF-8 boundary',
+    async () => {
+      const { reader, write, done } = await runFixture();
+
+      expect(await reader.nextLine()).toBe('R');
+      write('B 3 1');
+      write('A');
+      expect(await reader.nextLine()).toBe('P 3 1');
+      expect(await reader.nextLine()).toBe(String.raw`V 0 s 0 Hi, \\ \n`);
+      // 81 bytes: 'a' + 40 two-byte characters; byte 64 is the second half of one, so 63 go out.
+      expect(await reader.nextLine()).toBe(`V 1 s 1 a${'Ж'.repeat(31)}`);
       write('C');
 
       await done;

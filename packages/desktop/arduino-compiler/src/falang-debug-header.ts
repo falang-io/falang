@@ -6,10 +6,13 @@
  * `packages/desktop/app-arduino/src/main/arduino-compiler/falang-debug-header.protocol-e2e.test.ts`) —
  * this file only ever emits real Arduino/AVR-portable C, no host awareness leaks in here.
  *
- * Wire protocol (ASCII, newline-terminated, matches `serial-debug-protocol.ts`'s host-side parser):
+ * Wire protocol (ASCII, newline-terminated, matches `app-arduino`'s `serial-debug-session.ts` host-side parser):
  * - device → host: `R` (ready, waiting to attach), `P <idx> <depth>` (paused at trace point `idx`,
  *   call depth `depth`), `V <varIdx> <kind> <value>` (`kind` one of `i`/`f`/`b`, one line per
- *   in-scope variable, sent right after `P` while still paused).
+ *   in-scope variable, sent right after `P` while still paused). A string is
+ *   `V <varIdx> s <truncated 0|1> <text>`: `<text>` is the first `FALANG_DEBUG_STR_MAX` bytes (cut
+ *   back to a UTF-8 character boundary) with `\`, LF and CR escaped as `\\`, `\n`, `\r` so
+ *   the frame stays one line.
  * - host → device: `A` (attach — unblocks `falang_wait_attach()`), `C` (continue), `S` (step over —
  *   resume until the next trace point at depth ≤ the depth stepping started from), `B <idx> 0|1`
  *   (clear/set a breakpoint — accepted both before attach and while paused, so live-toggling works
@@ -29,6 +32,7 @@ export const buildFalangDebugHeader = (traceCount: number): string => {
 #include <Arduino.h>
 
 #define FALANG_DEBUG_BP_BYTES ${String(bitmapBytes)}
+#define FALANG_DEBUG_STR_MAX 64
 
 static uint8_t falang_bp[FALANG_DEBUG_BP_BYTES];
 static uint8_t falang_depth = 0;
@@ -72,6 +76,41 @@ static inline void falang_var(uint16_t varIdx, bool value) {
   Serial.print('b');
   Serial.print(' ');
   Serial.println(value ? 1 : 0);
+}
+
+/** Only a prefix goes over the wire: a long string would hold the pause for a while at 115200 baud. */
+static inline void falang_var(uint16_t varIdx, const String& value) {
+  const char* text = value.c_str();
+  unsigned int length = value.length();
+  bool truncated = length > FALANG_DEBUG_STR_MAX;
+  if (truncated) {
+    length = FALANG_DEBUG_STR_MAX;
+    while (length > 0 && (((uint8_t)text[length]) & 0xC0) == 0x80) length--;
+  }
+  Serial.print('V');
+  Serial.print(' ');
+  Serial.print(varIdx);
+  Serial.print(' ');
+  Serial.print('s');
+  Serial.print(' ');
+  Serial.print(truncated ? '1' : '0');
+  Serial.print(' ');
+  for (unsigned int i = 0; i < length; i++) {
+    char c = text[i];
+    if (c == '\\\\') {
+      Serial.print('\\\\');
+      Serial.print('\\\\');
+    } else if (c == '\\n') {
+      Serial.print('\\\\');
+      Serial.print('n');
+    } else if (c == '\\r') {
+      Serial.print('\\\\');
+      Serial.print('r');
+    } else {
+      Serial.print(c);
+    }
+  }
+  Serial.println();
 }
 
 /** Blocks until a full line (LF- or CR-terminated) is available, dropping it into \`buf\` (NUL-terminated, truncated at \`maxLen - 1\`). This is the only place the protocol blocks the sketch — deliberately, since a breakpoint/step pause and "no host attached yet" are both meant to halt \`loop()\`. */
