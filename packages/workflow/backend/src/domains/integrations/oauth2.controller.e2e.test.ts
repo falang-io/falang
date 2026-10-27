@@ -3,6 +3,7 @@ import request from 'supertest';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import type * as EgressGuardModule from '../../net/egress-guard.js';
 import { auth, createTestApp, login } from '../../test-utils/e2e-app.js';
+import { launchOAuth2 } from '../../test-utils/oauth2-flow.js';
 
 // The real egress guard talks to the network; these tests stub the global `fetch`, so route the guard's `fetch` to it.
 vi.mock('../../net/egress-guard.js', async (importOriginal) => ({
@@ -119,7 +120,9 @@ describe('OAuth2 authorization-code flow (/oauth2/start + /oauth2/callback)', ()
       .set(auth(token));
 
     expect(response.status).toBe(201);
-    const authorizeUrl = new URL(response.body.authorizeUrl);
+    expect(new URL(response.body.authorizeUrl).pathname).toMatch(/^\/oauth2\/launch\//);
+    const launched = await launchOAuth2(app, response.body.authorizeUrl);
+    const authorizeUrl = launched.vendorUrl;
     expect(authorizeUrl.origin + authorizeUrl.pathname).toBe('https://vendor.test/authorize');
     expect(authorizeUrl.searchParams.get('client_id')).toBe('cid-1');
     expect(authorizeUrl.searchParams.get('redirect_uri')).toBe(
@@ -172,11 +175,11 @@ describe('OAuth2 authorization-code flow (/oauth2/start + /oauth2/callback)', ()
     const startResponse = await request(app.getHttpServer())
       .post(`/projects/${projectId}/integrations/cred-1/oauth2/start`)
       .set(auth(token));
-    const state = new URL(startResponse.body.authorizeUrl).searchParams.get('state');
+    const { state, cookie } = await launchOAuth2(app, startResponse.body.authorizeUrl);
 
-    const callbackResponse = await request(app.getHttpServer()).get(
-      `/oauth2/callback/activepieces-oauthpiece?code=fake-code&state=${state}`,
-    );
+    const callbackResponse = await request(app.getHttpServer())
+      .get(`/oauth2/callback/activepieces-oauthpiece?code=fake-code&state=${state}`)
+      .set('Cookie', cookie);
 
     expect(callbackResponse.status).toBe(200);
     expect(callbackResponse.text).toContain('Connected');
@@ -215,5 +218,77 @@ describe('OAuth2 authorization-code flow (/oauth2/start + /oauth2/callback)', ()
 
     expect(response.status).toBe(200);
     expect(response.text).toContain('Connection failed');
+  });
+
+  const startFlow = async () => {
+    const token = await login(app);
+    const { projectId, integrationsDocId } = await setUpProject(token);
+    await saveOAuthCredential(projectId, integrationsDocId, token).expect(200);
+    await createPlatformCredential(token);
+    const start = await request(app.getHttpServer())
+      .post(`/projects/${projectId}/integrations/cred-1/oauth2/start`)
+      .set(auth(token));
+    return { token, projectId, launchUrl: start.body.authorizeUrl as string };
+  };
+
+  const hasTokenExchange = (): boolean => fetchMock.mock.calls.some((call) => call[0] === 'https://vendor.test/token');
+
+  it('rejects a callback that carries no browser-binding cookie, and burns the state', async () => {
+    const { launchUrl } = await startFlow();
+    const { state, cookie } = await launchOAuth2(app, launchUrl);
+
+    const withoutCookie = await request(app.getHttpServer()).get(
+      `/oauth2/callback/activepieces-oauthpiece?code=fake-code&state=${state}`,
+    );
+    expect(withoutCookie.text).toContain('Connection failed');
+    const retry = await request(app.getHttpServer())
+      .get(`/oauth2/callback/activepieces-oauthpiece?code=fake-code&state=${state}`)
+      .set('Cookie', cookie);
+    expect(retry.text).toContain('Connection failed');
+    expect(hasTokenExchange()).toBe(false);
+  });
+
+  it('rejects a callback whose cookie nonce belongs to another attempt', async () => {
+    const first = await startFlow();
+    const secondStart = await request(app.getHttpServer())
+      .post(`/projects/${first.projectId}/integrations/cred-1/oauth2/start`)
+      .set(auth(first.token));
+    const second = { launchUrl: secondStart.body.authorizeUrl as string };
+    const victim = await launchOAuth2(app, first.launchUrl);
+    const attacker = await launchOAuth2(app, second.launchUrl);
+
+    const response = await request(app.getHttpServer())
+      .get(`/oauth2/callback/activepieces-oauthpiece?code=fake-code&state=${victim.state}`)
+      .set('Cookie', attacker.cookie);
+
+    expect(response.text).toContain('Connection failed');
+    expect(hasTokenExchange()).toBe(false);
+  });
+
+  it('rejects a callback for an attempt whose launch route was never visited', async () => {
+    const { launchUrl } = await startFlow();
+    const launched = await launchOAuth2(app, launchUrl);
+    // a state the vendor knows but this browser never launched: simulate by using an unknown state
+    const response = await request(app.getHttpServer())
+      .get(`/oauth2/callback/activepieces-oauthpiece?code=fake-code&state=other-${launched.state}`)
+      .set('Cookie', launched.cookie);
+    expect(response.text).toContain('Connection failed');
+  });
+
+  it('a launch link works once only', async () => {
+    const { launchUrl } = await startFlow();
+    await launchOAuth2(app, launchUrl);
+    const again = await request(app.getHttpServer()).get(new URL(launchUrl).pathname);
+    expect(again.status).toBe(200);
+    expect(again.text).toContain('Connection failed');
+  });
+
+  it('sets an httpOnly SameSite=Lax nonce cookie scoped to the callback path', async () => {
+    const { launchUrl } = await startFlow();
+    const response = await request(app.getHttpServer()).get(new URL(launchUrl).pathname);
+    const cookie = (response.headers['set-cookie'] as unknown as string[])[0] ?? '';
+    expect(cookie).toContain('HttpOnly');
+    expect(cookie).toContain('SameSite=Lax');
+    expect(cookie).toContain('Path=/oauth2/callback');
   });
 });

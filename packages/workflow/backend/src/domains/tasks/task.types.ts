@@ -75,7 +75,8 @@ export const HUMAN_TASK_ANSWER_SIGNAL_NAME = 'humanTaskAnswer';
 export interface ICreateTaskInput {
   readonly workflowId: string;
   readonly runId: string;
-  readonly taskQueue: string;
+  /** Ignored: the queue is derived from `projectId` + `env` on the server (security audit P1-11). */
+  readonly taskQueue?: string;
   readonly env: 'dev' | 'prod';
   readonly nodeId: string;
   readonly title: string;

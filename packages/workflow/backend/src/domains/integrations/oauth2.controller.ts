@@ -1,3 +1,4 @@
+// oxlint-disable max-lines -- start/launch/callback of the OAuth2 flow live together.
 import { randomBytes } from 'node:crypto';
 import {
   BadRequestException,
@@ -8,6 +9,7 @@ import {
   Param,
   Post,
   Query,
+  Req,
   Res,
 } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
@@ -18,7 +20,7 @@ import {
   INTEGRATIONS_DOCUMENT_TYPE,
   type IIntegrationsDocumentData,
 } from '@falang/workflow-integrations-common';
-import type { Response } from 'express';
+import type { Request, Response } from 'express';
 import type { Repository } from 'typeorm';
 import { CurrentUser } from '../auth/auth/current-user.decorator.js';
 import { Public } from '../auth/auth/public.decorator.js';
@@ -36,6 +38,16 @@ import { OAuth2PendingStateService, type IPendingOAuth2State } from './oauth2-pe
 import { applyOAuth2TokensToInstance } from './oauth2-tokens-codec.js';
 import { REGISTERED_INTEGRATIONS } from './registered-integrations.js';
 import { resolveOAuth2ClientCredentials } from './resolve-oauth2-client-credentials.js';
+
+const OAUTH2_NONCE_COOKIE = 'falang_oauth2_nonce';
+
+const readCookie = (header: string | undefined, name: string): string | null => {
+  for (const part of (header ?? '').split(';')) {
+    const index = part.indexOf('=');
+    if (index > 0 && part.slice(0, index).trim() === name) return part.slice(index + 1).trim();
+  }
+  return null;
+};
 
 interface ITokenResponse {
   readonly access_token: string;
@@ -116,12 +128,7 @@ export class OAuth2Controller {
     const pkce: IPkcePair | null = integration.oauth2.pkce
       ? buildPkcePair(integration.oauth2.pkceMethod ?? 'S256')
       : null;
-    this.pendingStates.set(state, {
-      projectId,
-      credentialId,
-      vendor: instance.vendor,
-      ...(pkce ? { codeVerifier: pkce.verifier } : {}),
-    });
+    const launchId = randomBytes(32).toString('base64url');
 
     const redirectUri = `${backendUrl}/oauth2/callback/${instance.vendor}`;
     const url = new URL(integration.oauth2.authUrl);
@@ -144,7 +151,48 @@ export class OAuth2Controller {
       url.searchParams.set('code_challenge', pkce.challenge);
       url.searchParams.set('code_challenge_method', integration.oauth2.pkceMethod ?? 'S256');
     }
-    return { authorizeUrl: url.toString() };
+    await this.pendingStates.create(
+      state,
+      launchId,
+      {
+        projectId,
+        credentialId,
+        vendor: instance.vendor,
+        ...(pkce ? { codeVerifier: pkce.verifier } : {}),
+      },
+      url.toString(),
+    );
+    // The popup opens our launch route first (it binds the attempt to this browser with a cookie) and
+    // is redirected to the vendor from there — the XHR that called `start` may be on another origin.
+    return { authorizeUrl: `${backendUrl}/oauth2/launch/${launchId}` };
+  }
+
+  /**
+   * First top-level navigation of the Connect popup: consumes the one-time launch id, sets the httpOnly
+   * nonce cookie that the vendor's callback must present, and redirects to the vendor's consent screen.
+   */
+  @Public()
+  @Get('oauth2/launch/:launchId')
+  async launch(@Param('launchId') launchId: string, @Res() res: Response): Promise<void> {
+    const launched = await this.pendingStates.launch(launchId);
+    if (!launched) {
+      this.sendCallbackPage(res, {
+        status: 'error',
+        credentialId: '',
+        message: 'invalid or expired connection attempt',
+      });
+      return;
+    }
+    const backendUrl = this.config.get<string>('BACKEND_PUBLIC_URL') ?? '';
+    res.cookie(OAUTH2_NONCE_COOKIE, launched.nonce, {
+      httpOnly: true,
+      sameSite: 'lax',
+      secure: backendUrl.startsWith('https:'),
+      path: '/oauth2/callback',
+      maxAge: 10 * 60_000,
+    });
+    res.set({ 'Cache-Control': 'no-store', 'Referrer-Policy': 'no-referrer' });
+    res.redirect(302, launched.authorizeUrl);
   }
 
   @Public()
@@ -157,13 +205,15 @@ export class OAuth2Controller {
     // Vendor-specific extra params (e.g. amoCRM's `referer`, see `IOAuth2Config.accountDomainCallbackParam`)
     // ride along on the same redirect — captured generically here rather than one `@Query(name)` per vendor.
     @Query() query: Record<string, string>,
+    @Req() req: Request,
     @Res() res: Response,
   ): Promise<void> {
+    res.clearCookie(OAUTH2_NONCE_COOKIE, { path: '/oauth2/callback' });
     if (oauthError || !state) {
       this.sendCallbackPage(res, { status: 'error', credentialId: '', message: oauthError ?? 'missing state' });
       return;
     }
-    const pending = this.pendingStates.consume(state);
+    const pending = await this.pendingStates.consume(state, readCookie(req.headers.cookie, OAUTH2_NONCE_COOKIE));
     if (!pending || pending.vendor !== vendor || !code) {
       this.sendCallbackPage(res, {
         status: 'error',

@@ -25,6 +25,71 @@ const findPreviousInstance = (
   instanceId: string,
 ): IIntegrationInstance | undefined => previous?.instances.find((instance) => instance.id === instanceId);
 
+/**
+ * Prefix of a value encrypted "just in case" for a vendor missing from the catalog (ActivePieces
+ * unavailable, vendor removed): the codec cannot tell which of its fields are secret, so it protects all
+ * of them (P1-7, fail-closed). `resolveFieldValue` and the secret decrypt path strip it, so once the
+ * vendor is back in the catalog the stored values read normally.
+ */
+export const GUARDED_PREFIX = 'fenc:';
+
+const isGuarded = (value: string): boolean => value.startsWith(GUARDED_PREFIX);
+const stripGuard = (value: string): string => (isGuarded(value) ? value.slice(GUARDED_PREFIX.length) : value);
+const guardValue = (plain: string, key: Buffer): string => GUARDED_PREFIX + encryptSecret(plain, key);
+
+const encodeUnknownLeaf = (incoming: string, previous: unknown, key: Buffer): string => {
+  if (incoming === SECRET_MASK) return typeof previous === 'string' ? previous : '';
+  if (incoming === '') return '';
+  return guardValue(incoming, key);
+};
+
+/** A non-secret value stored while its vendor was unknown carries the guard prefix: show the plain text once the vendor is known again. */
+const unguardPlain = (raw: IEnvironmentValue | string, key: Buffer | undefined): IEnvironmentValue | string => {
+  if (typeof raw !== 'string' || !isGuarded(raw)) return raw;
+  if (!key) return '';
+  try {
+    return decryptSecret(stripGuard(raw), key);
+  } catch {
+    return '';
+  }
+};
+
+/** Fail-closed write for an instance whose vendor is not in the catalog: every string value is encrypted. */
+const encodeUnknownVendorInstance = (
+  instance: IIntegrationInstance,
+  previousInstance: IIntegrationInstance | undefined,
+  key: Buffer,
+): IIntegrationInstance => {
+  const fields: Record<string, IEnvironmentValue | string> = {};
+  for (const [name, raw] of Object.entries(instance.fields ?? {})) {
+    const previousRaw = previousInstance?.fields[name];
+    if (isEnvironmentValue(raw)) {
+      const prev = previousRaw && isEnvironmentValue(previousRaw) ? previousRaw : { dev: '', prod: '' };
+      fields[name] = {
+        dev: encodeUnknownLeaf(String(raw.dev ?? ''), prev.dev, key),
+        prod: encodeUnknownLeaf(String(raw.prod ?? ''), prev.prod, key),
+      };
+    } else {
+      fields[name] = encodeUnknownLeaf(typeof raw === 'string' ? raw : '', previousRaw, key);
+    }
+  }
+  return { ...instance, fields };
+};
+
+/** Replaces every value of an unknown-vendor instance via `leaf` (mask on read, blank on export). */
+const mapUnknownVendorInstance = (
+  instance: IIntegrationInstance,
+  leaf: (value: string) => string,
+): IIntegrationInstance => {
+  const fields: Record<string, IEnvironmentValue | string> = {};
+  for (const [name, raw] of Object.entries(instance.fields ?? {})) {
+    fields[name] = isEnvironmentValue(raw)
+      ? { dev: leaf(String(raw.dev ?? '')), prod: leaf(String(raw.prod ?? '')) }
+      : leaf(typeof raw === 'string' ? raw : '');
+  }
+  return { ...instance, fields };
+};
+
 const encodeSecretValue = (incoming: string, previousEncrypted: string, encryptionKey: Buffer): string => {
   if (incoming === SECRET_MASK) return previousEncrypted;
   if (incoming === '') return '';
@@ -49,7 +114,7 @@ export const encodeIntegrationsDataForWrite = (
       if (getDisabledVendors().includes(instance.vendor)) {
         throw new BadRequestException(`Integration "${instance.vendor}" is disabled on this instance`);
       }
-      return instance;
+      return encodeUnknownVendorInstance(instance, findPreviousInstance(previous, instance.id), encryptionKey);
     }
     const previousInstance = findPreviousInstance(previous, instance.id);
 
@@ -83,16 +148,17 @@ export const encodeIntegrationsDataForWrite = (
 export const maskIntegrationsDataForRead = (
   data: IIntegrationsDocumentData,
   integrations: readonly IWorkflowIntegration[],
+  encryptionKey?: Buffer,
 ): IIntegrationsDocumentData => ({
   instances: data.instances.map((instance) => {
     const integration = findIntegration(integrations, instance.vendor);
-    if (!integration) return instance;
+    if (!integration) return mapUnknownVendorInstance(instance, (value) => (value ? SECRET_MASK : ''));
 
     const fields: Record<string, IEnvironmentValue | string> = {};
     for (const field of integration.credentialFields) {
       const raw = instance.fields[field.name];
       if (field.kind !== 'secret' || !raw) {
-        fields[field.name] = raw ?? '';
+        fields[field.name] = unguardPlain(raw ?? '', encryptionKey);
         continue;
       }
       const value = isEnvironmentValue(raw) ? raw : { dev: '', prod: '' };
@@ -117,12 +183,13 @@ export const stripIntegrationsSecretsForExport = (
 ): IIntegrationsDocumentData => ({
   instances: data.instances.map((instance) => {
     const integration = findIntegration(integrations, instance.vendor);
-    if (!integration) return instance;
+    if (!integration) return mapUnknownVendorInstance(instance, () => '');
 
     const fields: Record<string, IEnvironmentValue | string> = {};
     for (const field of integration.credentialFields) {
       const raw = instance.fields[field.name];
-      fields[field.name] = field.kind === 'secret' ? { dev: '', prod: '' } : (raw ?? '');
+      if (field.kind === 'secret') fields[field.name] = { dev: '', prod: '' };
+      else fields[field.name] = typeof raw === 'string' && isGuarded(raw) ? '' : (raw ?? '');
     }
     return { ...instance, fields };
   }),
@@ -146,13 +213,18 @@ export const mergeIntegrationsDataForRestore = (
 ): IIntegrationsDocumentData => ({
   instances: snapshot.instances.map((instance) => {
     const integration = findIntegration(integrations, instance.vendor);
-    if (!integration) return instance;
     const currentInstance = findPreviousInstance(current, instance.id);
+    // Unknown vendor: keep what is stored (already guarded), never take values from the snapshot.
+    if (!integration)
+      return currentInstance
+        ? { ...instance, fields: currentInstance.fields }
+        : mapUnknownVendorInstance(instance, () => '');
 
     const fields: Record<string, IEnvironmentValue | string> = {};
     for (const field of integration.credentialFields) {
       if (field.kind !== 'secret') {
-        fields[field.name] = instance.fields[field.name] ?? '';
+        const snapshotRaw = instance.fields[field.name];
+        fields[field.name] = typeof snapshotRaw === 'string' && isGuarded(snapshotRaw) ? '' : (snapshotRaw ?? '');
         continue;
       }
       const currentRaw = currentInstance?.fields[field.name];
@@ -178,12 +250,12 @@ export const resolveFieldValue = (
 ): string | undefined => {
   const raw = instance.fields[field.name];
   if (field.kind !== 'secret') {
-    if (typeof raw === 'string') return raw;
-    return;
+    if (typeof raw !== 'string') return;
+    return isGuarded(raw) ? decryptSecret(stripGuard(raw), encryptionKey) : raw;
   }
   if (!raw || !isEnvironmentValue(raw)) return;
   let encrypted = raw[env];
   if (!encrypted && env === 'prod' && field.secretProdOptional) encrypted = raw.dev;
   if (!encrypted) return;
-  return decryptSecret(encrypted, encryptionKey);
+  return decryptSecret(stripGuard(encrypted), encryptionKey);
 };

@@ -56,6 +56,18 @@ describe('tasks (e2e)', () => {
     expect(second.body.taskId).toBe(first.body.taskId);
   });
 
+  it("refuses a task for a run that sits on another project's queue (P1-11)", async () => {
+    const { token } = await registerAndLogin('owner-foreign');
+    const projectId = await createProject(token);
+    harness.describeWorkflow.mockResolvedValueOnce({ taskQueue: 'workflow-dev-someone-else' });
+
+    const response = await internalCreate(projectId, internalToken(projectId));
+
+    expect(response.status).toBe(403);
+    const list = await request(app.getHttpServer()).get('/tasks').set(auth(token));
+    expect(list.body).toHaveLength(0);
+  });
+
   it('lists and fetches a task for the owning user, and 404s for a different user', async () => {
     const { token: ownerToken } = await registerAndLogin('owner2');
     const projectId = await createProject(ownerToken);

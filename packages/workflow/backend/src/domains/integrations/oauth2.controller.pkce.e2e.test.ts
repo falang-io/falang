@@ -3,6 +3,7 @@ import type { INestApplication } from '@nestjs/common';
 import request from 'supertest';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import type * as EgressGuardModule from '../../net/egress-guard.js';
+import { launchOAuth2 } from '../../test-utils/oauth2-flow.js';
 import { auth, createTestApp, login } from '../../test-utils/e2e-app.js';
 
 // The real egress guard talks to the network; these tests stub the global `fetch`, so route the guard's `fetch` to it.
@@ -96,8 +97,15 @@ describe('OAuth2 flow: PKCE, prompt and a credential deleted mid-flow', () => {
       .post(`/projects/${projectId}/integrations/cred-1/oauth2/start`)
       .set(auth(token));
     expect(start.status).toBe(201);
-    const authorizeUrl = new URL(start.body.authorizeUrl);
-    return { token, projectId, docId, authorizeUrl, state: authorizeUrl.searchParams.get('state') ?? '' };
+    const launched = await launchOAuth2(app, start.body.authorizeUrl);
+    return {
+      token,
+      projectId,
+      docId,
+      authorizeUrl: launched.vendorUrl,
+      state: launched.state,
+      cookie: launched.cookie,
+    };
   };
 
   const tokenRequestBody = (): URLSearchParams | undefined =>
@@ -106,13 +114,15 @@ describe('OAuth2 flow: PKCE, prompt and a credential deleted mid-flow', () => {
       | undefined;
 
   it('defaults to S256: the authorize URL carries the challenge and the callback sends the stored verifier', async () => {
-    const { authorizeUrl, state } = await startFlow({ pkce: true });
+    const { authorizeUrl, state, cookie } = await startFlow({ pkce: true });
 
     expect(authorizeUrl.searchParams.get('code_challenge_method')).toBe('S256');
     const challenge = authorizeUrl.searchParams.get('code_challenge') ?? '';
     expect(challenge).toMatch(/^[A-Za-z0-9_-]{43}$/);
 
-    const callback = await request(app.getHttpServer()).get(`/oauth2/callback/${VENDOR}?code=c1&state=${state}`);
+    const callback = await request(app.getHttpServer())
+      .get(`/oauth2/callback/${VENDOR}?code=c1&state=${state}`)
+      .set('Cookie', cookie);
     expect(callback.text).toContain('Connected');
 
     const verifier = tokenRequestBody()?.get('code_verifier') ?? '';
@@ -121,21 +131,21 @@ describe('OAuth2 flow: PKCE, prompt and a credential deleted mid-flow', () => {
   });
 
   it("pkceMethod 'plain': challenge equals the verifier sent on callback", async () => {
-    const { authorizeUrl, state } = await startFlow({ pkce: true, pkceMethod: 'plain' });
+    const { authorizeUrl, state, cookie } = await startFlow({ pkce: true, pkceMethod: 'plain' });
 
     expect(authorizeUrl.searchParams.get('code_challenge_method')).toBe('plain');
     const challenge = authorizeUrl.searchParams.get('code_challenge');
-    await request(app.getHttpServer()).get(`/oauth2/callback/${VENDOR}?code=c1&state=${state}`);
+    await request(app.getHttpServer()).get(`/oauth2/callback/${VENDOR}?code=c1&state=${state}`).set('Cookie', cookie);
 
     expect(tokenRequestBody()?.get('code_verifier')).toBe(challenge);
   });
 
   it('a vendor without pkce gets neither code_challenge nor code_verifier', async () => {
-    const { authorizeUrl, state } = await startFlow({});
+    const { authorizeUrl, state, cookie } = await startFlow({});
 
     expect(authorizeUrl.searchParams.has('code_challenge')).toBe(false);
     expect(authorizeUrl.searchParams.has('code_challenge_method')).toBe(false);
-    await request(app.getHttpServer()).get(`/oauth2/callback/${VENDOR}?code=c1&state=${state}`);
+    await request(app.getHttpServer()).get(`/oauth2/callback/${VENDOR}?code=c1&state=${state}`).set('Cookie', cookie);
     expect(tokenRequestBody()?.has('code_verifier')).toBe(false);
   });
 
@@ -152,14 +162,16 @@ describe('OAuth2 flow: PKCE, prompt and a credential deleted mid-flow', () => {
   });
 
   it('callback for a credential deleted during the flow: error page, no token exchange, nothing stored', async () => {
-    const { token, projectId, docId, state } = await startFlow({});
+    const { token, projectId, docId, state, cookie } = await startFlow({});
     await request(app.getHttpServer())
       .patch(`/projects/${projectId}/documents/${docId}`)
       .set(auth(token))
       .send({ data: { instances: [] } })
       .expect(200);
 
-    const callback = await request(app.getHttpServer()).get(`/oauth2/callback/${VENDOR}?code=c1&state=${state}`);
+    const callback = await request(app.getHttpServer())
+      .get(`/oauth2/callback/${VENDOR}?code=c1&state=${state}`)
+      .set('Cookie', cookie);
 
     expect(callback.status).toBe(200);
     expect(callback.text).toContain('Connection failed');

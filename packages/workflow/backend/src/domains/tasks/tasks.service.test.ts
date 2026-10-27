@@ -1,6 +1,6 @@
 // oxlint-disable max-lines -- one `describe` per `TasksService` method, over the default cap by the orphan-journal cases.
 import { randomUUID } from 'node:crypto';
-import { BadRequestException, ConflictException, NotFoundException } from '@nestjs/common';
+import { BadRequestException, ConflictException, ForbiddenException, NotFoundException } from '@nestjs/common';
 import { WorkflowNotFoundError } from '@temporalio/client';
 import type { Repository } from 'typeorm';
 import { describe, expect, it, vi } from 'vitest';
@@ -77,6 +77,7 @@ interface IMakeServiceResult {
   readonly repo: FakeTaskRepo;
   readonly ensureRunnerRunning: ReturnType<typeof vi.fn>;
   readonly signalWorkflow: ReturnType<typeof vi.fn>;
+  readonly describeWorkflow: ReturnType<typeof vi.fn>;
 }
 
 const makeService = (
@@ -86,6 +87,7 @@ const makeService = (
   const repo = new FakeTaskRepo();
   const ensureRunnerRunning = vi.fn(() => Promise.resolve());
   const signalWorkflow = vi.fn(() => Promise.resolve());
+  const describeWorkflow = vi.fn(() => Promise.resolve<{ taskQueue: string } | null>({ taskQueue: 'workflow-dev-p1' }));
   const service = new TasksService({
     tasks: repo as unknown as Repository<Task>,
     projectsService: {
@@ -97,9 +99,10 @@ const makeService = (
     },
     ensureRunnerRunning,
     signalWorkflow,
+    describeWorkflow,
     ...overrides,
   });
-  return { service, repo, ensureRunnerRunning, signalWorkflow };
+  return { service, repo, ensureRunnerRunning, signalWorkflow, describeWorkflow };
 };
 
 describe('TasksService.createOrGet', () => {
@@ -142,6 +145,33 @@ describe('TasksService.createOrGet', () => {
     await service.createOrGet('p1', createInput({ timeoutSeconds: 60 }));
     const dueAt = repo.rows[0]?.dueAt as Date;
     expect(dueAt.getTime()).toBeGreaterThanOrEqual(before + 59_000);
+  });
+});
+
+describe('TasksService.createOrGet run ownership (P1-11)', () => {
+  it('derives the task queue from projectId and env, ignoring the body', async () => {
+    const { service, repo } = makeService();
+    await service.createOrGet('p1', createInput({ taskQueue: 'workflow-dev-other-project' }));
+    expect(repo.rows[0]?.taskQueue).toBe('workflow-dev-p1');
+  });
+
+  it("403s when the run sits on another project's queue and stores nothing", async () => {
+    const { service, repo, describeWorkflow } = makeService();
+    describeWorkflow.mockResolvedValue({ taskQueue: 'workflow-dev-victim' });
+    await expect(service.createOrGet('p1', createInput())).rejects.toBeInstanceOf(ForbiddenException);
+    expect(repo.rows).toHaveLength(0);
+  });
+
+  it('403s when env claims prod but the run is on the dev queue', async () => {
+    const { service } = makeService();
+    await expect(service.createOrGet('p1', createInput({ env: 'prod' }))).rejects.toBeInstanceOf(ForbiddenException);
+  });
+
+  it('404s when the run does not exist', async () => {
+    const { service, repo, describeWorkflow } = makeService();
+    describeWorkflow.mockResolvedValue(null);
+    await expect(service.createOrGet('p1', createInput())).rejects.toBeInstanceOf(NotFoundException);
+    expect(repo.rows).toHaveLength(0);
   });
 });
 
@@ -305,6 +335,36 @@ describe('TasksService.resolve', () => {
     await expect(service.resolve('someone-else', taskId, { answer: 'Approve' }, 'someone-else')).rejects.toBeInstanceOf(
       NotFoundException,
     );
+  });
+});
+
+describe('TasksService.resolve run ownership (P1-11)', () => {
+  const openTask = async (ctx: ReturnType<typeof makeService>): Promise<string> => {
+    const created = await ctx.service.createOrGet('p1', createInput());
+    return created.taskId;
+  };
+
+  it('marks the task orphaned and signals nothing when the run is on a foreign queue', async () => {
+    const ctx = makeService();
+    const taskId = await openTask(ctx);
+    ctx.describeWorkflow.mockResolvedValue({ taskQueue: 'workflow-dev-victim' });
+
+    const resolved = await ctx.service.resolve('owner-1', taskId, { answer: 'Approve' }, 'owner-1');
+
+    expect(resolved.status).toBe('orphaned');
+    expect(ctx.signalWorkflow).not.toHaveBeenCalled();
+    expect(ctx.ensureRunnerRunning).not.toHaveBeenCalled();
+  });
+
+  it('marks the task orphaned when the run is gone', async () => {
+    const ctx = makeService();
+    const taskId = await openTask(ctx);
+    ctx.describeWorkflow.mockResolvedValue(null);
+
+    const resolved = await ctx.service.resolve('owner-1', taskId, { answer: 'Approve' }, 'owner-1');
+
+    expect(resolved.status).toBe('orphaned');
+    expect(ctx.signalWorkflow).not.toHaveBeenCalled();
   });
 });
 

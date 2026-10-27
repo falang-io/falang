@@ -52,13 +52,17 @@ const isObjectOrNull = (value: unknown): boolean => value === null || typeof val
 const integrationInstanceIds = (data: IIntegrationsDocumentData | null): ReadonlySet<string> =>
   new Set((data?.instances ?? []).map((instance) => instance.id));
 
-const toProjectDocument = (document: Document, integrations: readonly IWorkflowIntegration[]): IProjectDocument => {
+const toProjectDocument = (
+  document: Document,
+  integrations: readonly IWorkflowIntegration[],
+  encryptionKey?: Buffer,
+): IProjectDocument => {
   const result: IProjectDocument = { id: document.id, type: document.type, name: document.name };
   if (document.root !== null) result.root = document.root;
   if (document.data !== null) {
     result.data =
       document.type === INTEGRATIONS_DOCUMENT_TYPE
-        ? maskIntegrationsDataForRead(document.data as IIntegrationsDocumentData, integrations)
+        ? maskIntegrationsDataForRead(document.data as IIntegrationsDocumentData, integrations, encryptionKey)
         : document.data;
   }
   return result;
@@ -118,7 +122,7 @@ export class DocumentsService {
     await this.projectsService.getOwnedProject(projectId, ownerId, access);
     const documents = await this.documents.find({ where: { projectId } });
     const integrations = await this.getIntegrationsList();
-    return documents.map((document) => toProjectDocument(document, integrations));
+    return documents.map((document) => toProjectDocument(document, integrations, this.readKey()));
   }
 
   async listTree(
@@ -161,7 +165,7 @@ export class DocumentsService {
       throw error;
     }
     const integrations = await this.getIntegrationsList();
-    return toProjectDocument(document, integrations);
+    return toProjectDocument(document, integrations, this.readKey());
   }
 
   /** A folder id from the client must name a folder of the very same project. */
@@ -225,7 +229,7 @@ export class DocumentsService {
     // `integrations` document leaves no orphaned `integration_vendor_data` rows behind (see
     // ADR 0039 (private) §4).
     await Promise.all(removedInstanceIds.map((instanceId) => this.vendorData.removeForInstance(projectId, instanceId)));
-    return toProjectDocument(saved, integrations);
+    return toProjectDocument(saved, integrations, this.readKey());
   }
 
   async delete(projectId: string, ownerId: string, documentId: string): Promise<void> {
@@ -297,6 +301,13 @@ export class DocumentsService {
         lockExpiresAt: (document.lockExpiresAt as Date).toISOString(),
       });
     }
+  }
+
+  /** The credentials key when configured (read paths degrade to masking without it). */
+  private readKey(): Buffer | undefined {
+    const secret = this.config.get<string>('CREDENTIALS_ENCRYPTION_KEY');
+    if (!secret) return;
+    return requireEncryptionKey(secret);
   }
 
   /** Static + dynamically-fetched ActivePieces vendors combined — see `ActivepiecesCatalogService`. */

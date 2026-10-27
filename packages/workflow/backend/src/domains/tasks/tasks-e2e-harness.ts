@@ -30,6 +30,8 @@ import { TasksController } from './tasks.controller.js';
 import { TasksService } from './tasks.service.js';
 
 type TEnsureRunnerRunning = (projectId: string, env: 'dev' | 'prod', taskQueue: string) => Promise<void>;
+type TDescribe = (projectId: string, workflowId: string, runId: string) => Promise<{ taskQueue: string } | null>;
+
 type TSignal = (
   projectId: string,
   workflowId: string,
@@ -45,6 +47,7 @@ type TSignal = (
 export const createTasksTestApp = async () => {
   const ensureRunnerRunning = vi.fn<TEnsureRunnerRunning>(() => Promise.resolve());
   const signalWorkflow = vi.fn<TSignal>(() => Promise.resolve());
+  const describeWorkflow = vi.fn<TDescribe>((projectId) => Promise.resolve({ taskQueue: `workflow-dev-${projectId}` }));
 
   const moduleRef = await Test.createTestingModule({
     imports: [
@@ -84,6 +87,7 @@ export const createTasksTestApp = async () => {
             usernames: () => Promise.resolve(new Map()),
             ensureRunnerRunning: (...args) => ensureRunnerRunning(...args) as Promise<void>,
             signalWorkflow: (...args) => signalWorkflow(...args) as Promise<void>,
+            describeWorkflow: (...args) => describeWorkflow(...args),
           }),
       },
     ],
@@ -126,5 +130,14 @@ export const createTasksTestApp = async () => {
         ...overrides,
       });
 
-  return { app, ensureRunnerRunning, signalWorkflow, registerAndLogin, createProject, internalToken, internalCreate };
+  return {
+    app,
+    ensureRunnerRunning,
+    signalWorkflow,
+    describeWorkflow,
+    registerAndLogin,
+    createProject,
+    internalToken,
+    internalCreate,
+  };
 };

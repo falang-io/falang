@@ -1,3 +1,4 @@
+import { OAuth2PendingStateRow } from '../domains/integrations/oauth2-pending-state.entity.js';
 import { ValidationPipe, type INestApplication } from '@nestjs/common';
 import { ConfigModule } from '@nestjs/config';
 import { APP_GUARD } from '@nestjs/core';
@@ -83,6 +84,7 @@ export const buildTestAppImports = (extraModules: TAppImport[] = []) => [
       OAuthCredential,
       AppSetting,
       IntegrationVendorData,
+      OAuth2PendingStateRow,
       UserLimits,
       File,
       AgentUsage,

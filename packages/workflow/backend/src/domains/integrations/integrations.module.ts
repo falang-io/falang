@@ -12,6 +12,7 @@ import { IntegrationFieldOptionsController } from './integration-field-options.c
 import { InternalCredentialsController } from './internal-credentials.controller.js';
 import { OAuth2AccessTokenService } from './oauth2-access-token.service.js';
 import { OAuth2Controller } from './oauth2.controller.js';
+import { OAuth2PendingStateRow } from './oauth2-pending-state.entity.js';
 import { OAuth2PendingStateService } from './oauth2-pending-state.service.js';
 import { IntegrationVendorDataController } from './vendor-data/integration-vendor-data.controller.js';
 import { IntegrationVendorDataModule } from './vendor-data/integration-vendor-data.module.js';
@@ -19,7 +20,7 @@ import { SyncVendorDataController } from './vendor-data/sync-vendor-data.control
 
 @Module({
   imports: [
-    TypeOrmModule.forFeature([Document]),
+    TypeOrmModule.forFeature([Document, OAuth2PendingStateRow]),
     ProjectsModule,
     ProjectTokenModule,
     OAuthCredentialsModule,

@@ -12,14 +12,16 @@ import { ProjectsModule } from '../projects/projects/projects.module.js';
 import { ProjectsService } from '../projects/projects/projects.service.js';
 import { ProjectMembersService } from '../projects/members/project-members.service.js';
 import { User } from '../users/users/user.entity.js';
-import { createSignalWorkflow } from './create-signal-workflow.js';
+import { createDescribeWorkflow, createSignalWorkflow } from './create-signal-workflow.js';
 import { InternalTasksController } from './internal-tasks.controller.js';
 import { Task } from './task.entity.js';
 import { TasksController } from './tasks.controller.js';
-import { TasksService, type TSignalWorkflow } from './tasks.service.js';
+import { TasksService, type TDescribeWorkflow, type TSignalWorkflow } from './tasks.service.js';
 
 /** DI token for `TSignalWorkflow` — real implementation below (signals through the project's own namespace client, ADR 0057 (private)); tests construct `TasksService` directly with a fake closure instead of going through this token (see `tasks.service.test.ts`). */
 export const SIGNAL_WORKFLOW = Symbol('SIGNAL_WORKFLOW');
+/** DI token for `TDescribeWorkflow` (P1-11). */
+export const DESCRIBE_WORKFLOW = Symbol('DESCRIBE_WORKFLOW');
 
 /**
  * See ADR 0040 (private) §2/§4 and the fixed phase-4 contract.
@@ -45,6 +47,11 @@ export const SIGNAL_WORKFLOW = Symbol('SIGNAL_WORKFLOW');
       useFactory: (tenancy: ITemporalTenancy): TSignalWorkflow => createSignalWorkflow(tenancy),
     },
     {
+      provide: DESCRIBE_WORKFLOW,
+      inject: [TEMPORAL_TENANCY],
+      useFactory: (tenancy: ITemporalTenancy): TDescribeWorkflow => createDescribeWorkflow(tenancy),
+    },
+    {
       provide: TasksService,
       inject: [
         getRepositoryToken(Task),
@@ -53,6 +60,7 @@ export const SIGNAL_WORKFLOW = Symbol('SIGNAL_WORKFLOW');
         ProjectMembersService,
         BuildService,
         SIGNAL_WORKFLOW,
+        DESCRIBE_WORKFLOW,
         RunJournalService,
       ],
       useFactory: (
@@ -62,6 +70,7 @@ export const SIGNAL_WORKFLOW = Symbol('SIGNAL_WORKFLOW');
         membersService: ProjectMembersService,
         buildService: BuildService,
         signalWorkflow: TSignalWorkflow,
+        describeWorkflow: TDescribeWorkflow,
         journal: RunJournalService,
       ) =>
         new TasksService({
@@ -76,6 +85,7 @@ export const SIGNAL_WORKFLOW = Symbol('SIGNAL_WORKFLOW');
           ensureRunnerRunning: (projectId, env, taskQueue) =>
             buildService.ensureRunnerRunning(projectId, env, taskQueue),
           signalWorkflow,
+          describeWorkflow,
           journal,
         }),
     },
