@@ -2,6 +2,7 @@ import { BadRequestException, Inject, Injectable, NotFoundException } from '@nes
 import { InjectRepository } from '@nestjs/typeorm';
 import type { Repository } from 'typeorm';
 import { Project } from '../projects/project.entity.js';
+import { ProjectsService } from '../projects/projects.service.js';
 import { ProjectMember, type TProjectMemberRole } from './project-member.entity.js';
 import { ProjectMembersService } from './project-members.service.js';
 
@@ -21,11 +22,14 @@ export interface ITransferProjectResult {
 export class ProjectTransferService {
   private readonly projects: Repository<Project>;
   private readonly membersService: ProjectMembersService;
+  private readonly projectsService: ProjectsService;
 
   constructor(
     @InjectRepository(Project) projects: Repository<Project>,
     @Inject(ProjectMembersService) membersService: ProjectMembersService,
+    @Inject(ProjectsService) projectsService: ProjectsService,
   ) {
+    this.projectsService = projectsService;
     this.projects = projects;
     this.membersService = membersService;
   }
@@ -42,6 +46,9 @@ export class ProjectTransferService {
     if (!user) throw new NotFoundException(`User "${login.trim()}" not found`);
     const previousOwnerId = project.ownerId;
     if (user.id === previousOwnerId) throw new BadRequestException('This user already owns the project');
+
+    // The new owner's `maxProjects` applies to a transfer too (an admin can raise it first); the limit error is a 403 `project_limit`.
+    await this.projectsService.assertUnderProjectLimit(user.id);
 
     await this.projects.manager.transaction(async (manager) => {
       await manager.update(Project, { id: project.id }, { ownerId: user.id });

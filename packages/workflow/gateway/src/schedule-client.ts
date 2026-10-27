@@ -6,6 +6,7 @@ import type { Client, ScheduleDescription, ScheduleSpec as TTemporalScheduleSpec
 import type { Duration } from '@temporalio/common';
 import type { IScheduleSpec, IScheduleState, IUpsertScheduleParams } from '@falang/workflow-integrations-common';
 import { isNamespaceNotFoundError, type ITemporalTenancy } from './temporal-tenancy.js';
+import { executionTimeoutOptions } from './workflow-execution-timeout.js';
 
 type TEnv = 'dev' | 'prod';
 
@@ -95,7 +96,15 @@ const buildTemporalScheduleSpec = (spec: IScheduleSpec): TTemporalScheduleSpec =
   timezone: spec.timeZone,
 });
 
-const SCHEDULE_POLICIES = { overlap: ScheduleOverlapPolicy.SKIP, catchupWindow: '1h' } as const;
+/** Default catch-up window of a schedule: a fire missed for longer than this (backend down, paused) is dropped, not replayed (`SCHEDULE_CATCHUP_WINDOW_SECONDS`). */
+export const DEFAULT_SCHEDULE_CATCHUP_WINDOW: Duration = '60 seconds';
+
+export interface ICreateScheduleClientOptions {
+  /** Overrides `DEFAULT_SCHEDULE_CATCHUP_WINDOW`. */
+  readonly catchupWindow?: Duration;
+  /** `workflowExecutionTimeout` of the workflow each fire starts (`WORKFLOW_EXECUTION_TIMEOUT`). */
+  readonly workflowExecutionTimeout?: Duration;
+}
 
 const toScheduleState = (scheduleId: string, description: ScheduleDescription): IScheduleState => ({
   scheduleId,
@@ -117,7 +126,15 @@ const toScheduleState = (scheduleId: string, description: ScheduleDescription): 
  * does; acceptable at the per-project/per-instance scale this drives (a handful of schedules per
  * project, not thousands).
  */
-export const createTemporalScheduleClient = (tenancy: ITemporalTenancy): IScheduleClientPort => {
+export const createTemporalScheduleClient = (
+  tenancy: ITemporalTenancy,
+  options: ICreateScheduleClientOptions = {},
+): IScheduleClientPort => {
+  // Overlapping fires are skipped (never queued up behind a slow run); see `DEFAULT_SCHEDULE_CATCHUP_WINDOW`.
+  const policies = {
+    overlap: ScheduleOverlapPolicy.SKIP,
+    catchupWindow: options.catchupWindow ?? DEFAULT_SCHEDULE_CATCHUP_WINDOW,
+  } as const;
   const listStates = async <T>(
     client: Client,
     pick: (memo: IScheduleMemo, state: IScheduleState) => T | null,
@@ -144,6 +161,7 @@ export const createTemporalScheduleClient = (tenancy: ITemporalTenancy): ISchedu
         workflowId: params.workflowId,
         taskQueue: params.taskQueue,
         args: [...params.args],
+        ...executionTimeoutOptions(options.workflowExecutionTimeout),
       };
       // `ScheduleOptions.memo` is `Record<string, unknown>` (no index signature on `IScheduleMemo` itself,
       // by design — it's a closed shape everywhere else it's used, `readMemo` included).
@@ -157,7 +175,7 @@ export const createTemporalScheduleClient = (tenancy: ITemporalTenancy): ISchedu
           scheduleId: params.scheduleId,
           spec,
           action,
-          policies: SCHEDULE_POLICIES,
+          policies,
           memo,
           // oxlint-disable-next-line no-undefined -- a real "start unpaused, no note" value for this optional SDK field, not an omission.
           state: params.note ? { note: params.note } : undefined,
@@ -168,7 +186,7 @@ export const createTemporalScheduleClient = (tenancy: ITemporalTenancy): ISchedu
         await handle.update((previous) => ({
           spec,
           action,
-          policies: SCHEDULE_POLICIES,
+          policies,
           state: { ...previous.state, paused: false, note: params.note ?? previous.state.note },
         }));
       }

@@ -1,5 +1,6 @@
 import { Module } from '@nestjs/common';
 import { TypeOrmModule } from '@nestjs/typeorm';
+import { UserLimitsModule } from '../../admin/user-limits/user-limits.module.js';
 import { Task } from '../../tasks/task.entity.js';
 import { User } from '../../users/users/user.entity.js';
 import { UsersModule } from '../../users/users/users.module.js';
@@ -15,7 +16,7 @@ import { ProjectsService } from './projects.service.js';
 
 @Module({
   // `UsersModule` for `AdminGuard` on the admin transfer route.
-  imports: [TypeOrmModule.forFeature([Project, Document, User, ProjectMember, Task]), UsersModule],
+  imports: [TypeOrmModule.forFeature([Project, Document, User, ProjectMember, Task]), UsersModule, UserLimitsModule],
   controllers: [ProjectsController, ProjectMembersController, AdminProjectTransferController],
   providers: [ProjectsService, ProjectMembersService, ProjectTransferService],
   exports: [ProjectsService, ProjectMembersService, ProjectTransferService],

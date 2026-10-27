@@ -1,4 +1,10 @@
-import type { ITemporalTenancy } from '@falang/workflow-gateway';
+import type { ConfigService } from '@nestjs/config';
+import type { Duration } from '@temporalio/common';
+import {
+  executionTimeoutOptions,
+  parseWorkflowExecutionTimeout,
+  type ITemporalTenancy,
+} from '@falang/workflow-gateway';
 import { DEBUG_CONFIGURE_SIGNAL_NAME, DEBUG_STATE_QUERY_NAME, type IDebugQueryState } from '@falang/workflow-compiler';
 import { WorkflowNotFoundError } from '@temporalio/client';
 import { temporal } from '@temporalio/proto';
@@ -23,7 +29,7 @@ const DEBUG_QUERY_DEADLINE_MS = 3000;
 
 // Every call resolves the project's own namespace client through `ITemporalTenancy` (a shared, pooled
 // connection that is never closed here) — ADR 0057 (private).
-const createDebugClient = (tenancy: ITemporalTenancy) => {
+const createDebugClient = (tenancy: ITemporalTenancy, executionTimeout: Duration | undefined) => {
   const signalWithStartDebug: TDebugSignalWithStart = async ({
     projectId,
     taskQueue,
@@ -41,6 +47,7 @@ const createDebugClient = (tenancy: ITemporalTenancy) => {
       args: [...args],
       signal: DEBUG_CONFIGURE_SIGNAL_NAME,
       signalArgs: [{ breakpoints: [...breakpoints], pauseOnEntry }],
+      ...executionTimeoutOptions(executionTimeout),
     });
     if (followUpSignal) await handle.signal(followUpSignal.name, ...followUpSignal.args);
     return { runId: handle.signaledRunId };
@@ -97,6 +104,7 @@ export const createDebugService = (
   workflowRunService: WorkflowRunService,
   buildService: BuildService,
   tenancy: ITemporalTenancy,
+  config: ConfigService,
 ): DebugService =>
   new DebugService({
     documentsService,
@@ -104,5 +112,5 @@ export const createDebugService = (
     workflowRunService,
     ensureRunnerDeps: buildService.ensureRunnerDeps(),
     resolveRunEntry: (projectId, ownerId, input) => buildService.resolveRunEntry(projectId, ownerId, input),
-    ...createDebugClient(tenancy),
+    ...createDebugClient(tenancy, parseWorkflowExecutionTimeout(config.get<string>('WORKFLOW_EXECUTION_TIMEOUT'))),
   });

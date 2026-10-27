@@ -53,7 +53,9 @@ import {
   type IEnsureRunnerRunningOptions,
 } from './ensure-runner-running.js';
 import { assertUnderProdVersionLimit, resolveProdVersionLimit } from './prod-version-limit.js';
+import { assertUnderDevPodLimit } from './dev-pod-limit.js';
 import { ProjectVersion } from './project-version.entity.js';
+import { nextVersionNumber, saveNewVersion } from './publish-version.js';
 import {
   toVersionSummary,
   type IProjectVersionListItem,
@@ -95,6 +97,14 @@ export interface IStartedDevRun extends IStartedRun {
  * artifact held in memory only. Publishing persists the artifact on `ProjectVersion` so multiple
  * versions can coexist on the stable prod task queue — see ADR 0004 (private).
  */
+/** A runner start refused on purpose: suspended project (423), no balance (402) or the owner's dev-pod cap (409 `dev_pod_limit`). */
+const isRefusedStart = (error: HttpException): boolean => {
+  const status = error.getStatus();
+  if (status === 402 || status === 423) return true;
+  const body = error.getResponse();
+  return status === 409 && typeof body === 'object' && (body as { code?: unknown }).code === 'dev_pod_limit';
+};
+
 @Injectable()
 export class BuildService implements OnModuleInit, OnApplicationBootstrap {
   private readonly logger = new Logger(BuildService.name);
@@ -172,7 +182,7 @@ export class BuildService implements OnModuleInit, OnApplicationBootstrap {
         await ensureRunnerRunning(deps, params.projectId, params.env, params.taskQueue);
       } catch (error) {
         // A start refused on purpose (suspended project, no balance) must not let the event queue up in Temporal.
-        if (error instanceof HttpException && (error.getStatus() === 402 || error.getStatus() === 423)) {
+        if (error instanceof HttpException && isRefusedStart(error)) {
           throw new RunnerStartRefusedError(error.message, error);
         }
         throw error;
@@ -241,6 +251,13 @@ export class BuildService implements OnModuleInit, OnApplicationBootstrap {
   async assertMayStart(projectId: string, env: 'dev' | 'prod', action: TRunnerStartAction): Promise<void> {
     const { ownerId, suspendedReason } = await this.projectsService.getStartGateInfo(projectId);
     if (suspendedReason) throw new ProjectSuspendedException(suspendedReason);
+    if (env === 'dev') {
+      await assertUnderDevPodLimit(
+        { runners: this.runnerProcessManager, projects: this.projectsService, limits: this.userLimits },
+        projectId,
+        ownerId,
+      );
+    }
     await this.startGuard?.assertCanStart({ projectId, ownerId, env, action });
   }
 
@@ -464,7 +481,8 @@ export class BuildService implements OnModuleInit, OnApplicationBootstrap {
     // When prod is live, this publish starts the new version's pod too: ask first, so a refusal doesn't leave a published-but-unstarted version behind.
     const prodRunning = await this.runnerProcessManager.isAnyRunning(prodTaskQueue(projectId));
     if (prodRunning) await this.assertMayStart(projectId, 'prod', 'publish');
-    const versionNumber = (await this.versions.count({ where: { projectId } })) + 1;
+    const versionsToPrune = await this.pickVersionsToPrune(projectId, ownerId);
+    const versionNumber = await nextVersionNumber(this.versions, projectId);
 
     // One commit per publish (ADR 0025 (private), "Ties to ProjectVersion") —
     // reuses `HEAD` untouched (no new commit) when the working copy hasn't changed since the last
@@ -479,19 +497,16 @@ export class BuildService implements OnModuleInit, OnApplicationBootstrap {
       await getIntegrationsForCompile(this.activepiecesCatalog),
     );
 
-    const buildId = `v${versionNumber}`;
     const { workflowBundle, activitiesSource } = await buildArtifact(this.outputDir, workflows, activities);
 
-    const version = await this.versions.save(
-      this.versions.create({
-        projectId,
-        versionNumber,
-        buildId,
-        workflowBundle,
-        activitiesSource,
-        commitId: commit?.id ?? null,
-      }),
-    );
+    // The number is allocated again on a unique-index conflict (two concurrent publishes), so `buildId` comes from the saved row.
+    const version = await saveNewVersion(this.versions, projectId, versionNumber, {
+      workflowBundle,
+      activitiesSource,
+      commitId: commit?.id ?? null,
+    });
+    const { buildId } = version;
+    if (versionsToPrune.length > 0) await this.versions.remove(versionsToPrune);
 
     const taskQueue = prodTaskQueue(projectId);
     if (prodRunning) {
@@ -507,6 +522,32 @@ export class BuildService implements OnModuleInit, OnApplicationBootstrap {
     await this.projectsService.setProdBuildId(projectId, buildId);
 
     return toVersionSummary(version);
+  }
+
+  /**
+   * Security audit P1-3: the owner's `maxStoredVersions` per project. Returns the oldest versions to delete once the new
+   * one is saved — never production's version (`prodBuildId`, else the latest) and never one with a running pod; `409
+   * version_limit` (before any compile work) when that cannot free enough room.
+   */
+  private async pickVersionsToPrune(projectId: string, ownerId: string): Promise<ProjectVersion[]> {
+    const { maxStoredVersions } = await this.userLimits.getLimits(ownerId);
+    const existing = await this.versions.find({ where: { projectId }, order: { versionNumber: 'ASC' } });
+    const excess = existing.length + 1 - maxStoredVersions;
+    if (excess <= 0) return [];
+    const [current, runningBuildIds] = await Promise.all([
+      this.resolveProdVersion(projectId),
+      this.runnerProcessManager.listRunningBuildIds(prodTaskQueue(projectId)),
+    ]);
+    const protectedIds = new Set<string>(runningBuildIds);
+    if (current) protectedIds.add(current.buildId);
+    const candidates = existing.filter((version) => !protectedIds.has(version.buildId)).slice(0, excess);
+    if (candidates.length < excess) {
+      throw new ConflictException({
+        code: 'version_limit',
+        message: `Stored version limit reached (${maxStoredVersions}) and no old version can be removed — stop running versions or delete some manually`,
+      });
+    }
+    return candidates;
   }
 
   /** Every published version, oldest first, with whether it is production's version and whether its runner pod is up. */

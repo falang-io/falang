@@ -43,6 +43,7 @@ exports[`compileProject snapshot (pre-P1 baseline, no activityOptions) > compile
 
 const { logActivity, telegramSendMessage, callAiText, httpRequest } = proxyLocalActivities<{ logActivity(message: string): Promise<string>; telegramSendMessage(credentialId: string, chatId: string, text: string): Promise<void>; callAiText(credentialId: string, prompt: string): Promise<string>; httpRequest(url: string): Promise<{ status: number; body: string }> }>({
   startToCloseTimeout: '10 seconds',
+  retry: { maximumAttempts: 5 },
 });
 
 const { falangJournal } = proxySinks<{ falangJournal: { append(entry: unknown): void } }>();

@@ -1,11 +1,16 @@
 // oxlint-disable max-lines -- grew past 300 lines from ADR 0041 (private)'s `mediaServiceUrl` doc
 // comment; a handful of lines, not accumulated complexity.
-import type { V1Deployment } from '@kubernetes/client-node';
+import type { V1Deployment, V1Toleration } from '@kubernetes/client-node';
 import type { IK8sDeploymentsClient } from './k8s-deployments-client.js';
 import { Logger } from '@nestjs/common';
 import type { IRunnerSessionRecorder } from '../runner-sessions/runner-sessions.service.js';
 import type { TRunnerSessionEndReason } from '../runner-sessions/runner-session.entity.js';
 import { buildRunnerEnv } from './runner-env.js';
+import {
+  DEFAULT_RUNNER_EPHEMERAL_STORAGE_LIMIT,
+  DEFAULT_RUNNER_EPHEMERAL_STORAGE_REQUEST,
+  DEFAULT_RUNNER_TMP_SIZE_LIMIT,
+} from './runner-pod-placement.js';
 
 const APP_LABEL = 'app.kubernetes.io/name';
 const APP_LABEL_VALUE = 'workflow-runner';
@@ -73,6 +78,16 @@ export interface IRunnerProcessManagerParams {
    * on local `kind`).
    */
   readonly mediaServiceUrl?: string;
+  /** Security audit P1-3: pod `ephemeral-storage` limit (`RUNNER_EPHEMERAL_STORAGE_LIMIT`, default `1Gi`). */
+  readonly ephemeralStorageLimit?: string;
+  /** Pod `ephemeral-storage` request (`RUNNER_EPHEMERAL_STORAGE_REQUEST`, default `256Mi`). */
+  readonly ephemeralStorageRequest?: string;
+  /** `sizeLimit` of the pod's `/tmp` `emptyDir` (`RUNNER_TMP_SIZE_LIMIT`, default `512Mi`). */
+  readonly tmpSizeLimit?: string;
+  /** `nodeSelector` of runner pods (`RUNNER_NODE_SELECTOR`) — a dedicated node pool; unset = scheduler's choice. */
+  readonly nodeSelector?: Record<string, string>;
+  /** `tolerations` of runner pods (`RUNNER_TOLERATIONS`), pairing with the node pool's taint. */
+  readonly tolerations?: V1Toleration[];
   /** ADR 0060 (private): port of the Temporal SDK's Prometheus endpoint inside a runner pod (`RUNNER_METRICS_PORT`). Set => the pod gets the env var and a container port named `metrics`; the scrape finds it by that name. */
   readonly runnerMetricsPort?: number;
   /** ADR 0060 (private): `json` makes the runner log one JSON object per line (`RUNNER_LOG_FORMAT`, else `LOG_FORMAT`); unset/`text` = unchanged. */
@@ -363,6 +378,8 @@ export class RunnerProcessManager {
             // every Service of the namespace as env vars (security audit 2026-10-01, P0-2).
             automountServiceAccountToken: false,
             enableServiceLinks: false,
+            ...(this.params.nodeSelector ? { nodeSelector: this.params.nodeSelector } : {}),
+            ...(this.params.tolerations ? { tolerations: this.params.tolerations } : {}),
             ...(this.params.runnerServiceAccount ? { serviceAccountName: this.params.runnerServiceAccount } : {}),
             // No artifact/secret ever lands on this pod's own filesystem (see the class doc
             // comment) — a hostile workflow gains nothing from write access to it.
@@ -376,8 +393,16 @@ export class RunnerProcessManager {
                   : {}),
                 env: Object.entries(env).map(([envName, value]) => ({ name: envName, value })),
                 resources: {
-                  requests: { cpu: '100m', memory: '128Mi' },
-                  limits: { cpu: '500m', memory: '512Mi' },
+                  requests: {
+                    cpu: '100m',
+                    memory: '128Mi',
+                    'ephemeral-storage': this.params.ephemeralStorageRequest ?? DEFAULT_RUNNER_EPHEMERAL_STORAGE_REQUEST,
+                  },
+                  limits: {
+                    cpu: '500m',
+                    memory: '512Mi',
+                    'ephemeral-storage': this.params.ephemeralStorageLimit ?? DEFAULT_RUNNER_EPHEMERAL_STORAGE_LIMIT,
+                  },
                 },
                 securityContext: {
                   allowPrivilegeEscalation: false,
@@ -387,7 +412,7 @@ export class RunnerProcessManager {
                 volumeMounts: [{ name: 'tmp', mountPath: '/tmp' }],
               },
             ],
-            volumes: [{ name: 'tmp', emptyDir: {} }],
+            volumes: [{ name: 'tmp', emptyDir: { sizeLimit: this.params.tmpSizeLimit ?? DEFAULT_RUNNER_TMP_SIZE_LIMIT } }],
           },
         },
       },

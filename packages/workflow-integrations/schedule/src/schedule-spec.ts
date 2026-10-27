@@ -6,6 +6,7 @@
 import { CronExpressionParser } from 'cron-parser';
 import type { IScheduleSpec } from '@falang/workflow-integrations-common';
 import {
+  MIN_SCHEDULE_INTERVAL_SECONDS,
   SCHEDULE_CRON_EXPRESSION_FIELD_NAME,
   SCHEDULE_CRON_TIMEZONE_FIELD_NAME,
   SCHEDULE_CRON_TRIGGER_NAME,
@@ -26,6 +27,57 @@ export const validateScheduleIntervalEvery = (value: string): string | undefined
   if (!POSITIVE_INTEGER_PATTERN.test(value.trim())) {
     return 'Enter a positive whole number (e.g. 15).';
   }
+};
+
+const SECONDS_PER_UNIT: Readonly<Record<TScheduleIntervalUnit, number>> = {
+  seconds: 1,
+  minutes: 60,
+  hours: 3600,
+  days: 86_400,
+  weeks: 604_800,
+};
+
+/** The `every` × `unit` period in seconds. */
+export const intervalPeriodSeconds = (every: string, unit: TScheduleIntervalUnit): number =>
+  Number(every.trim()) * SECONDS_PER_UNIT[unit];
+
+/** Rejects an interval shorter than `MIN_SCHEDULE_INTERVAL_SECONDS` — "every 10 seconds" would hammer the runner. */
+export const validateScheduleIntervalPeriod = (every: string, unit: TScheduleIntervalUnit): string | undefined => {
+  if (intervalPeriodSeconds(every, unit) < MIN_SCHEDULE_INTERVAL_SECONDS) {
+    return `The interval must be at least ${MIN_SCHEDULE_INTERVAL_SECONDS} seconds.`;
+  }
+};
+
+const INTERVAL_SPEC_PATTERN = /^(\d+)\s+(seconds|minutes|hours|days|weeks)$/;
+/** Cron fires sampled to find the shortest gap — enough to see a "0,1 * * * *"-style burst. */
+const CRON_SAMPLE_FIRES = 30;
+
+/**
+ * The shortest period, in seconds, between two consecutive fires of `spec` (`Infinity` for an empty spec). Intervals
+ * use their period; cron expressions are sampled over their next fires (a 5-field expression can't fire more often than
+ * once a minute, a 6-field one is checked here too, which is what makes this a real guard server-side).
+ * Used by the backend's schedule guard against `SCHEDULE_MIN_INTERVAL_SECONDS`.
+ */
+export const minScheduleGapSeconds = (spec: IScheduleSpec, from: Date = new Date()): number => {
+  let min = Number.POSITIVE_INFINITY;
+  for (const interval of spec.intervals ?? []) {
+    const match = INTERVAL_SPEC_PATTERN.exec(interval.every.trim());
+    if (!match) return 0;
+    min = Math.min(min, Number(match[1]) * SECONDS_PER_UNIT[match[2] as TScheduleIntervalUnit]);
+  }
+  for (const expression of spec.cronExpressions ?? []) {
+    let previous: number | null = null;
+    const fires = CronExpressionParser.parse(expression, {
+      currentDate: from,
+      ...(spec.timeZone ? { tz: spec.timeZone } : {}),
+    }).take(CRON_SAMPLE_FIRES);
+    for (const fire of fires) {
+      const at = fire.toDate().getTime();
+      if (previous !== null) min = Math.min(min, (at - previous) / 1000);
+      previous = at;
+    }
+  }
+  return min;
 };
 
 const countCronFields = (expression: string): number => expression.trim().split(/\s+/).filter(Boolean).length;
@@ -94,6 +146,8 @@ export const buildScheduleSpec = (
         `schedule-interval: "${SCHEDULE_INTERVAL_UNIT_FIELD_NAME}" must be one of ${SCHEDULE_INTERVAL_UNITS.join(', ')}, got "${unit ?? ''}".`,
       );
     }
+    const periodError = validateScheduleIntervalPeriod(every, unit);
+    if (periodError) throw new Error(`schedule-interval: ${periodError}`);
     // `every`/`offset` are `@temporalio/common`'s own `ms`-package Duration string form (e.g.
     // "15 minutes") — `SCHEDULE_INTERVAL_UNITS`' plural English names are already valid `ms` units
     // verbatim (including "weeks"), so no per-unit mapping is needed — see `IScheduleIntervalSpec`'s

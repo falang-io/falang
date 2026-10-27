@@ -35,3 +35,10 @@ export const SCHEDULE_CRON_TIMEZONE_FIELD_NAME = 'timezone';
 
 export const SCHEDULE_INTERVAL_UNITS = ['seconds', 'minutes', 'hours', 'days', 'weeks'] as const;
 export type TScheduleIntervalUnit = (typeof SCHEDULE_INTERVAL_UNITS)[number];
+
+/**
+ * The smallest period between two fires a schedule may have (security audit P1-3/P1-4) — used for editor validation
+ * and when the spec is built. A deployment may raise it server-side (`SCHEDULE_MIN_INTERVAL_SECONDS`); it is a
+ * constant here because this package ships to the browser and must not read the environment.
+ */
+export const MIN_SCHEDULE_INTERVAL_SECONDS = 60;

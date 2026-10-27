@@ -110,6 +110,11 @@ export interface IUserLimits {
   readonly maxIdleMinutes: number;
   /** Whether projects may use the "always on" switch. */
   readonly alwaysOnAllowed: boolean;
+  readonly maxProjects: number;
+  readonly maxDevPods: number;
+  readonly maxStoredVersions: number;
+  readonly maxOwnerFilesBytes: number;
+  readonly maxSchedules: number;
 }
 
 /** A field set to `null` clears that override (falls back to the env default); an omitted field leaves it untouched. */

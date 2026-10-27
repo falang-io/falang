@@ -7,6 +7,8 @@ import type { IOAuth2AccessTokenPort } from './oauth2-access-token-port.js';
 import { IntegrationWebhookController } from './integration-webhook.controller.js';
 import { IntegrationsRuntimeService } from './integrations-runtime.service.js';
 import { createTemporalScheduleClient, SCHEDULE_CLIENT_PORT, type IScheduleClientPort } from './schedule-client.js';
+import { parseScheduleCatchupWindow } from './schedule-guard.js';
+import { parseWorkflowExecutionTimeout } from './workflow-execution-timeout.js';
 import { createSignalWorkflowWithStart } from './signal-workflow.js';
 import { TEMPORAL_TENANCY, type ITemporalTenancy } from './temporal-tenancy.js';
 
@@ -16,8 +18,12 @@ import { TEMPORAL_TENANCY, type ITemporalTenancy } from './temporal-tenancy.js';
 // `IntegrationsRuntimeService`. See `schedule-client.ts`'s `SCHEDULE_CLIENT_PORT` doc comment.
 const scheduleClientPortProvider: FactoryProvider<IScheduleClientPort> = {
   provide: SCHEDULE_CLIENT_PORT,
-  useFactory: (tenancy: ITemporalTenancy) => createTemporalScheduleClient(tenancy),
-  inject: [TEMPORAL_TENANCY],
+  useFactory: (tenancy: ITemporalTenancy, config: ConfigService) =>
+    createTemporalScheduleClient(tenancy, {
+      catchupWindow: parseScheduleCatchupWindow(config.get<string>('SCHEDULE_CATCHUP_WINDOW_SECONDS')),
+      workflowExecutionTimeout: parseWorkflowExecutionTimeout(config.get<string>('WORKFLOW_EXECUTION_TIMEOUT')),
+    }),
+  inject: [TEMPORAL_TENANCY, ConfigService],
 };
 
 type TResolveDiscoveryPort = FactoryProvider<IIntegrationsDiscoveryPort>['useFactory'];
@@ -106,7 +112,10 @@ const buildIntegrationsRuntimeServiceProvider = (
     return new IntegrationsRuntimeService({
       integrations: [...integrations, ...dynamicIntegrations],
       discovery,
-      signalWorkflowWithStart: createSignalWorkflowWithStart(tenancy),
+      signalWorkflowWithStart: createSignalWorkflowWithStart(
+        tenancy,
+        parseWorkflowExecutionTimeout(config.get<string>('WORKFLOW_EXECUTION_TIMEOUT')),
+      ),
       publicHost: config.get<string>('GATEWAY_PUBLIC_HOST'),
       getInternalProjectToken,
       scheduleClient,

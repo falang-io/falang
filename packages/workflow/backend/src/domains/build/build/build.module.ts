@@ -7,8 +7,13 @@ import { ConfigService } from '@nestjs/config';
 import { TypeOrmModule } from '@nestjs/typeorm';
 import { POSITION_QUERY_NAME, type IWorkflowPositionFrame } from '@falang/workflow-compiler';
 import { WorkflowNotFoundError } from '@temporalio/client';
-import { TEMPORAL_TENANCY, type ITemporalTenancy } from '@falang/workflow-gateway';
-import { arrayFromPayloads, defaultPayloadConverter } from '@temporalio/common';
+import {
+  executionTimeoutOptions,
+  parseWorkflowExecutionTimeout,
+  TEMPORAL_TENANCY,
+  type ITemporalTenancy,
+} from '@falang/workflow-gateway';
+import { arrayFromPayloads, defaultPayloadConverter, type Duration } from '@temporalio/common';
 import { temporal } from '@temporalio/proto';
 import { DebugController } from '../debug/debug.controller.js';
 import { DebugService } from '../debug/debug.service.js';
@@ -38,6 +43,8 @@ import { createK8sDeploymentsClient } from './k8s-deployments-client.js';
 import { ProjectVersion } from './project-version.entity.js';
 import { RUNNER_IDLE_TIMEOUT_MS, RunnerIdleSweepService } from './runner-idle-sweep.service.js';
 import { parseRunnerLogFormat, parseRunnerMetricsPort } from './runner-env.js';
+import { parseNodeSelector, parseTolerations } from './runner-pod-placement.js';
+import { ScheduleLimitsService } from './schedule-limits.service.js';
 import { RunnerProcessManager } from './runner-process-manager.js';
 import { ScheduleWakeService } from './schedule-wake.service.js';
 import { terminateRunningExecutionsWith, type ITerminatableWorkflowHandle } from './terminate-running-executions.js';
@@ -67,11 +74,16 @@ const BUILD_OUTPUT_DIR_PATH = join(__dirname, '..', '..', '..', '..', '.builds')
 // Every closure resolves the project's own namespace client through `ITemporalTenancy` — a shared,
 // pooled connection that is never closed per call (ADR 0057 (private); it used to connect fresh per call).
 const createStartAndAwaitWorkflow =
-  (tenancy: ITemporalTenancy): TStartAndAwaitWorkflow =>
+  (tenancy: ITemporalTenancy, executionTimeout: Duration | undefined): TStartAndAwaitWorkflow =>
   async ({ projectId, taskQueue, workflowId, functionName, args }) => {
     try {
       const client = await tenancy.getClient(projectId);
-      const handle = await client.workflow.start(functionName, { taskQueue, workflowId, args: [...args] });
+      const handle = await client.workflow.start(functionName, {
+        taskQueue,
+        workflowId,
+        args: [...args],
+        ...executionTimeoutOptions(executionTimeout),
+      });
       const result = await handle.result();
       return { status: 'completed', result };
     } catch (error) {
@@ -80,7 +92,7 @@ const createStartAndAwaitWorkflow =
   };
 
 const createStartWorkflow =
-  (tenancy: ITemporalTenancy): TStartWorkflow =>
+  (tenancy: ITemporalTenancy, executionTimeout: Duration | undefined): TStartWorkflow =>
   async ({ projectId, taskQueue, workflowId, functionName, args, signal }) => {
     const client = await tenancy.getClient(projectId);
     if (signal) {
@@ -90,10 +102,16 @@ const createStartWorkflow =
         args: [...args],
         signal: signal.name,
         signalArgs: [...signal.args],
+        ...executionTimeoutOptions(executionTimeout),
       });
       return { runId: signalled.signaledRunId };
     }
-    const handle = await client.workflow.start(functionName, { taskQueue, workflowId, args: [...args] });
+    const handle = await client.workflow.start(functionName, {
+      taskQueue,
+      workflowId,
+      args: [...args],
+      ...executionTimeoutOptions(executionTimeout),
+    });
     return { runId: handle.firstExecutionRunId };
   };
 
@@ -249,6 +267,7 @@ const createTerminateRunningExecutions = (graceMs: number, tenancy: ITemporalTen
     // `GatewayModule`'s `global: true` registration in `app.module.ts`, `SCHEDULE_CLIENT_PORT` — neither
     // needs an explicit `imports` entry here.
     ScheduleWakeService,
+    ScheduleLimitsService,
     { provide: BUILD_OUTPUT_DIR, useValue: BUILD_OUTPUT_DIR_PATH },
     {
       // Default 30 minutes — generous enough that a person actively iterating in the editor (dev)
@@ -311,6 +330,12 @@ const createTerminateRunningExecutions = (graceMs: number, tenancy: ITemporalTen
           // `MEDIA_SERVICE_URL` for pods, same reasoning as `RUNNER_ACTIVEPIECES_SERVICE_URL`/
           // `RUNNER_TELEGRAM_API_BASE_URL` above.
           mediaServiceUrl: config.get<string>('RUNNER_MEDIA_SERVICE_URL') ?? config.get<string>('MEDIA_SERVICE_URL'),
+          // Security audit P1-3: bounded local storage and optional dedicated node pool for runner pods.
+          ephemeralStorageLimit: config.get<string>('RUNNER_EPHEMERAL_STORAGE_LIMIT'),
+          ephemeralStorageRequest: config.get<string>('RUNNER_EPHEMERAL_STORAGE_REQUEST'),
+          tmpSizeLimit: config.get<string>('RUNNER_TMP_SIZE_LIMIT'),
+          nodeSelector: parseNodeSelector(config.get<string>('RUNNER_NODE_SELECTOR')),
+          tolerations: parseTolerations(config.get<string>('RUNNER_TOLERATIONS')),
           // ADR 0060 (private): the runner's Prometheus port and log format.
           runnerMetricsPort: parseRunnerMetricsPort(config.get<string>('RUNNER_METRICS_PORT')),
           runnerLogFormat: parseRunnerLogFormat(config.get<string>('RUNNER_LOG_FORMAT') ?? config.get<string>('LOG_FORMAT')),
@@ -337,9 +362,11 @@ const createTerminateRunningExecutions = (graceMs: number, tenancy: ITemporalTen
     {
       provide: WorkflowRunService,
       inject: [ConfigService, TEMPORAL_TENANCY],
-      useFactory: (config: ConfigService, tenancy: ITemporalTenancy) =>
-        new WorkflowRunService({
-          startAndAwaitWorkflow: createStartAndAwaitWorkflow(tenancy),
+      useFactory: (config: ConfigService, tenancy: ITemporalTenancy) => {
+        // Security audit P1-4: every execution the backend starts is bounded (`WORKFLOW_EXECUTION_TIMEOUT`, default 30 days).
+        const executionTimeout = parseWorkflowExecutionTimeout(config.get<string>('WORKFLOW_EXECUTION_TIMEOUT'));
+        return new WorkflowRunService({
+          startAndAwaitWorkflow: createStartAndAwaitWorkflow(tenancy, executionTimeout),
           // How long a cancelled dev execution gets to actually finish (its own `finally`/
           // `CancellationScope.nonCancellable` close-on-cancel, ADR 0040 (private) §4/§5) before
           // `createTerminateRunningExecutions` falls back to a hard `terminate()` — see its own
@@ -348,13 +375,14 @@ const createTerminateRunningExecutions = (graceMs: number, tenancy: ITemporalTen
             config.get<number>('DEV_EXECUTION_CANCEL_GRACE_MS', DEFAULT_DEV_EXECUTION_CANCEL_GRACE_MS),
             tenancy,
           ),
-          startWorkflow: createStartWorkflow(tenancy),
+          startWorkflow: createStartWorkflow(tenancy, executionTimeout),
           getWorkflowPosition: createGetWorkflowPosition(tenancy),
-        }),
+        });
+      },
     },
     {
       provide: DebugService,
-      inject: [DocumentsService, DevArtifactStore, WorkflowRunService, BuildService, TEMPORAL_TENANCY],
+      inject: [DocumentsService, DevArtifactStore, WorkflowRunService, BuildService, TEMPORAL_TENANCY, ConfigService],
       useFactory: createDebugService,
     },
   ],

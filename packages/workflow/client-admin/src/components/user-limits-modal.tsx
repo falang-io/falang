@@ -10,7 +10,12 @@ type TFieldKey =
   | 'devFileTtlHours'
   | 'ingressFileTtlHours'
   | 'maxConcurrentProdVersions'
-  | 'maxIdleMinutes';
+  | 'maxIdleMinutes'
+  | 'maxProjects'
+  | 'maxDevPods'
+  | 'maxStoredVersions'
+  | 'maxOwnerFilesBytes'
+  | 'maxSchedules';
 
 const FIELD_KEYS: readonly TFieldKey[] = [
   'maxProjectFilesBytes',
@@ -19,7 +24,15 @@ const FIELD_KEYS: readonly TFieldKey[] = [
   'ingressFileTtlHours',
   'maxConcurrentProdVersions',
   'maxIdleMinutes',
+  'maxProjects',
+  'maxDevPods',
+  'maxStoredVersions',
+  'maxOwnerFilesBytes',
+  'maxSchedules',
 ];
+
+/** `maxIdleMinutes` → `max-idle-minutes` (the locale key stem). */
+const toKebab = (key: string): string => key.replaceAll(/[A-Z]/g, (letter) => `-${letter.toLowerCase()}`);
 
 /** `alwaysOnAllowed` is a tri-state select: default (no override) / allowed / forbidden. */
 type TAlwaysOnChoice = 'default' | 'allowed' | 'forbidden';
@@ -140,45 +153,11 @@ export const UserLimitsModal: React.FC<IUserLimitsModalProps> = ({ userId, onClo
       ]}
     >
       <Form<IFormValues> form={form} layout="vertical" disabled={isLoading}>
-        <Form.Item
-          name="maxProjectFilesBytes"
-          label={t('workflow-client-admin:user-limits-modal.max-project-files-bytes-label')}
-        >
-          <InputNumber
-            style={{ width: '100%' }}
-            min={1}
-            placeholder={String(data?.effective.maxProjectFilesBytes ?? '')}
-          />
-        </Form.Item>
-        <Form.Item name="maxFileBytes" label={t('workflow-client-admin:user-limits-modal.max-file-bytes-label')}>
-          <InputNumber style={{ width: '100%' }} min={1} placeholder={String(data?.effective.maxFileBytes ?? '')} />
-        </Form.Item>
-        <Form.Item name="devFileTtlHours" label={t('workflow-client-admin:user-limits-modal.dev-file-ttl-hours-label')}>
-          <InputNumber style={{ width: '100%' }} min={1} placeholder={String(data?.effective.devFileTtlHours ?? '')} />
-        </Form.Item>
-        <Form.Item
-          name="ingressFileTtlHours"
-          label={t('workflow-client-admin:user-limits-modal.ingress-file-ttl-hours-label')}
-        >
-          <InputNumber
-            style={{ width: '100%' }}
-            min={1}
-            placeholder={String(data?.effective.ingressFileTtlHours ?? '')}
-          />
-        </Form.Item>
-        <Form.Item
-          name="maxConcurrentProdVersions"
-          label={t('workflow-client-admin:user-limits-modal.max-concurrent-prod-versions-label')}
-        >
-          <InputNumber
-            style={{ width: '100%' }}
-            min={1}
-            placeholder={String(data?.effective.maxConcurrentProdVersions ?? '')}
-          />
-        </Form.Item>
-        <Form.Item name="maxIdleMinutes" label={t('workflow-client-admin:user-limits-modal.max-idle-minutes-label')}>
-          <InputNumber style={{ width: '100%' }} min={1} placeholder={String(data?.effective.maxIdleMinutes ?? '')} />
-        </Form.Item>
+        {FIELD_KEYS.map((key) => (
+          <Form.Item key={key} name={key} label={t(`workflow-client-admin:user-limits-modal.${toKebab(key)}-label`)}>
+            <InputNumber style={{ width: '100%' }} min={1} placeholder={String(data?.effective[key] ?? '')} />
+          </Form.Item>
+        ))}
         <Form.Item
           name="alwaysOnAllowed"
           label={t('workflow-client-admin:user-limits-modal.always-on-allowed-label')}

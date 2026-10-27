@@ -312,6 +312,11 @@ describe('admin domain (/admin/*)', () => {
           maxConcurrentProdVersions: 3,
           maxIdleMinutes: 1440,
           alwaysOnAllowed: true,
+          maxProjects: 100,
+          maxDevPods: 3,
+          maxStoredVersions: 50,
+          maxOwnerFilesBytes: 10_737_418_240,
+          maxSchedules: 20,
         },
         overrides: {},
       });

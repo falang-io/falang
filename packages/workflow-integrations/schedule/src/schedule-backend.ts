@@ -1,3 +1,4 @@
+// oxlint-disable no-await-in-loop -- the reconcile walks documents/schedules sequentially on a 30 s tick (not a hot path).
 import { TRIGGER_FUNCTION_BODY_NAME, TRIGGER_FUNCTION_NAME } from '@falang/workflow-dto';
 import type {
   IIntegrationBackendContext,
@@ -58,6 +59,26 @@ const logSkippedDocument = (doc: IIntegrationDocumentRecord, error: unknown): vo
   console.warn(`[${SCHEDULE_VENDOR}] Skipping trigger-function "${doc.id}" ("${doc.name}"): ${message}`);
 };
 
+/** Why a schedule was not (re)registered, journalled once per distinct reason so the 30 s reconcile does not repeat it. */
+const reportRefusedSchedule = async (
+  ctx: IIntegrationBackendContext,
+  reported: Map<string, string>,
+  doc: IIntegrationDocumentRecord,
+  scheduleId: string,
+  error: unknown,
+): Promise<void> => {
+  logSkippedDocument(doc, error);
+  const message = error instanceof Error ? error.message : String(error);
+  if (reported.get(scheduleId) === message) return;
+  reported.set(scheduleId, message);
+  await ctx.reportJournalProblem?.({
+    workflowId: workflowIdFor(doc.id),
+    documentId: doc.id,
+    level: 'warn',
+    message: `Schedule not registered: ${message}`,
+  });
+};
+
 type TScheduleSpecResult =
   | { readonly ok: true; readonly spec: IScheduleSpec }
   | { readonly ok: false; readonly error: unknown };
@@ -89,6 +110,7 @@ const tryBuildScheduleSpec = (
  */
 export const registerScheduleBackend: TRegisterIntegrationBackend = async (ctx) => {
   const lastUpsertedParams = new Map<string, string>();
+  const reportedRefusals = new Map<string, string>();
   const scheduleIdPrefix = `sched-${ctx.env}-`;
   // Set by `onRunnerIdle`, cleared by `onRunnerResume` — while `true`, `reconcile` must not upsert
   // anything (it would just re-unpause what `onRunnerIdle` just paused, since a paused schedule's own
@@ -112,7 +134,7 @@ export const registerScheduleBackend: TRegisterIntegrationBackend = async (ctx) 
 
       const specResult = tryBuildScheduleSpec(body.triggerName, body.triggerConfig ?? {});
       if (!specResult.ok) {
-        logSkippedDocument(doc, specResult.error);
+        await reportRefusedSchedule(ctx, reportedRefusals, doc, scheduleId, specResult.error);
         continue;
       }
       const { spec } = specResult;
@@ -136,8 +158,15 @@ export const registerScheduleBackend: TRegisterIntegrationBackend = async (ctx) 
         existingState && !existingState.paused && lastUpsertedParams.get(scheduleId) === paramsKey;
       if (alreadyUpToDate) continue;
 
-      // oxlint-disable-next-line no-await-in-loop -- sequential, low-frequency (30s reconcile tick, not a hot path) — same reasoning as telegram-backend.ts's loop over updates.
-      await ctx.upsertSchedule(upsertParams);
+      try {
+        await ctx.upsertSchedule(upsertParams);
+      } catch (error) {
+        // The host refuses a cadence below its minimum or a schedule over the owner's quota (security audit P1-3/P1-4):
+        // journal it, never create the schedule, and let the other documents of this tick carry on.
+        await reportRefusedSchedule(ctx, reportedRefusals, doc, scheduleId, error);
+        continue;
+      }
+      reportedRefusals.delete(scheduleId);
       lastUpsertedParams.set(scheduleId, paramsKey);
     }
 

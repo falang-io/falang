@@ -59,7 +59,7 @@ describe('scheduleIntegration', () => {
 
     const unit = fields.find((field) => field.name === 'unit');
     expect(unit?.kind).toBe('select');
-    expect(unit?.options?.map((option) => option.value)).toEqual(['seconds', 'minutes', 'hours', 'days', 'weeks']);
+    expect(unit?.options?.map((option) => option.value)).toEqual(['minutes', 'hours', 'days', 'weeks']);
     for (const option of unit?.options ?? []) expect(option.label).toBe(`schedule:unit.${option.value}`);
   });
 

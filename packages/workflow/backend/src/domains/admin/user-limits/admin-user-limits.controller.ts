@@ -14,6 +14,11 @@ const OVERRIDE_KEYS = [
   'maxConcurrentProdVersions',
   'maxIdleMinutes',
   'alwaysOnAllowed',
+  'maxProjects',
+  'maxDevPods',
+  'maxStoredVersions',
+  'maxOwnerFilesBytes',
+  'maxSchedules',
 ] as const;
 
 /**

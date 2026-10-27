@@ -54,6 +54,7 @@ describe('compileProject with activityOptions', () => {
       [
         'const { logActivity } = proxyLocalActivities<{ logActivity(message: string): Promise<string> }>({',
         "  startToCloseTimeout: '10 seconds',",
+        '  retry: { maximumAttempts: 5 },',
         '});',
       ].join('\n'),
     );
@@ -118,6 +119,7 @@ describe('compileProject with activityOptions', () => {
       [
         'const { logActivity } = proxyLocalActivities<{ logActivity(message: string): Promise<string> }>({',
         "  startToCloseTimeout: '10 seconds',",
+        '  retry: { maximumAttempts: 5 },',
         '});',
       ].join('\n'),
     );
@@ -126,6 +128,7 @@ describe('compileProject with activityOptions', () => {
         'const { vendorAAction } = proxyActivities<{ vendorAAction(): Promise<void> }>({',
         "  startToCloseTimeout: '10 minutes',",
         "  heartbeatTimeout: '1 minute',",
+        '  retry: { maximumAttempts: 5 },',
         '});',
       ].join('\n'),
     );
@@ -191,6 +194,7 @@ describe('compileProject with activityOptions', () => {
       [
         'const { telegramAskQuestion, telegramResolveQuestionAnswer } = proxyActivities<{ telegramAskQuestion(credentialId: string): Promise<{ messageId: string }>; telegramResolveQuestionAnswer(credentialId: string, messageId: string): Promise<void> }>({',
         "  startToCloseTimeout: '1 minute',",
+        '  retry: { maximumAttempts: 5 },',
         '});',
       ].join('\n'),
     );

@@ -1,4 +1,4 @@
-import { Column, CreateDateColumn, Entity, PrimaryGeneratedColumn } from 'typeorm';
+import { Column, CreateDateColumn, Entity, Index, PrimaryGeneratedColumn } from 'typeorm';
 
 /**
  * A published (prod) version of a project — see ADR 0004 (private).
@@ -12,6 +12,7 @@ import { Column, CreateDateColumn, Entity, PrimaryGeneratedColumn } from 'typeor
  * survives a `backend` restart — its runner pod may already be running from before that restart.
  */
 @Entity('project_versions')
+@Index('UQ_project_versions_project_version', ['projectId', 'versionNumber'], { unique: true })
 export class ProjectVersion {
   @PrimaryGeneratedColumn('uuid')
   id!: string;

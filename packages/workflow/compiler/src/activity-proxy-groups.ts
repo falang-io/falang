@@ -78,11 +78,18 @@ export interface ICanonicalActivityOptions {
   readonly kind: 'local' | 'regular';
   readonly startToCloseTimeout: string;
   readonly heartbeatTimeout?: string;
-  readonly retry?: { readonly maximumAttempts?: number; readonly nonRetryableErrorTypes?: readonly string[] };
+  readonly retry: { readonly maximumAttempts: number; readonly nonRetryableErrorTypes?: readonly string[] };
 }
 
 /** The options every entry gets when its descriptor leaves `activityOptions` unset — today's only behavior, kept as the always-first preamble group (see `groupActivityProxyEntries`'s doc comment). */
-const DEFAULT_ACTIVITY_OPTIONS: ICanonicalActivityOptions = { kind: 'local', startToCloseTimeout: '10 seconds' };
+const DEFAULT_ACTIVITY_OPTIONS = { kind: 'local', startToCloseTimeout: '10 seconds' } as const;
+
+/**
+ * Attempts an activity gets when its descriptor sets none (security audit P1-4): Temporal's own default is unlimited
+ * retries, so a permanently failing call (a revoked credential, a bad request) would retry forever and pin the
+ * execution. A descriptor's explicit `retry.maximumAttempts` — including `0` for unlimited — always wins.
+ */
+export const DEFAULT_ACTIVITY_MAXIMUM_ATTEMPTS = 5;
 
 /**
  * Fills in every `IActivityOptions` default and drops `undefined` optional fields, so two
@@ -93,18 +100,10 @@ const canonicalizeActivityOptions = (options: IActivityOptions | undefined): ICa
   kind: options?.kind ?? DEFAULT_ACTIVITY_OPTIONS.kind,
   startToCloseTimeout: options?.startToCloseTimeout ?? DEFAULT_ACTIVITY_OPTIONS.startToCloseTimeout,
   ...(options?.heartbeatTimeout ? { heartbeatTimeout: options.heartbeatTimeout } : {}),
-  ...(options?.retry
-    ? {
-        retry: {
-          ...(typeof options.retry.maximumAttempts === 'number'
-            ? { maximumAttempts: options.retry.maximumAttempts }
-            : {}),
-          ...(options.retry.nonRetryableErrorTypes
-            ? { nonRetryableErrorTypes: options.retry.nonRetryableErrorTypes }
-            : {}),
-        },
-      }
-    : {}),
+  retry: {
+    maximumAttempts: options?.retry?.maximumAttempts ?? DEFAULT_ACTIVITY_MAXIMUM_ATTEMPTS,
+    ...(options?.retry?.nonRetryableErrorTypes ? { nonRetryableErrorTypes: options.retry.nonRetryableErrorTypes } : {}),
+  },
 });
 
 /** A stable, field-order-independent key for a canonicalized `IActivityOptions` — see `canonicalizeActivityOptions`'s doc comment for why canonicalizing first matters. Field insertion order is fixed by `canonicalizeActivityOptions` itself, so `JSON.stringify` alone is deterministic here. */
@@ -140,9 +139,8 @@ export const groupActivityProxyEntries = (entries: readonly IActivityProxyEntry[
 };
 
 /** `retry`'s own fields, inlined as one object-literal line — only the fields the group's canonicalized options actually carry. */
-const buildRetryLiteral = (retry: NonNullable<ICanonicalActivityOptions['retry']>): string => {
-  const fields: string[] = [];
-  if (typeof retry.maximumAttempts === 'number') fields.push(`maximumAttempts: ${retry.maximumAttempts}`);
+const buildRetryLiteral = (retry: ICanonicalActivityOptions['retry']): string => {
+  const fields: string[] = [`maximumAttempts: ${retry.maximumAttempts}`];
   if (retry.nonRetryableErrorTypes)
     fields.push(`nonRetryableErrorTypes: ${JSON.stringify(retry.nonRetryableErrorTypes)}`);
   return `{ ${fields.join(', ')} }`;
@@ -156,7 +154,7 @@ export const buildActivityProxyGroupCode = (group: IActivityProxyGroup): string 
   const optionsLines = [
     `  startToCloseTimeout: '${group.options.startToCloseTimeout}',`,
     ...(group.options.heartbeatTimeout ? [`  heartbeatTimeout: '${group.options.heartbeatTimeout}',`] : []),
-    ...(group.options.retry ? [`  retry: ${buildRetryLiteral(group.options.retry)},`] : []),
+    `  retry: ${buildRetryLiteral(group.options.retry)},`,
   ];
   return [`const { ${names} } = ${proxyFn}<{ ${signatures} }>({`, ...optionsLines, '});'].join('\n');
 };

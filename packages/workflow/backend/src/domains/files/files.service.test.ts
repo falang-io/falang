@@ -19,6 +19,11 @@ const LIMITS: IUserLimits = {
   maxConcurrentProdVersions: 3,
   maxIdleMinutes: 1440,
   alwaysOnAllowed: true,
+  maxProjects: 100,
+  maxDevPods: 3,
+  maxStoredVersions: 50,
+  maxOwnerFilesBytes: 5000,
+  maxSchedules: 20,
 };
 
 interface MockFileRepo {
@@ -30,12 +35,21 @@ interface MockFileRepo {
   createQueryBuilder: ReturnType<typeof vi.fn>;
 }
 
-const makeFileRepo = (usedBytes = 0): MockFileRepo => {
+const makeFileRepo = (usedBytes = 0, ownerUsedBytes = 0): MockFileRepo => {
   const rows = new Map<string, File>();
-  const queryBuilder = {
-    select: vi.fn().mockReturnThis(),
-    where: vi.fn().mockReturnThis(),
-    getRawOne: vi.fn(() => Promise.resolve({ total: usedBytes })),
+  // The owner-wide sum is the only query that joins `projects`.
+  const makeQueryBuilder = () => {
+    let joined = false;
+    const queryBuilder = {
+      innerJoin: vi.fn(() => {
+        joined = true;
+        return queryBuilder;
+      }),
+      select: vi.fn().mockReturnThis(),
+      where: vi.fn().mockReturnThis(),
+      getRawOne: vi.fn(() => Promise.resolve({ total: joined ? ownerUsedBytes : usedBytes })),
+    };
+    return queryBuilder;
   };
   return {
     findOneBy: vi.fn((where: { id?: string; projectId?: string; publicToken?: string }) => {
@@ -57,7 +71,7 @@ const makeFileRepo = (usedBytes = 0): MockFileRepo => {
       rows.delete(value.id);
       return Promise.resolve(value);
     }),
-    createQueryBuilder: vi.fn(() => queryBuilder),
+    createQueryBuilder: vi.fn(makeQueryBuilder),
   };
 };
 
@@ -150,6 +164,26 @@ describe('FilesService', () => {
       await expect(
         service.upload('project-1', readableFrom('0123456789'), {
           name: 'over-quota.bin',
+          mime: 'application/octet-stream',
+          createdBy: 'user:1',
+        }),
+      ).rejects.toBeInstanceOf(PayloadTooLargeException);
+      expect(storage.size).toBe(0);
+    });
+
+    it('aborts when the owner-wide quota across all projects would be exceeded', async () => {
+      fileRepo = makeFileRepo(0, LIMITS.maxOwnerFilesBytes - 5);
+      service = new FilesService(
+        fileRepo as unknown as Repository<File>,
+        makeProjectRepo() as Repository<Project>,
+        storage,
+        userLimits as UserLimitsService,
+        { get: vi.fn((_key: string, fallback?: unknown) => fallback) } as unknown as ConfigService,
+      );
+
+      await expect(
+        service.upload('project-1', readableFrom('0123456789'), {
+          name: 'over-owner-quota.bin',
           mime: 'application/octet-stream',
           createdBy: 'user:1',
         }),

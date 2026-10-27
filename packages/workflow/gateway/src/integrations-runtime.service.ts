@@ -12,6 +12,7 @@ import type {
 import type { IIntegrationCredentialInstance, IIntegrationsDiscoveryPort } from './discovery-port.js';
 import type { IFileUploadPort } from './file-upload-port.js';
 import type { IOAuth2AccessTokenPort } from './oauth2-access-token-port.js';
+import type { IScheduleGuard } from './schedule-guard.js';
 import type { IRunJournalProblemPort } from './run-journal-problem-port.js';
 import type { IScheduleClientPort } from './schedule-client.js';
 import type { TSignalWorkflowWithStart } from './signal-workflow.js';
@@ -132,6 +133,7 @@ export class IntegrationsRuntimeService implements OnModuleInit, OnModuleDestroy
   private readonly publicHost: string | undefined;
   private readonly getInternalProjectToken: ((projectId: string) => string) | undefined;
   private readonly scheduleClient: IScheduleClientPort | undefined;
+  private scheduleGuard: IScheduleGuard | undefined;
   private readonly fileUpload: IFileUploadPort | undefined;
   private readonly oauth2AccessToken: IOAuth2AccessTokenPort | undefined;
   private readonly webhookSecretKey: string | undefined;
@@ -240,6 +242,11 @@ export class IntegrationsRuntimeService implements OnModuleInit, OnModuleDestroy
    */
   setEnsureRunnerRunning(ensureRunnerRunning: TEnsureRunnerRunning): void {
     this.ensureRunnerRunning = ensureRunnerRunning;
+  }
+
+  /** Installs the schedule guard (minimum cadence, owner quota) — see `IScheduleGuard`. Without it every `upsertSchedule` goes through unchecked. */
+  setScheduleGuard(guard: IScheduleGuard): void {
+    this.scheduleGuard = guard;
   }
 
   /**
@@ -544,13 +551,16 @@ export class IntegrationsRuntimeService implements OnModuleInit, OnModuleDestroy
           }
           return this.getInternalProjectToken(target.projectId);
         },
-        upsertSchedule: (scheduleParams) =>
-          this.requireScheduleClient().upsert({
-            ...scheduleParams,
-            taskQueue,
+        upsertSchedule: async (scheduleParams) => {
+          const client = this.requireScheduleClient();
+          await this.scheduleGuard?.assertAllowed({
             projectId: target.projectId,
             env: target.env,
-          }),
+            scheduleId: scheduleParams.scheduleId,
+            spec: scheduleParams.spec,
+          });
+          await client.upsert({ ...scheduleParams, taskQueue, projectId: target.projectId, env: target.env });
+        },
         pauseSchedule: (scheduleId, note) => this.requireScheduleClient().pause(target.projectId, scheduleId, note),
         deleteSchedule: (scheduleId) => this.requireScheduleClient().delete(target.projectId, scheduleId),
         listSchedules: () => this.requireScheduleClient().list(target.projectId, taskQueue),
