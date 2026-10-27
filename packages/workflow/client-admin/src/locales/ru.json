@@ -104,7 +104,9 @@
       "session-reason-replaced": "заменён",
       "session-reason-suspended": "приостановка",
       "session-reason-lost": "потерян",
-      "session-reason-shutdown": "остановка сервера"
+      "session-reason-shutdown": "остановка сервера",
+      "project-members": "Пользователи",
+      "project-transfer": "Передать"
     },
     "user-limits-modal": {
       "title": "Лимиты файлов и квот",
@@ -237,6 +239,17 @@
       "vendors-load-failed": "Не удалось загрузить список интеграций",
       "save-failed": "Не удалось сохранить настройки прокси",
       "delete-failed": "Не удалось сбросить настройки прокси"
+    },
+    "transfer-project": {
+      "title": "Передать «{{name}}»",
+      "hint": "Проект, его версии, работающие серверы и задачи переходят новому владельцу: дальше действуют его лимиты и баланс.",
+      "login-placeholder": "Логин или e-mail нового владельца",
+      "previous-owner": "Прежний владелец остаётся в проекте как:",
+      "role-editor": "Редактор",
+      "role-executor": "Исполнитель",
+      "ok": "Передать",
+      "done": "«{{name}}» теперь принадлежит {{login}}",
+      "failed": "Не удалось передать проект"
     }
   }
 }

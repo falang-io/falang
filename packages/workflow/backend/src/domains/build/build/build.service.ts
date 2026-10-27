@@ -306,7 +306,7 @@ export class BuildService implements OnModuleInit, OnApplicationBootstrap {
   }
 
   /** Compiles the project the same way `build()` does, but only for preview: no artifact is built and no runner is started. One entry per generated module. */
-  async generateCode(projectId: string, ownerId: string, access: TProjectAccess = 'owner'): Promise<IGeneratedFile[]> {
+  async generateCode(projectId: string, ownerId: string, access: TProjectAccess = 'edit'): Promise<IGeneratedFile[]> {
     const documents = await this.documentsService.listFull(projectId, ownerId, access);
     const { workflows, activities } = compileProjectStructure(
       documents,
@@ -412,7 +412,7 @@ export class BuildService implements OnModuleInit, OnApplicationBootstrap {
   }
 
   /** Backs `GET /projects/:id/schedules` — every Temporal Schedule reconciled for this project's `trigger-function` documents, dev and prod alike. See ADR 0037 (private) §7. */
-  async listSchedules(projectId: string, ownerId: string, access: TProjectAccess = 'owner'): Promise<IApiSchedule[]> {
+  async listSchedules(projectId: string, ownerId: string, access: TProjectAccess = 'edit'): Promise<IApiSchedule[]> {
     await this.projectsService.getOwnedProject(projectId, ownerId, access);
     const schedules = await this.scheduleClient.listForProject(projectId);
     return schedules

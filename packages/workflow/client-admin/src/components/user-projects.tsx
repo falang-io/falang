@@ -2,15 +2,19 @@ import type React from 'react';
 import { useEffect, useState } from 'react';
 import { getGlobalI18n } from '@falang/scheme';
 import { Button, Popconfirm, Table, Tag, Typography, message } from 'antd';
-import { EyeOutlined } from '@ant-design/icons';
+import { EyeOutlined, SwapOutlined, TeamOutlined } from '@ant-design/icons';
+import { ProjectMembersModal } from '@falang/workflow-client-common';
 import { adminApi, type IAdminUserProject } from '../admin-api.js';
+import { TransferProjectModal } from './transfer-project-modal.js';
 
 /** The main client's hash route for a project — the admin app lives at `/admin` on the same origin. */
 export const projectViewUrl = (projectId: string): string => `/#/projects/${encodeURIComponent(projectId)}`;
 
 /**
  * A user's projects in the "Details" modal. "Open" shows the project in the main client in a new tab — read-only for
- * an admin who isn't the owner (the backend allows an admin GET routes only, see `TProjectAccess`).
+ * an admin who isn't the owner (the backend allows an admin GET routes only, see `TProjectAccess`). "Users" manages the
+ * project's members (ADR 0070 (private)) — an admin may add users to any project; "Transfer" hands it to another
+ * user (it then leaves this list).
  */
 export const UserProjects: React.FC<{ userId: string }> = ({ userId }) => {
   const t = getGlobalI18n().t;
@@ -20,6 +24,8 @@ export const UserProjects: React.FC<{ userId: string }> = ({ userId }) => {
 
   const [reloadKey, setReloadKey] = useState(0);
   const [busyId, setBusyId] = useState<string | null>(null);
+  const [membersProjectId, setMembersProjectId] = useState<string | null>(null);
+  const [transferProject, setTransferProject] = useState<IAdminUserProject | null>(null);
 
   const toggleSuspension = (project: IAdminUserProject): void => {
     setBusyId(project.id);
@@ -83,7 +89,7 @@ export const UserProjects: React.FC<{ userId: string }> = ({ userId }) => {
           {
             title: '',
             key: 'open',
-            width: 260,
+            width: 470,
             render: (_, project) => (
               <>
                 <Popconfirm
@@ -101,6 +107,24 @@ export const UserProjects: React.FC<{ userId: string }> = ({ userId }) => {
                     {label(project.suspendedReason ? 'resume' : 'suspend')}
                   </Button>
                 </Popconfirm>
+                <Button
+                  size="small"
+                  icon={<TeamOutlined />}
+                  style={{ marginRight: 8 }}
+                  onClick={() => setMembersProjectId(project.id)}
+                  data-testid="admin-project-members"
+                >
+                  {label('project-members')}
+                </Button>
+                <Button
+                  size="small"
+                  icon={<SwapOutlined />}
+                  style={{ marginRight: 8 }}
+                  onClick={() => setTransferProject(project)}
+                  data-testid="admin-transfer-project"
+                >
+                  {label('project-transfer')}
+                </Button>
                 <a href={projectViewUrl(project.id)} target="_blank" rel="noreferrer" data-testid="admin-open-project">
                   <EyeOutlined /> {label('project-open')}
                 </a>
@@ -109,6 +133,19 @@ export const UserProjects: React.FC<{ userId: string }> = ({ userId }) => {
           },
         ]}
       />
+      {membersProjectId && (
+        <ProjectMembersModal projectId={membersProjectId} open onClose={() => setMembersProjectId(null)} />
+      )}
+      {transferProject && (
+        <TransferProjectModal
+          project={transferProject}
+          onClose={() => setTransferProject(null)}
+          onTransferred={() => {
+            setTransferProject(null);
+            setReloadKey((key) => key + 1);
+          }}
+        />
+      )}
     </div>
   );
 };

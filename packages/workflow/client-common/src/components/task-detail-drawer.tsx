@@ -162,6 +162,7 @@ export const TaskDetailDrawer: React.FC<Props> = ({ taskId, store, onClose, onRe
               <Tag color={statusColor(task.status)}>{task.status}</Tag>
             </Descriptions.Item>
             <Descriptions.Item label={t('client:task-detail.project')}>{task.projectName}</Descriptions.Item>
+            <Descriptions.Item label={t('client:task-detail.assignee')}>{task.assigneeName ?? '—'}</Descriptions.Item>
             <Descriptions.Item label={t('client:task-detail.env')}>{task.env}</Descriptions.Item>
             <Descriptions.Item label={t('client:task-detail.created-at')}>
               {new Date(task.createdAt).toLocaleString()}

@@ -12,4 +12,8 @@ export class ListTasksFiltersDto {
   @IsOptional()
   @IsString()
   projectId?: string;
+
+  @IsOptional()
+  @IsIn(['me'])
+  assignee?: 'me';
 }

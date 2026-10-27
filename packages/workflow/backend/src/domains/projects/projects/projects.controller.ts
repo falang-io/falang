@@ -7,7 +7,7 @@ import type { IJwtPayloadUser } from '../../auth/auth/jwt.strategy.js';
 // oxlint-disable-next-line consistent-type-imports
 import { CreateProjectDto } from './dto/create-project.dto.js';
 import type { Project } from './project.entity.js';
-import { type IProjectInfo, ProjectsService } from './projects.service.js';
+import { type IProjectInfo, ProjectsService, type TAccessibleProject } from './projects.service.js';
 
 @Controller('projects')
 export class ProjectsController {
@@ -17,12 +17,13 @@ export class ProjectsController {
     this.projectsService = projectsService;
   }
 
+  /** Owned projects plus those the caller is a member of (ADR 0070 (private)), each with `myRoles`. */
   @Get()
-  list(@CurrentUser() user: IJwtPayloadUser): Promise<Project[]> {
-    return this.projectsService.list(user.id);
+  list(@CurrentUser() user: IJwtPayloadUser): Promise<TAccessibleProject[]> {
+    return this.projectsService.listAccessible(user.id);
   }
 
-  /** The owner, or an admin viewing read-only (`readOnly: true`) — see `TProjectAccess`. */
+  /** The owner, a member, or an admin viewing read-only — see `TProjectAccess` and `IProjectInfo`. */
   @Get(':projectId')
   get(@Param('projectId') projectId: string, @CurrentUser() user: IJwtPayloadUser): Promise<IProjectInfo> {
     return this.projectsService.getProjectInfo(projectId, user.id);

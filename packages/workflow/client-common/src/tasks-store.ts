@@ -8,6 +8,8 @@ const errorMessage = (error: unknown, fallback: string): string => (error instan
 export interface ITaskFilters {
   readonly status?: TTaskStatus;
   readonly projectId?: string;
+  /** `'me'` — only tasks assigned to the caller (ADR 0070 (private)). */
+  readonly assignee?: 'me';
 }
 
 /**

@@ -1,32 +1,10 @@
-import { ValidationPipe, type INestApplication } from '@nestjs/common';
-import { ConfigModule } from '@nestjs/config';
-import { APP_GUARD } from '@nestjs/core';
-import { Test } from '@nestjs/testing';
-import { getRepositoryToken, TypeOrmModule } from '@nestjs/typeorm';
+import type { INestApplication } from '@nestjs/common';
 import { WorkflowNotFoundError } from '@temporalio/client';
 import request from 'supertest';
-import type { Repository } from 'typeorm';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { JwtAuthGuard } from '../auth/auth/jwt-auth.guard.js';
-import { AuthModule } from '../auth/auth/auth.module.js';
-import { INTERNAL_PROJECT_TOKEN_HEADER } from '../internal-auth/project-token.guard.js';
-import { ProjectTokenModule } from '../internal-auth/project-token.module.js';
-import { ProjectTokenService } from '../internal-auth/project-token.service.js';
-import { Document } from '../projects/documents/document.entity.js';
-import { Folder } from '../projects/folders/folder.entity.js';
-import { RunJournalEntry } from '../run-journal/run-journal-entry.entity.js';
-import { RunJournalModule } from '../run-journal/run-journal.module.js';
-import { RunJournalService } from '../run-journal/run-journal.service.js';
-import { Project } from '../projects/projects/project.entity.js';
-import { ProjectsModule } from '../projects/projects/projects.module.js';
-import { ProjectsService } from '../projects/projects/projects.service.js';
-import { User } from '../users/users/user.entity.js';
-import { UsersModule } from '../users/users/users.module.js';
 import { auth } from '../../test-utils/e2e-app.js';
-import { InternalTasksController } from './internal-tasks.controller.js';
-import { Task } from './task.entity.js';
-import { TasksController } from './tasks.controller.js';
-import { TasksService } from './tasks.service.js';
+import { INTERNAL_PROJECT_TOKEN_HEADER } from '../internal-auth/project-token.guard.js';
+import { createTasksTestApp } from './tasks-e2e-harness.js';
 
 /**
  * Real-HTTP coverage of `domains/tasks/` over its own in-memory sqlite testing module — see
@@ -42,62 +20,15 @@ import { TasksService } from './tasks.service.js';
  */
 describe('tasks (e2e)', () => {
   // oxlint-disable-next-line init-declarations
+  let harness: Awaited<ReturnType<typeof createTasksTestApp>>;
+  // oxlint-disable-next-line init-declarations
   let app: INestApplication;
-  // oxlint-disable-next-line init-declarations
-  let ensureRunnerRunning: ReturnType<
-    typeof vi.fn<(projectId: string, env: 'dev' | 'prod', taskQueue: string) => Promise<void>>
-  >;
-  // oxlint-disable-next-line init-declarations
-  let signalWorkflow: ReturnType<
-    typeof vi.fn<
-      (projectId: string, workflowId: string, runId: string, signalName: string, payload: unknown) => Promise<void>
-    >
-  >;
 
   beforeEach(async () => {
     // This suite signs users up through POST /auth/register.
     vi.stubEnv('SELF_SERVICE_SIGNUP', 'true');
-    ensureRunnerRunning = vi.fn(() => Promise.resolve());
-    signalWorkflow = vi.fn(() => Promise.resolve());
-
-    const moduleRef = await Test.createTestingModule({
-      imports: [
-        ConfigModule.forRoot({ isGlobal: true, ignoreEnvFile: true }),
-        TypeOrmModule.forRoot({
-          type: 'better-sqlite3',
-          database: ':memory:',
-          dropSchema: true,
-          synchronize: true,
-          entities: [User, Project, Folder, Document, Task, RunJournalEntry],
-        }),
-        TypeOrmModule.forFeature([Task]),
-        UsersModule,
-        AuthModule,
-        ProjectsModule,
-        ProjectTokenModule,
-        RunJournalModule,
-      ],
-      controllers: [TasksController, InternalTasksController],
-      providers: [
-        { provide: APP_GUARD, useClass: JwtAuthGuard },
-        {
-          provide: TasksService,
-          inject: [getRepositoryToken(Task), ProjectsService, RunJournalService],
-          useFactory: (tasks: Repository<Task>, projectsService: ProjectsService, journal: RunJournalService) =>
-            new TasksService({
-              tasks,
-              projectsService,
-              journal,
-              ensureRunnerRunning: (...args) => ensureRunnerRunning(...args) as Promise<void>,
-              signalWorkflow: (...args) => signalWorkflow(...args) as Promise<void>,
-            }),
-        },
-      ],
-    }).compile();
-
-    app = moduleRef.createNestApplication();
-    app.useGlobalPipes(new ValidationPipe({ whitelist: true, transform: true }));
-    await app.init();
+    harness = await createTasksTestApp();
+    ({ app } = harness);
   });
 
   afterEach(async () => {
@@ -105,38 +36,11 @@ describe('tasks (e2e)', () => {
     await app.close();
   });
 
-  const registerAndLogin = async (username: string): Promise<{ token: string; userId: string }> => {
-    const response = await request(app.getHttpServer())
-      .post('/auth/register')
-      .send({ username, password: 'password123' });
-    return { token: response.body.accessToken as string, userId: response.body.user.id as string };
-  };
-
-  const createProject = async (token: string): Promise<string> => {
-    const response = await request(app.getHttpServer()).post('/projects').set(auth(token)).send({ name: 'tasks-test' });
-    return response.body.id as string;
-  };
-
-  const internalToken = (projectId: string): string => app.get(ProjectTokenService).getOrCreateToken(projectId);
-
+  const registerAndLogin = (username: string) => harness.registerAndLogin(username);
+  const createProject = (token: string) => harness.createProject(token);
+  const internalToken = (projectId: string) => harness.internalToken(projectId);
   const internalCreate = (projectId: string, projectToken: string, overrides: Record<string, unknown> = {}) =>
-    request(app.getHttpServer())
-      .post(`/internal/tasks/${projectId}`)
-      .set(INTERNAL_PROJECT_TOKEN_HEADER, projectToken)
-      .send({
-        workflowId: 'wf-1',
-        runId: 'run-1',
-        taskQueue: `workflow-dev-${projectId}`,
-        env: 'dev',
-        nodeId: 'node-1',
-        title: 'Approve invoice',
-        description: 'Please approve the $500 invoice.',
-        options: [
-          { label: 'Approve', dataType: 'void' },
-          { label: 'Reject', dataType: 'string', prompt: 'Reason' },
-        ],
-        ...overrides,
-      });
+    harness.internalCreate(projectId, projectToken, overrides);
 
   it('upserts by (workflowId, runId, nodeId) — a retried ask returns the same id', async () => {
     const { token } = await registerAndLogin('owner');
@@ -194,8 +98,8 @@ describe('tasks (e2e)', () => {
     expect(resolved.body.answer).toBe('Reject');
     expect(resolved.body.answerData).toBe('too expensive');
 
-    expect(ensureRunnerRunning).toHaveBeenCalledWith(projectId, 'dev', `workflow-dev-${projectId}`);
-    expect(signalWorkflow).toHaveBeenCalledWith(
+    expect(harness.ensureRunnerRunning).toHaveBeenCalledWith(projectId, 'dev', `workflow-dev-${projectId}`);
+    expect(harness.signalWorkflow).toHaveBeenCalledWith(
       projectId,
       'wf-1',
       'run-1',
@@ -219,7 +123,7 @@ describe('tasks (e2e)', () => {
     // First task: resolve races a dead workflow.
     const orphanCandidate = await internalCreate(projectId, projectToken, { nodeId: 'node-orphan' });
     const orphanTaskId = orphanCandidate.body.taskId as string;
-    signalWorkflow.mockImplementationOnce(() =>
+    harness.signalWorkflow.mockImplementationOnce(() =>
       Promise.reject(new WorkflowNotFoundError('workflow not found', 'wf-1', 'run-1')),
     );
 

@@ -174,6 +174,13 @@ export const adminApi = {
 
   resumeProject: (projectId: string) => apiRequest<null>(`/admin/projects/${projectId}/resume`, { method: 'POST' }),
 
+  /** Hands the project to the user with `login` (username or e-mail); the previous owner keeps `previousOwnerRoles`. */
+  transferProject: (projectId: string, body: { login: string; previousOwnerRoles: ('editor' | 'executor')[] }) =>
+    apiRequest<{ projectId: string; previousOwnerId: string; ownerId: string }>(
+      `/admin/projects/${projectId}/transfer`,
+      { method: 'POST', body: JSON.stringify(body) },
+    ),
+
   /** `{ sent: true }` when the login+password mail went out; otherwise `password` comes back once for manual hand-over. */
   activateUser: (id: string) =>
     apiRequest<{ sent: true } | { sent: false; password: string }>(`/admin/users/${id}/activate`, { method: 'POST' }),

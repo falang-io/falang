@@ -1,7 +1,7 @@
 import { Module } from '@nestjs/common';
 import { getRepositoryToken, TypeOrmModule } from '@nestjs/typeorm';
 import { TEMPORAL_TENANCY, type ITemporalTenancy } from '@falang/workflow-gateway';
-import type { Repository } from 'typeorm';
+import { In, type Repository } from 'typeorm';
 import { BuildModule } from '../build/build/build.module.js';
 import { BuildService } from '../build/build/build.service.js';
 import { ProjectTokenModule } from '../internal-auth/project-token.module.js';
@@ -10,6 +10,8 @@ import { RunJournalService } from '../run-journal/run-journal.service.js';
 import { Project } from '../projects/projects/project.entity.js';
 import { ProjectsModule } from '../projects/projects/projects.module.js';
 import { ProjectsService } from '../projects/projects/projects.service.js';
+import { ProjectMembersService } from '../projects/members/project-members.service.js';
+import { User } from '../users/users/user.entity.js';
 import { createSignalWorkflow } from './create-signal-workflow.js';
 import { InternalTasksController } from './internal-tasks.controller.js';
 import { Task } from './task.entity.js';
@@ -29,7 +31,7 @@ export const SIGNAL_WORKFLOW = Symbol('SIGNAL_WORKFLOW');
  */
 @Module({
   imports: [
-    TypeOrmModule.forFeature([Task, Project]),
+    TypeOrmModule.forFeature([Task, Project, User]),
     ProjectsModule,
     ProjectTokenModule,
     BuildModule,
@@ -44,10 +46,20 @@ export const SIGNAL_WORKFLOW = Symbol('SIGNAL_WORKFLOW');
     },
     {
       provide: TasksService,
-      inject: [getRepositoryToken(Task), ProjectsService, BuildService, SIGNAL_WORKFLOW, RunJournalService],
+      inject: [
+        getRepositoryToken(Task),
+        getRepositoryToken(User),
+        ProjectsService,
+        ProjectMembersService,
+        BuildService,
+        SIGNAL_WORKFLOW,
+        RunJournalService,
+      ],
       useFactory: (
         tasks: Repository<Task>,
+        users: Repository<User>,
         projectsService: ProjectsService,
+        membersService: ProjectMembersService,
         buildService: BuildService,
         signalWorkflow: TSignalWorkflow,
         journal: RunJournalService,
@@ -55,6 +67,12 @@ export const SIGNAL_WORKFLOW = Symbol('SIGNAL_WORKFLOW');
         new TasksService({
           tasks,
           projectsService,
+          pickAssignee: async (projectId) =>
+            membersService.pickTaskAssignee(projectId, await projectsService.getOwnerId(projectId)),
+          usernames: async (userIds) => {
+            const rows = await users.find({ select: { id: true, username: true }, where: { id: In([...userIds]) } });
+            return new Map(rows.map((row) => [row.id, row.username]));
+          },
           ensureRunnerRunning: (projectId, env, taskQueue) =>
             buildService.ensureRunnerRunning(projectId, env, taskQueue),
           signalWorkflow,

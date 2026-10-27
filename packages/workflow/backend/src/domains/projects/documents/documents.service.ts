@@ -114,7 +114,7 @@ export class DocumentsService {
     this.vendorData = vendorData;
   }
 
-  async listFull(projectId: string, ownerId: string, access: TProjectAccess = 'owner'): Promise<IProjectDocument[]> {
+  async listFull(projectId: string, ownerId: string, access: TProjectAccess = 'edit'): Promise<IProjectDocument[]> {
     await this.projectsService.getOwnedProject(projectId, ownerId, access);
     const documents = await this.documents.find({ where: { projectId } });
     const integrations = await this.getIntegrationsList();
@@ -124,7 +124,7 @@ export class DocumentsService {
   async listTree(
     projectId: string,
     ownerId: string,
-    access: TProjectAccess = 'owner',
+    access: TProjectAccess = 'edit',
   ): Promise<IProjectTreeDocumentWithLock[]> {
     await this.projectsService.getOwnedProject(projectId, ownerId, access);
     const documents = await this.documents.find({ where: { projectId } });
@@ -244,7 +244,7 @@ export class DocumentsService {
   }
 
   /** Active locks only — see `IDocumentLockInfo`. Polled every 5s by the client while a project workspace is open. */
-  async getLocks(projectId: string, ownerId: string, access: TProjectAccess = 'owner'): Promise<IDocumentLockInfo[]> {
+  async getLocks(projectId: string, ownerId: string, access: TProjectAccess = 'edit'): Promise<IDocumentLockInfo[]> {
     await this.projectsService.getOwnedProject(projectId, ownerId, access);
     const documents = await this.documents.find({ where: { projectId, lockExpiresAt: MoreThan(new Date()) } });
     return documents

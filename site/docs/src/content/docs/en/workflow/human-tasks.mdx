@@ -82,10 +82,11 @@ head:
 
 <p>
   Every open (and past) task lives on a <b>Tasks</b> page — a sibling of the Runs page, reached from the project list
-  or, filtered to just that scenario, from a <b>Tasks</b> tab inside the editor. A task is visible only to the{' '}
-  <b>owner of the project</b> that created it — there is no assignee list, no external link and no administrator
-  override in this version; the project owner is who builds and tests the flow, so it's also who resolves what it's
-  waiting on. Opening a task shows its description, context, attachments, and one button per option — with the typed
+  or, filtered to just that scenario, from a <b>Tasks</b> tab inside the editor. A task is visible to the project's
+  owner, its editors and its executors (see <a href="../project-users/">Project users</a>), and any of them can resolve
+  it. Each task is <b>assigned</b> to one person: to the executor with the fewest open tasks in the project, or to the
+  owner when the project has no executors — an <b>Assignee</b> column and a <b>Mine only</b> switch show your own queue.
+  Opening a task shows its description, context, attachments, and one button per option — with the typed
   input next to it when the option collects a value.
 </p>
 

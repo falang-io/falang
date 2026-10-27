@@ -78,7 +78,7 @@ export class ProjectExportService {
   async exportProject(
     projectId: string,
     ownerId: string,
-    access: TProjectAccess = 'owner',
+    access: TProjectAccess = 'edit',
   ): Promise<IProjectExportPayload> {
     const project = await this.projectsService.getOwnedProject(projectId, ownerId, access);
     const [folders, documents, dynamicIntegrations] = await Promise.all([

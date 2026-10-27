@@ -2,8 +2,9 @@ import type React from 'react';
 import { useEffect, useState } from 'react';
 import { observer } from 'mobx-react-lite';
 import { getGlobalI18n, type TFunction } from '@falang/scheme';
-import { Badge, Button, Empty, Input, List, Modal, Popconfirm, Segmented, Select, Spin, Typography } from 'antd';
+import { Badge, Button, Empty, Input, List, Modal, Segmented, Select, Spin, Typography } from 'antd';
 import type { IApiProjectExport } from '../api-client.js';
+import { DeleteProjectButton, isOwned, renderRoleTags } from './project-list-item-parts.js';
 import { authStore } from '../auth-store.js';
 import { navigationStore } from '../navigation-store.js';
 import { ProjectListStore } from '../project-list-store.js';
@@ -59,33 +60,14 @@ const renderProjectList = (store: ProjectListStore, t: TFunction, startWithAgent
         <List.Item
           style={styles.item}
           onClick={() => navigationStore.selectProject(project.id, project.name)}
-          actions={[
-            <Popconfirm
-              key="delete"
-              title={t('client:project-list-page.delete-title')}
-              description={t('client:project-list-page.delete-description', { name: project.name })}
-              okText={t('client:project-list-page.delete')}
-              okButtonProps={{ danger: true }}
-              onConfirm={async (e) => {
-                e?.stopPropagation();
-                await store.deleteProject(project.id);
-              }}
-              onCancel={(e) => e?.stopPropagation()}
-            >
-              <Button
-                danger
-                type="text"
-                size="small"
-                loading={store.deletingId === project.id}
-                onClick={(e) => e.stopPropagation()}
-              >
-                {t('client:project-list-page.delete')}
-              </Button>
-            </Popconfirm>,
-          ]}
+          actions={isOwned(project) ? [<DeleteProjectButton key="delete" store={store} project={project} t={t} />] : []}
         >
           <List.Item.Meta
-            title={<span style={{ color: '#cdd6f4' }}>{project.name}</span>}
+            title={
+              <span style={{ color: '#cdd6f4' }}>
+                {project.name} {renderRoleTags(project, t)}
+              </span>
+            }
             description={
               <span style={styles.meta}>{new Date(project.lastEditedAt ?? project.createdAt).toLocaleString()}</span>
             }

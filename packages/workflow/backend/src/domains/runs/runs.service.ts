@@ -1,7 +1,7 @@
 import { ConflictException, NotFoundException } from '@nestjs/common';
 import { In, type Repository } from 'typeorm';
 import type { ProjectVersion } from '../build/build/project-version.entity.js';
-import type { ProjectsService } from '../projects/projects/projects.service.js';
+import type { TProjectsPort } from '../projects/projects/projects-port.js';
 import type { Project } from '../projects/projects/project.entity.js';
 
 export interface IWorkflowRunEvent {
@@ -76,7 +76,7 @@ export interface IRunsFilters {
 }
 
 export interface IRunsServiceParams {
-  readonly projectsService: Pick<ProjectsService, 'list' | 'getOwnedProject'>;
+  readonly projectsService: TProjectsPort;
   readonly versions: Pick<Repository<ProjectVersion>, 'find'>;
   readonly listWorkflowRuns: TListWorkflowRuns;
   readonly describeWorkflowRun: TDescribeWorkflowRun;
@@ -139,7 +139,7 @@ const parseTaskQueue = (taskQueue: string): IParsedTaskQueue | null => {
  * plain closures rather than Nest-managed providers, which keeps this class trivially unit-testable.
  */
 export class RunsService {
-  private readonly projectsService: Pick<ProjectsService, 'list' | 'getOwnedProject'>;
+  private readonly projectsService: TProjectsPort;
   private readonly versions: Pick<Repository<ProjectVersion>, 'find'>;
   private readonly listWorkflowRuns: TListWorkflowRuns;
   private readonly describeWorkflowRun: TDescribeWorkflowRun;
@@ -163,7 +163,7 @@ export class RunsService {
   async listRuns(ownerId: string, filters: IRunsFilters = {}): Promise<IWorkflowRunSummary[]> {
     const projects = filters.projectId
       ? await this.readableProjects(filters.projectId, ownerId)
-      : await this.projectsService.list(ownerId);
+      : await this.projectsService.listAccessible(ownerId, 'edit');
     if (projects.length === 0) return [];
 
     const projectNameById = new Map(projects.map((project) => [project.id, project.name]));
@@ -210,7 +210,7 @@ export class RunsService {
   ): Promise<IWorkflowRunDetail> {
     const candidates = projectId
       ? await this.readableProjects(projectId, ownerId)
-      : await this.projectsService.list(ownerId);
+      : await this.projectsService.listAccessible(ownerId, 'edit');
     const byNamespace = new Map<string, string>();
     for (const project of candidates) {
       if (!byNamespace.has(this.tenancy.namespaceFor(project.id)))

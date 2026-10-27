@@ -9,7 +9,7 @@ const project = (id: string, name: string): Project =>
 const makeService = (overrides: Partial<IRunsServiceParams> = {}): RunsService =>
   new RunsService({
     projectsService: {
-      list: vi.fn(() => Promise.resolve<Project[]>([])),
+      listAccessible: vi.fn(() => Promise.resolve<Project[]>([])),
       getOwnedProject: vi.fn(() => Promise.reject(new NotFoundException())),
     },
     versions: { find: vi.fn(() => Promise.resolve([])) },
@@ -34,7 +34,7 @@ describe('RunsService.terminateRun', () => {
     events: [],
   };
   const owned = {
-    list: vi.fn(),
+    listAccessible: vi.fn(),
     getOwnedProject: vi.fn(() => Promise.resolve(project('p1', 'Project One'))),
   };
 

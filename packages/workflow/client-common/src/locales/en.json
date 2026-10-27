@@ -132,7 +132,8 @@
         "short": "Servers off",
         "balance": "Servers off: balance",
         "admin": "Servers off: suspended by administrator"
-      }
+      },
+      "members": "Users"
     },
     "run-function-modal": {
       "title": "Run function",
@@ -417,7 +418,9 @@
       "column-env": "Env",
       "column-status": "Status",
       "column-due-at": "Due",
-      "column-created-at": "Created"
+      "column-created-at": "Created",
+      "column-assignee": "Assignee",
+      "mine-only": "Mine only"
     },
     "task-detail": {
       "failed-to-load": "Failed to load task",
@@ -434,7 +437,8 @@
       "orphaned": "This task can no longer be delivered",
       "resolve": "Resolve",
       "resolve-confirm": "Resolve as \"{{label}}\"?",
-      "confirm": "Confirm"
+      "confirm": "Confirm",
+      "assignee": "Assignee"
     },
     "change-password-modal": {
       "title": "Change password",
@@ -559,6 +563,24 @@
       "always-on-not-allowed": "The always-on mode is not available for your account.",
       "failed-to-load": "Failed to load settings",
       "failed-to-save": "Failed to save settings"
+    },
+    "project-members": {
+      "title": "Project users",
+      "hint": "Editors can do everything the owner can except delete the project. Executors only see the project’s tasks and resolve them; new tasks go to the executor with the fewest open tasks (to the owner when there are no executors).",
+      "login-placeholder": "Username or e-mail",
+      "add": "Add",
+      "close": "Close",
+      "role-owner": "Owner",
+      "role-editor": "Editor",
+      "role-executor": "Executor",
+      "column-user": "User",
+      "column-roles": "Roles",
+      "column-open-tasks": "Open tasks",
+      "remove": "Remove",
+      "remove-confirm": "Remove {{username}} from the project?",
+      "failed-to-load": "Failed to load project users",
+      "failed-to-add": "Failed to add the user",
+      "failed-to-save": "Failed to save"
     }
   },
   "version-history": {
