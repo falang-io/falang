@@ -14,6 +14,11 @@ import { httpMetricsMiddleware } from './observability/http-metrics.js';
 import { createAppLogger } from './observability/json-logger.js';
 import { requestIdMiddleware } from './observability/request-context.js';
 import { portSplitMiddleware } from './port-split.js';
+import { largeBodyMiddleware, DEFAULT_BODY_LIMIT } from './http-hardening/body-limits.js';
+import { buildCorsOptions } from './http-hardening/cors.js';
+import { rateLimitMiddleware, readRateLimitEnv } from './http-hardening/rate-limit-middleware.js';
+import { securityHeadersMiddleware } from './http-hardening/security-headers.js';
+import { parseTrustProxy } from './http-hardening/trust-proxy.js';
 
 export interface ICreateAppOptions {
   /** Extra Nest modules appended to `AppModule.forRoot` (ignored when `appModule` is given). */
@@ -105,23 +110,38 @@ export const createApp = async (options: ICreateAppOptions = {}): Promise<NestEx
     rawBody: true,
     ...(logger ? { logger } : {}),
   });
-  // No cookie-based session is used (auth is a bearer token the client attaches itself), so a
-  // permissive CORS policy doesn't expose anything origin-specific.
-  app.enableCors();
+  // Client IP (`req.ip`, used by the rate limiter) is the socket peer unless `TRUST_PROXY` names the proxies in front.
+  app.set('trust proxy', parseTrustProxy(process.env.TRUST_PROXY));
+  app.disable('x-powered-by');
+  // No cookie-based session is used (auth is a bearer token), so CORS is about browsers reading responses:
+  // restricted to `CORS_ORIGINS` / the `CLIENT_PUBLIC_URL` origin when configured.
+  app.enableCors(
+    buildCorsOptions(process.env, (message) => {
+      if (logger) logger.warn(message);
+      else console.warn(message);
+    }),
+  );
   app.useGlobalPipes(new ValidationPipe({ whitelist: true, transform: true }));
-  // Express's default JSON body limit (100kb) is too small for `InternalCoverageController` — a
-  // runner pod's own `NODE_V8_COVERAGE` output for even a small package like `@falang/workflow-
-  // runner` was live-verified at 300-460KB (every script's per-function/per-range V8 coverage
-  // counters add up fast). Bumped globally rather than per-route: every other body on this API is
-  // small (workflow node trees, credential fields), so this only ever matters for that endpoint.
-  app.useBodyParser('json', { limit: '15mb' });
+  // Bodies are capped at 256 KB everywhere (413 beyond); `largeBodyMiddleware` below raises the cap to 15 MB for the
+  // few routes that really carry big JSON (project import, documents, agent chat, templates, `/mcp`, the internal
+  // API — e.g. a runner pod's coverage output was live-verified at 300-460 KB).
+  app.use(largeBodyMiddleware());
+  app.useBodyParser('json', { limit: DEFAULT_BODY_LIMIT });
+  app.useBodyParser('urlencoded', { limit: DEFAULT_BODY_LIMIT, extended: true });
   // Before every route (including the raw `/mcp` mount below): the request id (response header + async-local
   // context for the JSON logger) and the HTTP request counter/histogram.
   app.use(requestIdMiddleware);
   app.use(httpMetricsMiddleware);
+  app.use(securityHeadersMiddleware);
   // Before every route (including the raw `/mcp` mount below): `/internal/*` must be unreachable on the public port.
   if (typeof options.internalPort === 'number') {
     app.use(portSplitMiddleware(options.internalPort));
+  }
+  // Rate limiting needs the parsed login in the body, hence after the parsers. Limits are in-memory per replica;
+  // `/internal/*`, the internal port and `/health` are exempt.
+  const rateLimitEnv = readRateLimitEnv(process.env);
+  if (rateLimitEnv.enabled) {
+    app.use(rateLimitMiddleware({ internalPort: options.internalPort, multiplier: rateLimitEnv.multiplier }));
   }
   // Mounted directly on the underlying Express instance, after Nest's own body parser is registered
   // above (so `req.body` is already populated for `/mcp` too) — see `McpService`'s own doc comment

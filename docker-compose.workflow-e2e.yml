@@ -371,6 +371,7 @@ services:
       - MAIL_FROM=noreply@falang.local
       - CLIENT_PUBLIC_URL=http://client:5175
       - SIGNUP_MODE=open
+      - RATE_LIMIT_ENABLED=false
       - CAPTCHA_PROVIDER=none
       # OAuth2 callback redirect_uri base — see ADR 0015 (private). Reachable
       # by both `backend` itself and the `e2e-tests` container's browser, since that browser runs

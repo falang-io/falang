@@ -42,6 +42,10 @@ export const agentChatDuration = metricsRegistry.histogram(
   'Duration of the vendor call behind one agent chat request.',
   AGENT_BUCKETS,
 );
+export const httpRateLimitedTotal = metricsRegistry.counter(
+  'falang_http_rate_limited_total',
+  'Requests rejected with 429 by the in-memory rate limiter, by policy.',
+);
 export const signupsTotal = metricsRegistry.counter('falang_signups_total', 'Self-service signups by signup mode.');
 export const emailVerificationsTotal = metricsRegistry.counter(
   'falang_email_verifications_total',
