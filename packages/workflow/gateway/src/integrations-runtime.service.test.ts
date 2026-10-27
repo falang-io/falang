@@ -118,8 +118,8 @@ describe('IntegrationsRuntimeService', () => {
     expect(first).toBeDefined();
     expect(second).toBeDefined();
     expect(first).not.toBe(second);
-    const firstResponse = await first?.(new Request('http://x/'));
-    const secondResponse = await second?.(new Request('http://x/'));
+    const firstResponse = await first?.(new Request('http://x/'), {});
+    const secondResponse = await second?.(new Request('http://x/'), {});
     await expect(firstResponse?.text()).resolves.toBe('project-1');
     await expect(secondResponse?.text()).resolves.toBe('project-2');
     expect(runtime.findWebhookHandler('telegram', 'project-3', 'cred-1', 'dev', '')).toBeUndefined();
@@ -340,6 +340,45 @@ describe('IntegrationsRuntimeService', () => {
 
       expect(() => ctx.getInternalProjectToken()).toThrow();
 
+      await runtime.onModuleDestroy();
+    });
+  });
+
+  describe('ctx.deriveSecret', () => {
+    const startAndGetCtx = async (webhookSecretKey: string | null, instance = singleInstance()) => {
+      vi.useFakeTimers();
+      const registerBackend = vi.fn().mockResolvedValue(noopDispose);
+      const runtime = new IntegrationsRuntimeService({
+        integrations: [buildIntegration(registerBackend)],
+        discovery: buildDiscovery({ findCredentialInstances: vi.fn().mockResolvedValue([instance]) }),
+        signalWorkflowWithStart: vi.fn(),
+        ...(webhookSecretKey === null ? {} : { webhookSecretKey }),
+      });
+      await runtime.onModuleInit();
+      runtime.resumeProjectIntegrations('project-1', 'dev');
+      await vi.advanceTimersByTimeAsync(0);
+      return { runtime, ctx: registerBackend.mock.calls[0]?.[0] as IIntegrationBackendContext };
+    };
+
+    it('is stable for the same key and target, differs by label, target and key, and uses the telegram-safe alphabet', async () => {
+      const first = await startAndGetCtx('key-a');
+      const again = await startAndGetCtx('key-a');
+      const otherKey = await startAndGetCtx('key-b');
+      const otherInstance = await startAndGetCtx('key-a', singleInstance({ instanceId: 'cred-2' }));
+
+      const secret = first.ctx.deriveSecret?.('telegram-webhook');
+      expect(secret).toMatch(/^[A-Za-z0-9_-]{1,256}$/);
+      expect(again.ctx.deriveSecret?.('telegram-webhook')).toBe(secret);
+      expect(first.ctx.deriveSecret?.('other')).not.toBe(secret);
+      expect(otherKey.ctx.deriveSecret?.('telegram-webhook')).not.toBe(secret);
+      expect(otherInstance.ctx.deriveSecret?.('telegram-webhook')).not.toBe(secret);
+
+      await Promise.all([first, again, otherKey, otherInstance].map((started) => started.runtime.onModuleDestroy()));
+    });
+
+    it('throws without a configured key', async () => {
+      const { runtime, ctx } = await startAndGetCtx(null);
+      expect(() => ctx.deriveSecret?.('x')).toThrow();
       await runtime.onModuleDestroy();
     });
   });

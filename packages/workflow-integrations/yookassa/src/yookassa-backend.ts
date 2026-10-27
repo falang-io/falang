@@ -34,8 +34,22 @@ const findBoundTriggerFunctions = async (
   });
 };
 
+/**
+ * Resource types a notification may refer to, with the confirmed-object statuses that count as an event (`<type>.<status>`).
+ * A status outside the list (e.g. a `pending` payment) is a state, not an event, and is ignored.
+ */
+const EVENT_STATUSES: Readonly<Record<string, readonly string[]>> = {
+  payment: ['succeeded', 'waiting_for_capture', 'canceled'],
+  refund: ['succeeded'],
+  payout: ['succeeded', 'canceled'],
+  deal: ['closed'],
+};
+
 /** ЮKassa's own REST resource collection for a notification's `event` prefix (`payment.succeeded` -> `payments`, `refund.succeeded` -> `refunds`). */
-const resourceCollectionFor = (event: string): string => `${event.split('.')[0]}s`;
+const resourceCollectionFor = (resourceType: string): string => `${resourceType}s`;
+
+/** ЮKassa object ids are UUID-like; anything else never reaches the API URL (no path injection, no `..`/`?`/`/`). */
+const OBJECT_ID_PATTERN = /^[A-Za-z0-9_-]{1,64}$/;
 
 const YOOKASSA_API_BASE_URL = 'https://api.yookassa.ru/v3';
 
@@ -71,6 +85,9 @@ const noopDispose = async (): Promise<void> => {};
  * Registers one local route per bound `trigger-function`, same "always register, ignore
  * `ctx.webhookUrl`" shape as `@falang/workflow-integrations-webhook`/`-bitrix24`.
  *
+ * Event semantics (security audit P1-10): the signalled `event` is derived from the confirmed object's own status, never taken
+ * from the body, and the body's id is format-checked before it can reach the API URL.
+ *
  * Verification, per ADR 0017 (private)'s ЮKassa implementation notes: unlike Bitrix24, ЮKassa's HTTP
  * notifications carry **no signature or shared secret at all** — the vendor's own docs recommend
  * either an IP-allowlist check (not usable through this host's current webhook dispatch layer, which
@@ -100,8 +117,15 @@ export const registerYookassaBackend: TRegisterIntegrationBackend = async (ctx) 
         return new Response(null, { status: 200 });
       }
 
+      // Cheap checks on the claimed values before anything touches the network; the claimed event only selects *which*
+      // resource to re-fetch — the event that is signalled is derived from the confirmed object's status below.
+      const resourceType = body.event.split('.')[0];
+      if (!Object.hasOwn(EVENT_STATUSES, resourceType) || !OBJECT_ID_PATTERN.test(body.object.id)) {
+        return new Response(null, { status: 400 });
+      }
+
       const confirmResponse = await fetchConfirmedResource(
-        `${YOOKASSA_API_BASE_URL}/${resourceCollectionFor(body.event)}/${body.object.id}`,
+        `${YOOKASSA_API_BASE_URL}/${resourceCollectionFor(resourceType)}/${encodeURIComponent(body.object.id)}`,
         basicAuthHeader(shopId, secretKey),
       );
       if (!confirmResponse) {
@@ -114,12 +138,23 @@ export const registerYookassaBackend: TRegisterIntegrationBackend = async (ctx) 
         return new Response(null, { status: 502 });
       }
 
-      const confirmedObject: unknown = await confirmResponse.json();
+      const confirmedObject = (await confirmResponse.json()) as { readonly id?: unknown; readonly status?: unknown };
+      const status = typeof confirmedObject.status === 'string' ? confirmedObject.status : '';
+      const derivedEvent = `${resourceType}.${status}`;
+      // Only what ЮKassa itself says the object is *now* counts: a notification whose claimed event disagrees with the
+      // confirmed status (forged, replayed or stale) is acknowledged but not delivered to the workflow.
+      if (
+        confirmedObject.id !== body.object.id ||
+        !EVENT_STATUSES[resourceType].includes(status) ||
+        derivedEvent !== body.event
+      ) {
+        return new Response(null, { status: 200 });
+      }
       await ctx.signalWorkflow({
         workflowId: `yookassa-${triggerFunction.id}`,
         workflowType: triggerFunction.name,
         signalName: YOOKASSA_SIGNAL_NAME,
-        signalArgs: [{ event: body.event, object: confirmedObject }],
+        signalArgs: [{ event: derivedEvent, object: confirmedObject }],
       });
       return new Response(null, { status: 200 });
     });

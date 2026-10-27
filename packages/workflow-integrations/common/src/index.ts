@@ -16,3 +16,4 @@ export * from './duration.js';
 export * from './question-extensions.js';
 export * from './question-scope-contributor.js';
 export * from './ai-result-type.js';
+export * from './constant-time-equal.js';

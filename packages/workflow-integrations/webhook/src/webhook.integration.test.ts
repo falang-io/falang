@@ -8,7 +8,7 @@ describe('webhookIntegration', () => {
     expect(configs.map((config) => config.name)).toEqual([WEBHOOK_TRIGGER_NAME]);
   });
 
-  it('declares no credential fields and no actions — trigger-only', () => {
+  it('declares no credential fields and no actions — trigger-only (the optional signing secret is a trigger context field)', () => {
     expect(webhookIntegration.credentialFields).toEqual([]);
     expect(webhookIntegration.actions).toEqual([]);
   });

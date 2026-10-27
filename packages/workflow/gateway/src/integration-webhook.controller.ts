@@ -1,6 +1,7 @@
 import {
   BadRequestException,
   Controller,
+  HttpException,
   Inject,
   NotFoundException,
   Param,
@@ -32,7 +33,22 @@ interface IRawBodyRequest {
   readonly headers: Readonly<Record<string, string | readonly string[] | undefined>>;
   /** Typed as `Uint8Array` (Node's `Buffer` — always what's actually there at runtime — is one) rather than `Buffer` itself: TS's DOM lib `BodyInit` doesn't structurally accept `Buffer`, only `Uint8Array`/other `BufferSource` variants. */
   readonly rawBody?: Uint8Array;
+  /** Express's `req.ip` — the real peer address once the host configures `trust proxy`. */
+  readonly ip?: string;
 }
+
+/** Headers that describe the transport hop, not the sender — never forwarded into the reconstructed `Request`. */
+const DROPPED_HEADERS = new Set(['host', 'content-length', 'connection', 'transfer-encoding', 'keep-alive', 'upgrade']);
+
+const copyHeaders = (source: IRawBodyRequest['headers']): Headers => {
+  const headers = new Headers();
+  for (const [name, value] of Object.entries(source)) {
+    const lower = name.toLowerCase();
+    if (!value || DROPPED_HEADERS.has(lower)) continue;
+    for (const item of typeof value === 'string' ? [value] : value) headers.append(lower, item);
+  }
+  return headers;
+};
 
 /**
  * Public, unauthenticated ingress — every vendor's `registerBackend`-registered webhook handler is
@@ -87,10 +103,9 @@ export class IntegrationWebhookController {
    * sender actually transmitted, regardless of `content-type` — every vendor's own handler decides how
    * to interpret them, exactly as it would running behind a real HTTP server.
    *
-   * Still doesn't forward the caller's real IP or every original header (only `content-type`) — no
-   * vendor's handler needs more than that today, and the IP half specifically needs this host's
-   * `trust proxy`/k8s-ingress configuration sorted out first (see the ADR section above). Left as a
-   * separate follow-up rather than folded in here.
+   * Every incoming header (lower-cased, minus hop-by-hop ones) is copied into the `Request` so a vendor can verify
+   * signatures/shared secrets, and the caller's address (`req.ip`, correct once the host sets `trust proxy`) is passed
+   * as the handler's second argument. See security audit P1-10.
    */
   private async dispatch(
     vendor: string,
@@ -105,8 +120,6 @@ export class IntegrationWebhookController {
     if (!handler) {
       throw new NotFoundException(`No webhook handler registered for ${vendor}/${projectId}/${credentialId}/${env}`);
     }
-    const contentType = req.headers['content-type'];
-    const contentTypeHeader = Array.isArray(contentType) ? contentType[0] : contentType;
     const requestInit: RequestInit = {
       method: 'POST',
       // `Uint8Array` genuinely is a valid `BodyInit` at runtime (verified directly against Node's
@@ -114,10 +127,13 @@ export class IntegrationWebhookController {
       // not yet accounting for TS's newer generic `Uint8Array<TArrayBuffer>`, a lib-version typing
       // gap, not an actual type mismatch.
       body: req.rawBody as BodyInit | undefined,
+      headers: copyHeaders(req.headers),
     };
-    if (contentTypeHeader) requestInit.headers = { 'content-type': contentTypeHeader };
     const request = new Request('http://internal.invalid/', requestInit);
-    const response = await handler(request);
+    const response = await handler(request, { ip: req.ip });
+    // A vendor rejecting the call (bad signature, bad secret...) must reach the caller as a real HTTP error, not as a
+    // 201 whose body merely says so — otherwise the sender (Telegram, a payment provider) believes it was delivered.
+    if (response.status >= 400) throw new HttpException({ status: response.status }, response.status);
     return { status: response.status };
   }
 }

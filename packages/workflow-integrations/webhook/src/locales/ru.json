@@ -1,5 +1,8 @@
 {
   "webhook": {
+    "field": {
+      "signingSecret": "Секрет подписи (необязательно)"
+    },
     "label": "Webhook",
     "trigger": {
       "incomingWebhook": "Входящий webhook"

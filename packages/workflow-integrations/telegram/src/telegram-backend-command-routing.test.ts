@@ -2,6 +2,7 @@ import type { INode } from '@falang/dto';
 import { TRIGGER_FUNCTION_NAME } from '@falang/workflow-dto';
 import type { IIntegrationBackendContext, IIntegrationDocumentRecord } from '@falang/workflow-integrations-common';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import { TEST_WEBHOOK_SECRET, withTelegramSecret } from './telegram-test-secret.js';
 import { registerTelegramBackend } from './telegram-backend.js';
 import { toTelegramMessage, type ITelegramRawMessage } from './telegram-message-mapper.js';
 
@@ -57,8 +58,9 @@ const buildCtx = (
     webhookUrl: 'https://bots.example.com/webhooks/telegram/p/cred-1/prod',
     taskQueue: 'workflow-project-1',
     registerWebHook: vi.fn((_uri: string, handler: (request: Request) => Promise<Response>) => {
-      ctx.registeredWebhook = handler;
+      ctx.registeredWebhook = (request) => handler(withTelegramSecret(request));
     }),
+    deriveSecret: () => TEST_WEBHOOK_SECRET,
     registerInterval: vi.fn(),
     signalWorkflow: vi.fn().mockResolvedValue(null),
     getDocumentsByType: vi.fn().mockResolvedValue(documents),

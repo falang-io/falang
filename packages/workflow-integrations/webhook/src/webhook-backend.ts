@@ -1,15 +1,22 @@
 import { TRIGGER_FUNCTION_BODY_NAME, TRIGGER_FUNCTION_NAME } from '@falang/workflow-dto';
-import type {
-  IIntegrationBackendContext,
-  IIntegrationDocumentRecord,
-  TRegisterIntegrationBackend,
+import {
+  constantTimeEqual,
+  type IIntegrationBackendContext,
+  type IIntegrationDocumentRecord,
+  type TRegisterIntegrationBackend,
 } from '@falang/workflow-integrations-common';
-import { WEBHOOK_SIGNAL_NAME } from './constants.js';
+import {
+  WEBHOOK_SECRET_HEADER,
+  WEBHOOK_SIGNAL_NAME,
+  WEBHOOK_SIGNATURE_HEADER,
+  WEBHOOK_SIGNING_SECRET_FIELD,
+} from './constants.js';
 
 interface ITriggerFunctionBodyData {
   readonly vendor: string;
   readonly triggerName: string;
   readonly credentialId: string;
+  readonly triggerConfig?: Readonly<Record<string, string>>;
 }
 
 interface IWebhookRequestPayload {
@@ -35,11 +42,37 @@ const findBoundTriggerFunctions = async (
   });
 };
 
-const buildRequestPayload = async (request: Request): Promise<IWebhookRequestPayload> => ({
-  method: request.method,
-  headers: Object.fromEntries(request.headers.entries()),
-  body: await request.text(),
-});
+/** The shared-secret header is never handed to the workflow (it would land in Temporal history and the run journal). */
+const buildRequestPayload = (request: Request, body: string): IWebhookRequestPayload => {
+  const headers = Object.fromEntries([...request.headers.entries()].filter(([name]) => name !== WEBHOOK_SECRET_HEADER));
+  return { method: request.method, headers, body };
+};
+
+const toHex = (bytes: ArrayBuffer): string =>
+  Array.from(new Uint8Array(bytes), (byte) => byte.toString(16).padStart(2, '0')).join('');
+
+/** Hex HMAC-SHA256 of the raw body (Web Crypto — a global in Node and browsers, no `node:*` import in this browser-reachable package). */
+const hmacSha256Hex = async (secret: string, body: string): Promise<string> => {
+  const encoder = new TextEncoder();
+  const key = await crypto.subtle.importKey('raw', encoder.encode(secret), { name: 'HMAC', hash: 'SHA-256' }, false, [
+    'sign',
+  ]);
+  return toHex(await crypto.subtle.sign('HMAC', key, encoder.encode(body)));
+};
+
+/**
+ * With a configured signing secret a request is accepted iff it carries either `X-Webhook-Signature: sha256=<hex HMAC of the
+ * raw body>` or `X-Webhook-Secret: <the secret>`; both compared in constant time. No secret configured means no check.
+ */
+const isAuthorized = async (secret: string, request: Request, body: string): Promise<boolean> => {
+  if (!secret) return true;
+  const sharedSecret = request.headers.get(WEBHOOK_SECRET_HEADER);
+  if (sharedSecret !== null && constantTimeEqual(sharedSecret, secret)) return true;
+  const signature = request.headers.get(WEBHOOK_SIGNATURE_HEADER);
+  if (signature === null) return false;
+  const expected = `sha256=${await hmacSha256Hex(secret, body)}`;
+  return constantTimeEqual(signature.trim().toLowerCase(), expected);
+};
 
 // oxlint-disable-next-line no-empty-function -- nothing to unregister remotely, no third-party service was ever told about this route.
 const noopDispose = async (): Promise<void> => {};
@@ -68,8 +101,13 @@ const noopDispose = async (): Promise<void> => {};
 export const registerWebhookBackend: TRegisterIntegrationBackend = async (ctx) => {
   const triggerFunctions = await findBoundTriggerFunctions(ctx);
   for (const triggerFunction of triggerFunctions) {
+    // Read once at registration, like the bound-function list itself (see the known limitation above).
+    const signingSecret =
+      getTriggerFunctionBodyData(triggerFunction)?.triggerConfig?.[WEBHOOK_SIGNING_SECRET_FIELD] ?? '';
     ctx.registerWebHook(triggerFunction.id, async (request) => {
-      const payload = await buildRequestPayload(request);
+      const body = await request.text();
+      if (!(await isAuthorized(signingSecret, request, body))) return new Response(null, { status: 401 });
+      const payload = buildRequestPayload(request, body);
       await ctx.signalWorkflow({
         workflowId: `webhook-${triggerFunction.id}`,
         workflowType: triggerFunction.name,

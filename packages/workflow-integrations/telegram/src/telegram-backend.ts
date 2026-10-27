@@ -1,9 +1,10 @@
 // oxlint-disable max-lines -- over the default cap by the run-journal reports for unroutable input (ADR 0059 (private) §2c).
 import { TRIGGER_FUNCTION_BODY_NAME, TRIGGER_FUNCTION_NAME } from '@falang/workflow-dto';
-import type {
-  IIntegrationBackendContext,
-  IIntegrationDocumentRecord,
-  TRegisterIntegrationBackend,
+import {
+  constantTimeEqual,
+  type IIntegrationBackendContext,
+  type IIntegrationDocumentRecord,
+  type TRegisterIntegrationBackend,
 } from '@falang/workflow-integrations-common';
 import {
   TELEGRAM_COMMAND_FIELD_NAME,
@@ -55,6 +56,9 @@ const TELEGRAM_API_BASE_URL =
     : (process.env.TELEGRAM_API_BASE_URL ?? 'https://api.telegram.org');
 
 const telegramApiUrl = (token: string, method: string): string => `${TELEGRAM_API_BASE_URL}/bot${token}/${method}`;
+
+const TELEGRAM_SECRET_HEADER = 'x-telegram-bot-api-secret-token';
+const TELEGRAM_WEBHOOK_SECRET_LABEL = 'telegram-webhook';
 
 // oxlint-disable-next-line no-empty-function -- shared no-op dispose for targets with nothing to tear down remotely (missing bot token, poll mode — see call sites below).
 const noopDispose = async (): Promise<void> => {};
@@ -282,7 +286,15 @@ export const registerTelegramBackend: TRegisterIntegrationBackend = async (ctx) 
 
   if (ctx.webhookUrl) {
     const webhookUrl = ctx.webhookUrl;
+    // Telegram echoes this in `X-Telegram-Bot-Api-Secret-Token` on every delivery; anything else is not Telegram.
+    // Derived (HMAC of server key + target identity), so it survives restarts/replicas and `setWebhook` below re-registers it
+    // on every activation — already-registered bots get one on their first restart. Fail closed if the host cannot derive one.
+    if (!ctx.deriveSecret) throw new Error('Telegram webhook mode needs ctx.deriveSecret (host did not provide it)');
+    const secretToken = ctx.deriveSecret(TELEGRAM_WEBHOOK_SECRET_LABEL);
     ctx.registerWebHook('', async (request) => {
+      if (!constantTimeEqual(request.headers.get(TELEGRAM_SECRET_HEADER) ?? '', secretToken)) {
+        return new Response(null, { status: 401 });
+      }
       const update = (await request.json()) as ITelegramUpdate;
       await handleUpdate(ctx, update, chatTriggerFunctions);
       return new Response(null, { status: 200 });
@@ -290,7 +302,7 @@ export const registerTelegramBackend: TRegisterIntegrationBackend = async (ctx) 
     const response = await fetch(telegramApiUrl(botToken, 'setWebhook'), {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ url: webhookUrl }),
+      body: JSON.stringify({ url: webhookUrl, secret_token: secretToken }),
     });
     if (!response.ok) {
       throw new Error(`Telegram setWebhook failed: ${response.status} ${await response.text()}`);

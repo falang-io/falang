@@ -1,5 +1,11 @@
 import type { IWorkflowIntegration } from '@falang/workflow-integrations-common';
-import { WEBHOOK_SCOPE_VARIABLE_NAME, WEBHOOK_SIGNAL_NAME, WEBHOOK_TRIGGER_NAME, WEBHOOK_VENDOR } from './constants.js';
+import {
+  WEBHOOK_SCOPE_VARIABLE_NAME,
+  WEBHOOK_SIGNAL_NAME,
+  WEBHOOK_SIGNING_SECRET_FIELD,
+  WEBHOOK_TRIGGER_NAME,
+  WEBHOOK_VENDOR,
+} from './constants.js';
 import { registerWebhookBackend } from './webhook-backend.js';
 
 export * from './constants.js';
@@ -35,6 +41,10 @@ export const webhookIntegration: IWorkflowIntegration = {
       // Documentation only — the real per-trigger-function path is built dynamically by
       // `registerWebhookBackend` (one `uri` per bound trigger-function, not one fixed path per
       // credential the way Telegram's is).
+      // Optional per-trigger-function signing secret (stored in the trigger-function document, like any trigger config —
+      // not encrypted). Blank = the unguessable URL is the only protection (old behaviour). Set = a call must send
+      // `X-Webhook-Signature: sha256=<hex HMAC-SHA256 of the raw body>` or `X-Webhook-Secret: <secret>`, else 401.
+      contextFields: [{ name: WEBHOOK_SIGNING_SECRET_FIELD, label: 'webhook:field.signingSecret', kind: 'text' }],
       webhookPath: '/webhooks/webhook/:projectId/:credentialId/:env/:triggerFunctionId',
       notes: [
         'A generic inbound HTTP trigger — fires on any request to the URL generated for a',
