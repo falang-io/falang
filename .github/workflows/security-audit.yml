@@ -1,0 +1,28 @@
+name: Security audit
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  schedule:
+    - cron: '0 6 * * 1'
+
+permissions:
+  contents: read
+
+jobs:
+  npm-audit:
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        dir: [., activepieces, proxy]
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+      # Runtime dependencies only; dev-only advisories do not reach the shipped images.
+      - name: npm audit (runtime, high and above)
+        working-directory: ${{ matrix.dir }}
+        run: npm audit --omit=dev --audit-level=high
