@@ -78,10 +78,10 @@ export const buildTriggerCredentialOptions = (
 
 /** A trigger's `contextFields` seeded with each field's declared `defaultValue` (fields without one are left out). */
 export const defaultContextFieldValues = (
-  trigger: Pick<ITriggerDescriptor, 'contextFields'> | undefined,
+  trigger?: Pick<ITriggerDescriptor, 'contextFields'> | null,
 ): Record<string, string> =>
   Object.fromEntries(
     (trigger?.contextFields ?? [])
-      .filter((field) => field.defaultValue !== undefined)
+      .filter((field) => typeof field.defaultValue === 'string')
       .map((field) => [field.name, field.defaultValue as string]),
   );

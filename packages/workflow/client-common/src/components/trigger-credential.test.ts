@@ -82,7 +82,7 @@ describe('defaultContextFieldValues', () => {
   });
 
   it('is empty for a trigger without context fields or no trigger at all', () => {
-    expect(defaultContextFieldValues({ contextFields: undefined })).toEqual({});
-    expect(defaultContextFieldValues(undefined)).toEqual({});
+    expect(defaultContextFieldValues({})).toEqual({});
+    expect(defaultContextFieldValues(null)).toEqual({});
   });
 });
