@@ -172,6 +172,25 @@ describe('AuthStore', () => {
       expect(store.currentUser).toMatchObject({ emailVerified: true });
     });
 
+    it('an auto-activating confirmation signs in and remembers where the password went', async () => {
+      stubUrl('?verifyEmail=tok');
+      h.api.verifyEmail.mockResolvedValue({
+        status: 'active',
+        accessToken: 'new-token',
+        user: user({ email: 'boss@acme.test', language: 'en' }),
+      });
+      const store = new AuthStore();
+      await settle();
+      expect(h.setAuthToken).toHaveBeenCalledWith('new-token');
+      expect(store.currentUser).toMatchObject({ id: 'u1', email: 'boss@acme.test' });
+      expect(store.welcomeEmail).toBe('boss@acme.test');
+      expect(store.screen).toBe('signin');
+      expect(tracker.identify).toHaveBeenCalledWith('u1');
+      expect(tracker.track).toHaveBeenCalledWith('signup', undefined);
+      store.dismissWelcome();
+      expect(store.welcomeEmail).toBeNull();
+    });
+
     it('a failing refresh after verification keeps the verified result', async () => {
       h.token = 't';
       h.api.me.mockResolvedValueOnce(user()).mockRejectedValue(new Error('x'));

@@ -64,3 +64,25 @@ export const EmailNotVerifiedBanner: React.FC = observer(() => {
     />
   );
 });
+
+/**
+ * Shown once after the `?verifyEmail=` link activated the account and signed the user in (`autoActivate`): the password
+ * for other devices went to the confirmed address. Closable; gone after a reload.
+ */
+export const WelcomeBanner: React.FC = observer(() => {
+  const t = getGlobalI18n().t;
+  const email = authStore.welcomeEmail;
+  if (!email) return null;
+  return (
+    <Alert
+      type="success"
+      showIcon
+      banner
+      closable
+      onClose={() => authStore.dismissWelcome()}
+      message={t('client:welcome-banner.message', { email })}
+      style={{ marginBottom: 16 }}
+      data-testid="welcome-banner"
+    />
+  );
+});

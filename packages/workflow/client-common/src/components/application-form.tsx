@@ -15,13 +15,17 @@ interface IValues {
   acceptTerms?: boolean;
 }
 
-/** Closed-beta application (`signupMode: 'application'`). */
+/**
+ * `signupMode: 'application'`: a closed-beta application reviewed by an admin, or — with `autoActivate` — the public
+ * signup form (same fields; confirming the e-mail signs the user in).
+ */
 export const ApplicationForm: React.FC = observer(() => {
   const t = getGlobalI18n().t;
   const captchaRef = useRef<ICaptchaControl | null>(null);
   const [captchaError, setCaptchaError] = useState(false);
   const termsUrl = authStore.authConfig?.termsUrl ?? null;
   const captcha = authStore.authConfig?.captcha ?? null;
+  const autoActivate = authStore.authConfig?.autoActivate === true;
 
   const onFinish = async (values: IValues) => {
     const captchaToken = captchaRef.current?.getToken() ?? '';
@@ -44,9 +48,11 @@ export const ApplicationForm: React.FC = observer(() => {
   return (
     <>
       <Typography.Title level={4} style={authStyles.title}>
-        {t('client:login-page.apply-title')}
+        {t(autoActivate ? 'client:login-page.signup-title' : 'client:login-page.apply-title')}
       </Typography.Title>
-      <Typography.Paragraph type="secondary">{t('client:login-page.apply-intro')}</Typography.Paragraph>
+      <Typography.Paragraph type="secondary">
+        {t(autoActivate ? 'client:login-page.signup-intro' : 'client:login-page.apply-intro')}
+      </Typography.Paragraph>
       <Form layout="vertical" onFinish={onFinish} disabled={authStore.isLoggingIn}>
         <Form.Item label={t('client:login-page.email')} name="email" rules={[{ required: true, type: 'email' }]}>
           <Input type="email" autoFocus />
@@ -93,7 +99,7 @@ export const ApplicationForm: React.FC = observer(() => {
         )}
         <Form.Item>
           <Button type="primary" htmlType="submit" loading={authStore.isLoggingIn} block>
-            {t('client:login-page.apply-submit')}
+            {t(autoActivate ? 'client:login-page.signup-submit' : 'client:login-page.apply-submit')}
           </Button>
         </Form.Item>
       </Form>

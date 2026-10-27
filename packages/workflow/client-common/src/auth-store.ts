@@ -64,6 +64,8 @@ export class AuthStore {
   /** Shown once on the sign-in screen (e.g. after a password reset). */
   @observable notice: string | null = null;
   @observable resendState: 'idle' | 'sending' | 'sent' = 'idle';
+  /** Set when the `?verifyEmail=` link activated the account and signed the user in: the address the password went to. */
+  @observable welcomeEmail: string | null = null;
   private resetToken: string | null = null;
 
   constructor() {
@@ -91,6 +93,22 @@ export class AuthStore {
   @action async verifyEmail(token: string): Promise<void> {
     try {
       const result = await workflowApi.verifyEmail(token);
+      if (result.accessToken && result.user) {
+        // `autoActivate`: this confirmation activated the account — sign in straight away, the password was mailed.
+        const user = result.user;
+        setAuthToken(result.accessToken);
+        syncI18nLanguage(user.language);
+        runInAction(() => {
+          this.currentUser = user;
+          this.welcomeEmail = user.email ?? user.username;
+          this.verifyResult = 'active';
+          this.screen = 'signin';
+        });
+        eventTracker.identify(user.id);
+        // The account came into being on this click (an application isn't a signup until it is confirmed).
+        eventTracker.track('signup');
+        return;
+      }
       runInAction(() => {
         this.verifyResult = result.status;
         this.screen = 'verified';
@@ -106,6 +124,10 @@ export class AuthStore {
         this.screen = 'verified';
       });
     }
+  }
+
+  @action dismissWelcome(): void {
+    this.welcomeEmail = null;
   }
 
   @action setScreen(screen: TAuthScreen): void {
@@ -303,6 +325,7 @@ export class AuthStore {
   @action logout(): void {
     setAuthToken(null);
     this.currentUser = null;
+    this.welcomeEmail = null;
     this.isChangePasswordOpen = false;
     this.screen = 'signin';
   }

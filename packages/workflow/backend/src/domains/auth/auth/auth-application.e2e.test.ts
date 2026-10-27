@@ -44,6 +44,7 @@ describe('closed-beta application signup', () => {
     const response = await http().get('/auth/config');
     expect(response.body).toEqual({
       signupMode: 'application',
+      autoActivate: false,
       termsUrl: null,
       captcha: null,
       mailConfigured: true,
@@ -193,5 +194,97 @@ describe('closed-beta application signup', () => {
     const response = await http().post('/auth/forgot-password').send({ email: APPLICANT });
     expect(response.status).toBe(202);
     expect(mailbox.messages.length).toBe(before);
+  });
+});
+
+describe('application signup with SIGNUP_AUTO_ACTIVATE', () => {
+  // oxlint-disable-next-line init-declarations
+  let app: INestApplication;
+  // oxlint-disable-next-line init-declarations
+  let mailbox: CapturingMailTransport;
+
+  beforeEach(async () => {
+    vi.stubEnv('CREDENTIALS_ENCRYPTION_KEY', 'test-encryption-key');
+    vi.stubEnv('SIGNUP_MODE', 'application');
+    vi.stubEnv('SIGNUP_AUTO_ACTIVATE', 'true');
+    vi.stubEnv('CLIENT_PUBLIC_URL', 'https://app.test');
+    app = await createTestApp();
+    mailbox = app.get<CapturingMailTransport>(MAIL_TRANSPORT);
+  });
+
+  afterEach(async () => {
+    await app.close();
+    vi.unstubAllEnvs();
+  });
+
+  const http = () => request(app.getHttpServer());
+  const apply = () =>
+    http().post('/auth/register').send({
+      email: APPLICANT,
+      companyName: 'Acme',
+      automationInterest: 'Orders from Telegram into CRM',
+      acceptTerms: true,
+    });
+
+  it('reports autoActivate in /auth/config', async () => {
+    const response = await http().get('/auth/config');
+    expect(response.body).toMatchObject({ signupMode: 'application', autoActivate: true });
+  });
+
+  it('confirming the e-mail activates the account, signs in and mails the password', async () => {
+    const applied = await apply();
+    expect(applied.status).toBe(202);
+    expect(mailbox.to(APPLICANT)[0]?.text).toContain('sign in to Falang');
+
+    const token = mailbox.latestToken(APPLICANT, 'verifyEmail');
+    const verified = await http().post('/auth/verify-email').send({ token });
+    expect(verified.status).toBe(200);
+    expect(verified.body).toMatchObject({
+      status: 'active',
+      accessToken: expect.any(String),
+      user: { email: APPLICANT, emailVerified: true, companyName: 'Acme', activatedAt: expect.any(String) },
+    });
+
+    const me = await http()
+      .get('/auth/me')
+      .set(auth(verified.body.accessToken as string));
+    expect(me.status).toBe(200);
+    expect(me.body.email).toBe(APPLICANT);
+
+    const welcome = mailbox.to(APPLICANT).at(-1);
+    expect(welcome?.subject).toBe('Welcome to Falang');
+    expect(welcome?.text).toContain(`Login: ${APPLICANT}`);
+    const password = /Password: (\S+)/.exec(welcome?.text ?? '')?.[1];
+    expect(password).toBeTruthy();
+    const ok = await http().post('/auth/login').send({ username: APPLICANT, password });
+    expect(ok.status).toBe(200);
+
+    // The link signs in once: a reused token is refused like any other.
+    const reuse = await http().post('/auth/verify-email').send({ token });
+    expect(reuse.status).toBe(400);
+  });
+
+  it('tells admins about the new user without asking them to activate it', async () => {
+    const adminToken = await login(app);
+    await http().post('/admin/users').set(auth(adminToken)).send({ username: 'ops', email: 'ops@falang.test' });
+    const list = await http().get('/admin/users').set(auth(adminToken));
+    const ops = (list.body as { id: string; username: string }[]).find((u) => u.username === 'ops');
+    await http().patch(`/admin/users/${ops?.id}/role`).set(auth(adminToken)).send({ role: 'admin' });
+    await apply();
+    await http()
+      .post('/auth/verify-email')
+      .send({ token: mailbox.latestToken(APPLICANT, 'verifyEmail') });
+    const notice = mailbox.to('ops@falang.test').at(-1);
+    expect(notice?.subject).toBe('New user: Acme');
+    expect(notice?.text).toContain('already active');
+  });
+
+  it('still signs the user in when the welcome mail fails', async () => {
+    await apply();
+    const token = mailbox.latestToken(APPLICANT, 'verifyEmail');
+    vi.spyOn(mailbox, 'sendMail').mockRejectedValueOnce(new Error('smtp down'));
+    const verified = await http().post('/auth/verify-email').send({ token });
+    expect(verified.status).toBe(200);
+    expect(verified.body.accessToken).toEqual(expect.any(String));
   });
 });

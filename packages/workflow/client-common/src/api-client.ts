@@ -191,8 +191,9 @@ export const workflowApi = {
   apply: (input: IApiApplicationInput) =>
     request<{ status: 'pending_email' }>('/auth/register', { method: 'POST', body: JSON.stringify(input) }),
 
+  /** With `autoActivate` the confirmation that activates the account also signs the user in (`accessToken` + `user`). */
   verifyEmail: (verificationToken: string) =>
-    request<{ status: 'pending_activation' | 'active' }>('/auth/verify-email', {
+    request<{ status: 'pending_activation' | 'active' } & Partial<IApiLoginResult>>('/auth/verify-email', {
       method: 'POST',
       body: JSON.stringify({ token: verificationToken }),
     }),

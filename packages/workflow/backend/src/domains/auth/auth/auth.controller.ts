@@ -45,7 +45,7 @@ import { OAuthCredentialsService } from '../../admin/oauth-credentials/oauth-cre
 import { getDisabledVendors } from '../../integrations/optional-vendors.js';
 import { getUnconfiguredPlatformClientVendors } from '../../integrations/platform-oauth-vendors.js';
 import { Public } from './public.decorator.js';
-import { resolveSignupMode, type TSignupMode } from './signup-mode.js';
+import { resolveSignupAutoActivate, resolveSignupMode, type TSignupMode } from './signup-mode.js';
 import type { IJwtPayloadUser } from './jwt.strategy.js';
 
 @Controller('auth')
@@ -92,6 +92,8 @@ export class AuthController {
   @Get('config')
   async getConfig(): Promise<{
     signupMode: TSignupMode;
+    /** `application` mode only: confirming the e-mail activates the account and signs the user in. */
+    autoActivate: boolean;
     termsUrl: string | null;
     captcha: ICaptchaPublicConfig | null;
     mailConfigured: boolean;
@@ -101,6 +103,7 @@ export class AuthController {
     const signupMode = this.signupMode();
     return {
       signupMode,
+      autoActivate: signupMode === 'application' && resolveSignupAutoActivate(this.config),
       termsUrl: this.termsUrl(),
       captcha: this.captcha.getPublicConfig(),
       mailConfigured: this.mail.isConfigured,
@@ -166,8 +169,14 @@ export class AuthController {
   @Public()
   @Post('verify-email')
   @HttpCode(HttpStatus.OK)
-  verifyEmail(@Body() body: VerifyEmailDto): Promise<{ status: TAccountStatus }> {
-    return this.account.verifyEmail(body.token);
+  async verifyEmail(
+    @Body() body: VerifyEmailDto,
+  ): Promise<{ status: TAccountStatus } | ({ status: 'active' } & ILoginResult)> {
+    const { status, activatedUser } = await this.account.verifyEmail(body.token);
+    // `SIGNUP_AUTO_ACTIVATE`: this confirmation activated the account, so the link signs the user in (once —
+    // the token is single use; a later click is a 400 like any reused token).
+    if (activatedUser) return { status: 'active', ...(await this.authService.login(activatedUser)) };
+    return { status };
   }
 
   @Public()

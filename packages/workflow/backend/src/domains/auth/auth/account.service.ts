@@ -1,19 +1,28 @@
 import { BadRequestException, ConflictException, Inject, Injectable, Logger } from '@nestjs/common';
+import { ConfigService } from '@nestjs/config';
 import { AuthTokensService } from '../auth-tokens/auth-tokens.service.js';
-import { emailVerificationsTotal } from '../../metrics/metrics.js';
+import { activationsTotal, emailVerificationsTotal } from '../../metrics/metrics.js';
 import { MailService } from '../../mail/mail.service.js';
 import {
   confirmEmailMail,
   newApplicationMail,
   resetPasswordMail,
+  welcomeMail,
   type IMailContent,
 } from '../../mail/mail-templates.js';
 import type { User } from '../../users/users/user.entity.js';
 import { UsersService } from '../../users/users/users.service.js';
+import { resolveSignupAutoActivate } from './signup-mode.js';
 
 const RESEND_COOLDOWN_MS = 60 * 1000;
 
 export type TAccountStatus = 'pending_email' | 'pending_activation' | 'active';
+
+export interface IVerifyEmailResult {
+  readonly status: TAccountStatus;
+  /** Set only when this confirmation activated the account (`SIGNUP_AUTO_ACTIVATE`): the caller signs the user in. */
+  readonly activatedUser?: User;
+}
 
 export interface IApplicationInput {
   readonly email: string;
@@ -22,22 +31,33 @@ export interface IApplicationInput {
   readonly termsAcceptedAt: Date | null;
 }
 
-/** E-mail verification, the closed-beta application flow and password reset. Mail failures never fail a request. */
+/**
+ * E-mail verification, the application flow (reviewed by an admin, or activated on confirmation with
+ * `SIGNUP_AUTO_ACTIVATE`) and password reset. Mail failures never fail a request.
+ */
 @Injectable()
 export class AccountService {
   private readonly logger = new Logger(AccountService.name);
   private readonly usersService: UsersService;
   private readonly tokens: AuthTokensService;
   private readonly mail: MailService;
+  private readonly config: ConfigService;
 
   constructor(
     @Inject(UsersService) usersService: UsersService,
     @Inject(AuthTokensService) tokens: AuthTokensService,
     @Inject(MailService) mail: MailService,
+    @Inject(ConfigService) config: ConfigService,
   ) {
     this.usersService = usersService;
     this.tokens = tokens;
     this.mail = mail;
+    this.config = config;
+  }
+
+  // Read per call so the flag follows the live environment.
+  private autoActivate(): boolean {
+    return resolveSignupAutoActivate(this.config);
   }
 
   private async sendTo(user: User, content: IMailContent): Promise<void> {
@@ -54,7 +74,7 @@ export class AccountService {
     }
     const token = await this.tokens.issue(user.id, 'verify-email');
     const url = this.mail.buildClientLink(`/?verifyEmail=${encodeURIComponent(token)}`);
-    await this.sendTo(user, confirmEmailMail(user.language, url));
+    await this.sendTo(user, confirmEmailMail(user.language, url, this.autoActivate() ? 'signup' : 'application'));
   }
 
   /** `application` mode: creates a not-yet-activated account with no usable password. */
@@ -82,7 +102,7 @@ export class AccountService {
     return { status: 'pending_email' };
   }
 
-  async verifyEmail(rawToken: string): Promise<{ status: TAccountStatus }> {
+  async verifyEmail(rawToken: string): Promise<IVerifyEmailResult> {
     const userId = await this.tokens.consume(rawToken, 'verify-email');
     const user = userId ? await this.usersService.findById(userId) : null;
     if (!user) throw new BadRequestException('Invalid or expired token');
@@ -92,11 +112,33 @@ export class AccountService {
       emailVerificationsTotal.inc();
     }
     if (user.activatedAt) return { status: 'active' };
-    if (!alreadyVerified) await this.notifyAdmins(user);
+    if (this.autoActivate()) {
+      const activatedUser = await this.activateOnSignup(user);
+      if (!alreadyVerified) await this.notifyAdmins(user, { activated: true });
+      return { status: 'active', activatedUser };
+    }
+    if (!alreadyVerified) await this.notifyAdmins(user, { activated: false });
     return { status: 'pending_activation' };
   }
 
-  private async notifyAdmins(applicant: User): Promise<void> {
+  /** Same as the admin's "Activate", except the password goes out as a welcome mail (the user is signed in anyway). */
+  private async activateOnSignup(user: User): Promise<User> {
+    const password = this.usersService.generatePassword();
+    await this.usersService.setPassword(user.id, password);
+    await this.usersService.markActivated(user.id);
+    activationsTotal.inc();
+    const { sent } = await this.mail.send({
+      to: user.email ?? user.username,
+      ...welcomeMail(user.language, { login: user.username, password, loginUrl: this.mail.buildClientLink('/') }),
+    });
+    // The user is signed in by the caller; without the mail they can still set a password via "Forgot password?".
+    if (!sent) this.logger.warn(`Welcome mail with the password was not sent to user ${user.id}`);
+    const activated = await this.usersService.findById(user.id);
+    if (!activated) throw new BadRequestException('Invalid or expired token');
+    return activated;
+  }
+
+  private async notifyAdmins(applicant: User, opts: { activated: boolean }): Promise<void> {
     const admins = await this.usersService.findAdminEmails();
     await Promise.all(
       admins.map((admin) =>
@@ -106,6 +148,7 @@ export class AccountService {
             email: applicant.email ?? applicant.username,
             companyName: applicant.companyName,
             automationInterest: applicant.automationInterest,
+            activated: opts.activated,
           }),
         ),
       ),

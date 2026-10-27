@@ -15,24 +15,38 @@ const wrapHtml = (paragraphs: string[]): string => `<div>${paragraphs.map((p) =>
 
 const link = (url: string): string => `<a href="${escapeHtml(url)}">${escapeHtml(url)}</a>`;
 
-export const confirmEmailMail = (language: string | undefined, url: string): IMailContent => {
+/** `signup`: the self-service signup (`SIGNUP_AUTO_ACTIVATE`), `application`: a closed-beta application awaiting review. */
+export type TConfirmEmailKind = 'application' | 'signup';
+
+export const confirmEmailMail = (
+  language: string | undefined,
+  url: string,
+  kind: TConfirmEmailKind = 'application',
+): IMailContent => {
+  const signup = kind === 'signup';
   if (pickLang(language) === 'ru') {
+    const lead = signup
+      ? 'Чтобы подтвердить e-mail и войти в Falang, перейдите по ссылке (действует 24 часа):'
+      : 'Чтобы подтвердить e-mail и завершить заявку, перейдите по ссылке (действует 24 часа):';
+    const ignore = signup
+      ? 'Если вы не регистрировались, просто проигнорируйте это письмо.'
+      : 'Если вы не оставляли заявку, просто проигнорируйте это письмо.';
     return {
       subject: 'Подтвердите e-mail',
-      text: `Чтобы подтвердить e-mail и завершить заявку, перейдите по ссылке (действует 24 часа):\n${url}\n\nЕсли вы не оставляли заявку, просто проигнорируйте это письмо.`,
-      html: wrapHtml([
-        `Чтобы подтвердить e-mail и завершить заявку, перейдите по ссылке (действует 24 часа):<br>${link(url)}`,
-        'Если вы не оставляли заявку, просто проигнорируйте это письмо.',
-      ]),
+      text: `${lead}\n${url}\n\n${ignore}`,
+      html: wrapHtml([`${lead}<br>${link(url)}`, ignore]),
     };
   }
+  const lead = signup
+    ? 'Follow the link to confirm your e-mail and sign in to Falang (valid for 24 hours):'
+    : 'Follow the link to confirm your e-mail and complete your application (valid for 24 hours):';
+  const ignore = signup
+    ? 'If you did not sign up, just ignore this message.'
+    : 'If you did not apply, just ignore this message.';
   return {
     subject: 'Confirm your e-mail',
-    text: `Follow the link to confirm your e-mail and complete your application (valid for 24 hours):\n${url}\n\nIf you did not apply, just ignore this message.`,
-    html: wrapHtml([
-      `Follow the link to confirm your e-mail and complete your application (valid for 24 hours):<br>${link(url)}`,
-      'If you did not apply, just ignore this message.',
-    ]),
+    text: `${lead}\n${url}\n\n${ignore}`,
+    html: wrapHtml([`${lead}<br>${link(url)}`, ignore]),
   };
 };
 
@@ -40,29 +54,64 @@ export interface INewApplicationInfo {
   readonly email: string;
   readonly companyName: string | null;
   readonly automationInterest: string | null;
+  /** The account was activated on e-mail confirmation (`SIGNUP_AUTO_ACTIVATE`): an FYI, nothing to activate. */
+  readonly activated?: boolean;
 }
 
 export const newApplicationMail = (language: string | undefined, info: INewApplicationInfo): IMailContent => {
   const company = info.companyName ?? '-';
   const interest = info.automationInterest ?? '-';
   if (pickLang(language) === 'ru') {
+    const [subject, lead, tail] = info.activated
+      ? [`Новый пользователь: ${company}`, 'Зарегистрировался новый пользователь.', 'Аккаунт уже активирован.']
+      : [`Новая заявка: ${company}`, 'Новая заявка на бета-доступ.', 'Активируйте её в админке (Users).'];
     return {
-      subject: `Новая заявка: ${company}`,
-      text: `Новая заявка на бета-доступ.\nE-mail: ${info.email}\nКомпания: ${company}\nЧто хотят автоматизировать: ${interest}\n\nАктивируйте её в админке (Users).`,
+      subject,
+      text: `${lead}\nE-mail: ${info.email}\nКомпания: ${company}\nЧто хотят автоматизировать: ${interest}\n\n${tail}`,
       html: wrapHtml([
-        'Новая заявка на бета-доступ.',
+        lead,
         `E-mail: ${escapeHtml(info.email)}<br>Компания: ${escapeHtml(company)}<br>Что хотят автоматизировать: ${escapeHtml(interest)}`,
-        'Активируйте её в админке (Users).',
+        tail,
+      ]),
+    };
+  }
+  const [subject, lead, tail] = info.activated
+    ? [`New user: ${company}`, 'A new user signed up.', 'The account is already active.']
+    : [`New application: ${company}`, 'A new beta application arrived.', 'Activate it in the admin app (Users).'];
+  return {
+    subject,
+    text: `${lead}\nE-mail: ${info.email}\nCompany: ${company}\nInterested in automating: ${interest}\n\n${tail}`,
+    html: wrapHtml([
+      lead,
+      `E-mail: ${escapeHtml(info.email)}<br>Company: ${escapeHtml(company)}<br>Interested in automating: ${escapeHtml(interest)}`,
+      tail,
+    ]),
+  };
+};
+
+/** `SIGNUP_AUTO_ACTIVATE`: sent when the confirmed e-mail activated the account (the user is already signed in). */
+export const welcomeMail = (
+  language: string | undefined,
+  info: { login: string; password: string; loginUrl: string },
+): IMailContent => {
+  if (pickLang(language) === 'ru') {
+    return {
+      subject: 'Добро пожаловать в Falang',
+      text: `Ваш аккаунт Falang создан, вы уже вошли в систему.\nДля входа с другого устройства:\nЛогин: ${info.login}\nПароль: ${info.password}\nВход: ${info.loginUrl}\n\nПароль можно сменить в настройках аккаунта.`,
+      html: wrapHtml([
+        'Ваш аккаунт Falang создан, вы уже вошли в систему.',
+        `Для входа с другого устройства:<br>Логин: ${escapeHtml(info.login)}<br>Пароль: <code>${escapeHtml(info.password)}</code><br>Вход: ${link(info.loginUrl)}`,
+        'Пароль можно сменить в настройках аккаунта.',
       ]),
     };
   }
   return {
-    subject: `New application: ${company}`,
-    text: `A new beta application arrived.\nE-mail: ${info.email}\nCompany: ${company}\nInterested in automating: ${interest}\n\nActivate it in the admin app (Users).`,
+    subject: 'Welcome to Falang',
+    text: `Your Falang account is ready and you are already signed in.\nTo sign in from another device:\nLogin: ${info.login}\nPassword: ${info.password}\nSign in: ${info.loginUrl}\n\nYou can change the password in your account settings.`,
     html: wrapHtml([
-      'A new beta application arrived.',
-      `E-mail: ${escapeHtml(info.email)}<br>Company: ${escapeHtml(company)}<br>Interested in automating: ${escapeHtml(interest)}`,
-      'Activate it in the admin app (Users).',
+      'Your Falang account is ready and you are already signed in.',
+      `To sign in from another device:<br>Login: ${escapeHtml(info.login)}<br>Password: <code>${escapeHtml(info.password)}</code><br>Sign in: ${link(info.loginUrl)}`,
+      'You can change the password in your account settings.',
     ]),
   };
 };

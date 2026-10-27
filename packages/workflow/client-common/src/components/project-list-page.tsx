@@ -11,7 +11,7 @@ import { sortExtensionNavItems, useClientExtensions } from '../extensions/client
 import { TasksStore } from '../tasks-store.js';
 import { LanguageSwitcher } from './language-switcher.js';
 import { ChangePasswordModal } from './change-password-modal.js';
-import { DefaultPasswordBanner, EmailNotVerifiedBanner } from './default-password-banner.js';
+import { DefaultPasswordBanner, EmailNotVerifiedBanner, WelcomeBanner } from './default-password-banner.js';
 import { PersonalAccessTokensModal } from './personal-access-tokens-modal.js';
 import { TopBar } from './top-bar.js';
 import { SupportButton } from './support-button.js';
@@ -204,6 +204,7 @@ export const ProjectListPage: React.FC = observer(() => {
         </Button>
       </TopBar>
       <DefaultPasswordBanner />
+      <WelcomeBanner />
       <EmailNotVerifiedBanner />
       <div style={styles.content}>
         {renderProjectList(store, t, startWithAgent)}

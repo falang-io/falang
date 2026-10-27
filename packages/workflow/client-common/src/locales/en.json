@@ -19,6 +19,7 @@
       "apply-title": "Apply for early access",
       "apply-intro": "Falang is in closed beta. Tell us a little about yourself; we will activate your account after reviewing the application.",
       "apply-submit": "Send application",
+      "signup-intro": "Tell us a little about yourself. Confirm your e-mail and you are in; the password arrives by e-mail.",
       "captcha-required": "Please confirm you are not a robot",
       "check-email-title": "Check your e-mail",
       "check-email-text": "We sent an e-mail to {{email}} — follow the link in it to confirm your address.",
@@ -469,6 +470,9 @@
       "confirm-keep": "Keep as is",
       "confirm-regenerate-title": "Regenerate the steps with AI?",
       "confirm-regenerate-ok": "Regenerate"
+    },
+    "welcome-banner": {
+      "message": "Welcome to Falang! The password for signing in from other devices was sent to {{email}}."
     },
     "email-not-verified-banner": {
       "message": "Your e-mail {{email}} is not confirmed yet.",

@@ -108,6 +108,13 @@ head:
     The local Docker Compose stack runs <code>open</code>.
   </li>
   <li>
+    <code>SIGNUP_AUTO_ACTIVATE</code> — <code>false</code> (default) or <code>true</code>; only matters with
+    <code>SIGNUP_MODE=application</code>. When <code>true</code> the same form is a public signup: following the
+    confirmation link activates the account at once and signs the user in, the generated password for other devices
+    goes out in a "Welcome to Falang" mail, and admins get an informational "new user" mail instead of an activation
+    request. Nothing waits for an admin.
+  </li>
+  <li>
     <code>TERMS_URL</code> — optional. When set, signup shows a required "I accept the terms" checkbox linking to this
     URL, the backend rejects a signup without acceptance, and the acceptance time is recorded on the account.
   </li>
