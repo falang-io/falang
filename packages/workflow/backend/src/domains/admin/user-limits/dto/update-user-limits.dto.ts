@@ -40,4 +40,29 @@ export class UpdateUserLimitsDto {
   @IsOptional()
   @IsBoolean()
   alwaysOnAllowed?: boolean | null;
+
+  @IsOptional()
+  @IsInt()
+  @Min(1)
+  maxProjects?: number | null;
+
+  @IsOptional()
+  @IsInt()
+  @Min(1)
+  maxDevPods?: number | null;
+
+  @IsOptional()
+  @IsInt()
+  @Min(1)
+  maxStoredVersions?: number | null;
+
+  @IsOptional()
+  @IsInt()
+  @Min(1)
+  maxOwnerFilesBytes?: number | null;
+
+  @IsOptional()
+  @IsInt()
+  @Min(1)
+  maxSchedules?: number | null;
 }

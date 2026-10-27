@@ -17,6 +17,11 @@ const LIMITS: IUserLimits = {
   maxConcurrentProdVersions: 3,
   maxIdleMinutes: 1440,
   alwaysOnAllowed: true,
+  maxProjects: 100,
+  maxDevPods: 3,
+  maxStoredVersions: 50,
+  maxOwnerFilesBytes: 5000,
+  maxSchedules: 20,
 };
 
 const makeProjectRepo = (): Pick<Repository<Project>, 'findOneBy'> => ({

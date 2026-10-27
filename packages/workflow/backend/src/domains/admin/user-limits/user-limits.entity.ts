@@ -45,6 +45,21 @@ export class UserLimits {
   @Column({ name: 'always_on_allowed', type: 'boolean', nullable: true })
   alwaysOnAllowed!: boolean | null;
 
+  @Column({ name: 'max_projects', type: 'int', nullable: true })
+  maxProjects!: number | null;
+
+  @Column({ name: 'max_dev_pods', type: 'int', nullable: true })
+  maxDevPods!: number | null;
+
+  @Column({ name: 'max_stored_versions', type: 'int', nullable: true })
+  maxStoredVersions!: number | null;
+
+  @Column({ name: 'max_owner_files_bytes', type: 'bigint', nullable: true, transformer: bigintTransformer })
+  maxOwnerFilesBytes!: number | null;
+
+  @Column({ name: 'max_schedules', type: 'int', nullable: true })
+  maxSchedules!: number | null;
+
   @UpdateDateColumn({ name: 'updated_at', type: Date })
   updatedAt!: Date;
 }

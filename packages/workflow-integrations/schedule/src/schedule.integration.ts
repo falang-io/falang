@@ -50,7 +50,10 @@ export const scheduleFireType: IIntegrationStructType = {
 
 const scheduleFireScopeType: TVariableInfo = { type: 'struct', id: SCHEDULE_FIRE_TYPE_ID };
 
-const SCHEDULE_INTERVAL_UNIT_OPTIONS: readonly IFieldSelectOption[] = SCHEDULE_INTERVAL_UNITS.map((unit) => ({
+// "seconds" stays a valid stored unit (old data, "120 seconds") but is not offered: the minimum period is 60 seconds.
+const SCHEDULE_INTERVAL_UNIT_OPTIONS: readonly IFieldSelectOption[] = SCHEDULE_INTERVAL_UNITS.filter(
+  (unit) => unit !== 'seconds',
+).map((unit) => ({
   value: unit,
   label: `schedule:unit.${unit}`,
 }));
@@ -108,7 +111,7 @@ export const scheduleIntegration: IWorkflowIntegration = {
       ],
       notes:
         'Fires repeatedly on a fixed interval — "every" (a positive whole number) times "unit" ' +
-        '(seconds/minutes/hours/days/weeks), e.g. every=15, unit=minutes fires every 15 minutes, ' +
+        '(minutes/hours/days/weeks; the smallest allowed period is 60 seconds), e.g. every=15, unit=minutes fires every 15 minutes, ' +
         'starting one interval after the schedule is created/resumed (not immediately). Use ' +
         'schedule-cron instead for "daily at a specific time" or "only on certain weekdays" — an ' +
         'interval trigger cannot express a fixed time of day. The bound function receives one ' +

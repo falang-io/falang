@@ -26,6 +26,11 @@ const makeRow = (overrides: Partial<UserLimits> = {}): UserLimits =>
     maxConcurrentProdVersions: null,
     maxIdleMinutes: null,
     alwaysOnAllowed: null,
+    maxProjects: null,
+    maxDevPods: null,
+    maxStoredVersions: null,
+    maxOwnerFilesBytes: null,
+    maxSchedules: null,
     updatedAt: new Date(),
     ...overrides,
   }) as UserLimits;
@@ -55,6 +60,11 @@ describe('UserLimitsService', () => {
         maxConcurrentProdVersions: 3,
         maxIdleMinutes: 1440,
         alwaysOnAllowed: true,
+        maxProjects: 100,
+        maxDevPods: 3,
+        maxStoredVersions: 50,
+        maxOwnerFilesBytes: 10_737_418_240,
+        maxSchedules: 20,
       });
     });
 
@@ -105,6 +115,11 @@ describe('UserLimitsService', () => {
           maxConcurrentProdVersions: null,
           maxIdleMinutes: null,
           alwaysOnAllowed: null,
+          maxProjects: null,
+          maxDevPods: null,
+          maxStoredVersions: null,
+          maxOwnerFilesBytes: null,
+          maxSchedules: null,
         }),
       );
     });

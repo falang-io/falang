@@ -65,6 +65,8 @@ export class FilesService {
 
     const limits = await this.userLimits.getLimits(project.ownerId);
     const usedBytes = await this.getUsedBytes(projectId);
+    // Security audit P1-3: the owner's quota spans every project they own, not just this one.
+    const ownerUsedBytes = await this.getOwnerUsedBytes(project.ownerId);
     const mime = meta.mime || 'application/octet-stream';
 
     const fileId = generateFileId();
@@ -80,6 +82,10 @@ export class FilesService {
         }
         if (usedBytes + bytesSoFar > limits.maxProjectFilesBytes) {
           callback(new FileTooLargeError(`Project is over its ${limits.maxProjectFilesBytes}-byte file quota`));
+          return;
+        }
+        if (ownerUsedBytes + bytesSoFar > limits.maxOwnerFilesBytes) {
+          callback(new FileTooLargeError(`Account is over its ${limits.maxOwnerFilesBytes}-byte total file quota`));
           return;
         }
         callback(null, chunk);
@@ -207,6 +213,17 @@ export class FilesService {
     const row = await this.files.findOneBy({ id: fileId, projectId });
     if (!row) throw new NotFoundException(`File "${fileId}" not found`);
     return row;
+  }
+
+  /** Bytes stored across every project `ownerId` owns. */
+  private async getOwnerUsedBytes(ownerId: string): Promise<number> {
+    const result = await this.files
+      .createQueryBuilder('file')
+      .innerJoin(Project, 'project', 'project.id = file.projectId')
+      .select('COALESCE(SUM(file.size), 0)', 'total')
+      .where('project.ownerId = :ownerId', { ownerId })
+      .getRawOne<{ total: string | number }>();
+    return Number(result?.total ?? 0);
   }
 
   private async getUsedBytes(projectId: string): Promise<number> {

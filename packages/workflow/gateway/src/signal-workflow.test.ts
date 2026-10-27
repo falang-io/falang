@@ -30,4 +30,26 @@ describe('createSignalWorkflowWithStart', () => {
     });
     expect(clientB.workflow.signalWithStart).not.toHaveBeenCalled();
   });
+
+  it('bounds the started execution with the configured workflowExecutionTimeout', async () => {
+    const signalWithStart = vi.fn().mockResolvedValue({});
+    const tenancy = {
+      mode: 'shared',
+      getClient: vi.fn().mockResolvedValue({ workflow: { signalWithStart } }),
+    } as unknown as ITemporalTenancy;
+
+    await createSignalWorkflowWithStart(
+      tenancy,
+      '30 days',
+    )({
+      projectId: 'a',
+      taskQueue: 'q',
+      workflowId: 'wf',
+      workflowType: 't',
+      signalName: 's',
+      signalArgs: [],
+    });
+
+    expect(signalWithStart).toHaveBeenCalledWith('t', expect.objectContaining({ workflowExecutionTimeout: '30 days' }));
+  });
 });

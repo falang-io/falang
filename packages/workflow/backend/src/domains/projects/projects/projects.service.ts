@@ -1,8 +1,9 @@
 import { randomUUID } from 'node:crypto';
-import { Injectable, NotFoundException } from '@nestjs/common';
+import { ForbiddenException, Inject, Injectable, NotFoundException, Optional } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { INTEGRATIONS_DOCUMENT_TYPE } from '@falang/workflow-integrations-common';
 import { In, type Repository } from 'typeorm';
+import { UserLimitsService } from '../../admin/user-limits/user-limits.service.js';
 import { User } from '../../users/users/user.entity.js';
 import { Document } from '../documents/document.entity.js';
 import { ensureFixedFolders } from '../layout/project-layout.js';
@@ -52,13 +53,17 @@ export class ProjectsService {
   private readonly documents: Repository<Document>;
   private readonly users: Repository<User>;
   private readonly members: Repository<ProjectMember>;
+  private readonly userLimits: UserLimitsService | undefined;
 
   constructor(
     @InjectRepository(Project) projects: Repository<Project>,
     @InjectRepository(Document) documents: Repository<Document>,
     @InjectRepository(User) users: Repository<User>,
     @InjectRepository(ProjectMember) members: Repository<ProjectMember>,
+    // Optional so a lightweight test module without the limits table still builds; the real app always provides it.
+    @Optional() @Inject(UserLimitsService) userLimits?: UserLimitsService,
   ) {
+    this.userLimits = userLimits;
     this.projects = projects;
     this.documents = documents;
     this.users = users;
@@ -109,7 +114,25 @@ export class ProjectsService {
     return roles;
   }
 
+  /**
+   * Throws `403 { code: 'project_limit' }` when `ownerId` already owns `maxProjects` projects (`UserLimitsService`).
+   * `extra` projects about to be added (default 1) count too. Every project-creating path (REST, import, templates, MCP)
+   * goes through `create`; an admin transfer calls this with the new owner.
+   */
+  async assertUnderProjectLimit(ownerId: string, extra = 1): Promise<void> {
+    if (!this.userLimits) return;
+    const { maxProjects } = await this.userLimits.getLimits(ownerId);
+    const owned = await this.projects.count({ where: { ownerId } });
+    if (owned + extra > maxProjects) {
+      throw new ForbiddenException({
+        code: 'project_limit',
+        message: `Project limit reached (${maxProjects}). Delete a project or ask an administrator to raise the limit.`,
+      });
+    }
+  }
+
   async create(ownerId: string, name: string): Promise<Project> {
+    await this.assertUnderProjectLimit(ownerId);
     const project = this.projects.create({ name, ownerId });
     const savedProject = await this.projects.save(project);
     await this.seedIntegrationsDocument(savedProject.id);

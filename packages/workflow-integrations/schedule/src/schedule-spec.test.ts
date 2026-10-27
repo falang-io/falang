@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { SCHEDULE_CRON_TRIGGER_NAME, SCHEDULE_INTERVAL_TRIGGER_NAME } from './constants.js';
 import {
+  minScheduleGapSeconds,
   buildScheduleSpec,
   previewNextFireTimes,
   validateScheduleCronExpression,
@@ -70,6 +71,17 @@ describe('buildScheduleSpec', () => {
     });
   });
 
+  it('schedule-interval refuses a period shorter than the 60-second minimum, including "seconds" units', () => {
+    expect(() => buildScheduleSpec(SCHEDULE_INTERVAL_TRIGGER_NAME, { every: '30', unit: 'seconds' })).toThrow(
+      /at least 60/,
+    );
+    expect(() => buildScheduleSpec(SCHEDULE_INTERVAL_TRIGGER_NAME, { every: '59', unit: 'seconds' })).toThrow();
+    expect(buildScheduleSpec(SCHEDULE_INTERVAL_TRIGGER_NAME, { every: '60', unit: 'seconds' })).toEqual({
+      intervals: [{ every: '60 seconds' }],
+    });
+    expect(buildScheduleSpec(SCHEDULE_INTERVAL_TRIGGER_NAME, { every: '1', unit: 'minutes' })).toBeDefined();
+  });
+
   it('schedule-interval throws for an invalid "every" or an unknown unit', () => {
     expect(() => buildScheduleSpec(SCHEDULE_INTERVAL_TRIGGER_NAME, { every: 'abc', unit: 'minutes' })).toThrow();
     expect(() => buildScheduleSpec(SCHEDULE_INTERVAL_TRIGGER_NAME, { every: '5', unit: 'fortnights' })).toThrow();
@@ -89,6 +101,29 @@ describe('buildScheduleSpec', () => {
 
   it('throws for an unknown trigger name', () => {
     expect(() => buildScheduleSpec('schedule-unknown', {})).toThrow();
+  });
+});
+
+describe('minScheduleGapSeconds', () => {
+  const from = new Date('2026-01-01T00:00:00.000Z');
+
+  it('reads the period of an interval spec', () => {
+    expect(minScheduleGapSeconds({ intervals: [{ every: '15 minutes' }] }, from)).toBe(900);
+    expect(minScheduleGapSeconds({ intervals: [{ every: '30 seconds' }, { every: '2 hours' }] }, from)).toBe(30);
+  });
+
+  it('samples the next fires of a cron expression and returns the shortest gap', () => {
+    expect(minScheduleGapSeconds({ cronExpressions: ['*/5 * * * *'], timeZone: 'UTC' }, from)).toBe(300);
+    expect(minScheduleGapSeconds({ cronExpressions: ['0,1 * * * *'], timeZone: 'UTC' }, from)).toBe(60);
+    expect(minScheduleGapSeconds({ cronExpressions: ['0 9 * * 1-5'], timeZone: 'UTC' }, from)).toBe(86_400);
+  });
+
+  it('sees the sub-minute cadence of a 6-field expression', () => {
+    expect(minScheduleGapSeconds({ cronExpressions: ['*/10 * * * * *'], timeZone: 'UTC' }, from)).toBe(10);
+  });
+
+  it('is 0 for an unparseable interval, so a guard refuses it', () => {
+    expect(minScheduleGapSeconds({ intervals: [{ every: 'soon' }] }, from)).toBe(0);
   });
 });
 

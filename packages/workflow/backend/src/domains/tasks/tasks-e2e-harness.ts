@@ -21,6 +21,7 @@ import { ProjectMember } from '../projects/members/project-member.entity.js';
 import { ProjectsModule } from '../projects/projects/projects.module.js';
 import { ProjectsService } from '../projects/projects/projects.service.js';
 import { ProjectMembersService } from '../projects/members/project-members.service.js';
+import { UserLimits } from '../admin/user-limits/user-limits.entity.js';
 import { User } from '../users/users/user.entity.js';
 import { UsersModule } from '../users/users/users.module.js';
 import { auth } from '../../test-utils/e2e-app.js';
@@ -54,7 +55,7 @@ export const createTasksTestApp = async () => {
         database: ':memory:',
         dropSchema: true,
         synchronize: true,
-        entities: [User, Project, ProjectMember, Folder, Document, Task, RunJournalEntry],
+        entities: [User, Project, ProjectMember, Folder, Document, Task, RunJournalEntry, UserLimits],
       }),
       TypeOrmModule.forFeature([Task]),
       UsersModule,

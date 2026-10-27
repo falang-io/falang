@@ -1,3 +1,4 @@
+// oxlint-disable no-empty-function -- silenced console.warn spies.
 // oxlint-disable max-lines -- over the default cap because of the new onRunnerIdle/onRunnerResume
 // idle-pause coverage (ADR 0037 (private) §6), not accumulated complexity.
 import type { INode } from '@falang/dto';
@@ -301,5 +302,51 @@ describe('registerScheduleBackend', () => {
     await handle.onRunnerResume();
     expect(ctx.upsertSchedule).toHaveBeenCalledTimes(1);
     expect(ctx.listSchedules).toHaveBeenCalledTimes(1);
+  });
+});
+
+describe('registerScheduleBackend — refused schedules (security audit P1-3/P1-4)', () => {
+  it('journals a refusal once, creates nothing for that document and still reconciles the others', async () => {
+    const reportJournalProblem = vi.fn().mockResolvedValue(null);
+    const upsertSchedule = vi.fn(
+      (params: { scheduleId: string }): Promise<void> =>
+        params.scheduleId === 'sched-dev-doc-1'
+          ? Promise.reject(new Error('Schedule limit reached (1)'))
+          : Promise.resolve(),
+    );
+    const ctx = buildCtx({
+      getDocumentsByType: vi.fn().mockResolvedValue([intervalDoc('doc-1'), intervalDoc('doc-2')]),
+      upsertSchedule,
+      reportJournalProblem,
+    });
+    const warn = vi.spyOn(console, 'warn').mockImplementation(() => {});
+
+    await registerScheduleBackend(ctx);
+    await ctx.registeredInterval?.();
+
+    expect(upsertSchedule).toHaveBeenCalledWith(expect.objectContaining({ scheduleId: 'sched-dev-doc-2' }));
+    // doc-1 is retried on the next tick (the refusal may clear) but the journal gets the problem only once.
+    expect(reportJournalProblem).toHaveBeenCalledTimes(1);
+    expect(reportJournalProblem).toHaveBeenCalledWith(
+      expect.objectContaining({ documentId: 'doc-1', message: expect.stringContaining('Schedule limit reached') }),
+    );
+    warn.mockRestore();
+  });
+
+  it('rejects a too-frequent interval at spec level and journals why', async () => {
+    const reportJournalProblem = vi.fn().mockResolvedValue(null);
+    const ctx = buildCtx({
+      getDocumentsByType: vi.fn().mockResolvedValue([intervalDoc('doc-1', '10', 'seconds')]),
+      reportJournalProblem,
+    });
+    const warn = vi.spyOn(console, 'warn').mockImplementation(() => {});
+
+    await registerScheduleBackend(ctx);
+
+    expect(ctx.upsertSchedule).not.toHaveBeenCalled();
+    expect(reportJournalProblem).toHaveBeenCalledWith(
+      expect.objectContaining({ message: expect.stringContaining('at least 60') }),
+    );
+    warn.mockRestore();
   });
 });

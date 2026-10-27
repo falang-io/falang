@@ -1,4 +1,6 @@
+import type { Duration } from '@temporalio/common';
 import type { ITemporalTenancy } from './temporal-tenancy.js';
+import { executionTimeoutOptions } from './workflow-execution-timeout.js';
 
 export interface ISignalWorkflowWithStartParams {
   readonly taskQueue: string;
@@ -30,7 +32,7 @@ export type TSignalWorkflowWithStart = (params: ISignalWorkflowWithStartParams) 
  * client through `ITemporalTenancy` (ADR 0057 (private)) — the shared connection is never closed per call.
  */
 export const createSignalWorkflowWithStart =
-  (tenancy: ITemporalTenancy): TSignalWorkflowWithStart =>
+  (tenancy: ITemporalTenancy, workflowExecutionTimeout?: Duration): TSignalWorkflowWithStart =>
   async ({ signalArgs, signalName, taskQueue, projectId, workflowId, workflowType }) => {
     const client = await tenancy.getClient(projectId);
     await client.workflow.signalWithStart(workflowType, {
@@ -39,5 +41,6 @@ export const createSignalWorkflowWithStart =
       signal: signalName,
       signalArgs: [...signalArgs],
       args: [],
+      ...executionTimeoutOptions(workflowExecutionTimeout),
     });
   };

@@ -56,6 +56,7 @@ describe('compileProject — position tracking (ADR 0022 (private))', () => {
         '',
         'const { logActivity } = proxyLocalActivities<{ logActivity(message: string): Promise<string> }>({',
         "  startToCloseTimeout: '10 seconds',",
+        '  retry: { maximumAttempts: 5 },',
         '});',
         '',
         POSITION_RUNTIME_CODE,

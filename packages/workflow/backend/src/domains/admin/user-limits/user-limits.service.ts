@@ -13,6 +13,11 @@ const OVERRIDE_KEYS = [
   'maxConcurrentProdVersions',
   'maxIdleMinutes',
   'alwaysOnAllowed',
+  'maxProjects',
+  'maxDevPods',
+  'maxStoredVersions',
+  'maxOwnerFilesBytes',
+  'maxSchedules',
 ] as const;
 
 /**
@@ -42,6 +47,11 @@ export class UserLimitsService {
       maxConcurrentProdVersions: config.get<number>('MAX_CONCURRENT_PROD_VERSIONS', 3),
       maxIdleMinutes: config.get<number>('MAX_IDLE_MINUTES', 1440),
       alwaysOnAllowed: String(config.get<string | boolean>('ALWAYS_ON_ALLOWED', true)) !== 'false',
+      maxProjects: config.get<number>('MAX_PROJECTS', 100),
+      maxDevPods: config.get<number>('MAX_DEV_PODS', 3),
+      maxStoredVersions: config.get<number>('MAX_STORED_VERSIONS', 50),
+      maxOwnerFilesBytes: config.get<number>('MAX_OWNER_FILES_BYTES', 10_737_418_240),
+      maxSchedules: config.get<number>('MAX_SCHEDULES', 20),
     };
   }
 
@@ -64,21 +74,10 @@ export class UserLimitsService {
   /** A field set to `null` clears that override; an omitted field leaves it untouched. */
   async setOverrides(userId: string, partial: IUserLimitsOverrides): Promise<void> {
     const existing = await this.repo.findOneBy({ userId });
-    const next: UserLimits = {
-      userId,
-      maxProjectFilesBytes: existing?.maxProjectFilesBytes ?? null,
-      maxFileBytes: existing?.maxFileBytes ?? null,
-      devFileTtlHours: existing?.devFileTtlHours ?? null,
-      ingressFileTtlHours: existing?.ingressFileTtlHours ?? null,
-      maxConcurrentProdVersions: existing?.maxConcurrentProdVersions ?? null,
-      maxIdleMinutes: existing?.maxIdleMinutes ?? null,
-      alwaysOnAllowed: existing?.alwaysOnAllowed ?? null,
-      updatedAt: existing?.updatedAt ?? new Date(),
-    };
-    const writable = next as unknown as Record<string, number | boolean | null>;
+    const next = { userId, updatedAt: existing?.updatedAt ?? new Date() } as unknown as Record<string, unknown>;
     for (const key of OVERRIDE_KEYS) {
-      if (key in partial) writable[key] = partial[key] ?? null;
+      next[key] = key in partial ? (partial[key] ?? null) : (existing?.[key] ?? null);
     }
-    await this.repo.save(next);
+    await this.repo.save(next as unknown as UserLimits);
   }
 }

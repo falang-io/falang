@@ -76,6 +76,7 @@ describe('compileProject — debug instrumentation (ADR 0021 (private))', () => 
         '',
         'const { logActivity } = proxyLocalActivities<{ logActivity(message: string): Promise<string> }>({',
         "  startToCloseTimeout: '10 seconds',",
+        '  retry: { maximumAttempts: 5 },',
         '});',
         '',
         buildJournalRuntimeCode(false),

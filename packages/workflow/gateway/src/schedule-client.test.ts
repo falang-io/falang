@@ -111,7 +111,29 @@ const buildGetClient = (client: IFakeClient) => {
 
 describe('createTemporalScheduleClient', () => {
   describe('upsert', () => {
-    it('creates a new schedule with SKIP overlap/1h catchup and memo tags, unpaused, when none exists yet', async () => {
+    it('takes the catchup window and the execution timeout from the options (P1-4)', async () => {
+      const handle = buildFakeHandle(UPSERT_PARAMS.scheduleId, buildDescription());
+      const fakeClient: IFakeClient = {
+        schedule: {
+          create: vi.fn().mockResolvedValue(handle),
+          getHandle: vi.fn().mockReturnValue(handle),
+          list: vi.fn(),
+        },
+      };
+      const { getClient } = buildGetClient(fakeClient);
+      const port = createTemporalScheduleClient(getClient, {
+        catchupWindow: '5 minutes',
+        workflowExecutionTimeout: '2 days',
+      });
+
+      await port.upsert(UPSERT_PARAMS);
+
+      const createArgs = fakeClient.schedule.create.mock.calls[0][0] as ScheduleOptions;
+      expect(createArgs.policies).toEqual({ overlap: 'SKIP', catchupWindow: '5 minutes' });
+      expect(createArgs.action).toMatchObject({ type: 'startWorkflow', workflowExecutionTimeout: '2 days' });
+    });
+
+    it('creates a new schedule with SKIP overlap/60 s catchup and memo tags, unpaused, when none exists yet', async () => {
       const handle = buildFakeHandle(UPSERT_PARAMS.scheduleId, buildDescription());
       const fakeClient: IFakeClient = {
         schedule: {
@@ -136,7 +158,7 @@ describe('createTemporalScheduleClient', () => {
         taskQueue: UPSERT_PARAMS.taskQueue,
         args: [...UPSERT_PARAMS.args],
       });
-      expect(createArgs.policies).toEqual({ overlap: 'SKIP', catchupWindow: '1h' });
+      expect(createArgs.policies).toEqual({ overlap: 'SKIP', catchupWindow: '60 seconds' });
       expect(createArgs.memo).toEqual({
         falangProjectId: UPSERT_PARAMS.projectId,
         falangEnv: UPSERT_PARAMS.env,
@@ -170,7 +192,7 @@ describe('createTemporalScheduleClient', () => {
       const updateResult = (await handle.update.mock.results[0].value) as ScheduleUpdateOptions;
       expect(updateResult.state).toEqual({ paused: false, note: 'stopped: dev env stopped' });
       expect(updateResult.action).toMatchObject({ workflowType: UPSERT_PARAMS.workflowType });
-      expect(updateResult.policies).toEqual({ overlap: 'SKIP', catchupWindow: '1h' });
+      expect(updateResult.policies).toEqual({ overlap: 'SKIP', catchupWindow: '60 seconds' });
     });
 
     it('overrides the previous note with the new one when a note is given on update', async () => {

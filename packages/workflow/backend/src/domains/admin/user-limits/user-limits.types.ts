@@ -15,6 +15,16 @@ export interface IUserLimits {
   readonly maxIdleMinutes: number;
   /** Whether the owner's projects may use the "always on" switch (default `true`). */
   readonly alwaysOnAllowed: boolean;
+  /** Projects a user may own (`MAX_PROJECTS`, default 100) — P1-3 of the security audit. */
+  readonly maxProjects: number;
+  /** Dev runner pods running at once across the owner's projects (`MAX_DEV_PODS`, default 3). */
+  readonly maxDevPods: number;
+  /** Stored published versions per project (`MAX_STORED_VERSIONS`, default 50). */
+  readonly maxStoredVersions: number;
+  /** Total file bytes across all projects the user owns (`MAX_OWNER_FILES_BYTES`, default 10 GiB). */
+  readonly maxOwnerFilesBytes: number;
+  /** Schedules (all projects and envs) the owner may have registered (`MAX_SCHEDULES`, default 20). */
+  readonly maxSchedules: number;
 }
 
 /** A field set to `null` clears that override (falls back to the env default); an omitted field leaves it untouched. */

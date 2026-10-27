@@ -1,4 +1,4 @@
-// oxlint-disable no-undefined, unicorn/no-useless-undefined, unicorn/consistent-function-scoping, unicorn/no-await-expression-member, unicorn/catch-error-name, oxc/no-map-spread -- test fakes: resolving/rejecting with nothing, small local helpers and one-off spreads read better than the lint-preferred shapes.
+// oxlint-disable max-lines, no-undefined, unicorn/no-useless-undefined, unicorn/consistent-function-scoping, unicorn/no-await-expression-member, unicorn/catch-error-name, oxc/no-map-spread -- test fakes: resolving/rejecting with nothing, small local helpers and one-off spreads read better than the lint-preferred shapes.
 import { HttpException } from '@nestjs/common';
 import { RunnerStartRefusedError } from '@falang/workflow-gateway';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
@@ -24,6 +24,12 @@ interface IOptions {
   readonly anyProdRunning?: boolean;
   readonly guard?: { assertCanStart: ReturnType<typeof vi.fn> } | undefined;
   readonly withGuard?: boolean;
+  readonly existingVersions?: readonly { versionNumber: number; buildId: string }[];
+  readonly maxStoredVersions?: number;
+  readonly maxDevPods?: number;
+  readonly runningBuildIds?: readonly string[];
+  readonly runners?: readonly { projectId: string; env: 'dev' | 'prod' }[];
+  readonly ownedProjectIds?: readonly string[];
 }
 
 const VERSION = { projectId: 'p1', versionNumber: 1, buildId: 'v1' };
@@ -42,6 +48,7 @@ const makeService = (options: IOptions = {}) => {
       Promise.resolve({ ownerId: 'owner-1', suspendedReason: options.suspendedReason ?? null }),
     ),
     getOwnerId: vi.fn(() => Promise.resolve('owner-1')),
+    list: vi.fn(() => Promise.resolve((options.ownedProjectIds ?? []).map((id) => ({ id })))),
     getProdBuildId: vi.fn(() => Promise.resolve('v1')),
     setProdBuildId: vi.fn(() => Promise.resolve()),
     setProdEnabled: vi.fn(() => Promise.resolve(true)),
@@ -59,7 +66,8 @@ const makeService = (options: IOptions = {}) => {
       return Promise.resolve();
     }),
     touch: vi.fn(),
-    listRunning: vi.fn(() => Promise.resolve([])),
+    listRunning: vi.fn(() => Promise.resolve(options.runners ?? [])),
+    listRunningBuildIds: vi.fn(() => Promise.resolve(options.runningBuildIds ?? [])),
   };
   const deploymentCli = { setCurrentVersionWithRetry: vi.fn(() => Promise.resolve()) };
   const gatewayRuntime = {
@@ -70,6 +78,8 @@ const makeService = (options: IOptions = {}) => {
   const versions = {
     findOneBy: vi.fn(() => Promise.resolve(VERSION)),
     findOne: vi.fn(() => Promise.resolve(VERSION)),
+    find: vi.fn(() => Promise.resolve(options.existingVersions ?? [])),
+    remove: vi.fn(() => Promise.resolve()),
     count: vi.fn(() => Promise.resolve(0)),
     create: vi.fn((value: object) => value),
     save: vi.fn((value: object) => {
@@ -95,7 +105,12 @@ const makeService = (options: IOptions = {}) => {
     { commit: vi.fn(() => Promise.resolve(null)), headCommit: vi.fn(() => Promise.resolve(null)) },
     versions,
     '/tmp/build',
-    { getLimits: vi.fn(() => Promise.resolve({ maxConcurrentProdVersions: 3 })) },
+    {
+      getLimits: vi.fn(() => Promise.resolve({ maxConcurrentProdVersions: 3,
+          maxDevPods: options.maxDevPods ?? 3,
+          maxStoredVersions: options.maxStoredVersions ?? 50,
+        })),
+    },
     {},
     {},
     guard,
@@ -232,6 +247,76 @@ describe('BuildService — runner start guard (ADR 0067)', () => {
       const { service, versions } = makeService({ suspendedReason: 'admin', anyProdRunning: true });
       await expect423(service.publish('p1', 'owner-1'), 'admin');
       expect(versions.save).not.toHaveBeenCalled();
+    });
+  });
+
+  describe('resource limits (security audit P1-3)', () => {
+    const versionsOf = (count: number) =>
+      Array.from({ length: count }, (_unused, index) => ({ versionNumber: index + 1, buildId: `v${index + 1}` }));
+
+    it('publish() past maxStoredVersions removes the oldest versions, keeping the current prod and running ones', async () => {
+      // v1 is production's version (getProdBuildId → v1), v2 runs; v3 is the oldest removable.
+      const { service, versions } = makeService({
+        existingVersions: versionsOf(4),
+        maxStoredVersions: 4,
+        runningBuildIds: ['v2'],
+      });
+      await service.publish('p1', 'owner-1');
+      expect(versions.remove).toHaveBeenCalledWith([{ versionNumber: 3, buildId: 'v3' }]);
+    });
+
+    it('publish() under the cap removes nothing', async () => {
+      const { service, versions } = makeService({ existingVersions: versionsOf(2), maxStoredVersions: 4 });
+      await service.publish('p1', 'owner-1');
+      expect(versions.remove).not.toHaveBeenCalled();
+    });
+
+    it('publish() answers 409 version_limit, before building, when every old version is protected', async () => {
+      const { service, versions } = makeService({
+        existingVersions: versionsOf(2),
+        maxStoredVersions: 2,
+        runningBuildIds: ['v2'],
+      });
+      const error = await service.publish('p1', 'owner-1').then(
+        () => null,
+        (caught: unknown) => caught,
+      );
+      expect(error).toBeInstanceOf(HttpException);
+      expect((error as HttpException).getStatus()).toBe(409);
+      expect((error as HttpException).getResponse()).toMatchObject({ code: 'version_limit' });
+      expect(versions.save).not.toHaveBeenCalled();
+    });
+
+    it("a dev start is refused with 409 dev_pod_limit once the owner's other projects fill the cap", async () => {
+      const { service, runnerProcessManager } = makeService({
+        maxDevPods: 1,
+        ownedProjectIds: ['p1', 'p2'],
+        runners: [{ projectId: 'p2', env: 'dev' }],
+      });
+      const error = await service.build('p1', 'owner-1').then(
+        () => null,
+        (caught: unknown) => caught,
+      );
+      expect((error as HttpException).getStatus()).toBe(409);
+      expect((error as HttpException).getResponse()).toMatchObject({ code: 'dev_pod_limit' });
+      expect(runnerProcessManager.start).not.toHaveBeenCalled();
+    });
+
+    it('a wake refused by the dev pod cap becomes a RunnerStartRefusedError (the trigger input is journaled, not signalled)', async () => {
+      const { service, gatewayRuntime } = makeService({
+        maxDevPods: 1,
+        ownedProjectIds: ['p1', 'p2'],
+        runners: [{ projectId: 'p2', env: 'dev' }],
+      });
+      service.onModuleInit();
+      const wake = gatewayRuntime.setEnsureRunnerRunning.mock.calls[0]?.[0] as (params: {
+        projectId: string;
+        env: 'dev' | 'prod';
+        taskQueue: string;
+      }) => Promise<void>;
+      await expect(wake({ projectId: 'p1', env: 'dev', taskQueue: 'workflow-dev-p1' })).rejects.toBeInstanceOf(
+        RunnerStartRefusedError,
+      );
     });
   });
 
