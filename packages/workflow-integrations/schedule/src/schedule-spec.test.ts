@@ -6,6 +6,7 @@ import {
   previewNextFireTimes,
   validateScheduleCronExpression,
   validateScheduleIntervalEvery,
+  validateScheduleIntervalPeriod,
   validateScheduleTimezone,
 } from './schedule-spec.js';
 
@@ -71,15 +72,12 @@ describe('buildScheduleSpec', () => {
     });
   });
 
-  it('schedule-interval refuses a period shorter than the 60-second minimum, including "seconds" units', () => {
-    expect(() => buildScheduleSpec(SCHEDULE_INTERVAL_TRIGGER_NAME, { every: '30', unit: 'seconds' })).toThrow(
-      /at least 60/,
-    );
-    expect(() => buildScheduleSpec(SCHEDULE_INTERVAL_TRIGGER_NAME, { every: '59', unit: 'seconds' })).toThrow();
-    expect(buildScheduleSpec(SCHEDULE_INTERVAL_TRIGGER_NAME, { every: '60', unit: 'seconds' })).toEqual({
-      intervals: [{ every: '60 seconds' }],
+  it('schedule-interval builds short periods too — the minimum is enforced by the backend guard (SCHEDULE_MIN_INTERVAL_SECONDS)', () => {
+    expect(buildScheduleSpec(SCHEDULE_INTERVAL_TRIGGER_NAME, { every: '2', unit: 'seconds' })).toEqual({
+      intervals: [{ every: '2 seconds' }],
     });
-    expect(buildScheduleSpec(SCHEDULE_INTERVAL_TRIGGER_NAME, { every: '1', unit: 'minutes' })).toBeDefined();
+    expect(validateScheduleIntervalPeriod('30', 'seconds')).toMatch(/at least 60/);
+    expect(validateScheduleIntervalPeriod('1', 'minutes')).toBeUndefined();
   });
 
   it('schedule-interval throws for an invalid "every" or an unknown unit', () => {

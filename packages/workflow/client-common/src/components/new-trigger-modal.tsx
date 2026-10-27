@@ -14,7 +14,7 @@ import {
 } from '@falang/workflow-integrations-schedule';
 import { useWorkflowStore } from '../workflow-store-context.js';
 import { REGISTERED_INTEGRATIONS } from '../integrations-registry.js';
-import { buildTriggerCredentialOptions } from './trigger-credential.js';
+import { buildTriggerCredentialOptions, defaultContextFieldValues } from './trigger-credential.js';
 import { validateDocumentName } from '../document-names.js';
 import { CronBuilderField } from './cron-builder-field.js';
 
@@ -114,9 +114,9 @@ export const NewTriggerModal: React.FC<NewTriggerModalProps> = observer(({ open,
   };
 
   const handleTriggerChange = (nextTriggerName: string) => {
-    // Seed sensible defaults for the two schedule triggers (ADR 0037 (private)
-    // §2/§7) — every other vendor's contextFields still just reset to blank, unchanged from before.
-    const defaults: Record<string, string> = {};
+    // Every field starts at its declared `defaultValue` (blank when none), and the two schedule triggers
+    // (ADR 0037 (private) §2/§7) get computed defaults on top.
+    const defaults = defaultContextFieldValues(integration?.triggers.find((item) => item.name === nextTriggerName));
     if (nextTriggerName === SCHEDULE_CRON_TRIGGER_NAME) {
       defaults[SCHEDULE_CRON_EXPRESSION_FIELD_NAME] = DEFAULT_CRON_EXPRESSION;
       defaults[SCHEDULE_CRON_TIMEZONE_FIELD_NAME] = Intl.DateTimeFormat().resolvedOptions().timeZone;

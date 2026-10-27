@@ -67,7 +67,9 @@ const buildTriggerConfigForTool = (
   const config = Object.fromEntries(
     trigger.contextFields.map((field) => [
       field.name,
-      typeof contextFieldsInput?.[field.name] === 'string' ? (contextFieldsInput[field.name] as string) : '',
+      typeof contextFieldsInput?.[field.name] === 'string'
+        ? (contextFieldsInput[field.name] as string)
+        : (field.defaultValue ?? ''),
     ]),
   );
   for (const field of trigger.contextFields) {
