@@ -1,7 +1,7 @@
 import { createHash, randomBytes } from 'node:crypto';
 import { Inject, Injectable, NotFoundException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import type { Repository } from 'typeorm';
+import { IsNull, type Repository } from 'typeorm';
 import type { IJwtPayloadUser } from '../auth/jwt.strategy.js';
 import { UsersService } from '../../users/users/users.service.js';
 import type { CreatePersonalAccessTokenDto } from './dto/create-personal-access-token.dto.js';
@@ -97,6 +97,11 @@ export class PersonalAccessTokensService {
     if (!token || token.revokedAt !== null) throw new NotFoundException(`Personal access token "${id}" not found`);
     token.revokedAt = new Date();
     await this.tokens.save(token);
+  }
+
+  /** Revokes every live token of the user (password change/reset). */
+  async revokeAllForUser(userId: string): Promise<void> {
+    await this.tokens.update({ userId, revokedAt: IsNull() }, { revokedAt: new Date() });
   }
 
   /**

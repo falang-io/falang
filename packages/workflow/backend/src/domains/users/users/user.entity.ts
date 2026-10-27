@@ -58,6 +58,14 @@ export class User {
   @Column({ name: 'signup_source', type: 'varchar', default: 'admin' })
   signupSource!: TSignupSource;
 
+  /** Bumped on every password change/reset: a JWT carries `tv` and is rejected once it no longer matches. */
+  @Column({ name: 'token_version', type: 'int', default: 0 })
+  tokenVersion!: number;
+
+  /** When this signup was included in an admin digest mail; `null` = still to be announced. */
+  @Column({ name: 'admin_notified_at', type: Date, nullable: true })
+  adminNotifiedAt!: Date | null;
+
   // `Date` (a JS constructor, not a driver-specific type string like 'timestamp') is TypeORM's
   // documented portable option for a date column when column types aren't inferred via
   // reflection — it lets each driver (Postgres, and the sqlite driver the test suite swaps in)

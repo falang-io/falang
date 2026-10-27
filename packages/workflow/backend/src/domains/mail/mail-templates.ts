@@ -218,3 +218,53 @@ export const supportReplyMail = (
     ]),
   };
 };
+
+/** Sent to the owner of an address when somebody applies with it again: no new account, a pointer to password recovery. */
+export const accountExistsMail = (language: string | undefined, loginUrl: string): IMailContent => {
+  if (pickLang(language) === 'ru') {
+    const lead =
+      'Для этого адреса уже есть аккаунт Falang. Если вы забыли пароль, воспользуйтесь ссылкой «Забыли пароль?» на странице входа:';
+    const ignore = 'Если это были не вы, просто проигнорируйте письмо.';
+    return {
+      subject: 'У вас уже есть аккаунт Falang',
+      text: `${lead}\n${loginUrl}\n\n${ignore}`,
+      html: wrapHtml([`${lead}<br>${link(loginUrl)}`, ignore]),
+    };
+  }
+  const lead =
+    'This address already has a Falang account. If you forgot the password, use "Forgot password?" on the sign-in page:';
+  const ignore = 'If this was not you, just ignore this message.';
+  return {
+    subject: 'You already have a Falang account',
+    text: `${lead}\n${loginUrl}\n\n${ignore}`,
+    html: wrapHtml([`${lead}<br>${link(loginUrl)}`, ignore]),
+  };
+};
+
+export interface IAdminDigestItem {
+  readonly email: string;
+  readonly companyName: string | null;
+  readonly automationInterest: string | null;
+  readonly activated: boolean;
+}
+
+/** One mail to an admin listing every signup since the previous digest. */
+export const adminDigestMail = (language: string | undefined, items: readonly IAdminDigestItem[]): IMailContent => {
+  const ru = pickLang(language) === 'ru';
+  const line = (item: IAdminDigestItem): string => {
+    const company = item.companyName ?? '-';
+    const interest = item.automationInterest ?? '-';
+    const states = ru ? ['активирован', 'ждёт активации'] : ['active', 'awaiting activation'];
+    const state = item.activated ? states[0] : states[1];
+    return ru
+      ? `${item.email} | компания: ${company} | автоматизировать: ${interest} | ${state}`
+      : `${item.email} | company: ${company} | automating: ${interest} | ${state}`;
+  };
+  const lead = ru ? `Новых заявок и пользователей: ${items.length}.` : `New applications and users: ${items.length}.`;
+  const tail = ru ? 'Активируйте заявки в админке (Users).' : 'Activate applications in the admin app (Users).';
+  return {
+    subject: ru ? `Falang: новых заявок ${items.length}` : `Falang: ${items.length} new signup(s)`,
+    text: `${lead}\n\n${items.map((item) => line(item)).join('\n')}\n\n${tail}`,
+    html: wrapHtml([lead, items.map((item) => escapeHtml(line(item))).join('<br>'), tail]),
+  };
+};

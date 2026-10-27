@@ -147,12 +147,15 @@ export class AuthController {
       if (!body.email || !body.companyName || !body.automationInterest) {
         throw new BadRequestException('email, companyName and automationInterest are required');
       }
-      const result = await this.account.apply({
-        email: body.email,
-        companyName: body.companyName,
-        automationInterest: body.automationInterest,
-        termsAcceptedAt,
-      });
+      const result = await this.account.apply(
+        {
+          email: body.email,
+          companyName: body.companyName,
+          automationInterest: body.automationInterest,
+          termsAcceptedAt,
+        },
+        req.ip ?? null,
+      );
       signupsTotal.inc({ mode });
       res.status(HttpStatus.ACCEPTED);
       return result;
@@ -160,7 +163,7 @@ export class AuthController {
     if (!body.username || !body.password) throw new BadRequestException('username and password are required');
     const result = await this.authService.register(body.username, body.password, termsAcceptedAt, body.email ?? null);
     const user = body.email ? await this.usersService.findById(result.user.id) : null;
-    if (user) await this.account.sendVerification(user, { respectCooldown: false });
+    if (user) await this.account.sendVerification(user, { respectCooldown: false, ip: req.ip ?? null });
     signupsTotal.inc({ mode });
     res.status(HttpStatus.CREATED);
     return result;
@@ -182,8 +185,8 @@ export class AuthController {
   @Public()
   @Post('resend-verification')
   @HttpCode(HttpStatus.ACCEPTED)
-  async resendVerification(@Body() body: ResendVerificationDto): Promise<void> {
-    await this.account.resendVerification(body.email);
+  async resendVerification(@Body() body: ResendVerificationDto, @Req() req: Request): Promise<void> {
+    await this.account.resendVerification(body.email, req.ip ?? null);
   }
 
   @Public()
@@ -191,7 +194,7 @@ export class AuthController {
   @HttpCode(HttpStatus.ACCEPTED)
   async forgotPassword(@Body() body: ForgotPasswordDto, @Req() req: Request): Promise<void> {
     await this.captcha.verify(body.captchaToken ?? null, req.ip ?? null);
-    await this.account.forgotPassword(body.email);
+    await this.account.forgotPassword(body.email, req.ip ?? null);
   }
 
   @Public()
@@ -202,9 +205,9 @@ export class AuthController {
   }
 
   @Post('change-password')
-  @HttpCode(HttpStatus.NO_CONTENT)
-  async changePassword(@CurrentUser() currentUser: IJwtPayloadUser, @Body() body: ChangePasswordDto): Promise<void> {
-    await this.authService.changePassword(currentUser.id, body.currentPassword, body.newPassword);
+  @HttpCode(HttpStatus.OK)
+  changePassword(@CurrentUser() currentUser: IJwtPayloadUser, @Body() body: ChangePasswordDto): Promise<ILoginResult> {
+    return this.authService.changePassword(currentUser.id, body.currentPassword, body.newPassword);
   }
 
   @Get('me')

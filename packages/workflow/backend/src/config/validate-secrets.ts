@@ -1,3 +1,5 @@
+import { resolveSignupModeFromEnv } from '../domains/auth/auth/signup-mode.js';
+
 /**
  * Startup validation of the deployment's secrets. In production (`NODE_ENV=production`) the backend
  * refuses to start with a missing, well-known (dev/e2e/placeholder) or too-short secret; elsewhere it
@@ -46,11 +48,32 @@ export const findSecretProblems = (env: TEnv): ISecretsValidationResult => {
 };
 
 /**
+ * Open signup without a captcha lets bots mass-register and mail-bomb addresses: production refuses to start that way
+ * unless `ALLOW_SIGNUP_WITHOUT_CAPTCHA=true` (a self-hosted instance that accepts the risk).
+ */
+export const findSignupProblems = (env: TEnv): string[] => {
+  if (resolveSignupModeFromEnv(env) === 'off') return [];
+  const captcha = (env.CAPTCHA_PROVIDER ?? 'none').trim().toLowerCase();
+  if (captcha !== 'none' && captcha !== '') return [];
+  if ((env.ALLOW_SIGNUP_WITHOUT_CAPTCHA ?? '').trim().toLowerCase() === 'true') return [];
+  return [
+    'self-service signup is enabled (SIGNUP_MODE / SELF_SERVICE_SIGNUP) but CAPTCHA_PROVIDER is none; ' +
+      'set CAPTCHA_PROVIDER=recaptcha|smartcaptcha, turn signup off, or set ALLOW_SIGNUP_WITHOUT_CAPTCHA=true to accept the risk',
+  ];
+};
+
+/**
  * Throws in production when any secret is unacceptable; otherwise logs one warning per problem via
  * `warn` (default `console.warn`) and returns.
  */
 export const validateSecrets = (env: TEnv = process.env, warn: (message: string) => void = defaultWarn): void => {
   const { problems } = findSecretProblems(env);
+  const signupProblems = findSignupProblems(env);
+  if (env.NODE_ENV === 'production' && signupProblems.length > 0) {
+    throw new Error(
+      `Refusing to start in production with insecure configuration: ${[...signupProblems, ...problems].join('; ')}.`,
+    );
+  }
   if (problems.length === 0) return;
   if (env.NODE_ENV === 'production') {
     throw new Error(

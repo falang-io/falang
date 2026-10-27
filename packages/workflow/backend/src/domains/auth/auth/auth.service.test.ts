@@ -1,9 +1,10 @@
-import { ConflictException, UnauthorizedException } from '@nestjs/common';
+import { ConflictException, ForbiddenException, UnauthorizedException } from '@nestjs/common';
 import type { JwtService } from '@nestjs/jwt';
 import * as bcrypt from 'bcrypt';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import type { User } from '../../users/users/user.entity.js';
 import type { UsersService } from '../../users/users/users.service.js';
+import type { PersonalAccessTokensService } from '../personal-access-tokens/personal-access-tokens.service.js';
 import { AuthService } from './auth.service.js';
 
 const makeUser = async (username: string, password: string): Promise<User> =>
@@ -16,6 +17,7 @@ const makeUser = async (username: string, password: string): Promise<User> =>
     emailVerifiedAt: null,
     activatedAt: new Date(),
     companyName: null,
+    tokenVersion: 3,
   }) as User;
 
 describe('AuthService', () => {
@@ -29,7 +31,11 @@ describe('AuthService', () => {
   beforeEach(() => {
     usersService = { findByUsername: vi.fn(), findByEmail: vi.fn().mockResolvedValue(null), create: vi.fn() };
     jwtService = { sign: vi.fn(() => 'signed-token') };
-    authService = new AuthService(usersService as UsersService, jwtService as JwtService);
+    authService = new AuthService(
+      usersService as UsersService,
+      jwtService as JwtService,
+      { revokeAllForUser: vi.fn() } as unknown as PersonalAccessTokensService,
+    );
   });
 
   it('validates correct credentials', async () => {
@@ -54,6 +60,25 @@ describe('AuthService', () => {
     await expect(authService.validateUser('missing', 'admin')).rejects.toThrow(UnauthorizedException);
   });
 
+  it('answers 401 with the same text for an unknown login and a wrong password', async () => {
+    vi.mocked(usersService.findByUsername).mockResolvedValue(null);
+    const unknown = await authService.validateUser('ghost', 'x').catch((error: unknown) => error);
+    vi.mocked(usersService.findByUsername).mockResolvedValue(await makeUser('real', 'right-password'));
+    const wrong = await authService.validateUser('real', 'wrong').catch((error: unknown) => error);
+    expect(unknown).toBeInstanceOf(UnauthorizedException);
+    expect((unknown as Error).message).toBe((wrong as Error).message);
+  });
+
+  it('reveals an account that is not activated only after the password was right', async () => {
+    const pending = await makeUser('pending', 'right-password');
+    pending.activatedAt = null;
+    vi.mocked(usersService.findByUsername).mockResolvedValue(pending);
+    await expect(authService.validateUser('pending', 'wrong')).rejects.toThrow(UnauthorizedException);
+    const failure = await authService.validateUser('pending', 'right-password').catch((error: unknown) => error);
+    expect(failure).toBeInstanceOf(ForbiddenException);
+    expect((failure as ForbiddenException).getResponse()).toMatchObject({ code: 'email_not_verified' });
+  });
+
   it('signs a JWT keyed on the user id, username and role', async () => {
     const user = await makeUser('someone', 'admin');
     user.role = 'user';
@@ -61,7 +86,7 @@ describe('AuthService', () => {
 
     const result = await authService.login(user);
 
-    expect(jwtService.sign).toHaveBeenCalledWith({ sub: user.id, username: user.username, role: 'user' });
+    expect(jwtService.sign).toHaveBeenCalledWith({ sub: user.id, username: user.username, role: 'user', tv: 3 });
     expect(result).toEqual({
       accessToken: 'signed-token',
       user: {

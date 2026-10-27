@@ -12,6 +12,7 @@ import {
   type User,
 } from '../../users/users/user.entity.js';
 import { activationsTotal } from '../../metrics/metrics.js';
+import { PersonalAccessTokensService } from '../../auth/personal-access-tokens/personal-access-tokens.service.js';
 import { UsersService } from '../../users/users/users.service.js';
 
 export interface IAdminUser {
@@ -66,12 +67,15 @@ export class AdminUsersService {
   private readonly usersService: UsersService;
   private readonly projects: Repository<Project>;
   private readonly mail: MailService;
+  private readonly accessTokens: PersonalAccessTokensService;
 
   constructor(
     @Inject(UsersService) usersService: UsersService,
     @InjectRepository(Project) projects: Repository<Project>,
     @Inject(MailService) mail: MailService,
+    @Inject(PersonalAccessTokensService) accessTokens: PersonalAccessTokensService,
   ) {
+    this.accessTokens = accessTokens;
     this.usersService = usersService;
     this.projects = projects;
     this.mail = mail;
@@ -147,6 +151,7 @@ export class AdminUsersService {
     if (!user) throw new NotFoundException(`User "${targetUserId}" not found`);
     const password = this.usersService.generatePassword();
     await this.usersService.setPassword(targetUserId, password);
+    await this.accessTokens.revokeAllForUser(targetUserId);
     return { password };
   }
 
