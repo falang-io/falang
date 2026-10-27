@@ -39,7 +39,7 @@ export class FoldersService {
     this.projectsService = projectsService;
   }
 
-  async listTree(projectId: string, ownerId: string, access: TProjectAccess = 'owner'): Promise<IProjectTreeFolder[]> {
+  async listTree(projectId: string, ownerId: string, access: TProjectAccess = 'edit'): Promise<IProjectTreeFolder[]> {
     await this.projectsService.getOwnedProject(projectId, ownerId, access);
     const folders = await this.folders.find({ where: { projectId } });
     return folders.map((folder) => toTreeFolder(folder));

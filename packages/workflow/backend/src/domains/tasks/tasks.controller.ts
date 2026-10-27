@@ -11,7 +11,7 @@ import { ResolveTaskDto } from './dto/resolve-task.dto.js';
 import { TasksService } from './tasks.service.js';
 import type { IApiTask } from './task.types.js';
 
-/** The Tasks page (ADR 0040 (private) §2) — every task of every project the caller **owns**, same ownership rule as `RunsController`. */
+/** The Tasks page (ADR 0040 (private) §2) — every task of every project the caller owns or is an editor/executor of (ADR 0070 (private)). */
 @Controller('tasks')
 export class TasksController {
   private readonly tasksService: TasksService;

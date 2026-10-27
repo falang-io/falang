@@ -37,6 +37,8 @@ import { RunJournalEntry } from '../domains/run-journal/run-journal-entry.entity
 import { RunJournalModule } from '../domains/run-journal/run-journal.module.js';
 import { AgentUsage } from '../domains/agent-chat/agent-usage.entity.js';
 import { Project } from '../domains/projects/projects/project.entity.js';
+import { ProjectMember } from '../domains/projects/members/project-member.entity.js';
+import { Task } from '../domains/tasks/task.entity.js';
 import { ProjectsModule } from '../domains/projects/projects/projects.module.js';
 import { TemporalModule } from '../domains/temporal/temporal.module.js';
 import { ProjectTemplate } from '../domains/projects/templates/project-template.entity.js';
@@ -89,6 +91,8 @@ export const buildTestAppImports = (extraModules: TAppImport[] = []) => [
       AuthToken,
       SupportMessage,
       RunnerSession,
+      ProjectMember,
+      Task,
     ],
   }),
   UsersModule,

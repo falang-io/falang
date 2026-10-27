@@ -101,7 +101,7 @@ export class VersioningService {
   }
 
   /** Newest first — see `orderCommitsNewestFirst` for why this walks the `parentId` chain rather than sorting by `created_at`. */
-  async listCommits(projectId: string, ownerId: string, access: TProjectAccess = 'owner'): Promise<ICommitInfo[]> {
+  async listCommits(projectId: string, ownerId: string, access: TProjectAccess = 'edit'): Promise<ICommitInfo[]> {
     await this.projectsService.getOwnedProject(projectId, ownerId, access);
     const commits = orderCommitsNewestFirst(await this.commits.find({ where: { projectId } }));
     if (commits.length === 0) return [];
@@ -113,7 +113,7 @@ export class VersioningService {
     projectId: string,
     ownerId: string,
     commitId: string,
-    access: TProjectAccess = 'owner',
+    access: TProjectAccess = 'edit',
   ): Promise<IProjectSnapshot> {
     await this.projectsService.getOwnedProject(projectId, ownerId, access);
     const commit = await this.getOwnedCommit(projectId, commitId);

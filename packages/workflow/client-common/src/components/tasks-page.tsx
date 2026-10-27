@@ -2,7 +2,7 @@ import type React from 'react';
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { observer } from 'mobx-react-lite';
 import { getGlobalI18n, type TFunction } from '@falang/scheme';
-import { Button, Select, Table, Tag, Typography, type TableProps } from 'antd';
+import { Button, Select, Switch, Table, Tag, Typography, type TableProps } from 'antd';
 import { workflowApi, type IApiTask, type TTaskStatus } from '../api-client.js';
 import { navigationStore } from '../navigation-store.js';
 import { TasksStore } from '../tasks-store.js';
@@ -56,6 +56,11 @@ const buildColumns = (t: TFunction, projectId: string | undefined): TableProps<I
       render: (env: string) => <Tag color={env === 'prod' ? 'green' : 'blue'}>{env}</Tag>,
     },
     {
+      title: t('client:tasks-page.column-assignee'),
+      dataIndex: 'assigneeName',
+      render: (value: string | null | undefined) => value ?? '—',
+    },
+    {
       title: t('client:tasks-page.column-status'),
       dataIndex: 'status',
       render: (status: TTaskStatus) => <Tag color={statusColor(status)}>{status}</Tag>,
@@ -101,6 +106,7 @@ export const TasksPage: React.FC<Props> = observer(({ projectId }) => {
   const [facetTasks, setFacetTasks] = useState<IApiTask[] | null>(null);
   const [statusFilter, setStatusFilter] = useState<TTaskStatus>();
   const [projectFilter, setProjectFilter] = useState<string>();
+  const [mineOnly, setMineOnly] = useState(false);
   const [selectedTaskId, setSelectedTaskId] = useState<string | null>(null);
   const [selectedRun, setSelectedRun] = useState<{ workflowId: string; runId: string } | null>(null);
 
@@ -115,8 +121,12 @@ export const TasksPage: React.FC<Props> = observer(({ projectId }) => {
   }, [projectId]);
 
   const loadDisplayed = useCallback(() => {
-    store.load({ status: statusFilter, projectId: effectiveProjectId });
-  }, [store, statusFilter, effectiveProjectId]);
+    store.load({
+      status: statusFilter,
+      projectId: effectiveProjectId,
+      ...(mineOnly ? { assignee: 'me' as const } : {}),
+    });
+  }, [store, statusFilter, effectiveProjectId, mineOnly]);
 
   useEffect(() => {
     loadFacets();
@@ -192,6 +202,10 @@ export const TasksPage: React.FC<Props> = observer(({ projectId }) => {
               onChange={(value: string | undefined) => setProjectFilter(value)}
             />
           )}
+          <span style={{ display: 'inline-flex', gap: 8, alignItems: 'center', color: '#cdd6f4' }}>
+            <Switch checked={mineOnly} onChange={setMineOnly} size="small" data-testid="tasks-mine-only" />
+            {t('client:tasks-page.mine-only')}
+          </span>
         </div>
 
         {store.error && <Typography.Text type="danger">{store.error}</Typography.Text>}

@@ -27,6 +27,8 @@ import type {
   IApiPersonalAccessToken,
   IApiProject,
   IApiProjectInfo,
+  IApiProjectMembers,
+  TApiProjectMemberRole,
   IApiProjectTemplate,
   IApiProjectDocument,
   IApiProjectExport,
@@ -232,6 +234,22 @@ export const workflowApi = {
 
   /** The owner, or an admin viewing read-only (`readOnly: true`). */
   getProject: (projectId: string) => request<IApiProjectInfo>(`/projects/${projectId}`),
+
+  /** "Project → Users" (ADR 0070 (private)) — the owner, an editor or an admin; `login` is a username or an e-mail. */
+  listProjectMembers: (projectId: string) => request<IApiProjectMembers>(`/projects/${projectId}/members`),
+  addProjectMember: (projectId: string, login: string, roles: readonly TApiProjectMemberRole[]) =>
+    request<IApiProjectMembers>(`/projects/${projectId}/members`, {
+      method: 'POST',
+      body: JSON.stringify({ login, roles }),
+    }),
+  /** An empty `roles` removes the member. */
+  setProjectMemberRoles: (projectId: string, userId: string, roles: readonly TApiProjectMemberRole[]) =>
+    request<IApiProjectMembers>(`/projects/${projectId}/members/${userId}`, {
+      method: 'PUT',
+      body: JSON.stringify({ roles }),
+    }),
+  removeProjectMember: (projectId: string, userId: string) =>
+    request<IApiProjectMembers>(`/projects/${projectId}/members/${userId}`, { method: 'DELETE' }),
 
   createProject: (name: string) =>
     request<IApiProject>('/projects', { method: 'POST', body: JSON.stringify({ name }) }),
@@ -590,13 +608,15 @@ export const workflowApi = {
     request<IApiFile>(`/projects/${projectId}/files/${fileId}/publish`, { method: 'DELETE' }),
 
   /**
-   * Human-in-the-loop tasks (ADR 0040 (private)) — owner-scoped, across
-   * every project the caller owns; `filters.projectId` only narrows within those. See `TasksStore`.
+   * Human-in-the-loop tasks (ADR 0040 (private)) — across every project the caller owns or is an editor/executor of
+   * (ADR 0070 (private)); `filters.projectId` only narrows within those, `assignee: 'me'` keeps the caller's own queue.
+   * See `TasksStore`.
    */
-  listTasks: (filters?: { status?: TTaskStatus; projectId?: string }) => {
+  listTasks: (filters?: { status?: TTaskStatus; projectId?: string; assignee?: 'me' }) => {
     const params = new URLSearchParams();
     if (filters?.status) params.set('status', filters.status);
     if (filters?.projectId) params.set('projectId', filters.projectId);
+    if (filters?.assignee) params.set('assignee', filters.assignee);
     const query = params.toString();
     return request<IApiTask[]>(`/tasks${query ? `?${query}` : ''}`);
   },

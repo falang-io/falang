@@ -104,7 +104,9 @@
       "session-reason-replaced": "replaced",
       "session-reason-suspended": "suspended",
       "session-reason-lost": "lost",
-      "session-reason-shutdown": "shutdown"
+      "session-reason-shutdown": "shutdown",
+      "project-members": "Users",
+      "project-transfer": "Transfer"
     },
     "user-limits-modal": {
       "title": "File/quota limits",
@@ -237,6 +239,17 @@
       "vendors-load-failed": "Failed to load the integrations list",
       "save-failed": "Failed to save proxy settings",
       "delete-failed": "Failed to reset proxy settings"
+    },
+    "transfer-project": {
+      "title": "Transfer “{{name}}”",
+      "hint": "The project, its versions, running servers and tasks move to the new owner: their limits and balance apply from now on.",
+      "login-placeholder": "New owner's login or e-mail",
+      "previous-owner": "The previous owner stays in the project as:",
+      "role-editor": "Editor",
+      "role-executor": "Executor",
+      "ok": "Transfer",
+      "done": "“{{name}}” now belongs to {{login}}",
+      "failed": "Couldn't transfer the project"
     }
   }
 }

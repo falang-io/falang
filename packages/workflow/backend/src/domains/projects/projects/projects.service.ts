@@ -2,47 +2,111 @@ import { randomUUID } from 'node:crypto';
 import { Injectable, NotFoundException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { INTEGRATIONS_DOCUMENT_TYPE } from '@falang/workflow-integrations-common';
-import type { Repository } from 'typeorm';
+import { In, type Repository } from 'typeorm';
 import { User } from '../../users/users/user.entity.js';
 import { Document } from '../documents/document.entity.js';
 import { ensureFixedFolders } from '../layout/project-layout.js';
+import { ProjectMember, type TProjectMemberRole } from '../members/project-member.entity.js';
 import { Project, type TSuspendedReason } from './project.entity.js';
 
 /**
- * How a caller may touch a project: `'owner'` (default — every write, run, build, agent call) or
- * `'read'` — the owner, or a platform admin viewing someone else's project read-only. Only GET routes
- * pass `'read'`; any write keeps answering 404 to an admin who isn't the owner.
+ * How a caller may touch a project (ADR 0063, ADR 0070 (private)):
+ * - `'owner'` — the owner only (deleting the project);
+ * - `'edit'` (default — every write, run, build, agent call, member management) — the owner or an editor;
+ * - `'read'` — the owner, an editor, or a platform admin viewing read-only (GET routes only);
+ * - `'tasks'` — the owner, an editor or an executor (task list / detail / resolve);
+ * - `'info'` — any of the above (`GET /projects/:id`).
+ * Anyone else gets 404, so a project's existence never leaks.
  */
-export type TProjectAccess = 'owner' | 'read';
+export type TProjectAccess = 'owner' | 'edit' | 'read' | 'tasks' | 'info';
 
-/** `GET /projects/:id` — the project plus who owns it, and whether the caller may only look. */
+/** The caller's relation to a project — `'owner'` plus any member roles. */
+export type TProjectRole = 'owner' | TProjectMemberRole;
+
+/** `GET /projects/:id` — the project plus who owns it, the caller's roles and whether the caller may only look. */
 export interface IProjectInfo {
   id: string;
   name: string;
   ownerId: string;
   createdAt: Date;
   owner: { id: string; username: string; email: string | null } | null;
+  /** The caller's roles (empty for an admin who is not a member). */
+  myRoles: TProjectRole[];
+  /** The caller can't edit (an admin or an executor-only member). */
   readOnly: boolean;
+  /** The caller may open the project's contents (owner, editor, admin); `false` = an executor-only member, who sees only tasks. */
+  canRead: boolean;
 }
+
+/** `GET /projects` — a project the caller owns or is a member of. */
+export type TAccessibleProject = Project & { myRoles: TProjectRole[] };
+
+const canEdit = (roles: ReadonlySet<TProjectRole>): boolean => roles.has('owner') || roles.has('editor');
+
+const ROLE_ORDER: readonly TProjectRole[] = ['owner', 'editor', 'executor'];
+const sortRoles = (roles: ReadonlySet<TProjectRole>): TProjectRole[] => ROLE_ORDER.filter((role) => roles.has(role));
 
 @Injectable()
 export class ProjectsService {
   private readonly projects: Repository<Project>;
   private readonly documents: Repository<Document>;
   private readonly users: Repository<User>;
+  private readonly members: Repository<ProjectMember>;
 
   constructor(
     @InjectRepository(Project) projects: Repository<Project>,
     @InjectRepository(Document) documents: Repository<Document>,
     @InjectRepository(User) users: Repository<User>,
+    @InjectRepository(ProjectMember) members: Repository<ProjectMember>,
   ) {
     this.projects = projects;
     this.documents = documents;
     this.users = users;
+    this.members = members;
   }
 
+  /** Projects `ownerId` owns — owner-scoped uses only (suspension, limits); a user's visible projects are `listAccessible`. */
   list(ownerId: string): Promise<Project[]> {
     return this.projects.find({ where: { ownerId }, order: { createdAt: 'ASC' } });
+  }
+
+  /**
+   * Projects `userId` owns or is a member of, each with the caller's roles, oldest first. `minimum: 'edit'` keeps only
+   * those the caller may edit (owner/editor) — the run listing, MCP; `'tasks'` (default) every one (the project list,
+   * the Tasks page).
+   */
+  async listAccessible(userId: string, minimum: 'edit' | 'tasks' = 'tasks'): Promise<TAccessibleProject[]> {
+    const owned = await this.list(userId);
+    const memberships = await this.members.find({ where: { userId } });
+    const rolesByProject = new Map<string, Set<TProjectRole>>();
+    for (const project of owned) rolesByProject.set(project.id, new Set<TProjectRole>(['owner']));
+    for (const membership of memberships) {
+      const roles = rolesByProject.get(membership.projectId) ?? new Set<TProjectRole>();
+      roles.add(membership.role);
+      rolesByProject.set(membership.projectId, roles);
+    }
+    const sharedIds = [...rolesByProject.keys()].filter((id) => !owned.some((project) => project.id === id));
+    const shared = sharedIds.length > 0 ? await this.projects.find({ where: { id: In(sharedIds) } }) : [];
+    return [...owned, ...shared]
+      .map((project) => {
+        const roles = rolesByProject.get(project.id) ?? new Set<TProjectRole>();
+        return { project, roles };
+      })
+      .filter(({ roles }) => minimum === 'tasks' || canEdit(roles))
+      .toSorted((a, b) => a.project.createdAt.getTime() - b.project.createdAt.getTime())
+      .map(({ project, roles }) => Object.assign(project, { myRoles: sortRoles(roles) }));
+  }
+
+  /** The caller's roles in `project` (`owner` plus member roles). */
+  async rolesOf(project: Pick<Project, 'id' | 'ownerId'>, userId: string): Promise<Set<TProjectRole>> {
+    const roles = new Set<TProjectRole>();
+    if (project.ownerId === userId) roles.add('owner');
+    const memberships = await this.members.find({
+      select: { id: true, role: true },
+      where: { projectId: project.id, userId },
+    });
+    for (const membership of memberships) roles.add(membership.role);
+    return roles;
   }
 
   async create(ownerId: string, name: string): Promise<Project> {
@@ -73,37 +137,48 @@ export class ProjectsService {
   }
 
   /**
-   * Resolves a project owned by `userId`, or throws 404 — used by folders/documents to authorize before touching a
-   * project's contents, and to avoid leaking whether a project exists to a non-owner. With `access: 'read'` a platform
-   * admin passes too (read-only viewing of other users' projects); the role is re-read from the database, never taken
-   * from the JWT claim, same as `AdminGuard`.
+   * Resolves project `id` if `userId` may touch it at `access` (see `TProjectAccess`), or throws 404 — the one
+   * authorization check before touching a project's contents, never leaking whether a project exists. The admin role is
+   * re-read from the database, never taken from the JWT claim, same as `AdminGuard`.
    */
-  async getOwnedProject(id: string, userId: string, access: TProjectAccess = 'owner'): Promise<Project> {
+  async getOwnedProject(id: string, userId: string, access: TProjectAccess = 'edit'): Promise<Project> {
     const project = await this.projects.findOneBy({ id });
-    if (project && (project.ownerId === userId || (access === 'read' && (await this.isAdmin(userId))))) {
-      return project;
-    }
+    if (project && (await this.isAllowed(project, userId, access))) return project;
     throw new NotFoundException(`Project "${id}" not found`);
   }
 
-  /** `GET /projects/:id` — readable by the owner and (read-only) by an admin. */
+  private async isAllowed(project: Project, userId: string, access: TProjectAccess): Promise<boolean> {
+    if (project.ownerId === userId) return true;
+    if (access === 'owner') return false;
+    const roles = await this.rolesOf(project, userId);
+    if (roles.has('editor')) return true;
+    if (access === 'tasks' && roles.has('executor')) return true;
+    if (access === 'info' && roles.has('executor')) return true;
+    return (access === 'read' || access === 'info') && (await this.isAdmin(userId));
+  }
+
+  /** `GET /projects/:id` — for the owner, members, and (read-only) an admin. */
   async getProjectInfo(id: string, userId: string): Promise<IProjectInfo> {
-    const project = await this.getOwnedProject(id, userId, 'read');
+    const project = await this.getOwnedProject(id, userId, 'info');
+    const roles = await this.rolesOf(project, userId);
     const owner = await this.users.findOne({
       select: { id: true, username: true, email: true },
       where: { id: project.ownerId },
     });
+    const editable = canEdit(roles);
     return {
       id: project.id,
       name: project.name,
       ownerId: project.ownerId,
       createdAt: project.createdAt,
       owner: owner ? { id: owner.id, username: owner.username, email: owner.email } : null,
-      readOnly: project.ownerId !== userId,
+      myRoles: sortRoles(roles),
+      readOnly: !editable,
+      canRead: editable || (await this.isAdmin(userId)),
     };
   }
 
-  private async isAdmin(userId: string): Promise<boolean> {
+  async isAdmin(userId: string): Promise<boolean> {
     const user = await this.users.findOne({ select: { id: true, role: true }, where: { id: userId } });
     return user?.role === 'admin';
   }
@@ -186,7 +261,7 @@ export class ProjectsService {
    * `BuildService.deleteProject`, which also stops the project's runner processes first.
    */
   async delete(id: string, ownerId: string): Promise<void> {
-    const project = await this.getOwnedProject(id, ownerId);
+    const project = await this.getOwnedProject(id, ownerId, 'owner');
     await this.projects.remove(project);
   }
 }

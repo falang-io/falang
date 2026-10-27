@@ -2,7 +2,7 @@ import { BadRequestException, ConflictException, NotFoundException } from '@nest
 import { isNamespaceNotFoundError, type IRunJournalProblemPort } from '@falang/workflow-gateway';
 import { WorkflowNotFoundError } from '@temporalio/client';
 import { In, type QueryDeepPartialEntity, type Repository } from 'typeorm';
-import type { ProjectsService } from '../projects/projects/projects.service.js';
+import type { TProjectsPort } from '../projects/projects/projects-port.js';
 import type { Task } from './task.entity.js';
 import {
   HUMAN_TASK_ANSWER_SIGNAL_NAME,
@@ -23,7 +23,14 @@ export type TSignalWorkflow = (
 
 export interface ITasksServiceParams {
   readonly tasks: Pick<Repository<Task>, 'find' | 'findOneBy' | 'create' | 'save' | 'update'>;
-  readonly projectsService: Pick<ProjectsService, 'list' | 'getOwnedProject'>;
+  readonly projectsService: TProjectsPort;
+  /**
+   * Who a new task goes to (ADR 0070 (private), `ProjectMembersService.pickTaskAssignee`). Optional: without it a task is
+   * assigned to nobody (`null`), which only unit tests rely on.
+   */
+  readonly pickAssignee?: (projectId: string) => Promise<string | null>;
+  /** Display names for assignees, by user id. Optional — without it `assigneeName` is `null`. */
+  readonly usernames?: (userIds: readonly string[]) => Promise<Map<string, string>>;
   /** `BuildService.ensureRunnerRunning`, bound — see `tasks.module.ts`. Narrowed to a plain closure, the same reasoning `RunsService`'s own DI-light constructor gives, so this stays trivially unit-testable. */
   readonly ensureRunnerRunning: (projectId: string, env: 'dev' | 'prod', taskQueue: string) => Promise<void>;
   readonly signalWorkflow: TSignalWorkflow;
@@ -76,7 +83,9 @@ const validateAnswerData = (option: ITaskOption, data: unknown): void => {
  */
 export class TasksService {
   private readonly tasks: Pick<Repository<Task>, 'find' | 'findOneBy' | 'create' | 'save' | 'update'>;
-  private readonly projectsService: Pick<ProjectsService, 'list' | 'getOwnedProject'>;
+  private readonly projectsService: TProjectsPort;
+  private readonly pickAssignee: ((projectId: string) => Promise<string | null>) | undefined;
+  private readonly usernames: ((userIds: readonly string[]) => Promise<Map<string, string>>) | undefined;
   private readonly ensureRunnerRunning: (projectId: string, env: 'dev' | 'prod', taskQueue: string) => Promise<void>;
   private readonly signalWorkflow: TSignalWorkflow;
   private readonly journal: IRunJournalProblemPort | undefined;
@@ -84,6 +93,8 @@ export class TasksService {
   constructor(params: ITasksServiceParams) {
     this.tasks = params.tasks;
     this.projectsService = params.projectsService;
+    this.pickAssignee = params.pickAssignee;
+    this.usernames = params.usernames;
     this.ensureRunnerRunning = params.ensureRunnerRunning;
     this.signalWorkflow = params.signalWorkflow;
     this.journal = params.journal;
@@ -101,8 +112,10 @@ export class TasksService {
     if (existing) return { taskId: existing.id };
 
     const dueAt = typeof input.timeoutSeconds === 'number' ? new Date(Date.now() + input.timeoutSeconds * 1000) : null;
+    const assigneeId = this.pickAssignee ? await this.pickAssignee(projectId) : null;
     const task = this.tasks.create({
       ...key,
+      assigneeId,
       env: input.env,
       taskQueue: input.taskQueue,
       title: input.title,
@@ -136,12 +149,13 @@ export class TasksService {
     await this.tasks.update({ id: taskId, projectId, status: 'open' }, { status, resolvedAt: new Date() });
   }
 
-  /** Every task of every project `ownerId` owns — `projectId` only narrows within that set, exactly like `RunsService.listRuns`. */
-  async list(ownerId: string, filters: ITasksFilters = {}): Promise<IApiTask[]> {
-    const ownedProjects = await this.projectsService.list(ownerId);
-    const projects = filters.projectId
-      ? ownedProjects.filter((project) => project.id === filters.projectId)
-      : ownedProjects;
+  /**
+   * Every task of every project `userId` owns or is an editor/executor of (ADR 0070 (private)) — `projectId` only
+   * narrows within that set, exactly like `RunsService.listRuns`; `assignee: 'me'` keeps the caller's own queue.
+   */
+  async list(userId: string, filters: ITasksFilters = {}): Promise<IApiTask[]> {
+    const accessible = await this.projectsService.listAccessible(userId, 'tasks');
+    const projects = filters.projectId ? accessible.filter((project) => project.id === filters.projectId) : accessible;
     if (projects.length === 0) return [];
 
     const projectNameById = new Map(projects.map((project) => [project.id, project.name]));
@@ -149,18 +163,25 @@ export class TasksService {
       where: {
         projectId: In(projects.map((project) => project.id)),
         ...(filters.status ? { status: filters.status } : {}),
+        ...(filters.assignee === 'me' ? { assigneeId: userId } : {}),
       },
       order: { createdAt: 'DESC' },
     });
-    return rows.map((row) => this.toApiTask(row, projectNameById.get(row.projectId) ?? row.projectId));
+    const names = await this.assigneeNames(rows);
+    return rows.map((row) => this.toApiTask(row, projectNameById.get(row.projectId) ?? row.projectId, names));
   }
 
-  /** 404s both for an unknown task id and for a task belonging to a project `ownerId` doesn't own — never leaks which. */
-  async get(ownerId: string, id: string): Promise<IApiTask> {
+  /** 404s both for an unknown task id and for a task of a project `userId` has no task access to — never leaks which. */
+  async get(userId: string, id: string): Promise<IApiTask> {
     const row = await this.tasks.findOneBy({ id });
     if (!row) throw new NotFoundException(`Task "${id}" not found`);
-    const project = await this.projectsService.getOwnedProject(row.projectId, ownerId);
-    return this.toApiTask(row, project.name);
+    const project = await this.projectsService.getOwnedProject(row.projectId, userId, 'tasks');
+    return this.toApiTask(row, project.name, await this.assigneeNames([row]));
+  }
+
+  private assigneeNames(rows: readonly Task[]): Promise<Map<string, string>> {
+    const ids = [...new Set(rows.map((row) => row.assigneeId).filter((id): id is string => id !== null))];
+    return this.usernames && ids.length > 0 ? this.usernames(ids) : Promise.resolve(new Map());
   }
 
   async resolve(
@@ -171,7 +192,7 @@ export class TasksService {
   ): Promise<IApiTask> {
     const row = await this.tasks.findOneBy({ id });
     if (!row) throw new NotFoundException(`Task "${id}" not found`);
-    const project = await this.projectsService.getOwnedProject(row.projectId, ownerId);
+    const project = await this.projectsService.getOwnedProject(row.projectId, ownerId, 'tasks');
 
     const option = row.options.find((candidate) => candidate.label === input.answer);
     if (!option) throw new BadRequestException(`"${input.answer}" is not one of this task's options`);
@@ -236,10 +257,10 @@ export class TasksService {
 
     const reloaded = await this.tasks.findOneBy({ id: row.id });
     if (!reloaded) throw new NotFoundException(`Task "${id}" not found`);
-    return this.toApiTask(reloaded, project.name);
+    return this.toApiTask(reloaded, project.name, await this.assigneeNames([reloaded]));
   }
 
-  toApiTask(row: Task, projectName: string): IApiTask {
+  toApiTask(row: Task, projectName: string, assigneeNames: ReadonlyMap<string, string> = new Map()): IApiTask {
     return {
       id: row.id,
       projectId: row.projectId,
@@ -258,6 +279,8 @@ export class TasksService {
       answer: row.answer,
       answerData: row.answerData ?? null,
       resolvedBy: row.resolvedBy,
+      assigneeId: row.assigneeId ?? null,
+      assigneeName: row.assigneeId ? (assigneeNames.get(row.assigneeId) ?? null) : null,
       createdAt: row.createdAt.toISOString(),
       dueAt: row.dueAt ? row.dueAt.toISOString() : null,
       resolvedAt: row.resolvedAt ? row.resolvedAt.toISOString() : null,

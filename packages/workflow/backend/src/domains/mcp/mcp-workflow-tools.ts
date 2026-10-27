@@ -114,7 +114,7 @@ export const registerWorkflowMcpTools = (
     },
     withToolErrors(async () => {
       const auth = getAuth();
-      const projects = await deps.projectsService.list(auth.user.id);
+      const projects = await deps.projectsService.listAccessible(auth.user.id, 'edit');
       const scoped = auth.projectScope ? projects.filter((project) => project.id === auth.projectScope) : projects;
       return okResult(scoped.map((project) => ({ id: project.id, name: project.name })));
     }),

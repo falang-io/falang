@@ -22,6 +22,7 @@ import { Sidebar } from './sidebar.js';
 import { TasksPage } from './tasks-page.js';
 import { ServerActivityBar } from './server-activity-bar.js';
 import { Toolbar } from './toolbar.js';
+import { TasksOnlyWorkspace } from './tasks-only-workspace.js';
 
 const styles = {
   root: {
@@ -116,16 +117,25 @@ export const ProjectWorkspace: React.FC<Props> = observer(({ projectId }) => {
   // `GET /projects/:id` first: an admin opening someone else's project gets `readOnly: true`, which the store
   // needs at construction (its schemes are built read-only). A failed lookup opens the project as before — the
   // tree load then reports the error the usual way.
+  //
+  // An executor-only member (ADR 0070 (private), `canRead: false`) has no access to the project's contents: no store is
+  // built, the workspace shows only the project's Tasks page.
   const [store, setStore] = useState<WorkflowStore | null>(null);
+  const [tasksOnlyName, setTasksOnlyName] = useState<string | null>(null);
   useEffect(() => {
     let cancelled = false;
     let nextStore: WorkflowStore | null = null;
+    setTasksOnlyName(null);
     workflowApi
       .getProject(projectId)
       .catch(() => null)
       .then((info) => {
         if (cancelled) return;
         if (info) navigationStore.setProjectName(projectId, info.name);
+        if (info?.canRead === false) {
+          setTasksOnlyName(info.name);
+          return;
+        }
         nextStore = new WorkflowStore(projectId, { readOnly: info?.readOnly === true, owner: info?.owner ?? null });
         setStore(nextStore);
       });
@@ -160,6 +170,7 @@ export const ProjectWorkspace: React.FC<Props> = observer(({ projectId }) => {
     direction: 'right',
   });
 
+  if (tasksOnlyName !== null) return <TasksOnlyWorkspace projectId={projectId} name={tasksOnlyName} />;
   if (!store) return null;
 
   const activeId = store.activeTabId;

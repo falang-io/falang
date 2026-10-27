@@ -70,7 +70,7 @@ export class ProjectRuntimeSettingsService {
   }
 
   /** Owner or admin (read-only) — `access` mirrors `TProjectAccess`. */
-  async get(projectId: string, userId: string, access: 'owner' | 'read' = 'read'): Promise<IRuntimeSettings> {
+  async get(projectId: string, userId: string, access: 'edit' | 'read' = 'read'): Promise<IRuntimeSettings> {
     const project = await this.projectsService.getOwnedProject(projectId, userId, access);
     return this.build(project);
   }
@@ -80,7 +80,7 @@ export class ProjectRuntimeSettingsService {
     userId: string,
     body: { dev: IRuntimeEnvSettings; prod: IRuntimeEnvSettings },
   ): Promise<IRuntimeSettings> {
-    const project = await this.projectsService.getOwnedProject(projectId, userId, 'owner');
+    const project = await this.projectsService.getOwnedProject(projectId, userId, 'edit');
     const limits = await this.userLimits.getLimits(project.ownerId);
     for (const env of ['dev', 'prod'] as const) {
       const { idleMinutes, alwaysOn } = body[env];

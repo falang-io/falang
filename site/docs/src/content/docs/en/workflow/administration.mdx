@@ -246,6 +246,16 @@ head:
     The restriction is enforced by the backend, not only hidden in the interface: an admin may call only the
     project's read routes, every write answers <code>404</code> exactly as for any other non-owner.
   </li>
+  <li>
+    The one thing an admin may change is the project's users: <b>Project → Users</b> in the read-only view, or the{' '}
+    <b>Users</b> button next to each project in the card — see <a href="../project-users/">Project users</a>.
+  </li>
+  <li>
+    The <b>Transfer</b> button next to a project in the card hands it to another user by login or e-mail. The previous
+    owner stays an editor by default (or an executor, both, or nothing at all); their open tasks are reassigned unless
+    they keep the executor role. Limits and server billing move to the new owner with the project; running servers,
+    versions and a suspension are left as they are.
+  </li>
 </ul>
 
 #### OAuth credentials — enabling OAuth2 integrations

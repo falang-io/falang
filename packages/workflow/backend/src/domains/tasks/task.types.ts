@@ -46,6 +46,9 @@ export interface IApiTask {
   readonly answer: string | null;
   readonly answerData: unknown;
   readonly resolvedBy: string | null;
+  /** Whose queue the task is in (ADR 0070 (private)) — an executor, else the owner. */
+  readonly assigneeId: string | null;
+  readonly assigneeName: string | null;
   readonly createdAt: string;
   readonly dueAt: string | null;
   readonly resolvedAt: string | null;
@@ -86,4 +89,6 @@ export interface ICreateTaskInput {
 export interface ITasksFilters {
   readonly status?: TTaskStatus;
   readonly projectId?: string;
+  /** `'me'` — only tasks assigned to the caller. */
+  readonly assignee?: 'me';
 }

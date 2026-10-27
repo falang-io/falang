@@ -89,7 +89,7 @@ const makeService = (
   const service = new TasksService({
     tasks: repo as unknown as Repository<Task>,
     projectsService: {
-      list: vi.fn(() => Promise.resolve([ownedProject])),
+      listAccessible: vi.fn(() => Promise.resolve([ownedProject])),
       getOwnedProject: vi.fn((id: string, ownerId: string) => {
         if (id === ownedProject.id && ownerId === ownedProject.ownerId) return Promise.resolve(ownedProject);
         return Promise.reject(new NotFoundException(`Project "${id}" not found`));

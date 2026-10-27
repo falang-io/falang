@@ -94,7 +94,7 @@ export class RunJournalService implements IRunJournalProblemPort, OnModuleInit {
     workflowId: string,
     runId: string,
     query: IJournalListQuery,
-    access: TProjectAccess = 'owner',
+    access: TProjectAccess = 'edit',
   ): Promise<IRunJournalPage> {
     await this.projectsService.getOwnedProject(projectId, ownerId, access);
     return this.store.listRun(projectId, workflowId, runId, {
@@ -108,7 +108,7 @@ export class RunJournalService implements IRunJournalProblemPort, OnModuleInit {
     ownerId: string,
     workflowId: string,
     query: IJournalListQuery,
-    access: TProjectAccess = 'owner',
+    access: TProjectAccess = 'edit',
   ): Promise<IRunJournalPage> {
     await this.projectsService.getOwnedProject(projectId, ownerId, access);
     return this.store.listWorkflow(projectId, workflowId, {
@@ -117,11 +117,7 @@ export class RunJournalService implements IRunJournalProblemPort, OnModuleInit {
     });
   }
 
-  async getSettings(
-    projectId: string,
-    ownerId: string,
-    access: TProjectAccess = 'owner',
-  ): Promise<IRunJournalSettings> {
+  async getSettings(projectId: string, ownerId: string, access: TProjectAccess = 'edit'): Promise<IRunJournalSettings> {
     const project = await this.projectsService.getOwnedProject(projectId, ownerId, access);
     return { storeTexts: project.journalStoreTexts };
   }

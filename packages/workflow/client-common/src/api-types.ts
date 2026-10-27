@@ -70,6 +70,27 @@ export interface IApiProject {
   readonly createdAt: string;
   /** Last mutating write to the project's documents/folders; `null` until the first one. */
   readonly lastEditedAt?: string | null;
+  /** The caller's roles in the project (ADR 0070 (private)) — `owner`, or the member roles of a shared project. */
+  readonly myRoles?: readonly TApiProjectRole[];
+}
+
+/** A project member's role (ADR 0070 (private)). */
+export type TApiProjectMemberRole = 'editor' | 'executor';
+export type TApiProjectRole = 'owner' | TApiProjectMemberRole;
+
+/** One member of a project, all their roles in one row — `GET /projects/:id/members`. */
+export interface IApiProjectMember {
+  readonly id: string;
+  readonly username: string;
+  readonly email: string | null;
+  readonly roles: readonly TApiProjectMemberRole[];
+  readonly openTasks: number;
+  readonly addedAt: string;
+}
+
+export interface IApiProjectMembers {
+  readonly owner: (IApiProjectOwner & { readonly openTasks: number }) | null;
+  readonly members: readonly IApiProjectMember[];
 }
 
 export interface IApiProjectOwner {
@@ -78,14 +99,19 @@ export interface IApiProjectOwner {
   readonly email: string | null;
 }
 
-/** `GET /projects/:id` — `readOnly` when the caller is an admin viewing someone else's project. */
+/**
+ * `GET /projects/:id` — `readOnly` when the caller can't edit (an admin viewing someone else's project, or an
+ * executor-only member); `canRead` is `false` for an executor-only member, who sees only the project's tasks.
+ */
 export interface IApiProjectInfo {
   readonly id: string;
   readonly name: string;
   readonly ownerId: string;
   readonly createdAt: string;
   readonly owner: IApiProjectOwner | null;
+  readonly myRoles?: readonly TApiProjectRole[];
   readonly readOnly: boolean;
+  readonly canRead?: boolean;
 }
 
 /** `IProjectTreeDocument` (`@falang/dto`) plus an optional `lockedUntil` — see ADR 0029 (private)'s "Document locks" decision and `DocumentsService.listTree` on the backend, which computes this alongside the tree listing. */
@@ -434,6 +460,9 @@ export interface IApiTask {
   readonly answer: string | null;
   readonly answerData: unknown;
   readonly resolvedBy: string | null;
+  /** Whose queue the task is in (ADR 0070 (private)) — an executor, else the project owner. */
+  readonly assigneeId?: string | null;
+  readonly assigneeName?: string | null;
   readonly createdAt: string;
   readonly dueAt: string | null;
   readonly resolvedAt: string | null;

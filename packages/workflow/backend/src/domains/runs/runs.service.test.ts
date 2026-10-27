@@ -22,7 +22,7 @@ const makeService = (
 ): RunsService =>
   new RunsService({
     projectsService: {
-      list: vi.fn(() => Promise.resolve<Project[]>([])),
+      listAccessible: vi.fn(() => Promise.resolve<Project[]>([])),
       getOwnedProject: vi.fn(() => Promise.reject(new NotFoundException())),
     },
     versions: { find: vi.fn(() => Promise.resolve(versionRows as ProjectVersion[])) },
@@ -36,7 +36,7 @@ describe('RunsService.listRuns', () => {
   it('returns an empty list without calling Temporal when the user owns no projects', async () => {
     const listWorkflowRuns = vi.fn(() => Promise.resolve<IRawWorkflowRun[]>([]));
     const service = makeService({
-      projectsService: { list: vi.fn(() => Promise.resolve([])), getOwnedProject: vi.fn() },
+      projectsService: { listAccessible: vi.fn(() => Promise.resolve([])), getOwnedProject: vi.fn() },
       listWorkflowRuns,
     });
 
@@ -50,7 +50,7 @@ describe('RunsService.listRuns', () => {
     const listWorkflowRuns = vi.fn(() => Promise.resolve<IRawWorkflowRun[]>([]));
     const service = makeService({
       projectsService: {
-        list: vi.fn(() => Promise.resolve([project('p1', 'Project One'), project('p2', 'Project Two')])),
+        listAccessible: vi.fn(() => Promise.resolve([project('p1', 'Project One'), project('p2', 'Project Two')])),
         getOwnedProject: vi.fn(),
       },
       listWorkflowRuns,
@@ -69,7 +69,7 @@ describe('RunsService.listRuns', () => {
     const getOwnedProject = vi.fn(() => Promise.resolve(project('p2', 'Project Two')));
     const service = makeService({
       projectsService: {
-        list: vi.fn(() => Promise.resolve([project('p1', 'Project One'), project('p2', 'Project Two')])),
+        listAccessible: vi.fn(() => Promise.resolve([project('p1', 'Project One'), project('p2', 'Project Two')])),
         getOwnedProject,
       },
       listWorkflowRuns,
@@ -87,7 +87,7 @@ describe('RunsService.listRuns', () => {
     const listWorkflowRuns = vi.fn(() => Promise.resolve<IRawWorkflowRun[]>([]));
     const service = makeService({
       projectsService: {
-        list: vi.fn(() => Promise.resolve([project('p1', 'Project One')])),
+        listAccessible: vi.fn(() => Promise.resolve([project('p1', 'Project One')])),
         getOwnedProject: vi.fn(() => Promise.reject(new NotFoundException())),
       },
       listWorkflowRuns,
@@ -125,7 +125,7 @@ describe('RunsService.listRuns', () => {
     const service = makeService(
       {
         projectsService: {
-          list: vi.fn(() => Promise.resolve([project('p1', 'Project One')])),
+          listAccessible: vi.fn(() => Promise.resolve([project('p1', 'Project One')])),
           getOwnedProject: vi.fn(),
         },
         listWorkflowRuns: vi.fn(() => Promise.resolve(raw)),
@@ -156,7 +156,10 @@ describe('RunsService.listRuns', () => {
       closeTime: null,
     };
     const service = makeService({
-      projectsService: { list: vi.fn(() => Promise.resolve([project('p1', 'Project One')])), getOwnedProject: vi.fn() },
+      projectsService: {
+        listAccessible: vi.fn(() => Promise.resolve([project('p1', 'Project One')])),
+        getOwnedProject: vi.fn(),
+      },
       listWorkflowRuns: vi.fn(() => Promise.resolve([raw])),
     });
 
@@ -179,7 +182,7 @@ describe('RunsService.listRuns', () => {
     const service = makeService(
       {
         projectsService: {
-          list: vi.fn(() => Promise.resolve([project('p1', 'Project One')])),
+          listAccessible: vi.fn(() => Promise.resolve([project('p1', 'Project One')])),
           getOwnedProject: vi.fn(),
         },
         listWorkflowRuns: vi.fn(() => Promise.resolve([raw])),
@@ -204,7 +207,10 @@ describe('RunsService.listRuns', () => {
       closeTime: null,
     };
     const service = makeService({
-      projectsService: { list: vi.fn(() => Promise.resolve([project('p1', 'Project One')])), getOwnedProject: vi.fn() },
+      projectsService: {
+        listAccessible: vi.fn(() => Promise.resolve([project('p1', 'Project One')])),
+        getOwnedProject: vi.fn(),
+      },
       listWorkflowRuns: vi.fn(() => Promise.resolve([raw])),
     });
 
@@ -225,7 +231,10 @@ describe('RunsService.listRuns', () => {
       closeTime: null,
     };
     const service = makeService({
-      projectsService: { list: vi.fn(() => Promise.resolve([project('p1', 'Project One')])), getOwnedProject: vi.fn() },
+      projectsService: {
+        listAccessible: vi.fn(() => Promise.resolve([project('p1', 'Project One')])),
+        getOwnedProject: vi.fn(),
+      },
       listWorkflowRuns: vi.fn(() => Promise.resolve([raw])),
     });
 
@@ -252,7 +261,10 @@ describe('RunsService.getRunDetail', () => {
 
   it("throws NotFound when the run's task queue does not belong to any project", async () => {
     const service = makeService({
-      projectsService: { list: vi.fn(() => Promise.resolve([project('p1', 'Project One')])), getOwnedProject: vi.fn() },
+      projectsService: {
+        listAccessible: vi.fn(() => Promise.resolve([project('p1', 'Project One')])),
+        getOwnedProject: vi.fn(),
+      },
       describeWorkflowRun: vi.fn(() => Promise.resolve({ ...detailBase, taskQueue: 'some-other-queue' })),
     });
 
@@ -263,7 +275,7 @@ describe('RunsService.getRunDetail', () => {
     const getOwnedProject = vi.fn(() => Promise.reject(new NotFoundException()));
     const service = makeService({
       describeWorkflowRun: vi.fn(() => Promise.resolve(detailBase)),
-      projectsService: { list: vi.fn(() => Promise.resolve([project('p9', 'Other')])), getOwnedProject },
+      projectsService: { listAccessible: vi.fn(() => Promise.resolve([project('p9', 'Other')])), getOwnedProject },
     });
 
     await expect(service.getRunDetail('owner-1', 'wf-1', 'run-1')).rejects.toThrow(NotFoundException);
@@ -274,7 +286,7 @@ describe('RunsService.getRunDetail', () => {
     const service = makeService({
       describeWorkflowRun: vi.fn(() => Promise.resolve(detailBase)),
       projectsService: {
-        list: vi.fn(() => Promise.resolve([project('p1', 'Project One')])),
+        listAccessible: vi.fn(() => Promise.resolve([project('p1', 'Project One')])),
         getOwnedProject: vi.fn(() => Promise.resolve(project('p1', 'Project One'))),
       },
     });
@@ -289,7 +301,7 @@ describe('RunsService.getRunDetail', () => {
       {
         describeWorkflowRun: vi.fn(() => Promise.resolve({ ...detailBase, taskQueue: 'workflow-p1', buildId: 'v2' })),
         projectsService: {
-          list: vi.fn(() => Promise.resolve([project('p1', 'Project One')])),
+          listAccessible: vi.fn(() => Promise.resolve([project('p1', 'Project One')])),
           getOwnedProject: vi.fn(() => Promise.resolve(project('p1', 'Project One'))),
         },
       },
@@ -323,7 +335,7 @@ describe('RunsService across Temporal namespaces', () => {
       p3: [run('p3', 'd', '2026-07-21T11:00:00.000Z')],
     };
     const service = makeService({
-      projectsService: { list: vi.fn(() => Promise.resolve(ownedProjects(3))), getOwnedProject: vi.fn() },
+      projectsService: { listAccessible: vi.fn(() => Promise.resolve(ownedProjects(3))), getOwnedProject: vi.fn() },
       listWorkflowRuns: vi.fn(({ projectId }) => Promise.resolve(byProject[projectId] ?? [])),
     });
 
@@ -345,7 +357,7 @@ describe('RunsService across Temporal namespaces', () => {
       return [];
     });
     const service = makeService({
-      projectsService: { list: vi.fn(() => Promise.resolve(ownedProjects(25))), getOwnedProject: vi.fn() },
+      projectsService: { listAccessible: vi.fn(() => Promise.resolve(ownedProjects(25))), getOwnedProject: vi.fn() },
       listWorkflowRuns,
     });
 
@@ -362,7 +374,7 @@ describe('RunsService across Temporal namespaces', () => {
         run(projectId, `${projectId}-${index}`, new Date(Date.UTC(2026, 0, 1, 0, 0, index)).toISOString()),
       );
     const service = makeService({
-      projectsService: { list: vi.fn(() => Promise.resolve(ownedProjects(2))), getOwnedProject: vi.fn() },
+      projectsService: { listAccessible: vi.fn(() => Promise.resolve(ownedProjects(2))), getOwnedProject: vi.fn() },
       listWorkflowRuns: vi.fn(({ projectId }) => Promise.resolve(many(projectId, RUNS_LIST_LIMIT))),
     });
 
@@ -374,7 +386,7 @@ describe('RunsService across Temporal namespaces', () => {
   it('sends one query for all projects when they share a namespace (shared mode)', async () => {
     const listWorkflowRuns = vi.fn(() => Promise.resolve<IRawWorkflowRun[]>([]));
     const service = makeService({
-      projectsService: { list: vi.fn(() => Promise.resolve(ownedProjects(3))), getOwnedProject: vi.fn() },
+      projectsService: { listAccessible: vi.fn(() => Promise.resolve(ownedProjects(3))), getOwnedProject: vi.fn() },
       listWorkflowRuns,
       tenancy: { namespaceFor: () => 'default' },
     });
@@ -407,7 +419,7 @@ describe('RunsService across Temporal namespaces', () => {
     );
     const service = makeService({
       projectsService: {
-        list: vi.fn(() => Promise.resolve(ownedProjects(3))),
+        listAccessible: vi.fn(() => Promise.resolve(ownedProjects(3))),
         getOwnedProject: vi.fn(() => Promise.resolve(project('p2', 'Project 2'))),
       },
       describeWorkflowRun,
@@ -423,7 +435,7 @@ describe('RunsService across Temporal namespaces', () => {
     const describeWorkflowRun = vi.fn(() => Promise.resolve(null));
     const service = makeService({
       projectsService: {
-        list: vi.fn(() => Promise.resolve(ownedProjects(3))),
+        listAccessible: vi.fn(() => Promise.resolve(ownedProjects(3))),
         getOwnedProject: vi.fn((id: string) =>
           id === 'not-mine' ? Promise.reject(new NotFoundException()) : Promise.resolve(project(id, id)),
         ),

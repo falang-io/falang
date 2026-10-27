@@ -65,6 +65,14 @@ export class Task {
   @Column({ name: 'answer_data', type: 'jsonb', nullable: true })
   answerData!: unknown | null;
 
+  /**
+   * Whose queue the task is in (ADR 0070 (private)): the project's executor with the fewest open tasks at creation, or
+   * the owner when the project has no executors. Any owner/editor/executor of the project may still resolve it.
+   * `null` only for a user since deleted.
+   */
+  @Column({ name: 'assignee_id', type: 'uuid', nullable: true })
+  assigneeId!: string | null;
+
   /** The resolving user's id — `null` until resolved (or for `expired`/`cancelled`/`orphaned`). */
   @Column({ name: 'resolved_by', type: 'uuid', nullable: true })
   resolvedBy!: string | null;

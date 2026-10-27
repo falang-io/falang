@@ -1,0 +1,59 @@
+---
+title: Project users
+description: Adding other users to a workflow project as editors or executors, and how tasks are assigned to executors
+head:
+  - tag: meta
+    attrs:
+      name: keywords
+      content: 'project users, team, editor, executor, roles, sharing, tasks, workflow'
+---
+
+<p>
+  A project belongs to the user who created it — its <b>owner</b>. Other users of the same installation can be added to
+  it from <b>Project → Users</b> in the editor toolbar: type their username or e-mail, tick one or both roles and click{' '}
+  <b>Add</b>.
+</p>
+
+#### Roles
+
+<ul>
+  <li>
+    <b>Editor</b> — can do everything the owner can: edit schemes and integrations, build, run, debug, publish, use the
+    AI agent, change project settings and manage project users. The one exception: only the owner can delete the
+    project.
+  </li>
+  <li>
+    <b>Executor</b> — can't open or change the project. In the project list it appears with an "Executor" tag, and
+    opening it shows only the project's <a href="../human-tasks/">tasks</a>; the executor sees them and resolves them.
+  </li>
+</ul>
+
+<p>
+  One user may hold both roles. Roles are changed with the checkboxes in the users list, and <b>Remove</b> takes a user
+  out of the project. The owner is always listed first and can't be changed.
+</p>
+
+#### Task assignment
+
+<p>
+  When a scenario creates a human task, the task is assigned to one of the project's executors — the one with the
+  fewest open tasks in this project. With no executors it goes to the owner. When a user loses the executor role, their
+  open tasks are handed to the remaining executors the same way (or to the owner). Assignment only decides whose queue
+  a task sits in: the owner, every editor and every executor of the project still see all its tasks and may resolve any
+  of them. The Tasks page shows the assignee and has a <b>Mine only</b> switch.
+</p>
+
+#### Who pays
+
+<p>
+  Limits, quotas and the project's servers are counted against the owner's account. AI agent requests are counted
+  against the user who sends them.
+</p>
+
+#### Administrators
+
+<p>
+  A platform administrator can manage the users of any project: from <b>Project → Users</b> while viewing the project
+  read-only, or with the <b>Users</b> button next to each project in a user's "Details" card in the Admin app. The <b>Transfer</b> button there changes the project's owner — only an
+  administrator can do that.
+</p>
