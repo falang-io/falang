@@ -1,4 +1,8 @@
-import type { IIntegrationInstance, IWorkflowIntegration } from '@falang/workflow-integrations-common';
+import type {
+  IIntegrationInstance,
+  ITriggerDescriptor,
+  IWorkflowIntegration,
+} from '@falang/workflow-integrations-common';
 
 /**
  * The `credentialId` to bind a new trigger-function to for a vendor with no credential fields at all
@@ -71,3 +75,13 @@ export const buildTriggerCredentialOptions = (
     }),
   };
 };
+
+/** A trigger's `contextFields` seeded with each field's declared `defaultValue` (fields without one are left out). */
+export const defaultContextFieldValues = (
+  trigger: Pick<ITriggerDescriptor, 'contextFields'> | undefined,
+): Record<string, string> =>
+  Object.fromEntries(
+    (trigger?.contextFields ?? [])
+      .filter((field) => field.defaultValue !== undefined)
+      .map((field) => [field.name, field.defaultValue as string]),
+  );

@@ -57,6 +57,7 @@ export const webhookIntegration: IWorkflowIntegration = {
           name: WEBHOOK_REQUIRE_SIGNATURE_FIELD,
           label: 'webhook:field.requireSignature',
           kind: 'select',
+          defaultValue: 'false',
           options: [
             { value: 'false', label: 'webhook:field.requireSignatureNo' },
             { value: 'true', label: 'webhook:field.requireSignatureYes' },
@@ -66,6 +67,7 @@ export const webhookIntegration: IWorkflowIntegration = {
           name: WEBHOOK_SIGNATURE_VERSION_FIELD,
           label: 'webhook:field.signatureVersion',
           kind: 'text',
+          defaultValue: '1',
           validate: validateWebhookSignatureVersion,
         },
       ],

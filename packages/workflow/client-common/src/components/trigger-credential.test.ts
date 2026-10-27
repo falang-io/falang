@@ -1,5 +1,9 @@
 import { describe, expect, it } from 'vitest';
-import { buildTriggerCredentialOptions, resolveTriggerCredentialId } from './trigger-credential.js';
+import {
+  buildTriggerCredentialOptions,
+  defaultContextFieldValues,
+  resolveTriggerCredentialId,
+} from './trigger-credential.js';
 
 describe('resolveTriggerCredentialId', () => {
   it('returns the vendor id for a credential-less vendor with no explicit instance in the project', () => {
@@ -62,5 +66,23 @@ describe('buildTriggerCredentialOptions', () => {
     const result = buildTriggerCredentialOptions([webhook], [{ id: 'w1', name: 'Hook', vendor: 'webhook' }]);
     expect(result.instances.map((o) => o.key)).toEqual(['instance:w1']);
     expect(result.withoutCredentials).toEqual([]);
+  });
+});
+
+describe('defaultContextFieldValues', () => {
+  it('seeds every field that declares a defaultValue and leaves the rest out', () => {
+    const trigger = {
+      contextFields: [
+        { name: 'require_signature', label: 'Require', kind: 'select' as const, defaultValue: 'false' },
+        { name: 'signature_version', label: 'Version', kind: 'text' as const, defaultValue: '1' },
+        { name: 'command', label: 'Command', kind: 'text' as const },
+      ],
+    };
+    expect(defaultContextFieldValues(trigger)).toEqual({ require_signature: 'false', signature_version: '1' });
+  });
+
+  it('is empty for a trigger without context fields or no trigger at all', () => {
+    expect(defaultContextFieldValues({ contextFields: undefined })).toEqual({});
+    expect(defaultContextFieldValues(undefined)).toEqual({});
   });
 });
