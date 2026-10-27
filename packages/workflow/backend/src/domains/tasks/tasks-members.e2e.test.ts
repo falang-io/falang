@@ -2,7 +2,7 @@ import type { INestApplication } from '@nestjs/common';
 import request from 'supertest';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { auth } from '../../test-utils/e2e-app.js';
-import { createTasksTestApp } from './tasks-e2e-harness.js';
+import { createTasksTestApp } from './tasks-test-harness.js';
 
 /** ADR 0070 (private): tasks of a project with members — assignment, visibility and resolution by executors. */
 describe('tasks with project members (e2e)', () => {

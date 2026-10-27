@@ -4,7 +4,7 @@ import request from 'supertest';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { auth } from '../../test-utils/e2e-app.js';
 import { INTERNAL_PROJECT_TOKEN_HEADER } from '../internal-auth/project-token.guard.js';
-import { createTasksTestApp } from './tasks-e2e-harness.js';
+import { createTasksTestApp } from './tasks-test-harness.js';
 
 /**
  * Real-HTTP coverage of `domains/tasks/` over its own in-memory sqlite testing module — see
