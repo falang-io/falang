@@ -8,7 +8,7 @@
 # `temporal-admin-tools` in docker-compose.workflow*.yml.
 FROM temporalio/admin-tools:1.29.1-tctl-1.18.4-cli-1.5.0 AS temporal-cli
 
-FROM node:24-bookworm-slim
+FROM node:24-bookworm-slim AS app
 
 WORKDIR /app
 
@@ -62,3 +62,16 @@ WORKDIR /app/packages/workflow/backend
 EXPOSE 4000
 
 CMD ["npm", "run", "start"]
+
+# ---- production (security audit P1-12): the same image, unprivileged ----
+# `--target production` runs as the image's `node` user (uid 1000). The only place the backend writes besides /tmp is
+# `.builds/` (parent of the per-build mkdtemp directories, see BUILD_OUTPUT_DIR_PATH in build.module.ts) — it must stay
+# inside the repo's node_modules-resolvable tree, so it is created here and owned by `node`; with a read-only root
+# filesystem mount an emptyDir over it (deploy manifests do) together with /tmp.
+FROM app AS production
+RUN mkdir -p /app/packages/workflow/backend/.builds && chown -R node:node /app/packages/workflow/backend/.builds
+USER node
+
+# ---- default target (it must stay the LAST stage): root, as the dev/e2e compose stacks expect ----
+# They mount a root-owned kubeconfig and (coverage runs) a root-owned output directory, so they build this stage.
+FROM app AS dev

@@ -1,6 +1,10 @@
-# Runs @falang/workflow-client's Vite dev server. No production build step for the MVP — this
-# mirrors how `playground`/`playground-workflow` are run locally (`npm run dev -w <pkg>`).
-FROM node:24-bookworm-slim
+# Two usable targets:
+#   (default, last stage `dev`)  @falang/workflow-client's Vite dev server — what docker-compose.workflow*.yml use
+#                                (the e2e stack relies on it for browser coverage via Vite source maps). Unchanged.
+#   --target production          static `dist` served by unprivileged nginx with a Content-Security-Policy and the
+#                                other security headers (security audit P1-6); see docker/client-nginx/ and the
+#                                "Production client image" section of README.md.
+FROM node:24-bookworm-slim AS deps
 
 WORKDIR /app
 
@@ -42,8 +46,31 @@ COPY playground/package.json playground/
 COPY playground-workflow/package.json playground-workflow/
 RUN npm ci
 
+# ---- build the two-entry bundle (main app + /admin) ----
+FROM deps AS build
 COPY . .
+WORKDIR /app/packages/workflow/client
+# The API base URL is baked into the bundle: pass the public origin of the backend, e.g.
+#   docker build --target production --build-arg VITE_BACKEND_URL=https://api.example.com -f docker/client.Dockerfile .
+ARG VITE_BACKEND_URL=http://localhost:4000
+ENV VITE_BACKEND_URL=$VITE_BACKEND_URL
+RUN npx vite build
 
+# ---- production: static files only, no node, no node_modules ----
+FROM nginxinc/nginx-unprivileged:1.27-alpine AS production
+COPY --from=build /app/packages/workflow/client/dist /usr/share/nginx/html
+COPY docker/client-nginx/default.conf.template /etc/nginx/templates/default.conf.template
+COPY --chmod=755 docker/client-nginx/entrypoint.sh /csp-entrypoint.sh
+# CSP_PRESETS: smartcaptcha | recaptcha (match the backend's CAPTCHA_PROVIDER); see docker/client-nginx/entrypoint.sh.
+# API_ORIGIN is required at run time (same value as VITE_BACKEND_URL).
+ENV CSP_PRESETS=""
+EXPOSE 8080
+ENTRYPOINT ["/csp-entrypoint.sh"]
+CMD ["nginx", "-g", "daemon off;"]
+
+# ---- dev (default target: it must stay the LAST stage) ----
+FROM deps AS dev
+COPY . .
 WORKDIR /app/packages/workflow/client
 
 EXPOSE 5175
