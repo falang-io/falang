@@ -44,6 +44,7 @@ import type {
   IApiVendorData,
   IApiRunJournalPage,
   IApiRunJournalSettings,
+  IApiWebhookSecret,
   IApiProdStatus,
   IApiRunnerSession,
   IApiRuntimeSettings,
@@ -478,6 +479,12 @@ export const workflowApi = {
       method: 'PUT',
       body: JSON.stringify(settings),
     }),
+
+  /** The derived secret of a generic webhook trigger (edit access only) — see `WebhookSecretController`. */
+  getWebhookSecret: (projectId: string, documentId: string, env: 'dev' | 'prod') =>
+    request<IApiWebhookSecret>(
+      `/projects/${projectId}/integrations/webhook-secret?documentId=${encodeURIComponent(documentId)}&env=${env}`,
+    ),
 
   /** Backs any `kind: 'select'` field's `loadOptions` (e.g. `call-ai-text`'s `model`) — see `TOKEN_FIELD_OPTIONS_PROVIDER`. */
   loadIntegrationFieldOptions: (projectId: string, credentialId: string, actionName: string, fieldName: string) =>

@@ -16,6 +16,7 @@ import { OAuth2PendingStateRow } from './oauth2-pending-state.entity.js';
 import { OAuth2PendingStateService } from './oauth2-pending-state.service.js';
 import { IntegrationVendorDataController } from './vendor-data/integration-vendor-data.controller.js';
 import { IntegrationVendorDataModule } from './vendor-data/integration-vendor-data.module.js';
+import { WebhookSecretController } from './webhook-secret.controller.js';
 import { SyncVendorDataController } from './vendor-data/sync-vendor-data.controller.js';
 
 @Module({
@@ -29,6 +30,7 @@ import { SyncVendorDataController } from './vendor-data/sync-vendor-data.control
   controllers: [
     InternalCredentialsController,
     IntegrationFieldOptionsController,
+    WebhookSecretController,
     IntegrationVendorDataController,
     SyncVendorDataController,
     ActivepiecesPiecesController,

@@ -1,6 +1,6 @@
 // oxlint-disable no-await-in-loop -- every loop below is a sequential, deliberately-not-parallel drive over targets (discovery, startup registration — low-frequency, not a hot path).
 // oxlint-disable max-lines -- over the default cap because of the new `ensureRunnerRunning`/`setEnsureRunnerRunning` wake-on-signal wiring (ADR 0016 (private)'s Phase 2 "Scale-to-zero" follow-up), not accumulated complexity.
-import { createHmac } from 'node:crypto';
+import { deriveIntegrationSecret } from './derive-integration-secret.js';
 import { RunnerStartRefusedError } from './runner-start-refused-error.js';
 import { runWithEgressVendor } from '@falang/workflow-egress';
 import { Logger, type OnModuleDestroy, type OnModuleInit } from '@nestjs/common';
@@ -537,13 +537,14 @@ export class IntegrationsRuntimeService implements OnModuleInit, OnModuleDestroy
         deriveSecret: (label) => {
           if (!this.webhookSecretKey)
             throw new Error('No webhook secret key configured for this IntegrationsRuntimeService');
-          return createHmac('sha256', this.webhookSecretKey)
-            .update(
-              ['falang-webhook-secret', target.projectId, target.credentialId, target.env, target.vendor, label].join(
-                '\n',
-              ),
-            )
-            .digest('base64url');
+          return deriveIntegrationSecret({
+            key: this.webhookSecretKey,
+            projectId: target.projectId,
+            credentialId: target.credentialId,
+            env: target.env,
+            vendor: target.vendor,
+            label,
+          });
         },
         getInternalProjectToken: () => {
           if (!this.getInternalProjectToken) {

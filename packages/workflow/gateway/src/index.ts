@@ -11,3 +11,4 @@ export * from './run-journal-problem-port.js';
 export * from './runner-start-refused-error.js';
 export * from './workflow-execution-timeout.js';
 export * from './schedule-guard.js';
+export * from './derive-integration-secret.js';

@@ -269,6 +269,16 @@ export interface IApiRunJournalPage {
   readonly hasMore: boolean;
 }
 
+/** `GET /projects/:id/integrations/webhook-secret` */
+export interface IApiWebhookSecret {
+  readonly secret: string;
+  /** Lowercase header names. */
+  readonly header: string;
+  readonly signatureHeader: string;
+  readonly version: number;
+  readonly required: boolean;
+}
+
 export interface IApiRunJournalSettings {
   readonly storeTexts: boolean;
 }
