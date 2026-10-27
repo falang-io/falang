@@ -372,6 +372,11 @@ services:
       - CLIENT_PUBLIC_URL=http://client:5175
       - SIGNUP_MODE=open
       - RATE_LIMIT_ENABLED=false
+      # Security audit P1-3/P1-4 per-owner limits: every spec runs as the same admin, so lift them here.
+      - MAX_PROJECTS=100000
+      - MAX_DEV_PODS=1000
+      - MAX_SCHEDULES=1000
+      - MAX_STORED_VERSIONS=1000
       - CAPTCHA_PROVIDER=none
       # OAuth2 callback redirect_uri base — see ADR 0015 (private). Reachable
       # by both `backend` itself and the `e2e-tests` container's browser, since that browser runs
