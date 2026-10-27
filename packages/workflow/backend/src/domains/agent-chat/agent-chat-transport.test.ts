@@ -1,3 +1,4 @@
+// oxlint-disable max-lines, no-undefined, unicorn/no-useless-undefined, unicorn/catch-error-name, unicorn/no-await-expression-member, init-declarations, no-unsafe-optional-chaining -- test fakes and deferred-promise scaffolding.
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { AgentChatVendorError, postJsonWithRetries } from './agent-chat-transport.js';
 
@@ -70,5 +71,57 @@ describe('postJsonWithRetries', () => {
     fetchMock.mockResolvedValueOnce(broken).mockResolvedValueOnce(jsonResponse({ ok: 3 }));
 
     await expect(post()).resolves.toEqual({ ok: 3 });
+  });
+
+  describe('total timeout and beforeRetry', () => {
+    it('calls beforeRetry before each retry, not before the first attempt', async () => {
+      fetchMock.mockRejectedValueOnce(terminated()).mockResolvedValueOnce(jsonResponse({ ok: 1 }));
+      const beforeRetry = vi.fn().mockResolvedValue(undefined);
+
+      await postJsonWithRetries(
+        'https://vendor.test/x',
+        { body: '{}', headers: {} },
+        { beforeRetry, maxRetries: 3, sleep, timeoutMs: 1000 },
+      );
+
+      expect(beforeRetry).toHaveBeenCalledTimes(1);
+      expect(beforeRetry).toHaveBeenCalledWith(2);
+    });
+
+    it('propagates a beforeRetry refusal unchanged and makes no further request', async () => {
+      fetchMock.mockRejectedValue(terminated());
+      const refusal = new Error('402');
+
+      await expect(
+        postJsonWithRetries(
+          'https://vendor.test/x',
+          { body: '{}', headers: {} },
+          { beforeRetry: () => Promise.reject(refusal), maxRetries: 3, sleep, timeoutMs: 1000 },
+        ),
+      ).rejects.toBe(refusal);
+      expect(fetchMock).toHaveBeenCalledTimes(1);
+    });
+
+    it('stops with AgentChatVendorError (timedOut) once the total deadline passed', async () => {
+      vi.useFakeTimers();
+      try {
+        fetchMock.mockImplementation(() => {
+          vi.setSystemTime(Date.now() + 200_000);
+          return Promise.reject(terminated());
+        });
+
+        const result = postJsonWithRetries(
+          'https://vendor.test/x',
+          { body: '{}', headers: {} },
+          { maxRetries: 5, sleep, timeoutMs: 180_000, totalTimeoutMs: 300_000 },
+        ).catch((e: unknown) => e);
+        const error = await result;
+
+        expect(error).toMatchObject({ timedOut: true });
+        expect(fetchMock).toHaveBeenCalledTimes(2);
+      } finally {
+        vi.useRealTimers();
+      }
+    });
   });
 });

@@ -14,6 +14,12 @@ export interface IAgentChatTransportOptions {
   readonly maxRetries: number;
   /** Per-attempt limit for the whole exchange (connect → headers → full body). */
   readonly timeoutMs: number;
+  /** Ceiling for ALL attempts together (backoff sleeps included): once spent no new attempt starts and the running
+   *  one is cut short, ending in an `AgentChatVendorError (timedOut)`. Absent = unlimited (headless tooling). */
+  readonly totalTimeoutMs?: number;
+  /** Awaited before every attempt after the first (`attempt` is 1-based, so >= 2). A throw aborts the call and
+   *  propagates unchanged — the service re-runs the usage sink's `beforeCall` here so quota/balance hold on retries. */
+  readonly beforeRetry?: (attempt: number) => Promise<void>;
   /** Delay before retry N (1-based) is `baseDelayMs * 2^(N-1)`, unless the vendor sent `Retry-After`. */
   readonly baseDelayMs?: number;
   /** Injected in tests. */
@@ -21,8 +27,10 @@ export interface IAgentChatTransportOptions {
 }
 
 export const DEFAULT_AGENT_CHAT_MAX_RETRIES = 3;
-/** 10 minutes — a large tool-calling request can take several minutes to generate. */
-export const DEFAULT_AGENT_CHAT_TIMEOUT_MS = 10 * 60 * 1000;
+/** 3 minutes per attempt — a long completion (8k output tokens) takes well under that; a hung vendor shouldn't hold a slot longer. */
+export const DEFAULT_AGENT_CHAT_TIMEOUT_MS = 180_000;
+/** 5 minutes for all attempts of one request together. */
+export const DEFAULT_AGENT_CHAT_TOTAL_TIMEOUT_MS = 300_000;
 const DEFAULT_BASE_DELAY_MS = 1000;
 /** Never wait longer than this between attempts, whatever `Retry-After` says. */
 const MAX_RETRY_DELAY_MS = 30_000;
@@ -30,11 +38,14 @@ const MAX_RETRY_DELAY_MS = 30_000;
 /** Thrown once every attempt failed, or on the first non-retryable vendor response. */
 export class AgentChatVendorError extends Error {
   readonly attempts: number;
+  /** The overall deadline (`totalTimeoutMs`) ran out; the service answers 504 instead of 502. */
+  readonly timedOut: boolean;
 
-  constructor(message: string, attempts: number, cause?: unknown) {
+  constructor(message: string, attempts: number, cause?: unknown, timedOut = false) {
     super(message, { cause });
     this.name = 'AgentChatVendorError';
     this.attempts = attempts;
+    this.timedOut = timedOut;
   }
 }
 
@@ -100,16 +111,29 @@ export const postJsonWithRetries = async (
   const sleep = options.sleep ?? defaultSleep;
   const baseDelayMs = options.baseDelayMs ?? DEFAULT_BASE_DELAY_MS;
   const attempts = options.maxRetries + 1;
+  const deadline = options.totalTimeoutMs ? Date.now() + options.totalTimeoutMs : Number.POSITIVE_INFINITY;
+  const timedOut = (attempt: number, cause?: unknown): AgentChatVendorError =>
+    new AgentChatVendorError(
+      `AI vendor did not answer within ${Math.round((options.totalTimeoutMs ?? 0) / 1000)} s (${attempt} attempt${attempt === 1 ? '' : 's'})`,
+      attempt,
+      cause,
+      true,
+    );
   let lastError: unknown = null;
 
   for (let attempt = 1; attempt <= attempts; attempt += 1) {
+    if (attempt > 1) {
+      if (Date.now() >= deadline) throw timedOut(attempt - 1, lastError);
+      // oxlint-disable-next-line no-await-in-loop
+      await options.beforeRetry?.(attempt);
+    }
     try {
       // oxlint-disable-next-line no-await-in-loop -- attempts are sequential by definition
       const response = await fetch(url, {
         body: init.body,
         headers: init.headers,
         method: 'POST',
-        signal: AbortSignal.timeout(options.timeoutMs),
+        signal: AbortSignal.timeout(Math.max(1, Math.min(options.timeoutMs, deadline - Date.now()))),
         // `dispatcher` is an undici extension to `RequestInit` that Node's global `fetch` honors.
         ...({ dispatcher: dispatcherFor(options.timeoutMs) } as object),
       });
@@ -125,9 +149,11 @@ export const postJsonWithRetries = async (
     } catch (error) {
       if (error instanceof AgentChatVendorError) throw error;
       lastError = error;
+      if (Date.now() >= deadline) throw timedOut(attempt, error);
       if (attempt < attempts) {
+        const delay = Math.min(retryAfterOf(error) ?? baseDelayMs * 2 ** (attempt - 1), MAX_RETRY_DELAY_MS);
         // oxlint-disable-next-line no-await-in-loop
-        await sleep(Math.min(retryAfterOf(error) ?? baseDelayMs * 2 ** (attempt - 1), MAX_RETRY_DELAY_MS));
+        await sleep(Math.min(delay, Math.max(0, deadline - Date.now())));
       }
     }
   }
