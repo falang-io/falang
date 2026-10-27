@@ -75,13 +75,18 @@ describe('job-runner', () => {
       const filesClient = new FakeFilesClient();
       const runner = createJobRunner({ filesClient, spawner, config: loadConfig({ MEDIA_WORK_DIR: workDir }) });
       const store = new JobStore();
-      const job: IJob = store.createJob(
-        { projectId: 'p1', op: 'media-probe', inputs: baseInputs, params: {} },
-        't1',
-      );
+      const job: IJob = store.createJob({ projectId: 'p1', op: 'media-probe', inputs: baseInputs, params: {} }, 't1');
       await runner.run(job);
       expect(job.status).toBe('done');
-      expect(job.result).toEqual({ duration: 0, width: 64, height: 64, videoCodec: 'png', audioCodec: '', bitrate: 0, mime: 'image/png' });
+      expect(job.result).toEqual({
+        duration: 0,
+        width: 64,
+        height: 64,
+        videoCodec: 'png',
+        audioCodec: '',
+        bitrate: 0,
+        mime: 'image/png',
+      });
       expect(spawner.calls.map((call) => call.command)).toEqual(['ffprobe']);
       expect(filesClient.uploaded).toHaveLength(0);
     } finally {
@@ -230,6 +235,35 @@ describe('job-runner', () => {
       await runner.run(job);
       expect(job.status).toBe('cancelled');
       expect(filesClient.uploaded).toHaveLength(0);
+    } finally {
+      await rm(workDir, { recursive: true, force: true });
+    }
+  });
+
+  it('puts a protocol whitelist before every -i of the ffmpeg run', async () => {
+    const workDir = await mkdtemp(join(tmpdir(), 'media-runner-test-'));
+    try {
+      const spawner = new FakeProcessSpawner((call) => {
+        queueMicrotask(() => {
+          if (call.command === 'ffprobe') call.stdout.write(PNG_PROBE_JSON);
+          call.finish(0);
+        });
+      });
+      const runner = createJobRunner({
+        filesClient: new FakeFilesClient(),
+        spawner,
+        config: loadConfig({ MEDIA_WORK_DIR: workDir }),
+      });
+      const job: IJob = new JobStore().createJob(
+        { projectId: 'p1', op: 'media-image-resize', inputs: baseInputs, params: { width: 10 } },
+        't1',
+      );
+      // The fake ffmpeg writes no output, so the upload step throws — only the captured argv matters here.
+      await runner.run(job).catch(() => null);
+      const args = spawner.calls.find((call) => call.command === 'nice')?.args ?? [];
+      const inputIndexes = args.flatMap((arg, i) => (arg === '-i' ? [i] : []));
+      expect(inputIndexes.length).toBeGreaterThan(0);
+      for (const i of inputIndexes) expect(args.slice(i - 2, i)).toEqual(['-protocol_whitelist', 'file,pipe']);
     } finally {
       await rm(workDir, { recursive: true, force: true });
     }

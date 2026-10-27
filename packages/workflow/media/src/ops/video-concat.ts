@@ -1,4 +1,4 @@
-import { join } from 'node:path';
+import { basename, join } from 'node:path';
 import { z } from 'zod';
 import type { IMediaOpBuildContext, IMediaOpDefinition, TMediaOpArgvResult } from './types.js';
 
@@ -14,8 +14,10 @@ const CONCAT_LIST_FILENAME = 'concat-list.txt';
  * insurance regardless. */
 const escapeConcatPath = (path: string): string => `'${path.replaceAll("'", String.raw`'\''`)}'`;
 
+/** With `-safe 1` the demuxer rejects absolute paths and `..`, so the list names each input by its
+ * bare file name — resolved relative to the list file, which sits in the same job directory. */
 const buildConcatListFile = (inputs: readonly string[]): string =>
-  inputs.map((input) => `file ${escapeConcatPath(input)}`).join('\n');
+  inputs.map((input) => `file ${escapeConcatPath(basename(input))}`).join('\n');
 
 /** Re-encode mode assumes every input has both a video and an audio stream — a real, documented
  * limitation of this first cut (an input with no audio track fails the filter graph outright
@@ -46,7 +48,7 @@ const buildReencodeArgv = (inputs: readonly string[]): readonly string[] => {
 export const videoConcatOp: IMediaOpDefinition = {
   paramsSchema: videoConcatParamsSchema,
   minInputs: 2,
-  maxInputs: Number.POSITIVE_INFINITY,
+  maxInputs: 10,
   inputKinds: ['video'],
   resultKind: 'file',
   outputExt: (): string => 'mp4',
@@ -55,7 +57,7 @@ export const videoConcatOp: IMediaOpDefinition = {
     const params = ctx.params as IVideoConcatParams;
     if (params.reencode) return buildReencodeArgv(ctx.inputs);
     return {
-      argv: ['-f', 'concat', '-safe', '0', '-i', join(ctx.workDir, CONCAT_LIST_FILENAME), '-c', 'copy'],
+      argv: ['-f', 'concat', '-safe', '1', '-i', join(ctx.workDir, CONCAT_LIST_FILENAME), '-c', 'copy'],
       extraFiles: { [CONCAT_LIST_FILENAME]: buildConcatListFile(ctx.inputs) },
     };
   },

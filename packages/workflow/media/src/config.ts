@@ -9,6 +9,11 @@ export interface IMediaServiceConfig {
   readonly workDir: string;
   readonly outputMaxBytes: number;
   readonly ffmpegThreads: number;
+  readonly probeTimeoutMs: number;
+  readonly maxInputBytes: number;
+  readonly maxInputs: number;
+  readonly maxDurationSeconds: number;
+  readonly maxDimension: number;
 }
 
 const toPositiveInt = (value: string | undefined, fallback: number): number => {
@@ -28,4 +33,9 @@ export const loadConfig = (env: NodeJS.ProcessEnv = process.env): IMediaServiceC
   workDir: env.MEDIA_WORK_DIR ?? os.tmpdir(),
   outputMaxBytes: toPositiveInt(env.MEDIA_OUTPUT_MAX_BYTES, 500 * 1024 * 1024),
   ffmpegThreads: toPositiveInt(env.MEDIA_FFMPEG_THREADS, 2),
+  probeTimeoutMs: toPositiveInt(env.MEDIA_PROBE_TIMEOUT_MS, 30_000),
+  maxInputBytes: toPositiveInt(env.MEDIA_MAX_INPUT_BYTES, 500 * 1024 * 1024),
+  maxInputs: toPositiveInt(env.MEDIA_MAX_INPUTS, 10),
+  maxDurationSeconds: toPositiveInt(env.MEDIA_MAX_DURATION_SECONDS, 3600),
+  maxDimension: 8192,
 });

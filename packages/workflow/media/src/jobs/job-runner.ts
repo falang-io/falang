@@ -10,6 +10,7 @@ import type { IProcessSpawner } from './ffmpeg-process.js';
 import type { IFilesClient } from './files-client.js';
 import type { IJobRunner } from './job-queue.js';
 import type { IJob } from './job-types.js';
+import { withProtocolWhitelist } from './protocol-whitelist.js';
 import { deriveOutputName } from './output-naming.js';
 import { runFfmpeg } from './run-ffmpeg.js';
 import { UnsupportedInputError } from './unsupported-input-error.js';
@@ -27,7 +28,11 @@ const resolveOutputMime = (
 
 /** Downloads+probes every input, setting `job.status`/`job.error` itself (and returning `null`)
  * on an unsupported/unreachable input rather than throwing — the caller just checks for `null`. */
-const downloadInputsOrFail = async (deps: IJobRunnerDeps, job: IJob, workDir: string): Promise<IDownloadedInput[] | null> => {
+const downloadInputsOrFail = async (
+  deps: IJobRunnerDeps,
+  job: IJob,
+  workDir: string,
+): Promise<IDownloadedInput[] | null> => {
   try {
     return await downloadAndProbeInputs(deps, job.projectId, job.token, job.request.inputs, workDir);
   } catch (error) {
@@ -37,7 +42,10 @@ const downloadInputsOrFail = async (deps: IJobRunnerDeps, job: IJob, workDir: st
   }
 };
 
-const writeExtraFiles = async (workDir: string, extraFiles: Readonly<Record<string, string>> | undefined): Promise<void> => {
+const writeExtraFiles = async (
+  workDir: string,
+  extraFiles: Readonly<Record<string, string>> | undefined,
+): Promise<void> => {
   if (!extraFiles) return;
   for (const [name, content] of Object.entries(extraFiles)) {
     // Sequential on purpose — the ADR's ops never produce more than one side file (the concat
@@ -88,9 +96,7 @@ const runJob = async (deps: IJobRunnerDeps, job: IJob, workDir: string): Promise
     'pipe:1',
     '-threads',
     String(deps.config.ffmpegThreads),
-    '-protocol_whitelist',
-    'file,pipe',
-    ...middleArgv,
+    ...withProtocolWhitelist(middleArgv),
     '-fs',
     String(deps.config.outputMaxBytes),
     outputPath,

@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
-import { mimeFromFormatName, toProbeInfo } from './ffprobe-info.js';
+import { buildFfprobeArgv, mimeFromFormatName, runFfprobe, toProbeInfo } from './ffprobe-info.js';
+import { FakeProcessSpawner } from '../jobs/fake-process-spawner.test-utils.js';
 import type { IFfprobeResult } from './ffprobe-info.js';
 
 describe('mimeFromFormatName', () => {
@@ -49,5 +50,16 @@ describe('toProbeInfo', () => {
       bitrate: 0,
       mime: 'image/png',
     });
+  });
+});
+
+describe('runFfprobe hardening', () => {
+  it('whitelists protocols', () => {
+    expect(buildFfprobeArgv('/x.png').join(' ')).toContain('-protocol_whitelist file,pipe');
+  });
+
+  it('kills a hung ffprobe after the timeout', async () => {
+    const spawner = new FakeProcessSpawner(null);
+    await expect(runFfprobe(spawner, '/x.png', 20)).rejects.toThrow(/timed out/);
   });
 });

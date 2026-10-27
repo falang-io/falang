@@ -4,8 +4,8 @@ import type { IMediaOpBuildContext, IMediaOpDefinition, IProbeInfo, TMediaOpArgv
 
 const videoTrimParamsSchema = z
   .object({
-    start: z.number().min(0),
-    duration: z.number().positive().optional(),
+    start: z.number().min(0).max(86_400),
+    duration: z.number().positive().max(86_400).optional(),
     reencode: z.boolean().default(false),
   })
   .strict();
@@ -26,7 +26,9 @@ export const videoTrimOp: IMediaOpDefinition = {
     const argv: string[] = ['-ss', String(params.start)];
     if (params.duration) argv.push('-t', String(params.duration));
     argv.push('-i', ctx.inputs[0]);
-    argv.push(...(params.reencode ? ['-c:v', 'libx264', '-preset', 'veryfast', '-crf', '23', '-c:a', 'aac'] : ['-c', 'copy']));
+    argv.push(
+      ...(params.reencode ? ['-c:v', 'libx264', '-preset', 'veryfast', '-crf', '23', '-c:a', 'aac'] : ['-c', 'copy']),
+    );
     return argv;
   },
 };

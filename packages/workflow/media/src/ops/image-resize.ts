@@ -1,11 +1,17 @@
 import { z } from 'zod';
-import { IMAGE_FORMAT_CODEC, IMAGE_FORMAT_EXT, IMAGE_FORMAT_MIME, imageExtFromMime, imageQualityArgs } from './image-format.js';
+import {
+  IMAGE_FORMAT_CODEC,
+  IMAGE_FORMAT_EXT,
+  IMAGE_FORMAT_MIME,
+  imageExtFromMime,
+  imageQualityArgs,
+} from './image-format.js';
 import type { IMediaOpBuildContext, IMediaOpDefinition, IProbeInfo, TMediaOpArgvResult } from './types.js';
 
 const imageResizeParamsSchema = z
   .object({
-    width: z.number().int().positive().optional(),
-    height: z.number().int().positive().optional(),
+    width: z.number().int().positive().max(8192).optional(),
+    height: z.number().int().positive().max(8192).optional(),
     fit: z.enum(['contain', 'cover']).default('contain'),
     format: z.enum(['keep', 'jpeg', 'png', 'webp']).default('keep'),
     quality: z.number().int().min(1).max(100).default(85),
