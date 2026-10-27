@@ -1,7 +1,10 @@
 {
   "webhook": {
     "field": {
-      "signingSecret": "Signing secret (optional)"
+      "requireSignature": "Require signed calls",
+      "requireSignatureNo": "No",
+      "requireSignatureYes": "Yes",
+      "signatureVersion": "Secret version (increase to rotate)"
     },
     "label": "Webhook",
     "trigger": {

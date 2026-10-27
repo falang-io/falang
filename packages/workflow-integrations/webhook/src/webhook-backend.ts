@@ -9,7 +9,10 @@ import {
   WEBHOOK_SECRET_HEADER,
   WEBHOOK_SIGNAL_NAME,
   WEBHOOK_SIGNATURE_HEADER,
-  WEBHOOK_SIGNING_SECRET_FIELD,
+  WEBHOOK_SIGNATURE_VERSION_FIELD,
+  isWebhookSignatureRequired,
+  parseWebhookSignatureVersion,
+  webhookSecretLabel,
 } from './constants.js';
 
 interface ITriggerFunctionBodyData {
@@ -61,17 +64,45 @@ const hmacSha256Hex = async (secret: string, body: string): Promise<string> => {
 };
 
 /**
- * With a configured signing secret a request is accepted iff it carries either `X-Webhook-Signature: sha256=<hex HMAC of the
- * raw body>` or `X-Webhook-Secret: <the secret>`; both compared in constant time. No secret configured means no check.
+ * A request is accepted iff it carries either `X-Webhook-Signature: sha256=<hex HMAC of the raw body>` or
+ * `X-Webhook-Secret: <the secret>`; both compared in constant time. `secret === null` means no signature is required.
  */
-const isAuthorized = async (secret: string, request: Request, body: string): Promise<boolean> => {
-  if (!secret) return true;
+const isAuthorized = async (secret: string | null, request: Request, body: string): Promise<boolean> => {
+  if (secret === null) return true;
   const sharedSecret = request.headers.get(WEBHOOK_SECRET_HEADER);
   if (sharedSecret !== null && constantTimeEqual(sharedSecret, secret)) return true;
   const signature = request.headers.get(WEBHOOK_SIGNATURE_HEADER);
   if (signature === null) return false;
   const expected = `sha256=${await hmacSha256Hex(secret, body)}`;
   return constantTimeEqual(signature.trim().toLowerCase(), expected);
+};
+
+/** The trigger's derived secret, or `''` (= reject every call) when the host cannot derive one. */
+const deriveSigningSecret = (
+  ctx: IIntegrationBackendContext,
+  triggerDocumentId: string,
+  triggerConfig: Readonly<Record<string, string>> | undefined,
+): string => {
+  const version = parseWebhookSignatureVersion(triggerConfig?.[WEBHOOK_SIGNATURE_VERSION_FIELD]);
+  try {
+    return ctx.deriveSecret?.(webhookSecretLabel(triggerDocumentId, version)) ?? '';
+  } catch {
+    return '';
+  }
+};
+
+const readCurrentTriggerConfig = async (
+  ctx: IIntegrationBackendContext,
+  triggerDocumentId: string,
+  fallback: Readonly<Record<string, string>> | undefined,
+): Promise<Readonly<Record<string, string>> | undefined> => {
+  try {
+    const bound = await findBoundTriggerFunctions(ctx);
+    const document = bound.find((candidate) => candidate.id === triggerDocumentId);
+    return document ? getTriggerFunctionBodyData(document)?.triggerConfig : fallback;
+  } catch {
+    return fallback;
+  }
 };
 
 // oxlint-disable-next-line no-empty-function -- nothing to unregister remotely, no third-party service was ever told about this route.
@@ -101,12 +132,20 @@ const noopDispose = async (): Promise<void> => {};
 export const registerWebhookBackend: TRegisterIntegrationBackend = async (ctx) => {
   const triggerFunctions = await findBoundTriggerFunctions(ctx);
   for (const triggerFunction of triggerFunctions) {
-    // Read once at registration, like the bound-function list itself (see the known limitation above).
-    const signingSecret =
-      getTriggerFunctionBodyData(triggerFunction)?.triggerConfig?.[WEBHOOK_SIGNING_SECRET_FIELD] ?? '';
+    // The signature settings are re-read from the document on every call so that switching `require_signature` on or
+    // rotating `signature_version` takes effect at once (the route list itself is still fixed at registration, see the
+    // known limitation above); the registration-time config is the fallback if that lookup fails. The secret is derived
+    // on the server (never stored in the document); a host that cannot derive one fails closed.
+    const registeredConfig = getTriggerFunctionBodyData(triggerFunction)?.triggerConfig;
     ctx.registerWebHook(triggerFunction.id, async (request) => {
       const body = await request.text();
-      if (!(await isAuthorized(signingSecret, request, body))) return new Response(null, { status: 401 });
+      const triggerConfig = await readCurrentTriggerConfig(ctx, triggerFunction.id, registeredConfig);
+      const signingSecret = isWebhookSignatureRequired(triggerConfig)
+        ? deriveSigningSecret(ctx, triggerFunction.id, triggerConfig)
+        : null;
+      if (signingSecret === '' || !(await isAuthorized(signingSecret, request, body))) {
+        return new Response(null, { status: 401 });
+      }
       const payload = buildRequestPayload(request, body);
       await ctx.signalWorkflow({
         workflowId: `webhook-${triggerFunction.id}`,

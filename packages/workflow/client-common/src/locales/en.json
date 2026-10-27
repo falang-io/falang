@@ -133,7 +133,8 @@
         "balance": "Servers off: balance",
         "admin": "Servers off: suspended by administrator"
       },
-      "members": "Users"
+      "members": "Users",
+      "webhook-security": "Webhook security"
     },
     "run-function-modal": {
       "title": "Run function",
@@ -581,6 +582,21 @@
       "failed-to-load": "Failed to load project users",
       "failed-to-add": "Failed to add the user",
       "failed-to-save": "Failed to save"
+    },
+    "webhook-security": {
+      "title": "Webhook security",
+      "require": "Require signed calls",
+      "hint": "When on, a call must carry the secret below in the X-Webhook-Secret header, or an X-Webhook-Signature header (sha256=<hex HMAC-SHA256 of the raw request body, keyed with the secret>); anything else gets 401. The secret is derived on the server and is not stored in the project, versions or exports. Dev and prod have different secrets.",
+      "env-dev": "Dev secret",
+      "env-prod": "Prod secret",
+      "show": "Show",
+      "copy": "Copy",
+      "how-to": "Send the secret in the {{header}} header, or sign the raw body with HMAC-SHA256 and send sha256=<hex> in {{signatureHeader}}.",
+      "rotate": "Generate new secret",
+      "rotate-confirm": "The current secret will stop working at once. Continue?",
+      "version": "Secret version: {{version}}",
+      "still-saving": "The change is still being saved — try again in a moment.",
+      "failed-to-load": "Failed to load the secret"
     }
   },
   "version-history": {

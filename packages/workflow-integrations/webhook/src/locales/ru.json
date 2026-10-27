@@ -1,7 +1,10 @@
 {
   "webhook": {
     "field": {
-      "signingSecret": "Секрет подписи (необязательно)"
+      "requireSignature": "Требовать подпись запросов",
+      "requireSignatureNo": "Нет",
+      "requireSignatureYes": "Да",
+      "signatureVersion": "Версия секрета (увеличьте для смены)"
     },
     "label": "Webhook",
     "trigger": {

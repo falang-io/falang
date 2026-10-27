@@ -43,7 +43,12 @@ head:
   </li>
   <li>
     <b>Webhook</b>. A generic inbound trigger: each trigger function gets its own URL, and calling it (a POST request)
-    starts the scenario, passing the request body as input.
+    starts the scenario, passing the request body as input. To accept only your own callers, open the trigger function
+    and use <b>Webhook security</b> in the toolbar: switch on "Require signed calls" and the editor shows a secret for
+    dev and for prod. A call must then send it in the <code>X-Webhook-Secret</code> header, or an{' '}
+    <code>X-Webhook-Signature: sha256=&lt;hex&gt;</code> header (HMAC-SHA256 of the raw request body keyed with the
+    secret); anything else gets <code>401</code>. The secret is computed on the server and is not stored in the project,
+    its versions or exports; "Generate new secret" replaces it, and the old one stops working at once.
   </li>
   <li>
     <b>Schedule</b>. A timer-based trigger — a fixed interval or a cron expression — that starts a scenario on a

@@ -13,6 +13,7 @@ import { BuildErrorsModal } from './build-errors-modal.js';
 import { ProjectMenu } from './project-menu.js';
 import { useDevRunActions, type IDevRunActions } from './use-dev-run-actions.js';
 import { RunFunctionModal } from './run-function-modal.js';
+import { WebhookSecurityButton } from './webhook-security-button.js';
 import { VersionsModal } from './versions-modal.js';
 import { SupportButton } from './support-button.js';
 
@@ -360,6 +361,7 @@ export const Toolbar: React.FC = observer(() => {
         <span>{t('client:toolbar.published-version', { version: store.lastPublishedVersion.versionNumber })}</span>
       )}
       <ProjectMenu buttonStyle={S.btn} errorStyle={S.error} />
+      <WebhookSecurityButton style={S.btn} />
       {!store.readOnly && (
         <WritableControls devRunning={devRunning} devMenuItems={devMenuItems} prodMenuItems={prodMenuItems} />
       )}
