@@ -1,3 +1,4 @@
+import { createProjectTokenVerifier } from './auth/project-token-verifier.js';
 import { createApp } from './app.js';
 import { loadConfig } from './config.js';
 import { NodeProcessSpawner } from './jobs/ffmpeg-process.js';
@@ -16,7 +17,14 @@ const queue = new JobQueue(store, runner, config.maxConcurrentJobs);
 const sweepTimer = setInterval(() => store.sweepFinished(), 5 * 60 * 1000);
 sweepTimer.unref();
 
-const app = createApp({ store, queue, spawner, maxJobsPerProject: config.maxJobsPerProject });
+const app = createApp({
+  store,
+  queue,
+  spawner,
+  maxJobsPerProject: config.maxJobsPerProject,
+  verifyProjectToken: createProjectTokenVerifier({ backendInternalUrl: config.backendInternalUrl }),
+  maxInputs: config.maxInputs,
+});
 const server = app.listen(config.port, () => {
   // oxlint-disable-next-line no-console -- process-lifecycle log, this service has no logging framework yet.
   console.log(`@falang/workflow-media listening on :${config.port}`);

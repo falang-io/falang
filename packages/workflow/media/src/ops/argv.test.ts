@@ -31,7 +31,11 @@ const videoProbe: IProbeInfo = {
   mime: 'video/mp4',
 };
 
-const buildArgv = (op: IMediaOpDefinition, rawParams: Record<string, unknown>, ctxOverrides: Partial<IMediaOpBuildContext>) => {
+const buildArgv = (
+  op: IMediaOpDefinition,
+  rawParams: Record<string, unknown>,
+  ctxOverrides: Partial<IMediaOpBuildContext>,
+) => {
   const parsedParams = op.paramsSchema.parse(rawParams) as Record<string, unknown>;
   const ctx: IMediaOpBuildContext = {
     inputs: ['/work/input-0.bin'],
@@ -48,7 +52,11 @@ const buildArgv = (op: IMediaOpDefinition, rawParams: Record<string, unknown>, c
 
 describe('image-resize argv', () => {
   it('scales contain and reencodes to webp', () => {
-    const { argv } = buildArgv(imageResizeOp, { width: 200, height: 100, fit: 'contain', format: 'webp', quality: 70 }, {});
+    const { argv } = buildArgv(
+      imageResizeOp,
+      { width: 200, height: 100, fit: 'contain', format: 'webp', quality: 70 },
+      {},
+    );
     expect(argv).toEqual([
       '-i',
       '/work/input-0.bin',
@@ -120,13 +128,17 @@ describe('video-concat argv', () => {
       { reencode: false },
       { inputs: ['/work/input-0.mp4', '/work/input-1.mp4'], probes: [videoProbe, videoProbe] },
     );
-    expect(argv).toEqual(['-f', 'concat', '-safe', '0', '-i', '/work/concat-list.txt', '-c', 'copy']);
-    expect(extraFiles).toEqual({ 'concat-list.txt': "file '/work/input-0.mp4'\nfile '/work/input-1.mp4'" });
+    expect(argv).toEqual(['-f', 'concat', '-safe', '1', '-i', '/work/concat-list.txt', '-c', 'copy']);
+    expect(extraFiles).toEqual({ 'concat-list.txt': "file 'input-0.mp4'\nfile 'input-1.mp4'" });
   });
 
   it("escapes a single quote in a path (defense in depth, even though it's always our own temp path)", () => {
-    const { extraFiles } = buildArgv(videoConcatOp, { reencode: false }, { inputs: ["/work/it's.mp4"], probes: [videoProbe] });
-    expect(extraFiles?.['concat-list.txt']).toBe(String.raw`file '/work/it'\''s.mp4'`);
+    const { extraFiles } = buildArgv(
+      videoConcatOp,
+      { reencode: false },
+      { inputs: ["/work/it's.mp4"], probes: [videoProbe] },
+    );
+    expect(extraFiles?.['concat-list.txt']).toBe(String.raw`file 'it'\''s.mp4'`);
   });
 
   it('builds a filter_complex concat for reencode mode', () => {

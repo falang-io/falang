@@ -3,8 +3,8 @@ import type { IMediaOpBuildContext, IMediaOpDefinition, TMediaOpArgvResult } fro
 
 const videoThumbnailParamsSchema = z
   .object({
-    at: z.number().min(0).default(0),
-    width: z.number().int().positive().optional(),
+    at: z.number().min(0).max(86_400).default(0),
+    width: z.number().int().positive().max(8192).optional(),
   })
   .strict();
 

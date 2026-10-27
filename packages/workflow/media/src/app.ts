@@ -4,6 +4,7 @@ import { createFfmpegVersionResolver } from './jobs/ffmpeg-version.js';
 import type { IProcessSpawner } from './jobs/ffmpeg-process.js';
 import type { JobQueue } from './jobs/job-queue.js';
 import type { JobStore } from './jobs/job-store.js';
+import type { TProjectTokenVerifier } from './auth/project-token-verifier.js';
 import { createJobsRouter } from './routes/jobs.router.js';
 
 export interface ICreateAppDeps {
@@ -11,6 +12,8 @@ export interface ICreateAppDeps {
   readonly queue: JobQueue;
   readonly spawner: IProcessSpawner;
   readonly maxJobsPerProject: number;
+  readonly verifyProjectToken: TProjectTokenVerifier;
+  readonly maxInputs?: number;
 }
 
 /** Split out from `main.ts` so unit tests can exercise the routes (via `supertest`) without
@@ -28,7 +31,15 @@ export const createApp = (deps: ICreateAppDeps): Express => {
     }
   });
 
-  app.use(createJobsRouter({ store: deps.store, queue: deps.queue, maxJobsPerProject: deps.maxJobsPerProject }));
+  app.use(
+    createJobsRouter({
+      store: deps.store,
+      queue: deps.queue,
+      maxJobsPerProject: deps.maxJobsPerProject,
+      verifyProjectToken: deps.verifyProjectToken,
+      maxInputs: deps.maxInputs,
+    }),
+  );
 
   return app;
 };

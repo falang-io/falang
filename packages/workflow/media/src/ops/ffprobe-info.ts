@@ -26,14 +26,42 @@ export class FfprobeError extends Error {}
 /** Runs `ffprobe -show_streams -show_format` on a downloaded input and returns its parsed JSON —
  * called on every input before any ffmpeg encode, both to reject unsupported media (`ops/
  * allowlist.ts`) and to feed `media-probe`'s own result. */
-export const runFfprobe = (spawner: IProcessSpawner, filePath: string): Promise<IFfprobeResult> =>
+export const DEFAULT_PROBE_TIMEOUT_MS = 30_000;
+
+export const buildFfprobeArgv = (filePath: string): readonly string[] => [
+  '-v',
+  'error',
+  '-protocol_whitelist',
+  'file,pipe',
+  '-print_format',
+  'json',
+  '-show_streams',
+  '-show_format',
+  filePath,
+];
+
+export const runFfprobe = (
+  spawner: IProcessSpawner,
+  filePath: string,
+  timeoutMs: number = DEFAULT_PROBE_TIMEOUT_MS,
+): Promise<IFfprobeResult> =>
   new Promise((resolve, reject) => {
-    const proc = spawner.spawn('ffprobe', ['-v', 'error', '-print_format', 'json', '-show_streams', '-show_format', filePath]);
+    const proc = spawner.spawn('ffprobe', buildFfprobeArgv(filePath));
+    let timedOut = false;
+    const timer = setTimeout(() => {
+      timedOut = true;
+      proc.kill('SIGKILL');
+    }, timeoutMs);
     const stdoutChunks: Buffer[] = [];
     const stderrChunks: Buffer[] = [];
     proc.stdout.on('data', (chunk: Buffer) => stdoutChunks.push(chunk));
     proc.stderr.on('data', (chunk: Buffer) => stderrChunks.push(chunk));
     proc.onExit((code) => {
+      clearTimeout(timer);
+      if (timedOut) {
+        reject(new FfprobeError(`ffprobe timed out after ${timeoutMs}ms`));
+        return;
+      }
       if (code !== 0) {
         reject(new FfprobeError(`ffprobe exited with code ${code}: ${Buffer.concat(stderrChunks).toString('utf8')}`));
         return;
@@ -41,7 +69,9 @@ export const runFfprobe = (spawner: IProcessSpawner, filePath: string): Promise<
       try {
         resolve(JSON.parse(Buffer.concat(stdoutChunks).toString('utf8')) as IFfprobeResult);
       } catch (error) {
-        reject(new FfprobeError(`ffprobe produced invalid JSON: ${error instanceof Error ? error.message : String(error)}`));
+        reject(
+          new FfprobeError(`ffprobe produced invalid JSON: ${error instanceof Error ? error.message : String(error)}`),
+        );
       }
     });
   });
@@ -85,7 +115,9 @@ export const toProbeInfo = (raw: IFfprobeResult): IProbeInfo => {
   const audioStream = streams.find((stream) => stream.codec_type === 'audio');
   const format = raw.format ?? {};
   const duration =
-    parseFloatOr(format.duration, 0) || parseFloatOr(videoStream?.duration, 0) || parseFloatOr(audioStream?.duration, 0);
+    parseFloatOr(format.duration, 0) ||
+    parseFloatOr(videoStream?.duration, 0) ||
+    parseFloatOr(audioStream?.duration, 0);
   return {
     formatName: format.format_name ?? '',
     duration,
