@@ -1,7 +1,10 @@
-import { BadRequestException, ConflictException, NotFoundException } from '@nestjs/common';
+// oxlint-disable max-lines -- the service owns every task transition.
+import { BadRequestException, ConflictException, ForbiddenException, NotFoundException } from '@nestjs/common';
 import { isNamespaceNotFoundError, type IRunJournalProblemPort } from '@falang/workflow-gateway';
 import { WorkflowNotFoundError } from '@temporalio/client';
 import { In, type QueryDeepPartialEntity, type Repository } from 'typeorm';
+import { TaskRunUnavailableError } from './task-run-unavailable.error.js';
+import { devTaskQueue, prodTaskQueue } from '../build/build/task-queue-names.js';
 import type { TProjectsPort } from '../projects/projects/projects-port.js';
 import type { Task } from './task.entity.js';
 import {
@@ -21,6 +24,17 @@ export type TSignalWorkflow = (
   payload: unknown,
 ) => Promise<void>;
 
+/** Describes a run in the project's own Temporal namespace: its task queue, or `null` when no such run exists (security audit P1-11). */
+export type TDescribeWorkflow = (
+  projectId: string,
+  workflowId: string,
+  runId: string,
+) => Promise<{ readonly taskQueue: string } | null>;
+
+/** The task queue a project's runs of `env` live on — the server-side source of truth, never the request body. */
+export const expectedTaskQueue = (projectId: string, env: 'dev' | 'prod'): string =>
+  env === 'dev' ? devTaskQueue(projectId) : prodTaskQueue(projectId);
+
 export interface ITasksServiceParams {
   readonly tasks: Pick<Repository<Task>, 'find' | 'findOneBy' | 'create' | 'save' | 'update'>;
   readonly projectsService: TProjectsPort;
@@ -34,6 +48,8 @@ export interface ITasksServiceParams {
   /** `BuildService.ensureRunnerRunning`, bound — see `tasks.module.ts`. Narrowed to a plain closure, the same reasoning `RunsService`'s own DI-light constructor gives, so this stays trivially unit-testable. */
   readonly ensureRunnerRunning: (projectId: string, env: 'dev' | 'prod', taskQueue: string) => Promise<void>;
   readonly signalWorkflow: TSignalWorkflow;
+  /** Checks that a run exists and sits on the project's task queue (P1-11); required so the check cannot be forgotten. */
+  readonly describeWorkflow: TDescribeWorkflow;
   /** Run journal writer (ADR 0059 (private) §2c) — an orphaned resolution leaves an `error` entry on its run. Optional. */
   readonly journal?: IRunJournalProblemPort;
 }
@@ -88,6 +104,7 @@ export class TasksService {
   private readonly usernames: ((userIds: readonly string[]) => Promise<Map<string, string>>) | undefined;
   private readonly ensureRunnerRunning: (projectId: string, env: 'dev' | 'prod', taskQueue: string) => Promise<void>;
   private readonly signalWorkflow: TSignalWorkflow;
+  private readonly describeWorkflow: TDescribeWorkflow;
   private readonly journal: IRunJournalProblemPort | undefined;
 
   constructor(params: ITasksServiceParams) {
@@ -97,6 +114,7 @@ export class TasksService {
     this.usernames = params.usernames;
     this.ensureRunnerRunning = params.ensureRunnerRunning;
     this.signalWorkflow = params.signalWorkflow;
+    this.describeWorkflow = params.describeWorkflow;
     this.journal = params.journal;
   }
 
@@ -111,13 +129,19 @@ export class TasksService {
     const existing = await this.tasks.findOneBy(key);
     if (existing) return { taskId: existing.id };
 
+    // The runner supplies workflowId/runId/env itself: make sure that run really exists on this project's queue.
+    const taskQueue = expectedTaskQueue(projectId, input.env);
+    const described = await this.describeWorkflow(projectId, input.workflowId, input.runId);
+    if (!described) throw new NotFoundException('Workflow run not found for this project');
+    if (described.taskQueue !== taskQueue) throw new ForbiddenException('Workflow run does not belong to this project');
+
     const dueAt = typeof input.timeoutSeconds === 'number' ? new Date(Date.now() + input.timeoutSeconds * 1000) : null;
     const assigneeId = this.pickAssignee ? await this.pickAssignee(projectId) : null;
     const task = this.tasks.create({
       ...key,
       assigneeId,
       env: input.env,
-      taskQueue: input.taskQueue,
+      taskQueue,
       title: input.title,
       description: input.description,
       payload: input.payload ?? null,
@@ -214,7 +238,13 @@ export class TasksService {
     if (updateResult.affected === 0) throw new ConflictException(`Task "${id}" is not open`);
 
     try {
-      await this.ensureRunnerRunning(row.projectId, row.env, row.taskQueue);
+      const taskQueue = expectedTaskQueue(row.projectId, row.env);
+      const described = await this.describeWorkflow(row.projectId, row.workflowId, row.runId);
+      if (!described) throw new TaskRunUnavailableError('the run no longer exists');
+      if (described.taskQueue !== taskQueue) {
+        throw new TaskRunUnavailableError('the run does not belong to this project');
+      }
+      await this.ensureRunnerRunning(row.projectId, row.env, taskQueue);
       await this.signalWorkflow(row.projectId, row.workflowId, row.runId, HUMAN_TASK_ANSWER_SIGNAL_NAME, {
         messageId: row.id,
         value: input.answer,
@@ -223,7 +253,11 @@ export class TasksService {
         resolvedAt: resolvedAt.toISOString(),
       });
     } catch (error) {
-      if (error instanceof WorkflowNotFoundError || isNamespaceNotFoundError(error)) {
+      if (
+        error instanceof WorkflowNotFoundError ||
+        error instanceof TaskRunUnavailableError ||
+        isNamespaceNotFoundError(error)
+      ) {
         await this.tasks.update({ id: row.id }, { status: 'orphaned', orphanReason: (error as Error).message });
         await this.journal?.recordProblem({
           projectId: row.projectId,

@@ -13,9 +13,10 @@ export class CreateTaskDto {
   @MinLength(1)
   runId!: string;
 
+  /** Ignored by the server — the task queue is derived from the project and `env` (kept so already-published runner code still validates). */
+  @IsOptional()
   @IsString()
-  @MinLength(1)
-  taskQueue!: string;
+  taskQueue?: string;
 
   @IsIn(['dev', 'prod'])
   env!: 'dev' | 'prod';

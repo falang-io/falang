@@ -1,4 +1,8 @@
+import { createHash, randomBytes } from 'node:crypto';
 import { Injectable } from '@nestjs/common';
+import { InjectRepository } from '@nestjs/typeorm';
+import { IsNull, LessThan, MoreThan, type Repository } from 'typeorm';
+import { OAuth2PendingStateRow } from './oauth2-pending-state.entity.js';
 
 export interface IPendingOAuth2State {
   readonly projectId: string;
@@ -9,28 +13,67 @@ export interface IPendingOAuth2State {
 
 const STATE_TTL_MS = 10 * 60_000;
 
+const sha256 = (value: string): string => createHash('sha256').update(value).digest('hex');
+
 /**
- * In-memory `state`->pending-connection map for the OAuth2 authorization-code flow
- * (`oauth2.controller.ts`) — mirrors `activepieces/src/routes/poll.ts`'s existing in-memory,
- * process-lifetime trigger-state pattern (restart loses in-flight connect attempts, acceptable for
- * this app's single-instance MVP posture, see ADR 0002). The map itself is the source of truth for
- * `state` validity — a plain unguessable random token is as strong as an HMAC-signed payload here,
- * and PKCE's `code_verifier` must live server-side regardless — see ADR 0015 (private).
+ * Pending OAuth2 authorization-code attempts, stored in the database (so any backend replica can finish a
+ * flow another one started) and bound to the initiating browser (security audit P1-8):
+ *
+ * 1. `create` (from the JWT-authed `/oauth2/start`) stores the attempt and returns a one-time `launchId`;
+ * 2. `launch` (the popup's first request, `/oauth2/launch/:launchId`) consumes the launch id atomically and
+ *    issues a nonce that the controller puts in an httpOnly cookie — only its hash is stored;
+ * 3. `consume` (the vendor's callback) deletes the row atomically and succeeds only when the cookie nonce matches.
+ *
+ * Expired rows are deleted opportunistically on every `create`.
  */
 @Injectable()
 export class OAuth2PendingStateService {
-  private readonly states = new Map<string, { readonly value: IPendingOAuth2State; readonly expiresAt: number }>();
+  private readonly rows: Repository<OAuth2PendingStateRow>;
 
-  set(state: string, value: IPendingOAuth2State): void {
-    this.states.set(state, { value, expiresAt: Date.now() + STATE_TTL_MS });
-    setTimeout(() => this.states.delete(state), STATE_TTL_MS).unref();
+  constructor(@InjectRepository(OAuth2PendingStateRow) rows: Repository<OAuth2PendingStateRow>) {
+    this.rows = rows;
   }
 
-  /** Single-use: deletes on read so a replayed callback can't reuse the same code/state. */
-  consume(state: string): IPendingOAuth2State | undefined {
-    const entry = this.states.get(state);
-    this.states.delete(state);
-    if (!entry || entry.expiresAt < Date.now()) return;
-    return entry.value;
+  async create(state: string, launchId: string, value: IPendingOAuth2State, authorizeUrl: string): Promise<void> {
+    await this.deleteExpired();
+    await this.rows.insert({
+      stateHash: sha256(state),
+      launchIdHash: sha256(launchId),
+      nonceHash: null,
+      payload: JSON.stringify(value),
+      authorizeUrl,
+      launchedAt: null,
+      expiresAt: new Date(Date.now() + STATE_TTL_MS),
+    });
+  }
+
+  /** Single-use: marks the attempt launched (atomic conditional update) and returns the vendor URL and a fresh browser nonce. */
+  async launch(launchId: string): Promise<{ authorizeUrl: string; nonce: string } | undefined> {
+    const launchIdHash = sha256(launchId);
+    const nonce = randomBytes(32).toString('base64url');
+    const result = await this.rows.update(
+      { launchIdHash, launchedAt: IsNull(), expiresAt: MoreThan(new Date()) },
+      { launchedAt: new Date(), nonceHash: sha256(nonce) },
+    );
+    if (result.affected !== 1) return;
+    const row = await this.rows.findOneBy({ launchIdHash });
+    if (!row) return;
+    return { authorizeUrl: row.authorizeUrl, nonce };
+  }
+
+  /** Single-use: deletes the row (whatever the outcome) and returns the payload only for a launched attempt with a matching nonce. */
+  async consume(state: string, nonce: string | null): Promise<IPendingOAuth2State | undefined> {
+    const stateHash = sha256(state);
+    const row = await this.rows.findOneBy({ stateHash });
+    if (!row) return;
+    const deleted = await this.rows.delete({ stateHash });
+    if (deleted.affected !== 1) return;
+    if (row.expiresAt.getTime() < Date.now()) return;
+    if (!nonce || !row.nonceHash || row.nonceHash !== sha256(nonce)) return;
+    return JSON.parse(row.payload) as IPendingOAuth2State;
+  }
+
+  private async deleteExpired(): Promise<void> {
+    await this.rows.delete({ expiresAt: LessThan(new Date()) });
   }
 }

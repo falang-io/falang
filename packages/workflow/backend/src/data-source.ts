@@ -16,6 +16,7 @@ import { ProjectCommit } from './domains/projects/versioning/project-commit.enti
 import { AgentUsage } from './domains/agent-chat/agent-usage.entity.js';
 import { RunJournalEntry } from './domains/run-journal/run-journal-entry.entity.js';
 import { Task } from './domains/tasks/task.entity.js';
+import { OAuth2PendingStateRow } from './domains/integrations/oauth2-pending-state.entity.js';
 import { ProjectMember } from './domains/projects/members/project-member.entity.js';
 import { User } from './domains/users/users/user.entity.js';
 
@@ -45,6 +46,7 @@ const AppDataSource = new DataSource({
     OAuthCredential,
     AppSetting,
     IntegrationVendorData,
+    OAuth2PendingStateRow,
     UserLimits,
     File,
     Task,

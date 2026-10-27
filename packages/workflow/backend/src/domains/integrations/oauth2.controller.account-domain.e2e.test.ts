@@ -2,6 +2,7 @@ import type { INestApplication } from '@nestjs/common';
 import request from 'supertest';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import type * as EgressGuardModule from '../../net/egress-guard.js';
+import { launchOAuth2 } from '../../test-utils/oauth2-flow.js';
 import { auth, createTestApp, login } from '../../test-utils/e2e-app.js';
 
 // The real egress guard talks to the network; these tests stub the global `fetch`, so route the guard's `fetch` to it.
@@ -115,11 +116,13 @@ describe('OAuth2 authorization-code flow — per-account tokenUrl / JSON body (a
     const startResponse = await request(app.getHttpServer())
       .post(`/projects/${projectId}/integrations/cred-2/oauth2/start`)
       .set(auth(token));
-    const state = new URL(startResponse.body.authorizeUrl).searchParams.get('state');
+    const { state, cookie } = await launchOAuth2(app, startResponse.body.authorizeUrl);
 
-    const callbackResponse = await request(app.getHttpServer()).get(
-      `/oauth2/callback/activepieces-accountdomainpiece?code=fake-code&state=${state}&referer=https://my-account.amocrm.test`,
-    );
+    const callbackResponse = await request(app.getHttpServer())
+      .get(
+        `/oauth2/callback/activepieces-accountdomainpiece?code=fake-code&state=${state}&referer=https://my-account.amocrm.test`,
+      )
+      .set('Cookie', cookie);
 
     expect(callbackResponse.status).toBe(200);
     expect(callbackResponse.text).toContain('Connected');
@@ -161,11 +164,13 @@ describe('OAuth2 authorization-code flow — per-account tokenUrl / JSON body (a
     const startResponse = await request(app.getHttpServer())
       .post(`/projects/${projectId}/integrations/cred-2/oauth2/start`)
       .set(auth(token));
-    const state = new URL(startResponse.body.authorizeUrl).searchParams.get('state');
+    const { state, cookie } = await launchOAuth2(app, startResponse.body.authorizeUrl);
 
-    const callbackResponse = await request(app.getHttpServer()).get(
-      `/oauth2/callback/activepieces-accountdomainpiece?code=fake-code&state=${state}&referer=https://169.254.169.254`,
-    );
+    const callbackResponse = await request(app.getHttpServer())
+      .get(
+        `/oauth2/callback/activepieces-accountdomainpiece?code=fake-code&state=${state}&referer=https://169.254.169.254`,
+      )
+      .set('Cookie', cookie);
 
     expect(callbackResponse.text).toContain('Connection failed');
     expect(fetchMock.mock.calls.some((call) => String(call[0]).includes('169.254.169.254'))).toBe(false);
@@ -189,11 +194,11 @@ describe('OAuth2 authorization-code flow — per-account tokenUrl / JSON body (a
     const startResponse = await request(app.getHttpServer())
       .post(`/projects/${projectId}/integrations/cred-2/oauth2/start`)
       .set(auth(token));
-    const state = new URL(startResponse.body.authorizeUrl).searchParams.get('state');
+    const { state, cookie } = await launchOAuth2(app, startResponse.body.authorizeUrl);
 
-    const callbackResponse = await request(app.getHttpServer()).get(
-      `/oauth2/callback/activepieces-accountdomainpiece?code=fake-code&state=${state}`,
-    );
+    const callbackResponse = await request(app.getHttpServer())
+      .get(`/oauth2/callback/activepieces-accountdomainpiece?code=fake-code&state=${state}`)
+      .set('Cookie', cookie);
 
     expect(callbackResponse.status).toBe(200);
     expect(callbackResponse.text).toContain('Connection failed');

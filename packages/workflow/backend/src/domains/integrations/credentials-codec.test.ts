@@ -1,9 +1,11 @@
+// oxlint-disable max-lines -- one describe per codec function plus the unknown-vendor cases.
 import type { IIntegrationsDocumentData, IWorkflowIntegration } from '@falang/workflow-integrations-common';
 import { describe, expect, it } from 'vitest';
 import {
   encodeIntegrationsDataForWrite,
   maskIntegrationsDataForRead,
   mergeIntegrationsDataForRestore,
+  stripIntegrationsSecretsForExport,
   resolveFieldValue,
   SECRET_MASK,
 } from './credentials-codec.js';
@@ -100,14 +102,14 @@ describe('encodeIntegrationsDataForWrite', () => {
     expect(decryptSecret(stored.dev, key)).toBe('new-token');
   });
 
-  it('leaves an unrecognized vendor instance untouched', () => {
+  it('encrypts the values of an unrecognized vendor instance', () => {
     const incoming: IIntegrationsDocumentData = {
       instances: [{ id: 'cred-1', vendor: 'slack', name: 'Slack', fields: { webhookUrl: 'https://example.com' } }],
     };
 
     const result = encodeIntegrationsDataForWrite(incoming, null, [fakeIntegration], key);
 
-    expect(result).toEqual(incoming);
+    expect(JSON.stringify(result)).not.toContain('https://example.com');
   });
 });
 
@@ -293,5 +295,64 @@ describe('mergeIntegrationsDataForRestore', () => {
     const merged = mergeIntegrationsDataForRestore(snapshot, current, [integration]);
 
     expect(merged.instances[0]?.fields.baseUrl).toBe('https://snapshot.example.com');
+  });
+});
+
+describe('unknown vendor (fail-closed, P1-7)', () => {
+  const unknownData: IIntegrationsDocumentData = {
+    instances: [
+      {
+        id: 'u1',
+        vendor: 'gone-vendor',
+        name: 'X',
+        fields: { apiKey: { dev: 'dev-secret', prod: 'prod-secret' }, region: 'eu-west' },
+      },
+    ],
+  };
+  const stored = encodeIntegrationsDataForWrite(unknownData, null, [], key);
+
+  it('encrypts every string value on write', () => {
+    const fields = stored.instances[0]?.fields ?? {};
+    expect(JSON.stringify(fields)).not.toContain('dev-secret');
+    expect(JSON.stringify(fields)).not.toContain('prod-secret');
+    expect(JSON.stringify(fields)).not.toContain('eu-west');
+  });
+
+  it('masks on read and blanks on export', () => {
+    const masked = maskIntegrationsDataForRead(stored, [], key);
+    expect(masked.instances[0]?.fields).toEqual({
+      apiKey: { dev: SECRET_MASK, prod: SECRET_MASK },
+      region: SECRET_MASK,
+    });
+    const exported = stripIntegrationsSecretsForExport(stored, []);
+    expect(exported.instances[0]?.fields).toEqual({ apiKey: { dev: '', prod: '' }, region: '' });
+  });
+
+  it('keeps stored values when the client echoes the mask back', () => {
+    const masked = maskIntegrationsDataForRead(stored, [], key);
+    const rewritten = encodeIntegrationsDataForWrite(masked, stored, [], key);
+    expect(rewritten).toEqual(stored);
+  });
+
+  it('reads the values normally once the vendor is back in the catalog', () => {
+    const integration: IWorkflowIntegration = {
+      vendor: 'gone-vendor',
+      label: 'G',
+      credentialFields: [
+        { name: 'apiKey', label: 'k', kind: 'secret' },
+        { name: 'region', label: 'r', kind: 'text' },
+      ],
+      ...EMPTY_INTEGRATION_PARTS,
+    };
+    const instance = stored.instances[0];
+    const [secretField, textField] = integration.credentialFields;
+    if (!instance || !secretField || !textField) throw new Error('expected an instance');
+    expect(resolveFieldValue(instance, secretField, 'dev', key)).toBe('dev-secret');
+    expect(resolveFieldValue(instance, textField, 'dev', key)).toBe('eu-west');
+    const masked = maskIntegrationsDataForRead(stored, [integration], key);
+    expect(masked.instances[0]?.fields.region).toBe('eu-west');
+    expect(masked.instances[0]?.fields.apiKey).toEqual({ dev: SECRET_MASK, prod: SECRET_MASK });
+    // exports never leak the guarded text either
+    expect(stripIntegrationsSecretsForExport(stored, [integration]).instances[0]?.fields.region).toBe('');
   });
 });

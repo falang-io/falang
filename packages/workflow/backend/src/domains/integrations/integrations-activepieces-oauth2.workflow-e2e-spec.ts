@@ -135,7 +135,19 @@ describe('integrations (workflow tier, mock service): ActivePieces OAuth2', () =
         .post(`/projects/${projectId}/integrations/${importedCredentialId}/oauth2/start`)
         .set(workflowE2eAuth(token));
       expect(startResponse.status).toBe(201);
-      const authorizeUrl = (startResponse.body as { authorizeUrl: string }).authorizeUrl.replace(
+      // Since P1-8 `start` returns the backend's launch URL: the popup opens it first, it sets the
+      // browser-binding nonce cookie and redirects to the vendor (here: the mock authorization server).
+      const launchUrl = (startResponse.body as { authorizeUrl: string }).authorizeUrl.replace(
+        'http://backend:4000',
+        WORKFLOW_E2E_BACKEND_URL,
+      );
+      const launchResponse = await fetch(launchUrl, { redirect: 'manual' });
+      expect(launchResponse.status).toBe(302);
+      const nonceCookie = (launchResponse.headers.getSetCookie?.() ?? [])
+        .map((entry) => entry.split(';')[0])
+        .join('; ');
+      expect(nonceCookie).toContain('falang_oauth2_nonce=');
+      const authorizeUrl = (launchResponse.headers.get('location') ?? '').replace(
         'http://activepieces:4100',
         WORKFLOW_E2E_ACTIVEPIECES_URL,
       );
@@ -146,7 +158,7 @@ describe('integrations (workflow tier, mock service): ActivePieces OAuth2', () =
       if (!callbackLocation) throw new Error('mock-oauth2 /authorize did not redirect');
       const callbackUrl = callbackLocation.replace('http://backend:4000', WORKFLOW_E2E_BACKEND_URL);
 
-      const callbackResponse = await fetch(callbackUrl);
+      const callbackResponse = await fetch(callbackUrl, { headers: { cookie: nonceCookie } });
       expect(callbackResponse.ok).toBe(true);
 
       const buildResponse = await workflowE2eApi().post(`/projects/${projectId}/build`).set(workflowE2eAuth(token));
