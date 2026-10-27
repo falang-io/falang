@@ -164,6 +164,37 @@ TEMPORAL_SERVER_CONFIG=server.yaml TEMPORAL_TENANT_ISOLATION=per-project \\
   сервисов (внутри кластера — через ClusterIP Service).
 </p>
 
+#### За прокси: CORS, rate limit, размеры запросов
+<p>
+  Задайте <code>TRUST_PROXY</code>, если backend стоит за reverse proxy или балансировщиком, иначе все клиенты выглядят
+  как IP прокси, и лимиты на IP ниже срабатывают сразу у всех. Значение — число хопов (например <code>1</code>),
+  <code>true</code> или список IP/CIDR/<code>loopback</code>; по умолчанию <code>false</code>.
+  <code>CORS_ORIGINS</code> — список разрешённых origin браузера через запятую; если не задан, берётся origin
+  <code>CLIENT_PUBLIC_URL</code>, а без обоих API открыт для любого origin (в лог пишется предупреждение). Backend
+  отправляет защитные заголовки в каждом ответе и отклоняет тела больше 256 КБ (ответ <code>413</code>), кроме
+  эндпоинтов, которым нужен большой JSON (импорт проекта, запись документов, ИИ-агент и MCP — до 15 МБ).
+</p>
+<p>
+  Встроенный rate limiter (на каждую реплику отдельно: вход, письма аккаунта, вебхуки, сборки/запуски/публикация,
+  вызовы ИИ-агента и общий лимит на IP) отвечает <code>429</code> с <code>Retry-After</code>.
+  <code>RATE_LIMIT_ENABLED=false</code> выключает его, <code>RATE_LIMIT_MULTIPLIER</code> масштабирует все лимиты;
+  внутренний порт и <code>/health</code> не ограничиваются. Лимиты на аккаунт (<code>MAX_PROJECTS</code>,
+  <code>MAX_DEV_PODS</code>, <code>MAX_STORED_VERSIONS</code>, <code>MAX_OWNER_FILES_BYTES</code>,
+  <code>MAX_SCHEDULES</code>) — значения по умолчанию, админ может переопределить их для пользователя в окне «Лимиты».
+  Расписания не срабатывают чаще <code>SCHEDULE_MIN_INTERVAL_SECONDS</code> (60), а любое выполнение workflow
+  останавливается через <code>WORKFLOW_EXECUTION_TIMEOUT</code> (по умолчанию <code>30 days</code>; <code>off</code>
+  отключает). Активности без собственной политики повторов повторяются не более 5 раз.
+</p>
+
+#### Production-образы
+<p>
+  Цели по умолчанию в <code>docker/backend.Dockerfile</code> и <code>docker/client.Dockerfile</code> — для разработки
+  (клиент запускает dev-сервер Vite). Для боевого развёртывания собирайте <code>--target production</code>: backend
+  тогда работает от непривилегированного пользователя <code>node</code>, а клиент — статическая сборка за
+  непривилегированным nginx на порту 8080 с защитными заголовками и Content-Security-Policy (переменные окружения
+  описаны в <code>docker/client-nginx/README.md</code>).
+</p>
+
 #### Логи и метрики
 <p>
   <code>LOG_FORMAT=json</code> включает вывод логов backend по одному JSON-объекту на строку (уровень, время, контекст,

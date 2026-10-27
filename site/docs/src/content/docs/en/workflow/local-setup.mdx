@@ -160,6 +160,38 @@ TEMPORAL_SERVER_CONFIG=server.yaml TEMPORAL_TENANT_ISOLATION=per-project \\
   Service).
 </p>
 
+#### Behind a proxy, CORS, rate limits, request sizes
+<p>
+  Set <code>TRUST_PROXY</code> when the backend sits behind a reverse proxy or load balancer, otherwise every client
+  looks like the proxy's IP and the per-IP rate limits below hit all users at once. It takes a number of hops (for
+  example <code>1</code>), <code>true</code>, or a list of IPs/CIDRs/<code>loopback</code>; the default
+  is <code>false</code>. <code>CORS_ORIGINS</code> is a comma-separated list of allowed browser origins; when unset the
+  origin of <code>CLIENT_PUBLIC_URL</code> is used, and with neither the API is open to any origin (a warning is logged).
+  The backend sends security headers on every response and rejects bodies over 256 KB, except the endpoints that
+  legitimately take large JSON (project import, document writes, the AI agent and MCP, up to 15 MB) — the answer is
+  <code>413</code>.
+</p>
+<p>
+  A built-in, per-replica rate limiter (login, account e-mails, webhooks, builds/runs/publishing and AI agent calls, plus
+  a general per-IP limit) answers <code>429</code> with <code>Retry-After</code>. <code>RATE_LIMIT_ENABLED=false</code>
+  turns it off and <code>RATE_LIMIT_MULTIPLIER</code> scales all limits; the internal port and <code>/health</code> are
+  never limited. Resource caps per account (<code>MAX_PROJECTS</code>, <code>MAX_DEV_PODS</code>,
+  <code>MAX_STORED_VERSIONS</code>, <code>MAX_OWNER_FILES_BYTES</code>, <code>MAX_SCHEDULES</code>) are defaults that
+  an admin can override per user in the Limits dialog. Schedules cannot fire more often than every
+  <code>SCHEDULE_MIN_INTERVAL_SECONDS</code> (60), and every workflow execution is stopped after
+  <code>WORKFLOW_EXECUTION_TIMEOUT</code> (default <code>30 days</code>; <code>off</code> disables it). Activities
+  without their own retry policy retry at most 5 times.
+</p>
+
+#### Production images
+<p>
+  The default targets of <code>docker/backend.Dockerfile</code> and <code>docker/client.Dockerfile</code> are for
+  development (the client runs the Vite dev server). For a real deployment build <code>--target production</code>:
+  the backend then runs as the unprivileged <code>node</code> user, and the client is the static build served by
+  unprivileged nginx on port 8080 with security headers and a Content-Security-Policy (see
+  <code>docker/client-nginx/README.md</code> for its environment variables).
+</p>
+
 #### Logs and metrics
 <p>
   <code>LOG_FORMAT=json</code> makes the backend write one JSON object per line (level, timestamp, context, message and,

@@ -123,7 +123,9 @@ head:
     checkbox) or <code>smartcaptcha</code> (Yandex SmartCaptcha), with <code>CAPTCHA_SITE_KEY</code> (client key) and
     <code>CAPTCHA_SECRET</code> (server key) registered for your domain with the vendor. The captcha guards signup and
     "Forgot password?"; if the vendor can't be reached the request fails
-    with <code>503</code> rather than passing.
+    with <code>503</code> rather than passing. In production the backend refuses to start when signup is enabled
+    (<code>SIGNUP_MODE</code> is not <code>off</code>) with <code>CAPTCHA_PROVIDER=none</code>, unless you set
+    <code>ALLOW_SIGNUP_WITHOUT_CAPTCHA=true</code> on purpose.
   </li>
 </ul>
 <p>
@@ -224,7 +226,10 @@ head:
 <p>
   The <b>Limits</b> button on a Users row opens that account's quotas: maximum size of one file, maximum total size of a
   project's files, the file lifetimes, and the maximum number of <b>published versions running at the same time</b> per
-  project (default 3, or whatever the deployment's <code>MAX_CONCURRENT_PROD_VERSIONS</code> setting says). An empty
+  project (default 3, or whatever the deployment's <code>MAX_CONCURRENT_PROD_VERSIONS</code> setting says), plus the maximum
+  number of projects, development servers, stored versions, total file size across all the owner's projects and
+  schedules (defaults <code>MAX_PROJECTS</code>, <code>MAX_DEV_PODS</code>, <code>MAX_STORED_VERSIONS</code>,
+  <code>MAX_OWNER_FILES_BYTES</code>, <code>MAX_SCHEDULES</code>). An empty
   field means "use the deployment default"; a filled one overrides it for that account's projects only.
 </p>
 
