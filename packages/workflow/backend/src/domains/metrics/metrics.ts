@@ -51,6 +51,10 @@ export const activationsTotal = metricsRegistry.counter(
   'falang_activations_total',
   'Accounts activated by an administrator.',
 );
+export const authMailLimitedTotal = metricsRegistry.counter(
+  'falang_auth_mail_limited_total',
+  'Account mails skipped because a per-address or per-IP limit was reached.',
+);
 export const mailTotal = metricsRegistry.counter('falang_mail_total', 'Outgoing mail by result.');
 export const temporalPermissionDeniedTotal = metricsRegistry.counter(
   'falang_temporal_permission_denied_total',

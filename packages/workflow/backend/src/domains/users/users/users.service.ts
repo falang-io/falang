@@ -3,7 +3,7 @@ import { ConfigService } from '@nestjs/config';
 import { InjectRepository } from '@nestjs/typeorm';
 import * as bcrypt from 'bcrypt';
 import { randomBytes } from 'node:crypto';
-import type { Repository } from 'typeorm';
+import { In, IsNull, LessThan, Not, type Repository } from 'typeorm';
 import { User, type TSignupSource, type TUserRole } from './user.entity.js';
 
 const SALT_ROUNDS = 10;
@@ -148,9 +148,36 @@ export class UsersService implements OnModuleInit {
     return randomBytes(12).toString('base64url');
   }
 
+  /** Sets the password and bumps `token_version`, which signs out every session issued before. */
   async setPassword(id: string, plainPassword: string): Promise<void> {
     const password = await bcrypt.hash(plainPassword, SALT_ROUNDS);
-    await this.users.update({ id }, { password });
+    await this.users.update({ id }, { password, tokenVersion: () => '"token_version" + 1' });
+  }
+
+  /** Self-service signups with a confirmed e-mail that no admin digest has announced yet. */
+  findUnannounced(): Promise<User[]> {
+    return this.users.find({
+      where: { signupSource: 'self-service', emailVerifiedAt: Not(IsNull()), adminNotifiedAt: IsNull() },
+      order: { createdAt: 'ASC' },
+    });
+  }
+
+  async markAdminNotified(ids: string[]): Promise<void> {
+    if (ids.length === 0) return;
+    await this.users.update({ id: In(ids) }, { adminNotifiedAt: new Date() });
+  }
+
+  /** Applications whose e-mail was never confirmed and that were created before `before` (candidates for removal). */
+  findStaleUnverified(before: Date, limit: number): Promise<User[]> {
+    return this.users.find({
+      where: { emailVerifiedAt: IsNull(), activatedAt: IsNull(), createdAt: LessThan(before) },
+      take: limit,
+    });
+  }
+
+  async deleteByIds(ids: string[]): Promise<void> {
+    if (ids.length === 0) return;
+    await this.users.delete({ id: In(ids) });
   }
 
   async updateLanguage(id: string, language: string): Promise<User> {

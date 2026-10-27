@@ -3,6 +3,7 @@ import { TypeOrmModule } from '@nestjs/typeorm';
 import { IntegrationsModule } from '../integrations/integrations.module.js';
 import { Project } from '../projects/projects/project.entity.js';
 import { MailModule } from '../mail/mail.module.js';
+import { PersonalAccessTokensModule } from '../auth/personal-access-tokens/personal-access-tokens.module.js';
 import { UsersModule } from '../users/users/users.module.js';
 import { AdminAgentSettingsController } from './app-settings/admin-agent-settings.controller.js';
 import { AdminProxySettingsController } from './app-settings/admin-proxy-settings.controller.js';
@@ -31,6 +32,7 @@ import { AdminUsersService } from './users/admin-users.service.js';
   imports: [
     TypeOrmModule.forFeature([Project]),
     UsersModule,
+    PersonalAccessTokensModule,
     MailModule,
     IntegrationsModule,
     OAuthCredentialsModule,

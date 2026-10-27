@@ -432,21 +432,20 @@ describe('AuthStore', () => {
       expect(store.screen).toBe('forgot');
     });
 
-    it('changePassword clears the default-password flag; failure propagates', async () => {
+    it('changePassword stores the fresh token and user; failure propagates', async () => {
       const store = new AuthStore();
       store.currentUser = user() as never;
-      h.api.changePassword.mockResolvedValueOnce(undefined);
+      h.api.changePassword.mockResolvedValueOnce({
+        accessToken: 'fresh',
+        user: { ...user(), defaultPasswordInUse: false },
+      });
       await store.changePassword('old', 'new');
       expect(h.api.changePassword).toHaveBeenCalledWith('old', 'new');
+      expect(h.setAuthToken).toHaveBeenCalledWith('fresh');
       expect((store.currentUser as { defaultPasswordInUse?: boolean } | null)?.defaultPasswordInUse).toBe(false);
 
       h.api.changePassword.mockRejectedValueOnce(new Error('wrong'));
       await expect(store.changePassword('x', 'y')).rejects.toThrow('wrong');
-
-      store.currentUser = null;
-      h.api.changePassword.mockResolvedValueOnce(undefined);
-      await store.changePassword('a', 'b');
-      expect(store.currentUser).toBeNull();
     });
 
     it('changePassword modal flag and logout', () => {

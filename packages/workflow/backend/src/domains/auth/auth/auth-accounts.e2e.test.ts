@@ -1,5 +1,6 @@
 import type { INestApplication } from '@nestjs/common';
 import request from 'supertest';
+import { PersonalAccessTokensService } from '../personal-access-tokens/personal-access-tokens.service.js';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { auth, createTestApp, login } from '../../../test-utils/e2e-app.js';
 
@@ -128,6 +129,18 @@ describe('account management (auth + admin users)', () => {
       expect(await loginStatus('bob', reset.body.password)).toBe(200);
     });
 
+    it('an admin reset signs the user out and revokes their personal access tokens', async () => {
+      const adminToken = await login(app);
+      const reg = await http().post('/auth/register').send({ username: 'bob', password: 'password123' });
+      const bobToken = reg.body.accessToken as string;
+      const pat = await http().post('/auth/tokens').set(auth(bobToken)).send({ name: 'ci' });
+      expect(pat.status).toBe(201);
+      await http().post(`/admin/users/${reg.body.user.id}/reset-password`).set(auth(adminToken));
+      const staleMe = await http().get('/auth/me').set(auth(bobToken));
+      expect(staleMe.status).toBe(401);
+      expect(await app.get(PersonalAccessTokensService).resolve(pat.body.rawToken as string)).toBeNull();
+    });
+
     it('404s resetting an unknown user', async () => {
       const adminToken = await login(app);
       const response = await http().post('/admin/users/no-such-user/reset-password').set(auth(adminToken));
@@ -146,9 +159,25 @@ describe('account management (auth + admin users)', () => {
         .post('/auth/change-password')
         .set(auth(token))
         .send({ currentPassword: 'password123', newPassword: 'brand-new-pass' });
-      expect(response.status).toBe(204);
+      expect(response.status).toBe(200);
+      expect(response.body.accessToken).toEqual(expect.any(String));
+      expect(response.body.user.username).toBe('bob');
       expect(await loginStatus('bob', 'password123')).toBe(401);
       expect(await loginStatus('bob', 'brand-new-pass')).toBe(200);
+    });
+
+    it('signs every older session out but keeps the returned one working', async () => {
+      const oldToken = await login(app, 'bob', 'password123');
+      const response = await http()
+        .post('/auth/change-password')
+        .set(auth(oldToken))
+        .send({ currentPassword: 'password123', newPassword: 'brand-new-pass' });
+      const oldMe = await http().get('/auth/me').set(auth(oldToken));
+      expect(oldMe.status).toBe(401);
+      const newMe = await http()
+        .get('/auth/me')
+        .set(auth(response.body.accessToken as string));
+      expect(newMe.status).toBe(200);
     });
 
     it('400s a wrong current password', async () => {

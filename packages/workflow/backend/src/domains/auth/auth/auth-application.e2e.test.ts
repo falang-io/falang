@@ -4,6 +4,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { auth, createTestApp, login } from '../../../test-utils/e2e-app.js';
 import type { CapturingMailTransport } from '../../../test-utils/capturing-mail-transport.js';
 import { MAIL_TRANSPORT } from '../../mail/mail.service.js';
+import { AdminDigestService } from './admin-digest.service.js';
 
 const APPLICANT = 'boss@acme.test';
 
@@ -61,8 +62,8 @@ describe('closed-beta application signup', () => {
     expect(mailbox.to(APPLICANT)[0]?.text).toContain('https://app.test/?verifyEmail=');
 
     const early = await http().post('/auth/login').send({ username: APPLICANT, password: 'whatever123' });
-    expect(early.status).toBe(403);
-    expect(early.body.code).toBe('email_not_verified');
+    // An application has no usable password, and an account's state is only revealed after the password check.
+    expect(early.status).toBe(401);
 
     const adminToken = await login(app);
     // Give the seeded admin an address so the "new application" mail has a recipient.
@@ -81,8 +82,7 @@ describe('closed-beta application signup', () => {
     expect(reuse.status).toBe(400);
 
     const pending = await http().post('/auth/login').send({ username: APPLICANT, password: 'whatever123' });
-    expect(pending.status).toBe(403);
-    expect(pending.body.code).toBe('not_activated');
+    expect(pending.status).toBe(401);
 
     const list = await http().get('/admin/users').set(auth(adminToken));
     const row = (list.body as { id: string; email: string; status: string }[]).find((u) => u.email === APPLICANT);
@@ -116,21 +116,6 @@ describe('closed-beta application signup', () => {
     expect(again.status).toBe(409);
   });
 
-  it('mails admins with an address when the applicant verifies', async () => {
-    const adminToken = await login(app);
-    await http().post('/admin/users').set(auth(adminToken)).send({ username: 'ops', email: 'ops@falang.test' });
-    const list = await http().get('/admin/users').set(auth(adminToken));
-    const ops = (list.body as { id: string; username: string }[]).find((u) => u.username === 'ops');
-    await http().patch(`/admin/users/${ops?.id}/role`).set(auth(adminToken)).send({ role: 'admin' });
-    await apply();
-    await http()
-      .post('/auth/verify-email')
-      .send({ token: mailbox.latestToken(APPLICANT, 'verifyEmail') });
-    const notice = mailbox.to('ops@falang.test').at(-1);
-    expect(notice?.subject).toContain('Acme');
-    expect(notice?.text).toContain(APPLICANT);
-  });
-
   it('activating an unverified application is refused', async () => {
     await apply();
     const adminToken = await login(app);
@@ -155,7 +140,7 @@ describe('closed-beta application signup', () => {
     expect(ok.status).toBe(200);
   });
 
-  it('handles a duplicate application: 202 while unverified (cooldown), 409 once verified', async () => {
+  it('handles a duplicate application: 202 while unverified (cooldown), 202 plus an "account exists" mail once verified', async () => {
     expect(await statusOf(apply())).toBe(202);
     const second = await apply();
     expect(second.status).toBe(202);
@@ -164,7 +149,9 @@ describe('closed-beta application signup', () => {
     await http()
       .post('/auth/verify-email')
       .send({ token: mailbox.latestToken(APPLICANT, 'verifyEmail') });
-    expect(await statusOf(apply())).toBe(409);
+    expect(await statusOf(apply())).toBe(202);
+    const notice = mailbox.to(APPLICANT).at(-1);
+    expect(notice?.subject).toBe('You already have a Falang account');
   });
 
   it('validates the application body and refuses a bogus verification token', async () => {
@@ -274,9 +261,10 @@ describe('application signup with SIGNUP_AUTO_ACTIVATE', () => {
     await http()
       .post('/auth/verify-email')
       .send({ token: mailbox.latestToken(APPLICANT, 'verifyEmail') });
+    await app.get(AdminDigestService).sweep();
     const notice = mailbox.to('ops@falang.test').at(-1);
-    expect(notice?.subject).toBe('New user: Acme');
-    expect(notice?.text).toContain('already active');
+    expect(notice?.text).toContain(`${APPLICANT} | company: Acme`);
+    expect(notice?.text).toContain('| active');
   });
 
   it('still signs the user in when the welcome mail fails', async () => {

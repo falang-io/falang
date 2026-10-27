@@ -9,6 +9,7 @@ import {
 import { JwtService } from '@nestjs/jwt';
 import * as bcrypt from 'bcrypt';
 import { UsersService } from '../../users/users/users.service.js';
+import { PersonalAccessTokensService } from '../personal-access-tokens/personal-access-tokens.service.js';
 import type { User } from '../../users/users/user.entity.js';
 
 export interface ILoginResult {
@@ -30,6 +31,9 @@ export interface IAuthUser {
   defaultPasswordInUse: boolean;
 }
 
+/** Compared against for an unknown login so the response time doesn't tell whether the account exists. */
+const DUMMY_PASSWORD_HASH = bcrypt.hashSync('falang-dummy-password', 10);
+
 const SEEDED_ADMIN_USERNAME = 'admin';
 const SEEDED_ADMIN_PASSWORD = 'admin';
 
@@ -38,23 +42,30 @@ export class AuthService {
   private readonly usersService: UsersService;
   private readonly jwtService: JwtService;
 
-  constructor(@Inject(UsersService) usersService: UsersService, @Inject(JwtService) jwtService: JwtService) {
+  private readonly accessTokens: PersonalAccessTokensService;
+
+  constructor(
+    @Inject(UsersService) usersService: UsersService,
+    @Inject(JwtService) jwtService: JwtService,
+    @Inject(PersonalAccessTokensService) accessTokens: PersonalAccessTokensService,
+  ) {
     this.usersService = usersService;
     this.jwtService = jwtService;
+    this.accessTokens = accessTokens;
   }
 
   async validateUser(username: string, password: string): Promise<User> {
     const user = (await this.usersService.findByUsername(username)) ?? (await this.usersService.findByEmail(username));
-    // Checked before the password: an application has no usable password until an admin activates it.
-    if (user && !user.activatedAt) {
+    // Same cost and same answer for an unknown login and a wrong password.
+    const passwordOk = await bcrypt.compare(password, user ? user.password : DUMMY_PASSWORD_HASH);
+    if (!user || !passwordOk) throw new UnauthorizedException('Invalid username or password');
+    // Only after the password check, so the state of an account is not revealed to someone who doesn't know it.
+    if (!user.activatedAt) {
       throw new ForbiddenException({
         statusCode: 403,
         code: user.emailVerifiedAt ? 'not_activated' : 'email_not_verified',
         message: user.emailVerifiedAt ? 'Your application has not been activated yet' : 'Confirm your e-mail first',
       });
-    }
-    if (!user || !(await bcrypt.compare(password, user.password))) {
-      throw new UnauthorizedException('Invalid username or password');
     }
     return user;
   }
@@ -78,7 +89,12 @@ export class AuthService {
   }
 
   async login(user: User): Promise<ILoginResult> {
-    const accessToken = this.jwtService.sign({ sub: user.id, username: user.username, role: user.role });
+    const accessToken = this.jwtService.sign({
+      sub: user.id,
+      username: user.username,
+      role: user.role,
+      tv: user.tokenVersion,
+    });
     return { accessToken, user: await this.toAuthUser(user) };
   }
 
@@ -105,11 +121,19 @@ export class AuthService {
     return this.login(user);
   }
 
-  async changePassword(userId: string, currentPassword: string, newPassword: string): Promise<void> {
+  /**
+   * Sets the new password (which bumps `token_version`, signing out every other session), revokes the user's personal
+   * access tokens and returns a fresh login so the caller's own session carries on.
+   */
+  async changePassword(userId: string, currentPassword: string, newPassword: string): Promise<ILoginResult> {
     const user = await this.usersService.findById(userId);
     if (!user || !(await bcrypt.compare(currentPassword, user.password))) {
       throw new BadRequestException('Current password is incorrect');
     }
     await this.usersService.setPassword(userId, newPassword);
+    await this.accessTokens.revokeAllForUser(userId);
+    const updated = await this.usersService.findById(userId);
+    if (!updated) throw new BadRequestException('Current password is incorrect');
+    return this.login(updated);
   }
 }

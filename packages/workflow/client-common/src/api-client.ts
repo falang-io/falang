@@ -213,9 +213,15 @@ export const workflowApi = {
   resetPassword: (resetToken: string, password: string) =>
     request<null>('/auth/reset-password', { method: 'POST', body: JSON.stringify({ token: resetToken, password }) }),
 
-  /** `400` on a wrong current password or a too-short new one (never 401, which would log the user out). */
+  /**
+   * `400` on a wrong current password or a too-short new one (never 401, which would log the user out). Success
+   * returns a fresh session: the change signs every other session out, so the caller must store the new token.
+   */
   changePassword: (currentPassword: string, newPassword: string) =>
-    request<null>('/auth/change-password', { method: 'POST', body: JSON.stringify({ currentPassword, newPassword }) }),
+    request<IApiLoginResult>('/auth/change-password', {
+      method: 'POST',
+      body: JSON.stringify({ currentPassword, newPassword }),
+    }),
 
   me: () => request<IApiUser>('/auth/me'),
 

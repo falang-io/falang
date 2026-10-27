@@ -312,9 +312,11 @@ export class AuthStore {
 
   /** Rejects with the backend's message on a wrong current password / too-short new one. */
   @action async changePassword(currentPassword: string, newPassword: string): Promise<void> {
-    await workflowApi.changePassword(currentPassword, newPassword);
+    const result = await workflowApi.changePassword(currentPassword, newPassword);
+    // Every older token is revoked by the change; keep this session alive with the one that came back.
+    setAuthToken(result.accessToken);
     runInAction(() => {
-      if (this.currentUser) this.currentUser = { ...this.currentUser, defaultPasswordInUse: false };
+      this.currentUser = result.user;
     });
   }
 

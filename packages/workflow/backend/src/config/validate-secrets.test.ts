@@ -1,6 +1,7 @@
 import { describe, expect, it, vi } from 'vitest';
 import {
   findSecretProblems,
+  findSignupProblems,
   resolveJwtSecret,
   resolveProjectTokenSecret,
   validateSecrets,
@@ -79,5 +80,26 @@ describe('resolveProjectTokenSecret', () => {
     expect(() =>
       validateSecrets({ ...good, PROJECT_TOKEN_SECRET: 'dev-project-token-secret-change-me', NODE_ENV: 'production' }),
     ).toThrow(/PROJECT_TOKEN_SECRET is a known development/);
+  });
+});
+
+describe('signup without a captcha', () => {
+  const prod = { ...good, NODE_ENV: 'production' };
+
+  it('refuses to start in production with open signup and no captcha', () => {
+    expect(() => validateSecrets({ ...prod, SIGNUP_MODE: 'open' })).toThrow(/CAPTCHA_PROVIDER/);
+    expect(() => validateSecrets({ ...prod, SIGNUP_MODE: 'application', CAPTCHA_PROVIDER: 'none' })).toThrow(
+      /ALLOW_SIGNUP_WITHOUT_CAPTCHA/,
+    );
+    expect(() => validateSecrets({ ...prod, SELF_SERVICE_SIGNUP: 'true' })).toThrow(/CAPTCHA_PROVIDER/);
+  });
+
+  it('starts with a captcha, with signup off, with the explicit opt-out, or outside production', () => {
+    expect(() => validateSecrets({ ...prod, SIGNUP_MODE: 'open', CAPTCHA_PROVIDER: 'smartcaptcha' })).not.toThrow();
+    expect(() => validateSecrets({ ...prod, SIGNUP_MODE: 'off' })).not.toThrow();
+    expect(() => validateSecrets(prod)).not.toThrow();
+    expect(() => validateSecrets({ ...prod, SIGNUP_MODE: 'open', ALLOW_SIGNUP_WITHOUT_CAPTCHA: 'true' })).not.toThrow();
+    expect(() => validateSecrets({ ...good, SIGNUP_MODE: 'open' }, vi.fn())).not.toThrow();
+    expect(findSignupProblems({ SIGNUP_MODE: 'open', CAPTCHA_PROVIDER: 'recaptcha' })).toEqual([]);
   });
 });

@@ -13,6 +13,7 @@ import { UserLimits } from '../domains/admin/user-limits/user-limits.entity.js';
 import { AgentChatModule } from '../domains/agent-chat/agent-chat.module.js';
 import { AuthModule } from '../domains/auth/auth/auth.module.js';
 import { JwtAuthGuard } from '../domains/auth/auth/jwt-auth.guard.js';
+import { AuthMailEvent } from '../domains/auth/mail-limits/auth-mail-event.entity.js';
 import { AuthToken } from '../domains/auth/auth-tokens/auth-token.entity.js';
 import { MAIL_TRANSPORT } from '../domains/mail/mail.service.js';
 import { CapturingMailTransport } from './capturing-mail-transport.js';
@@ -89,6 +90,7 @@ export const buildTestAppImports = (extraModules: TAppImport[] = []) => [
       RunJournalEntry,
       ProjectTemplate,
       AuthToken,
+      AuthMailEvent,
       SupportMessage,
       RunnerSession,
       ProjectMember,
