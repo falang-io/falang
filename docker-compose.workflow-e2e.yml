@@ -377,6 +377,8 @@ services:
       - MAX_DEV_PODS=1000
       - MAX_SCHEDULES=1000
       - MAX_STORED_VERSIONS=1000
+      # integrations-schedule.workflow-e2e-spec.ts fires an interval schedule every 2 seconds.
+      - SCHEDULE_MIN_INTERVAL_SECONDS=1
       - CAPTCHA_PROVIDER=none
       # OAuth2 callback redirect_uri base — see ADR 0015 (private). Reachable
       # by both `backend` itself and the `e2e-tests` container's browser, since that browser runs

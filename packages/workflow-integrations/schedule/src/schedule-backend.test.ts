@@ -333,20 +333,18 @@ describe('registerScheduleBackend — refused schedules (security audit P1-3/P1-
     warn.mockRestore();
   });
 
-  it('rejects a too-frequent interval at spec level and journals why', async () => {
+  it('leaves the minimum interval to the host guard: a 10-second interval reaches upsertSchedule', async () => {
     const reportJournalProblem = vi.fn().mockResolvedValue(null);
     const ctx = buildCtx({
       getDocumentsByType: vi.fn().mockResolvedValue([intervalDoc('doc-1', '10', 'seconds')]),
       reportJournalProblem,
     });
-    const warn = vi.spyOn(console, 'warn').mockImplementation(() => {});
 
     await registerScheduleBackend(ctx);
 
-    expect(ctx.upsertSchedule).not.toHaveBeenCalled();
-    expect(reportJournalProblem).toHaveBeenCalledWith(
-      expect.objectContaining({ message: expect.stringContaining('at least 60') }),
+    expect(ctx.upsertSchedule).toHaveBeenCalledWith(
+      expect.objectContaining({ spec: { intervals: [{ every: '10 seconds' }] } }),
     );
-    warn.mockRestore();
+    expect(reportJournalProblem).not.toHaveBeenCalled();
   });
 });

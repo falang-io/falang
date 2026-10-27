@@ -146,8 +146,8 @@ export const buildScheduleSpec = (
         `schedule-interval: "${SCHEDULE_INTERVAL_UNIT_FIELD_NAME}" must be one of ${SCHEDULE_INTERVAL_UNITS.join(', ')}, got "${unit ?? ''}".`,
       );
     }
-    const periodError = validateScheduleIntervalPeriod(every, unit);
-    if (periodError) throw new Error(`schedule-interval: ${periodError}`);
+    // The minimum period is enforced server-side by the backend's schedule guard (`SCHEDULE_MIN_INTERVAL_SECONDS`,
+    // default MIN_SCHEDULE_INTERVAL_SECONDS) so a deployment can tune it; the editor offers no "seconds" unit.
     // `every`/`offset` are `@temporalio/common`'s own `ms`-package Duration string form (e.g.
     // "15 minutes") — `SCHEDULE_INTERVAL_UNITS`' plural English names are already valid `ms` units
     // verbatim (including "weeks"), so no per-unit mapping is needed — see `IScheduleIntervalSpec`'s
