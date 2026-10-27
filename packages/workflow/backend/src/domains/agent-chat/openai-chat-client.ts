@@ -152,6 +152,11 @@ export interface ICallOpenAiChatParams {
    *  headless tooling such as the agent tuner; production callers don't pass it. Core fields (`model`, `messages`,
    *  `tools`) always win over it. */
   readonly extraBody?: Record<string, unknown>;
+  /** Cap on the reply length; omitted from the request when absent/0. Never overrides a limit already set in `extraBody`. */
+  readonly maxTokens?: number;
+  /** The request field carrying `maxTokens`: `max_tokens` (default, OpenAI-compatible gateways) or `max_completion_tokens`
+   *  (newer OpenAI models reject `max_tokens`). */
+  readonly maxTokensParam?: 'max_tokens' | 'max_completion_tokens';
   /** Retries/timeout — see `agent-chat-transport.ts`. Defaults to `DEFAULT_AGENT_CHAT_*`. */
   readonly transport?: IAgentChatTransportOptions;
 }
@@ -172,6 +177,10 @@ export const callOpenAiChat = async (params: ICallOpenAiChatParams): Promise<IAg
     messages: openaiMessages,
     model: params.model,
   };
+  const extra = params.extraBody ?? {};
+  if (params.maxTokens && params.maxTokens > 0 && !('max_tokens' in extra) && !('max_completion_tokens' in extra)) {
+    body[params.maxTokensParam ?? 'max_tokens'] = params.maxTokens;
+  }
   if (params.tools.length > 0) body.tools = toOpenAiTools(params.tools);
 
   const data = (await postJsonWithRetries(

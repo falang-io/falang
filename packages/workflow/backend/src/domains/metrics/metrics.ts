@@ -33,6 +33,10 @@ export const agentChatCallsTotal = metricsRegistry.counter(
   'falang_agent_chat_calls_total',
   'In-app agent chat calls by result.',
 );
+export const agentChatRetriesTotal = metricsRegistry.counter(
+  'falang_agent_chat_retries_total',
+  'Vendor call retries made by the in-app agent proxy.',
+);
 export const agentChatTokensTotal = metricsRegistry.counter(
   'falang_agent_chat_tokens_total',
   'Tokens spent by the in-app agent, by kind.',

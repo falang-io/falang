@@ -1,3 +1,4 @@
+// oxlint-disable max-lines, no-undefined, unicorn/no-useless-undefined, unicorn/catch-error-name, unicorn/no-await-expression-member, init-declarations, no-unsafe-optional-chaining -- test fakes and deferred-promise scaffolding.
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { callOpenAiChat } from './openai-chat-client.js';
 
@@ -278,6 +279,24 @@ describe('callOpenAiChat', () => {
       ]);
       expect(body.tools).toBeUndefined();
       expect(body.temperature).toBe(1);
+    });
+
+    it('adds the reply cap under max_tokens, or the chosen param, and skips it for 0/absent', async () => {
+      fetchMock.mockImplementation(() => Promise.resolve(jsonResponse({ choices: [{ message: { content: 'hi' } }] })));
+      await callOpenAiChat({ ...baseParams, maxTokens: 500 });
+      await callOpenAiChat({ ...baseParams, maxTokens: 500, maxTokensParam: 'max_completion_tokens' });
+      await callOpenAiChat({ ...baseParams, maxTokens: 0 });
+      const bodies = fetchMock.mock.calls.map(([, init]) => JSON.parse((init as RequestInit).body as string));
+      expect(bodies[0]).toMatchObject({ max_tokens: 500 });
+      expect(bodies[1]).toMatchObject({ max_completion_tokens: 500 });
+      expect(bodies[1].max_tokens).toBeUndefined();
+      expect(bodies[2].max_tokens).toBeUndefined();
+    });
+
+    it('does not override a limit already set in extraBody', async () => {
+      fetchMock.mockResolvedValue(jsonResponse({ choices: [{ message: { content: 'hi' } }] }));
+      await callOpenAiChat({ ...baseParams, extraBody: { max_tokens: 99 }, maxTokens: 500 });
+      expect(sentBody().max_tokens).toBe(99);
     });
 
     it('sends a byte-identical body when extraBody is absent or empty', async () => {

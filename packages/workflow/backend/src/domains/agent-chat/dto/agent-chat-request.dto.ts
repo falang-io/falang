@@ -1,4 +1,5 @@
-import { IsArray, IsString } from 'class-validator';
+import { ArrayMaxSize, IsArray, IsString, MaxLength } from 'class-validator';
+import { AGENT_CHAT_MAX_MESSAGES, AGENT_CHAT_MAX_SYSTEM_CHARS, AGENT_CHAT_MAX_TOOLS } from '../agent-chat-limits.js';
 import type { IAgentChatToolDefinition, TAgentChatMessage } from '../agent-chat.types.js';
 
 /**
@@ -12,11 +13,14 @@ import type { IAgentChatToolDefinition, TAgentChatMessage } from '../agent-chat.
  */
 export class AgentChatRequestDto {
   @IsString()
+  @MaxLength(AGENT_CHAT_MAX_SYSTEM_CHARS)
   system!: string;
 
   @IsArray()
+  @ArrayMaxSize(AGENT_CHAT_MAX_MESSAGES)
   messages!: TAgentChatMessage[];
 
   @IsArray()
+  @ArrayMaxSize(AGENT_CHAT_MAX_TOOLS)
   tools!: IAgentChatToolDefinition[];
 }
