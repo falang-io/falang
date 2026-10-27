@@ -82,4 +82,37 @@ describe('IntegrationWebhookController', () => {
     const capturedRequest = handler.mock.calls[0][0];
     expect(capturedRequest.headers.has('content-type')).toBe(false);
   });
+
+  it('forwards every incoming header (lower-cased, minus hop-by-hop ones) and the peer ip to the handler', async () => {
+    const handler = vi.fn((_request: Request, _info: { ip?: string }) => new Response(null, { status: 200 }));
+    const controller = buildController(vi.fn().mockReturnValue(handler));
+
+    await controller.handleRoot('telegram', 'project-1', 'cred-1', 'prod', {
+      headers: {
+        'Content-Type': 'application/json',
+        'x-telegram-bot-api-secret-token': 'abc',
+        'X-Multi': ['a', 'b'],
+        host: 'example.com',
+        'content-length': '2',
+      },
+      rawBody: Buffer.from('{}'),
+      ip: '203.0.113.7',
+    });
+
+    const [request, info] = handler.mock.calls[0];
+    expect(request.headers.get('x-telegram-bot-api-secret-token')).toBe('abc');
+    expect(request.headers.get('x-multi')).toBe('a, b');
+    expect(request.headers.get('host')).toBeNull();
+    await expect(request.text()).resolves.toBe('{}');
+    expect(info).toEqual({ ip: '203.0.113.7' });
+  });
+
+  it('turns a vendor 4xx response into a real HTTP error', async () => {
+    const handler = vi.fn(() => new Response(null, { status: 401 }));
+    const controller = buildController(vi.fn().mockReturnValue(handler));
+
+    await expect(
+      controller.handleRoot('telegram', 'p', 'c', 'dev', { headers: {}, rawBody: Buffer.from('{}') }),
+    ).rejects.toMatchObject({ status: 401 });
+  });
 });

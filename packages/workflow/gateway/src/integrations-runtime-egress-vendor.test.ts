@@ -71,7 +71,7 @@ describe('IntegrationsRuntimeService egress vendor context', () => {
       'cred-1',
       'dev',
       '',
-    )?.(new Request('http://x.invalid/', { method: 'POST' }));
+    )?.(new Request('http://x.invalid/', { method: 'POST' }), {});
     await runtime.pauseProjectIntegrations('p1', 'dev');
     runtime.resumeProjectIntegrations('p1', 'dev');
     await vi.waitFor(() => expect(seen.resume).toBe('telegram'));

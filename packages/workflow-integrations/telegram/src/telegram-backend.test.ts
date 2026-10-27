@@ -1,7 +1,9 @@
+// oxlint-disable max-lines -- over the default cap by the webhook secret-token cases (security audit P1-10).
 import type { INode } from '@falang/dto';
 import { TRIGGER_FUNCTION_NAME } from '@falang/workflow-dto';
 import type { IIntegrationBackendContext, IIntegrationDocumentRecord } from '@falang/workflow-integrations-common';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import { TEST_WEBHOOK_SECRET, withTelegramSecret } from './telegram-test-secret.js';
 import { registerTelegramBackend } from './telegram-backend.js';
 import { toTelegramMessage } from './telegram-message-mapper.js';
 
@@ -59,8 +61,9 @@ const buildCtx = (
     webhookUrl: null,
     taskQueue: 'workflow-project-1',
     registerWebHook: vi.fn((_uri: string, handler: (request: Request) => Promise<Response>) => {
-      ctx.registeredWebhook = handler;
+      ctx.registeredWebhook = (request) => handler(withTelegramSecret(request));
     }),
+    deriveSecret: () => TEST_WEBHOOK_SECRET,
     registerInterval: vi.fn((callback: () => Promise<void>) => {
       ctx.registeredInterval = callback;
     }),
@@ -108,9 +111,54 @@ describe('registerTelegramBackend', () => {
         'https://api.telegram.org/botbot-token/setWebhook',
         expect.objectContaining({
           method: 'POST',
-          body: JSON.stringify({ url: 'https://bots.example.com/webhooks/telegram/p/cred-1/prod' }),
+          body: JSON.stringify({
+            url: 'https://bots.example.com/webhooks/telegram/p/cred-1/prod',
+            secret_token: TEST_WEBHOOK_SECRET,
+          }),
         }),
       );
+    });
+
+    it('rejects a delivery without the secret token header (401) and never signals', async () => {
+      const captured: { raw?: (request: Request) => Promise<Response> } = {};
+      const ctx = buildCtx({
+        webhookUrl: 'https://bots.example.com/webhooks/telegram/p/cred-1/prod',
+        registerWebHook: vi.fn((_uri: string, handler: (request: Request) => Promise<Response>) => {
+          captured.raw = handler;
+        }),
+      });
+      await registerTelegramBackend(ctx);
+      const update = { update_id: 1, message: { message_id: 1, date: 0, chat: { id: 42, type: 'private' } } };
+
+      const missing = await captured.raw?.(
+        new Request('http://localhost', { method: 'POST', body: JSON.stringify(update) }),
+      );
+      const wrong = await captured.raw?.(
+        new Request('http://localhost', {
+          method: 'POST',
+          headers: { 'x-telegram-bot-api-secret-token': TEST_WEBHOOK_SECRET.replace(/.$/, 'X') },
+          body: JSON.stringify(update),
+        }),
+      );
+      const shorter = await captured.raw?.(
+        new Request('http://localhost', {
+          method: 'POST',
+          headers: { 'x-telegram-bot-api-secret-token': 'short' },
+          body: JSON.stringify(update),
+        }),
+      );
+
+      expect([missing?.status, wrong?.status, shorter?.status]).toEqual([401, 401, 401]);
+      expect(ctx.signalWorkflow).not.toHaveBeenCalled();
+    });
+
+    it('fails to start webhook mode when the host cannot derive a secret', async () => {
+      const ctx = buildCtx({
+        webhookUrl: 'https://bots.example.com/webhooks/telegram/p/cred-1/prod',
+        // oxlint-disable-next-line no-undefined -- simulating a host without the method.
+        deriveSecret: undefined,
+      });
+      await expect(registerTelegramBackend(ctx)).rejects.toThrow(/deriveSecret/);
     });
 
     it('throws when Telegram setWebhook responds with a non-ok status', async () => {

@@ -1,5 +1,17 @@
 import type { INode } from '@falang/dto';
 
+/** Extra facts about a webhook call that the fetch-API `Request` cannot carry. */
+export interface IWebhookRequestInfo {
+  /** The caller's address as Express resolved it (`req.ip`, honours the host's `trust proxy`); `undefined` when unknown. */
+  readonly ip?: string;
+}
+
+/**
+ * A vendor's webhook handler. `request.headers` carries the incoming headers (names are lower-case; hop-by-hop ones such as
+ * `host`/`content-length` are dropped), so a vendor can verify signatures or shared secrets.
+ */
+export type TWebhookHandler = (request: Request, info: IWebhookRequestInfo) => Promise<Response>;
+
 /** One project document of a given type, as far as an integration's inbound ingress needs to see it. */
 export interface IIntegrationDocumentRecord {
   readonly id: string;
@@ -114,7 +126,15 @@ export interface IIntegrationBackendContext {
    * `ctx` automatically when that target stops (see `TRegisterIntegrationBackend`'s return value) —
    * a vendor never needs to unregister it manually.
    */
-  registerWebHook(uri: string, handler: (request: Request) => Promise<Response>): void;
+  registerWebHook(uri: string, handler: TWebhookHandler): void;
+
+  /**
+   * A stable secret string (`A-Za-z0-9_-`, 43 chars) derived from the host's server-side key and this target's identity
+   * (project, credential, env) plus `label` — the same value after a restart and on every replica, never stored. For a
+   * vendor that must hand its remote side a shared secret (Telegram's webhook `secret_token`) and verify it later.
+   * Throws if the host has no key configured; absent on a host (or test double) that does not implement it.
+   */
+  deriveSecret?(label: string): string;
 
   /**
    * Runs `callback` every `intervalMs` while this target is active — the polling counterpart to

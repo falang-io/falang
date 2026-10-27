@@ -1,5 +1,6 @@
 import type { IIntegrationBackendContext } from '@falang/workflow-integrations-common';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import { TEST_WEBHOOK_SECRET, withTelegramSecret } from './telegram-test-secret.js';
 import { registerTelegramBackend } from './telegram-backend.js';
 
 const buildCtx = (): IIntegrationBackendContext & { webhook?: (request: Request) => Promise<Response> } => {
@@ -12,8 +13,9 @@ const buildCtx = (): IIntegrationBackendContext & { webhook?: (request: Request)
     webhookUrl: 'https://bots.example.com/webhooks/telegram/p/cred-1/prod',
     taskQueue: 'workflow-project-1',
     registerWebHook: vi.fn((_uri: string, handler: (request: Request) => Promise<Response>) => {
-      ctx.webhook = handler;
+      ctx.webhook = (request) => handler(withTelegramSecret(request));
     }),
+    deriveSecret: () => TEST_WEBHOOK_SECRET,
     registerInterval: vi.fn(),
     signalWorkflow: vi.fn().mockResolvedValue(null),
     getDocumentsByType: vi.fn().mockResolvedValue([]),

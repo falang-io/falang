@@ -1,9 +1,14 @@
 // oxlint-disable no-await-in-loop -- every loop below is a sequential, deliberately-not-parallel drive over targets (discovery, startup registration — low-frequency, not a hot path).
 // oxlint-disable max-lines -- over the default cap because of the new `ensureRunnerRunning`/`setEnsureRunnerRunning` wake-on-signal wiring (ADR 0016 (private)'s Phase 2 "Scale-to-zero" follow-up), not accumulated complexity.
+import { createHmac } from 'node:crypto';
 import { RunnerStartRefusedError } from './runner-start-refused-error.js';
 import { runWithEgressVendor } from '@falang/workflow-egress';
 import { Logger, type OnModuleDestroy, type OnModuleInit } from '@nestjs/common';
-import type { IIntegrationBackendHandle, IWorkflowIntegration } from '@falang/workflow-integrations-common';
+import type {
+  IIntegrationBackendHandle,
+  IWorkflowIntegration,
+  TWebhookHandler,
+} from '@falang/workflow-integrations-common';
 import type { IIntegrationCredentialInstance, IIntegrationsDiscoveryPort } from './discovery-port.js';
 import type { IFileUploadPort } from './file-upload-port.js';
 import type { IOAuth2AccessTokenPort } from './oauth2-access-token-port.js';
@@ -98,6 +103,11 @@ export interface IIntegrationsRuntimeParams {
   readonly fileUpload?: IFileUploadPort;
   /** Backs `ctx.getOAuth2AccessToken()` — see `oauth2-access-token-port.ts`. Without it the ctx method is absent. */
   readonly oauth2AccessToken?: IOAuth2AccessTokenPort;
+  /**
+   * Server-side key `ctx.deriveSecret()` HMACs with (`WEBHOOK_SECRET_KEY`, falling back to `PROJECT_TOKEN_SECRET` — both
+   * already have to be identical on every replica and stable across restarts). Without it `deriveSecret` throws.
+   */
+  readonly webhookSecretKey?: string;
 }
 
 /**
@@ -124,8 +134,9 @@ export class IntegrationsRuntimeService implements OnModuleInit, OnModuleDestroy
   private readonly scheduleClient: IScheduleClientPort | undefined;
   private readonly fileUpload: IFileUploadPort | undefined;
   private readonly oauth2AccessToken: IOAuth2AccessTokenPort | undefined;
+  private readonly webhookSecretKey: string | undefined;
 
-  private readonly webhookHandlers = new Map<string, (request: Request) => Promise<Response>>();
+  private readonly webhookHandlers = new Map<string, TWebhookHandler>();
   private readonly activeTargets = new Map<string, IActiveTarget>();
   /** Every target the discovery loop has ever seen — lets `stopProjectIntegrations`/`resumeProjectIntegrations` find a project's targets without the discovery port needing its own project-scoped lookup. */
   private readonly knownTargets = new Map<string, IKnownTarget>();
@@ -151,6 +162,7 @@ export class IntegrationsRuntimeService implements OnModuleInit, OnModuleDestroy
     this.signalWorkflowWithStart = params.signalWorkflowWithStart;
     this.publicHost = params.publicHost;
     this.getInternalProjectToken = params.getInternalProjectToken;
+    this.webhookSecretKey = params.webhookSecretKey;
     this.scheduleClient = params.scheduleClient;
     this.fileUpload = params.fileUpload;
     this.oauth2AccessToken = params.oauth2AccessToken;
@@ -176,7 +188,7 @@ export class IntegrationsRuntimeService implements OnModuleInit, OnModuleDestroy
     credentialId: string,
     env: string,
     uri: string,
-  ): ((request: Request) => Promise<Response>) | undefined {
+  ): TWebhookHandler | undefined {
     return this.webhookHandlers.get(webhookHandlerKey(vendor, projectId, credentialId, env, uri));
   }
 
@@ -453,7 +465,7 @@ export class IntegrationsRuntimeService implements OnModuleInit, OnModuleDestroy
         taskQueue,
         registerWebHook: (uri, handler) => {
           const handlerKey = webhookHandlerKey(target.vendor, target.projectId, target.credentialId, target.env, uri);
-          this.webhookHandlers.set(handlerKey, (request) => inVendor(() => handler(request)));
+          this.webhookHandlers.set(handlerKey, (request, info) => inVendor(() => handler(request, info)));
           webhookKeys.push(handlerKey);
         },
         registerInterval: (callback, intervalMs) => {
@@ -515,6 +527,17 @@ export class IntegrationsRuntimeService implements OnModuleInit, OnModuleDestroy
             vendor: target.vendor,
           }),
         getDocumentsByType: (type) => this.discovery.getDocumentsByType(target.projectId, type),
+        deriveSecret: (label) => {
+          if (!this.webhookSecretKey)
+            throw new Error('No webhook secret key configured for this IntegrationsRuntimeService');
+          return createHmac('sha256', this.webhookSecretKey)
+            .update(
+              ['falang-webhook-secret', target.projectId, target.credentialId, target.env, target.vendor, label].join(
+                '\n',
+              ),
+            )
+            .digest('base64url');
+        },
         getInternalProjectToken: () => {
           if (!this.getInternalProjectToken) {
             throw new Error('No internal project token source configured for this IntegrationsRuntimeService');

@@ -5,7 +5,7 @@ import { describe, expect, it, vi } from 'vitest';
 import { WEBHOOK_SIGNAL_NAME } from './constants.js';
 import { registerWebhookBackend } from './webhook-backend.js';
 
-const triggerFunctionRoot = (credentialId: string): INode => ({
+const triggerFunctionRoot = (credentialId: string, triggerConfig?: Record<string, string>): INode => ({
   id: 'root-1',
   name: TRIGGER_FUNCTION_NAME,
   children: [
@@ -14,17 +14,21 @@ const triggerFunctionRoot = (credentialId: string): INode => ({
       id: 'body-1',
       name: 'trigger-function-body',
       children: [],
-      data: { vendor: 'webhook', triggerName: 'webhook-trigger', credentialId },
+      data: { vendor: 'webhook', triggerName: 'webhook-trigger', credentialId, triggerConfig },
     },
     { id: 'footer-1', name: 'function-footer', data: '' },
   ],
 });
 
-const triggerFunctionDoc = (id: string, credentialId: string): IIntegrationDocumentRecord => ({
+const triggerFunctionDoc = (
+  id: string,
+  credentialId: string,
+  triggerConfig?: Record<string, string>,
+): IIntegrationDocumentRecord => ({
   id,
   name: 'onWebhook',
   data: null,
-  root: triggerFunctionRoot(credentialId),
+  root: triggerFunctionRoot(credentialId, triggerConfig),
 });
 
 const buildCtx = (
@@ -56,6 +60,15 @@ const buildCtx = (
       ...overrides,
     };
   return ctx;
+};
+
+const hmacHex = async (secret: string, text: string): Promise<string> => {
+  const encoder = new TextEncoder();
+  const key = await crypto.subtle.importKey('raw', encoder.encode(secret), { name: 'HMAC', hash: 'SHA-256' }, false, [
+    'sign',
+  ]);
+  const signature = await crypto.subtle.sign('HMAC', key, encoder.encode(text));
+  return Array.from(new Uint8Array(signature), (byte) => byte.toString(16).padStart(2, '0')).join('');
 };
 
 describe('registerWebhookBackend', () => {
@@ -113,6 +126,50 @@ describe('registerWebhookBackend', () => {
           body: JSON.stringify({ hello: 'world' }),
         },
       ],
+    });
+  });
+
+  describe('signing secret (trigger config signing_secret)', () => {
+    const SECRET = 's3cret';
+    const body = JSON.stringify({ hello: 'world' });
+    const setup = async () => {
+      const ctx = buildCtx({
+        getDocumentsByType: vi
+          .fn()
+          .mockResolvedValue([triggerFunctionDoc('doc-trigger-1', 'cred-1', { signing_secret: SECRET })]),
+      });
+      await registerWebhookBackend(ctx);
+      const handler = ctx.registeredWebhooks.get('doc-trigger-1');
+      const call = (headers: Record<string, string>) =>
+        handler?.(new Request('http://localhost/x', { method: 'POST', headers, body }));
+      return { ctx, call };
+    };
+
+    it('rejects a call with no / wrong secret or signature (401) and never signals', async () => {
+      const { ctx, call } = await setup();
+      const responses = await Promise.all([
+        call({}),
+        call({ 'x-webhook-secret': 'nope' }),
+        call({ 'x-webhook-signature': `sha256=${await hmacHex('other', body)}` }),
+        call({ 'x-webhook-signature': 'sha256=deadbeef' }),
+      ]);
+      expect(responses.map((response) => response?.status)).toEqual([401, 401, 401, 401]);
+      expect(ctx.signalWorkflow).not.toHaveBeenCalled();
+    });
+
+    it('accepts the shared secret header and strips it from the payload', async () => {
+      const { ctx, call } = await setup();
+      const response = await call({ 'x-webhook-secret': SECRET });
+      expect(response?.status).toBe(200);
+      const payload = (ctx.signalWorkflow as ReturnType<typeof vi.fn>).mock.calls[0][0].signalArgs[0];
+      expect(payload.headers['x-webhook-secret']).toBeUndefined();
+    });
+
+    it('accepts a valid sha256 HMAC signature of the raw body', async () => {
+      const { ctx, call } = await setup();
+      const response = await call({ 'x-webhook-signature': `sha256=${await hmacHex(SECRET, body)}` });
+      expect(response?.status).toBe(200);
+      expect(ctx.signalWorkflow).toHaveBeenCalledTimes(1);
     });
   });
 

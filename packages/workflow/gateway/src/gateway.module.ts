@@ -37,6 +37,21 @@ type TResolveFileUploadPort = FactoryProvider<IFileUploadPort>['useFactory'];
 // Same borrowing trick — e.g. `(port: IOAuth2AccessTokenPort) => port`.
 type TResolveOAuth2AccessTokenPort = FactoryProvider<IOAuth2AccessTokenPort>['useFactory'];
 
+/** Same value `@falang/workflow-backend`'s `DEV_PROJECT_TOKEN_SECRET` falls back to outside production. */
+const DEV_WEBHOOK_SECRET_KEY = 'dev-project-token-secret-change-me';
+
+/**
+ * Key behind `ctx.deriveSecret()`: `WEBHOOK_SECRET_KEY` if set, else `PROJECT_TOKEN_SECRET` (already mandatory in production,
+ * stable across restarts and shared by every replica — exactly what a derived-not-stored secret needs). Outside production a
+ * missing key falls back to the dev constant, mirroring the backend's own dev default; in production none means `undefined`
+ * and `deriveSecret` throws (the backend refuses to boot without `PROJECT_TOKEN_SECRET` anyway).
+ */
+export const resolveWebhookSecretKey = (config: ConfigService): string | undefined => {
+  const configured = config.get<string>('WEBHOOK_SECRET_KEY') || config.get<string>('PROJECT_TOKEN_SECRET');
+  if (configured) return configured;
+  if (config.get<string>('NODE_ENV') !== 'production') return DEV_WEBHOOK_SECRET_KEY;
+};
+
 const buildIntegrationsRuntimeServiceProvider = (
   integrations: readonly IWorkflowIntegration[],
   resolveDiscoveryPort: TResolveDiscoveryPort,
@@ -97,6 +112,7 @@ const buildIntegrationsRuntimeServiceProvider = (
       scheduleClient,
       fileUpload,
       oauth2AccessToken,
+      webhookSecretKey: resolveWebhookSecretKey(config),
     });
   },
   inject: [

@@ -211,6 +211,64 @@ describe('registerYookassaBackend', () => {
     expect(ctx.signalWorkflow).not.toHaveBeenCalled();
   });
 
+  it('does not trust the claimed event: a payment.succeeded body for an object that is canceled is not delivered as succeeded', async () => {
+    vi.stubGlobal('fetch', vi.fn().mockResolvedValue(jsonResponse({ id: 'pay-1', status: 'canceled' })));
+    const ctx = buildCtx();
+    await registerYookassaBackend(ctx);
+    const handler = ctx.registeredWebhooks.get('doc-trigger-1');
+    const response = await handler?.(
+      notificationRequest({ type: 'notification', event: 'payment.succeeded', object: { id: 'pay-1' } }),
+    );
+
+    expect(response?.status).toBe(200);
+    expect(ctx.signalWorkflow).not.toHaveBeenCalled();
+  });
+
+  it('derives the signalled event from the confirmed status (canceled notification, canceled object)', async () => {
+    vi.stubGlobal('fetch', vi.fn().mockResolvedValue(jsonResponse({ id: 'pay-1', status: 'canceled' })));
+    const ctx = buildCtx();
+    await registerYookassaBackend(ctx);
+    const handler = ctx.registeredWebhooks.get('doc-trigger-1');
+    await handler?.(notificationRequest({ type: 'notification', event: 'payment.canceled', object: { id: 'pay-1' } }));
+
+    expect(ctx.signalWorkflow).toHaveBeenCalledWith(
+      expect.objectContaining({
+        signalArgs: [{ event: 'payment.canceled', object: { id: 'pay-1', status: 'canceled' } }],
+      }),
+    );
+  });
+
+  it.each(['../refunds/x', 'a/b', 'pay 1', 'pay?x=1', 'a'.repeat(65), ''])(
+    'rejects a malformed object id %j with 400 and never calls the API',
+    async (id) => {
+      const fetchMock = vi.fn();
+      vi.stubGlobal('fetch', fetchMock);
+      const ctx = buildCtx();
+      await registerYookassaBackend(ctx);
+      const handler = ctx.registeredWebhooks.get('doc-trigger-1');
+      const response = await handler?.(
+        notificationRequest({ type: 'notification', event: 'payment.succeeded', object: { id } }),
+      );
+
+      expect(response?.status).toBe(400);
+      expect(fetchMock).not.toHaveBeenCalled();
+    },
+  );
+
+  it('rejects an unknown resource type in the claimed event with 400 and never calls the API', async () => {
+    const fetchMock = vi.fn();
+    vi.stubGlobal('fetch', fetchMock);
+    const ctx = buildCtx();
+    await registerYookassaBackend(ctx);
+    const handler = ctx.registeredWebhooks.get('doc-trigger-1');
+    const response = await handler?.(
+      notificationRequest({ type: 'notification', event: '../x.succeeded', object: { id: 'a' } }),
+    );
+
+    expect(response?.status).toBe(400);
+    expect(fetchMock).not.toHaveBeenCalled();
+  });
+
   it('dispose is a no-op — nothing was ever registered with a third-party service', async () => {
     const ctx = buildCtx();
     const handle = await registerYookassaBackend(ctx);
