@@ -8,9 +8,24 @@ import { ProjectTemplate } from './project-template.entity.js';
 
 export interface IProjectTemplateSummary {
   readonly id: string;
+  /** Stable key of a script-maintained template (`#/templates/<slug>`); `null` for admin-UI ones. */
+  readonly slug: string | null;
   readonly name: string;
   readonly description: string;
 }
+
+export interface IUpsertProjectTemplateInput {
+  readonly name: string;
+  readonly description?: string;
+  readonly sortOrder?: number;
+  readonly enabled?: boolean;
+  readonly payload: ImportProjectDto;
+}
+
+/** Lowercase latin letters, digits and dashes — the shape of the public site's template slugs. */
+export const PROJECT_TEMPLATE_SLUG_PATTERN = /^[a-z0-9]+(?:-[a-z0-9]+)*$/;
+
+const UUID_PATTERN = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
 export interface IAdminProjectTemplate extends IProjectTemplateSummary {
   readonly enabled: boolean;
@@ -53,6 +68,7 @@ export class ProjectTemplatesService implements OnModuleInit {
         sortOrder: 0,
         enabled: true,
         payload: { formatVersion: 1, project: { id: '', name: BLANK_TEMPLATE_NAME }, folders: [], documents: [] },
+        slug: null,
         sourceProjectId: null,
         createdBy: null,
       }),
@@ -63,7 +79,12 @@ export class ProjectTemplatesService implements OnModuleInit {
     const rows = await this.templates.find({ where: { enabled: true } });
     return rows
       .toSorted((a, b) => a.sortOrder - b.sortOrder || a.name.localeCompare(b.name))
-      .map(({ id, name, description }) => ({ id, name, description }));
+      .map((row) => this.toSummary(row));
+  }
+
+  /** One enabled template by id or slug — what the client's `#/templates/<key>` route shows before creating. */
+  async getEnabled(key: string): Promise<IProjectTemplateSummary> {
+    return this.toSummary(await this.findEnabled(key));
   }
 
   async listAll(): Promise<IAdminProjectTemplate[]> {
@@ -73,9 +94,9 @@ export class ProjectTemplatesService implements OnModuleInit {
       .map((row) => this.toAdmin(row));
   }
 
-  async createProjectFromTemplate(ownerId: string, templateId: string, name: string): Promise<Project> {
-    const template = await this.templates.findOne({ where: { id: templateId, enabled: true } });
-    if (!template) throw new NotFoundException('Project template not found');
+  /** `templateKey` is the template's id or its slug. */
+  async createProjectFromTemplate(ownerId: string, templateKey: string, name: string): Promise<Project> {
+    const template = await this.findEnabled(templateKey);
     return this.exportService.importProject(ownerId, {
       ...template.payload,
       project: { id: '', name },
@@ -94,6 +115,7 @@ export class ProjectTemplatesService implements OnModuleInit {
         sortOrder: 0,
         enabled: true,
         payload,
+        slug: null,
         sourceProjectId: input.sourceProjectId,
         createdBy: adminId,
       }),
@@ -127,6 +149,28 @@ export class ProjectTemplatesService implements OnModuleInit {
     return this.toAdmin(await this.templates.save(template));
   }
 
+  /**
+   * Creates or replaces the template with this slug — name, description, order, enabled flag and payload all
+   * come from the input (an omitted `sortOrder`/`enabled` keeps the stored value, a new template gets 0/true).
+   */
+  async upsertBySlug(
+    slug: string,
+    input: IUpsertProjectTemplateInput,
+    adminId: string,
+  ): Promise<IAdminProjectTemplate> {
+    const existing = await this.templates.findOne({ where: { slug } });
+    const template =
+      existing ??
+      this.templates.create({ slug, sortOrder: 0, enabled: true, sourceProjectId: null, createdBy: adminId });
+    template.name = input.name;
+    template.description = input.description ?? '';
+    template.sortOrder = input.sortOrder ?? template.sortOrder;
+    template.enabled = input.enabled ?? template.enabled;
+    template.payload = structuredClone(input.payload) as IProjectExportPayload;
+    template.sourceProjectId = null;
+    return this.toAdmin(await this.templates.save(template));
+  }
+
   async getPayload(id: string): Promise<IProjectExportPayload> {
     const template = await this.get(id);
     return template.payload;
@@ -143,9 +187,21 @@ export class ProjectTemplatesService implements OnModuleInit {
     return template;
   }
 
+  private async findEnabled(key: string): Promise<ProjectTemplate> {
+    const where = UUID_PATTERN.test(key) ? { id: key, enabled: true } : { slug: key, enabled: true };
+    const template = await this.templates.findOne({ where });
+    if (!template) throw new NotFoundException('Project template not found');
+    return template;
+  }
+
+  private toSummary(row: ProjectTemplate): IProjectTemplateSummary {
+    return { id: row.id, slug: row.slug, name: row.name, description: row.description };
+  }
+
   private toAdmin(row: ProjectTemplate): IAdminProjectTemplate {
     return {
       id: row.id,
+      slug: row.slug,
       name: row.name,
       description: row.description,
       enabled: row.enabled,

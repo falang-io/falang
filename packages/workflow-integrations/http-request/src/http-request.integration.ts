@@ -21,6 +21,20 @@ const HTTP_RESPONSE_AS_OPTIONS: readonly IFieldSelectOption[] = [
 ];
 
 /**
+ * What a failure to get any HTTP response at all (DNS, refused connection, TLS, timeout) does: `retry` (the
+ * default, the behaviour before this field existed) throws, so Temporal retries the activity until it succeeds;
+ * `status` gives up after one 30-second attempt and returns `{ status: 0, headers: {}, body: <error text> }`, so
+ * the workflow itself can react (uptime checks, optional calls).
+ */
+const HTTP_NETWORK_ERROR_OPTIONS: readonly IFieldSelectOption[] = [
+  { value: 'retry', label: 'http-request:network-error.retry' },
+  { value: 'status', label: 'http-request:network-error.status' },
+];
+
+/** How long a `status`-mode request waits for a response before reporting `status: 0`. */
+export const HTTP_STATUS_MODE_TIMEOUT_MS = 30_000;
+
+/**
  * Generic outbound HTTP call — closes any integration gap that doesn't have (and may never get) a
  * bespoke vendor package. Deliberately credential-free (`credentialFields: []`): a workflow author
  * types auth directly into the `headers` expression (e.g. `{ Authorization: 'Bearer ' + token }`)
@@ -61,6 +75,13 @@ export const httpRequestIntegration: IWorkflowIntegration = {
           kind: 'select',
           options: HTTP_RESPONSE_AS_OPTIONS,
         },
+        {
+          name: 'onNetworkError',
+          label: 'http-request:field.onNetworkError',
+          kind: 'select',
+          options: HTTP_NETWORK_ERROR_OPTIONS,
+          defaultValue: 'retry',
+        },
         { name: 'resultVariable', label: 'http-request:field.result', kind: 'new-variable' },
       ],
       emit: (fields) => {
@@ -71,14 +92,16 @@ export const httpRequestIntegration: IWorkflowIntegration = {
         // existed has no `responseAs` key in `fields` at all (plain `undefined`). Both fall back to
         // `'auto'`, matching today's content-type-sniffing behavior exactly.
         const responseAs = fields.responseAs && fields.responseAs !== '""' ? fields.responseAs : "'auto'";
-        const call = `await httpRequest(${fields.method}, ${fields.url}, ${headers}, ${body}, ${responseAs})`;
+        const onNetworkError =
+          fields.onNetworkError && fields.onNetworkError !== '""' ? fields.onNetworkError : "'retry'";
+        const call = `await httpRequest(${fields.method}, ${fields.url}, ${headers}, ${body}, ${responseAs}, ${onNetworkError})`;
         // `resultVariable` is a bare identifier (see `resolveFieldExpression`'s `'new-variable'`
         // pass-through) — empty only for a node created but never edited yet, in which case the call is
         // still emitted, just without capturing its response anywhere.
         return fields.resultVariable ? `const ${fields.resultVariable} = ${call};` : `${call};`;
       },
       activitySignature:
-        'httpRequest(method: string, url: string, headers: Record<string, string> | undefined, body: unknown, responseAs: string): Promise<{ status: number; headers: Record<string, string>; body: unknown }>',
+        'httpRequest(method: string, url: string, headers: Record<string, string> | undefined, body: unknown, responseAs: string, onNetworkError?: string): Promise<{ status: number; headers: Record<string, string>; body: unknown }>',
       // The activity's real return shape (`{ status, headers, body }`) has no registered struct type
       // to point at — declared explicitly as `any` anyway (rather than left absent, which resolves to
       // the same default) so it's documented here as a deliberate choice, not an oversight. When
@@ -101,6 +124,7 @@ export const httpRequestIntegration: IWorkflowIntegration = {
         '  headers: Record<string, string> | undefined,',
         '  body: unknown,',
         '  responseAs: string,',
+        "  onNetworkError: string = 'retry',",
         '): Promise<{ status: number; headers: Record<string, string>; body: unknown }> => {',
         '  heartbeat();',
         '  const isFileRef = (',
@@ -127,7 +151,18 @@ export const httpRequestIntegration: IWorkflowIntegration = {
         '  const fetchInit = { method, headers: requestHeaders, body: requestBody, duplex } as RequestInit & {',
         "    duplex?: 'half';",
         '  };',
-        '  const response = await fetch(url, fetchInit);',
+        "  if (onNetworkError === 'status') {",
+        `    fetchInit.signal = AbortSignal.timeout(${HTTP_STATUS_MODE_TIMEOUT_MS});`,
+        '  }',
+        '  let response: Response;',
+        '  try {',
+        '    response = await fetch(url, fetchInit);',
+        '  } catch (error) {',
+        "    if (onNetworkError !== 'status') throw error;",
+        '    const cause = (error as { cause?: { message?: string } }).cause?.message;',
+        '    const message = error instanceof Error ? error.message : String(error);',
+        '    return { status: 0, headers: {}, body: cause ? `${message}: ${cause}` : message };',
+        '  }',
         '  const responseHeaders = Object.fromEntries(response.headers.entries());',
         "  if (responseAs === 'file') {",
         '    if (!response.body) throw new Error(`http-request: no response body for ${url}`);',

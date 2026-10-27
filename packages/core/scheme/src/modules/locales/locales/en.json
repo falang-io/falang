@@ -11,6 +11,7 @@
     "throw": "Throw",
     "return": "Return",
     "comment": "Comment",
+    "wait": "Wait",
     "parallel": "Parallel",
     "parallel-thread": "Thread",
     "timer": "Timer",

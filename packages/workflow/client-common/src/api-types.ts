@@ -61,6 +61,8 @@ export interface IApiLoginResult {
 /** `GET /project-templates` row — an enabled template offered by "New project". */
 export interface IApiProjectTemplate {
   readonly id: string;
+  /** Stable key of a script-maintained template (`#/templates/<slug>`); `null` for templates made in the admin app. */
+  readonly slug: string | null;
   readonly name: string;
   readonly description: string;
 }

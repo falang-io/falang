@@ -72,6 +72,8 @@ export class ProjectListStore {
     this.isCreating = true;
     try {
       const project = await workflowApi.createProjectFromTemplate(templateId, name);
+      eventTracker.track('template_used', { templateId });
+      eventTracker.track('project_created', { fromTemplate: true });
       runInAction(() => {
         this.projects.push(project);
         this.isCreating = false;

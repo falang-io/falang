@@ -29,6 +29,7 @@ export * from './block-elements/new-variable/new-variable.editing.cmp.js';
 export * from './cmp/ts-select.js';
 export * from './cmp/typescript-block-container.js';
 export * from './field-check/index.js';
+export { expressionBlockConfig } from './blocks/expression/expression.block.config.js';
 export * from './portable-types/portable-types-validator.js';
 export * from './block-elements/variable-type/variable-type-model.js';
 export * from './block-elements/variable-type/describe-variable-type.js';

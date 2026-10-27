@@ -7,7 +7,12 @@
       "headers": "Headers (object expression, optional)",
       "body": "Body (expression, optional)",
       "responseAs": "Response as (auto/text/json/file)",
-      "result": "Save result to"
+      "result": "Save result to",
+      "onNetworkError": "On network error"
+    },
+    "network-error": {
+      "retry": "Retry until it succeeds",
+      "status": "Return status 0"
     }
   }
 }

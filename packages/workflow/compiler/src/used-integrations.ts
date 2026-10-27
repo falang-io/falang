@@ -22,6 +22,13 @@ const collectNodeNames = (node: INode, names: Set<string>): void => {
   if (node.out) collectNodeNames(node.out, names);
 };
 
+/** Whether a node of that kind occurs anywhere in the tree (`out`/`mods` included). */
+export const containsNodeNamed = (root: INode, name: string): boolean => {
+  const names = new Set<string>();
+  collectNodeNames(root, names);
+  return names.has(name);
+};
+
 const integrationNodeNames = (integration: IWorkflowIntegration): readonly string[] => [
   ...integration.actions.map((action) => action.name),
   ...(integration.questions ?? []).map((question) => question.name),

@@ -11,6 +11,31 @@ vi.setConfig({ testTimeout: 60_000 });
 
 const VALID_ACTIVITIES = "export const logActivity = async (message: string): Promise<string> => message;\n";
 
+/** A function document declaring `bookingAt`, then a `wait` node with the given duration expression. */
+const waitFunctionDocument = (id: string, wait: string): IProjectDocument => ({
+  id,
+  type: 'function',
+  name: `run${id}`,
+  root: {
+    id,
+    name: 'function',
+    children: [
+      { id: `${id}-header`, name: 'function-header', data: '' },
+      {
+        id: `${id}-body`,
+        name: 'function-body',
+        data: { parameters: [] },
+        children: [
+          { id: `${id}-v`, name: 'action', data: 'const bookingAt = Date.now() + 3 * 24 * 3600 * 1000' },
+          { id: `${id}-w`, name: 'wait', data: wait },
+        ],
+      },
+      { id: `${id}-footer`, name: 'function-footer', data: '' },
+    ],
+  },
+});
+
+
 describe('typeCheckProject', () => {
   it('reports no errors for genuinely valid compiled workflows/activities modules', () => {
     const functionNode: INode = {
@@ -33,6 +58,18 @@ describe('typeCheckProject', () => {
     const errors = typeCheckProject(compiled.workflows, compiled.activities);
 
     expect(errors).toEqual([]);
+  });
+
+  it('type-checks a wait node: milliseconds and duration literals pass, a boolean fails', () => {
+    const valid = compileProject({
+      documents: [waitFunctionDocument('A', "'30 minutes'"), waitFunctionDocument('B', 'bookingAt - Date.now() - 24 * 3600 * 1000')],
+    });
+    expect(typeCheckProject(valid.workflows, valid.activities)).toEqual([]);
+
+    const invalid = compileProject({ documents: [waitFunctionDocument('C', 'true')] });
+    const errors = typeCheckProject(invalid.workflows, invalid.activities);
+    expect(errors).toHaveLength(1);
+    expect(errors[0]).toMatchObject({ documentId: 'C', nodeId: 'C-w' });
   });
 
   it('attributes a type error in the workflows module back to its originating document and node via markers', () => {

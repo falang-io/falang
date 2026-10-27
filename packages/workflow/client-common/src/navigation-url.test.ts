@@ -1,4 +1,5 @@
 import { describe, expect, it } from 'vitest';
+import { NavigationStore } from './navigation-store.js';
 import { formatAppHash, isSameProjectRoute, parseAppHash, type TAppRoute } from './navigation-url.js';
 
 describe('navigation url', () => {
@@ -7,6 +8,7 @@ describe('navigation url', () => {
     { kind: 'runs' },
     { kind: 'tasks' },
     { kind: 'ext', key: 'billing' },
+    { kind: 'template', key: 'telegram-bot-otzyvy' },
     { kind: 'project', projectId: 'p1', documentId: null, view: null },
     { kind: 'project', projectId: 'p1', documentId: 'd-2', view: null },
     { kind: 'project', projectId: 'p1', documentId: null, view: 'files' },
@@ -41,8 +43,22 @@ describe('navigation url', () => {
     expect(parseAppHash('#/projects/p1/')).toEqual({ kind: 'project', projectId: 'p1', documentId: null, view: null });
   });
 
+  it('keeps the template route on the store until it is closed or a project opens', () => {
+    const store = new NavigationStore();
+    store.applyRoute({ kind: 'template', key: 'monitoring-sayta-telegram' });
+    expect(store.view).toBe('projects');
+    expect(store.route).toEqual({ kind: 'template', key: 'monitoring-sayta-telegram' });
+    store.closeTemplate();
+    expect(store.route).toEqual({ kind: 'projects' });
+
+    store.openTemplate('monitoring-sayta-telegram');
+    store.selectProject('p1', 'Monitoring');
+    expect(store.templateKey).toBeNull();
+    expect(store.route).toEqual({ kind: 'project', projectId: 'p1', documentId: null, view: null });
+  });
+
   it('tells same-project routes apart', () => {
-    expect(isSameProjectRoute(routes[4] ?? null, routes[5] ?? null)).toBe(true);
+    expect(isSameProjectRoute(routes[5] ?? null, routes[6] ?? null)).toBe(true);
     expect(
       isSameProjectRoute(routes[4] ?? null, { kind: 'project', projectId: 'p2', documentId: null, view: null }),
     ).toBe(false);

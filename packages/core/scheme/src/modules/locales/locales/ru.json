@@ -11,6 +11,7 @@
     "throw": "Исключение",
     "return": "Возврат",
     "comment": "Комментарий",
+    "wait": "Пауза",
     "parallel": "Параллельно",
     "parallel-thread": "Поток",
     "timer": "Таймер",

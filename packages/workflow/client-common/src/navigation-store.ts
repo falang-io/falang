@@ -1,5 +1,6 @@
 import { action, computed, makeObservable, observable } from 'mobx';
 import type { TAppRoute, TProjectRouteView } from './navigation-url.js';
+import { forgetPendingTemplate, rememberPendingTemplate } from './pending-template.js';
 
 export type TNavigationView = 'projects' | 'runs' | 'tasks' | `ext:${string}`;
 
@@ -16,6 +17,8 @@ export class NavigationStore {
   @observable documentId: string | null = null;
   /** The open project's non-document main view (`files`/`tasks`), if it is showing instead of a document. */
   @observable projectView: TProjectRouteView | null = null;
+  /** A template the user arrived to create a project from (`#/templates/<key>`); shown over the project list. */
+  @observable templateKey: string | null = null;
 
   constructor() {
     makeObservable(this);
@@ -31,6 +34,7 @@ export class NavigationStore {
         view: this.projectView,
       };
     }
+    if (this.view === 'projects' && this.templateKey) return { kind: 'template', key: this.templateKey };
     if (this.view === 'runs') return { kind: 'runs' };
     if (this.view === 'tasks') return { kind: 'tasks' };
     if (this.view.startsWith('ext:')) return { kind: 'ext', key: this.view.slice('ext:'.length) };
@@ -39,6 +43,8 @@ export class NavigationStore {
 
   @action selectProject(id: string, name: string | null): void {
     this.clearProjectLocation();
+    if (this.templateKey) forgetPendingTemplate();
+    this.templateKey = null;
     this.selectedProjectId = id;
     this.selectedProjectName = name;
   }
@@ -62,6 +68,20 @@ export class NavigationStore {
   @action goToExtension(key: string): void {
     this.leaveProject();
     this.view = `ext:${key}`;
+  }
+
+  /** Shows the project list with the create-from-template dialog for `key` (an id or a slug). */
+  @action openTemplate(key: string): void {
+    this.leaveProject();
+    this.view = 'projects';
+    this.templateKey = key;
+    rememberPendingTemplate(key);
+  }
+
+  /** The create-from-template dialog was closed without creating a project. */
+  @action closeTemplate(): void {
+    this.templateKey = null;
+    forgetPendingTemplate();
   }
 
   /** The project's name arrived later than its id (a project opened straight from the URL). */
@@ -103,6 +123,10 @@ export class NavigationStore {
         this.goToExtension(route.key);
         break;
       }
+      case 'template': {
+        this.openTemplate(route.key);
+        break;
+      }
       default: {
         break;
       }
@@ -110,6 +134,7 @@ export class NavigationStore {
   }
 
   private leaveProject(): void {
+    this.templateKey = null;
     this.selectedProjectId = null;
     this.selectedProjectName = null;
     this.clearProjectLocation();

@@ -54,6 +54,12 @@ const NODE_KIND_NOTES: Record<string, string> = {
     'It compiles to a code comment only — never to behaviour. Use it to explain a non-obvious step, not to',
     'disable code.',
   ].join(' '),
+  wait: [
+    'A durable pause (workflow only): `data` is a TypeScript expression for how long to wait — milliseconds as a',
+    "number (`24 * 60 * 60 * 1000`, `bookingAt - Date.now()`) or a duration string literal (`'30 minutes'`, `'1 day'`).",
+    'The run sleeps without holding a server and survives restarts; a negative number waits 0. Use it for',
+    'reminders and delays; to wait for a user instead, use a question node with a timeout.',
+  ].join(' '),
   magic: [
     'A transparent group: `data.spell` is a human, plain-language description of the step (shown as the',
     'only thing on the canvas), its children are the real nodes and compile inlined, as if they stood in the',
