@@ -1,0 +1,54 @@
+# nginx config of the production client image. Rendered at container start by the stock image's
+# envsubst step (only ${CSP_POLICY} and ${CSP_HEADER_NAME} are substituted, see entrypoint.sh).
+server {
+    listen 8080;
+    server_name _;
+    server_tokens off;
+
+    root /usr/share/nginx/html;
+    index index.html;
+
+    gzip on;
+    gzip_vary on;
+    gzip_min_length 1024;
+    gzip_types text/css application/javascript text/javascript application/json image/svg+xml text/plain;
+
+    # Security headers. NOTE: add_header in a nested block would REPLACE these (nginx inheritance rule), so no
+    # location below uses add_header; caching is set with `expires` instead.
+    add_header ${CSP_HEADER_NAME} "${CSP_POLICY}" always;
+    add_header Strict-Transport-Security "max-age=15552000; includeSubDomains" always;
+    add_header X-Frame-Options "DENY" always;
+    add_header X-Content-Type-Options "nosniff" always;
+    add_header Referrer-Policy "strict-origin-when-cross-origin" always;
+    add_header Permissions-Policy "camera=(), microphone=(), geolocation=()" always;
+
+    location = /healthz {
+        access_log off;
+        default_type text/plain;
+        return 200 'ok';
+    }
+
+    # Entry documents are never cached (they name the hashed assets of the current build).
+    location = /index.html {
+        expires epoch;
+    }
+    location = /admin.html {
+        expires epoch;
+    }
+
+    # The admin sub-app: /admin, /admin/ and /admin/<anything without a dot> (same rule as vite.config.ts).
+    location ~ ^/admin(/[^.]*)?$ {
+        try_files /admin.html =404;
+    }
+
+    # Hashed build output: a changed file gets a new name.
+    location /assets/ {
+        expires 1y;
+        try_files $uri =404;
+    }
+
+    # SPA fallback.
+    location / {
+        try_files $uri /index.html;
+    }
+}

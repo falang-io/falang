@@ -60,6 +60,27 @@ npm run test-e2e      # end-to-end suite; heavy, needs Docker + kind
 See [CONTRIBUTING.md](CONTRIBUTING.md), and [AGENTS.md](AGENTS.md) / [CLAUDE.md](CLAUDE.md) for coding
 agents (repository layout, conventions, per-package notes).
 
+## Production client image
+
+`docker-compose.workflow*.yml` run the client with Vite's dev server (the default target of `docker/client.Dockerfile`).
+For a real deployment build the `production` target: static files served by unprivileged nginx (port 8080, no Node,
+no `node_modules`) with a Content-Security-Policy, HSTS, `X-Frame-Options: DENY`, `nosniff`, `Referrer-Policy` and
+`Permissions-Policy` headers (`docker/client-nginx/`).
+
+```sh
+docker build --target production -f docker/client.Dockerfile \
+  --build-arg VITE_BACKEND_URL=https://api.example.com -t falang-client .
+docker run -p 8080:8080 -e API_ORIGIN=https://api.example.com -e CSP_PRESETS=smartcaptcha falang-client
+```
+
+- `API_ORIGIN` is required (the container refuses to start without it): the API origin the CSP must allow, normally
+  the same value as `VITE_BACKEND_URL`.
+- `CSP_PRESETS` (comma list, default empty): `smartcaptcha` or `recaptcha` (match the backend's `CAPTCHA_PROVIDER`).
+  `CSP_SCRIPT_EXTRA` / `CSP_CONNECT_EXTRA` / `CSP_IMG_EXTRA` / `CSP_FRAME_EXTRA` / `CSP_FONT_EXTRA` add sources.
+- `CSP_HEADER_NAME=Content-Security-Policy-Report-Only` turns the policy into a report-only trial.
+- With `readOnlyRootFilesystem`, mount `emptyDir` volumes on `/tmp` and `/etc/nginx/conf.d`. Probe: `GET /healthz`.
+- Terminate TLS in front of it (HSTS is sent unconditionally).
+
 ## Claude Code plugin and MCP
 
 `plugins/falang` is a Claude Code plugin with skills that teach an agent the Falang document model and an
