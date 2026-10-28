@@ -11,6 +11,10 @@ export class ProjectTemplate {
   @Column({ type: 'varchar' })
   name!: string;
 
+  /** Stable key for script-maintained templates linked from the public site; `null` for admin-UI ones. */
+  @Column({ type: 'varchar', length: 100, nullable: true, unique: true })
+  slug!: string | null;
+
   @Column({ type: 'text', default: '' })
   description!: string;
 

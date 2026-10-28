@@ -1,6 +1,12 @@
 import { buildActionNodeConfig, getIntegrationNodeConfigs } from '@falang/workflow-integrations-common';
+import ts from 'typescript';
 import { describe, expect, it } from 'vitest';
 import { HTTP_REQUEST_ACTION_NAME, httpRequestIntegration } from './http-request.integration.js';
+
+/** The `heartbeat` import of the activity code, stubbed. */
+const noop = (): void => {
+  // Nothing to report outside an activity.
+};
 
 describe('httpRequestIntegration', () => {
   it('produces valid node configs through the generic integration node builder', () => {
@@ -29,6 +35,7 @@ describe('httpRequestIntegration', () => {
       headers: "{ 'Content-Type': 'application/json' }",
       body: '{ hello: 1 }',
       responseAs: 'json',
+      onNetworkError: 'retry',
       resultVariable: 'httpResult',
     });
   });
@@ -47,7 +54,7 @@ describe('httpRequestIntegration', () => {
       resultVariable: 'httpResult',
     });
     expect(emitted).toBe(
-      "const httpResult = await httpRequest('POST', `https://httpbin.org/post`, { 'Content-Type': 'application/json' }, { hello: 1 }, 'auto');",
+      "const httpResult = await httpRequest('POST', `https://httpbin.org/post`, { 'Content-Type': 'application/json' }, { hello: 1 }, 'auto', 'retry');",
     );
   });
 
@@ -60,7 +67,7 @@ describe('httpRequestIntegration', () => {
       responseAs: '',
       resultVariable: '',
     });
-    expect(emitted).toBe("await httpRequest('GET', `https://httpbin.org/get`, undefined, undefined, 'auto');");
+    expect(emitted).toBe("await httpRequest('GET', `https://httpbin.org/get`, undefined, undefined, 'auto', 'retry');");
   });
 
   it('emit() defaults empty headers/body to undefined rather than an empty string', () => {
@@ -73,7 +80,7 @@ describe('httpRequestIntegration', () => {
       resultVariable: 'result',
     });
     expect(emitted).toBe(
-      "const result = await httpRequest('GET', `https://httpbin.org/get`, undefined, undefined, 'auto');",
+      "const result = await httpRequest('GET', `https://httpbin.org/get`, undefined, undefined, 'auto', 'retry');",
     );
   });
 
@@ -85,7 +92,7 @@ describe('httpRequestIntegration', () => {
       body: '',
       resultVariable: '',
     });
-    expect(emitted).toBe("await httpRequest('GET', `https://httpbin.org/get`, undefined, undefined, 'auto');");
+    expect(emitted).toBe("await httpRequest('GET', `https://httpbin.org/get`, undefined, undefined, 'auto', 'retry');");
   });
 
   it("emit() defaults responseAs to 'auto' for the JSON.stringify('') representation `resolveFieldExpression` produces for an unset select field", () => {
@@ -97,7 +104,7 @@ describe('httpRequestIntegration', () => {
       responseAs: '""',
       resultVariable: '',
     });
-    expect(emitted).toBe("await httpRequest('GET', `https://httpbin.org/get`, undefined, undefined, 'auto');");
+    expect(emitted).toBe("await httpRequest('GET', `https://httpbin.org/get`, undefined, undefined, 'auto', 'retry');");
   });
 
   it('emit() passes through an explicit responseAs value (e.g. "file") verbatim', () => {
@@ -110,7 +117,7 @@ describe('httpRequestIntegration', () => {
       resultVariable: 'downloaded',
     });
     expect(emitted).toBe(
-      "const downloaded = await httpRequest('GET', `https://httpbin.org/get`, undefined, undefined, 'file');",
+      "const downloaded = await httpRequest('GET', `https://httpbin.org/get`, undefined, undefined, 'file', 'retry');",
     );
   });
 
@@ -148,5 +155,43 @@ describe('httpRequestIntegration', () => {
       "import * as FalangFiles from '@falang/workflow-integrations-files';",
     );
     expect(httpRequestIntegration.sharedActivityCode).toContain("import { heartbeat } from '@temporalio/activity';");
+  });
+  it("emit() passes onNetworkError through, defaulting to 'retry'", () => {
+    const emitted = httpRequestIntegration.actions[0].emit({
+      method: "'GET'",
+      url: '`https://example.com`',
+      headers: '',
+      body: '',
+      responseAs: "'text'",
+      onNetworkError: "'status'",
+      resultVariable: 'check',
+    });
+    expect(emitted).toBe(
+      "const check = await httpRequest('GET', `https://example.com`, undefined, undefined, 'text', 'status');",
+    );
+  });
+
+  /** Runs the real activity code (transpiled, with stub imports) against `fetch`. */
+  const loadActivity = (): ((...args: unknown[]) => Promise<{ status: number; body: unknown }>) => {
+    const js = ts.transpileModule(httpRequestIntegration.actions[0].activityCode, {
+      compilerOptions: { module: ts.ModuleKind.CommonJS, target: ts.ScriptTarget.ES2022 },
+    }).outputText;
+    const exports: Record<string, unknown> = {};
+    // oxlint-disable-next-line no-new-func -- evaluates generated code under test.
+    new Function('exports', 'heartbeat', 'FalangFiles', js)(exports, noop, {});
+    return exports.httpRequest as (...args: unknown[]) => Promise<{ status: number; body: unknown }>;
+  };
+
+  it("a request that gets no response returns status 0 in 'status' mode and throws in 'retry' mode", async () => {
+    const httpRequest = loadActivity();
+    // Port 9 on localhost (discard) refuses the connection on any normal machine.
+    const unreachable = 'http://127.0.0.1:9/';
+    // Compiled code passes `undefined` for empty headers/body (a `null` body would be sent).
+    // oxlint-disable-next-line no-undefined
+    const result = await httpRequest('GET', unreachable, undefined, undefined, 'text', 'status');
+    expect(result.status).toBe(0);
+    expect(String(result.body)).toMatch(/fetch failed/i);
+    // oxlint-disable-next-line no-undefined
+    await expect(httpRequest('GET', unreachable, undefined, undefined, 'text')).rejects.toThrow();
   });
 });

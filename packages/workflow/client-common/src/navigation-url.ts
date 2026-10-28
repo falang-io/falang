@@ -7,6 +7,8 @@ export type TAppRoute =
   | { kind: 'runs' }
   | { kind: 'tasks' }
   | { kind: 'ext'; key: string }
+  /** "Open a template" link from the public site: the project list with the create-from-template dialog. */
+  | { kind: 'template'; key: string }
   | { kind: 'project'; projectId: string; documentId: string | null; view: TProjectRouteView | null };
 
 const safeDecode = (value: string): string | null => {
@@ -35,7 +37,7 @@ const parseProjectSegments = (segments: readonly string[]): TAppRoute | null => 
 
 /**
  * Parses `location.hash` (`#/projects/<id>/documents/<docId>`, `#/projects/<id>/files|tasks`,
- * `#/runs`, `#/tasks`, `#/ext/<key>`, empty / `#/` = the project list). Returns `null` for a hash this
+ * `#/runs`, `#/tasks`, `#/ext/<key>`, `#/templates/<id-or-slug>`, empty / `#/` = the project list). Returns `null` for a hash this
  * router doesn't own (`#/admin…`, plain anchors, garbage) so the caller leaves the current state alone.
  */
 export const parseAppHash = (hash: string): TAppRoute | null => {
@@ -57,6 +59,10 @@ export const parseAppHash = (hash: string): TAppRoute | null => {
       const key = safeDecode(segments[1] ?? '');
       return key && segments.length === 2 ? { kind: 'ext', key } : null;
     }
+    case 'templates': {
+      const key = safeDecode(segments[1] ?? '');
+      return key && segments.length === 2 ? { kind: 'template', key } : null;
+    }
     default: {
       return null;
     }
@@ -77,6 +83,9 @@ export const formatAppHash = (route: TAppRoute): string => {
     }
     case 'ext': {
       return `#/ext/${encodeURIComponent(route.key)}`;
+    }
+    case 'template': {
+      return `#/templates/${encodeURIComponent(route.key)}`;
     }
     case 'project': {
       const base = `#/projects/${encodeURIComponent(route.projectId)}`;

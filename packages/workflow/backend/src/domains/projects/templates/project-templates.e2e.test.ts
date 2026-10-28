@@ -67,7 +67,8 @@ describe('project templates (e2e)', () => {
     expect(list.status).toBe(200);
     expect(list.body).toHaveLength(1);
     expect(list.body[0]).toMatchObject({ name: 'Blank project' });
-    expect(Object.keys(list.body[0]).toSorted()).toEqual(['description', 'id', 'name']);
+    expect(Object.keys(list.body[0]).toSorted()).toEqual(['description', 'id', 'name', 'slug']);
+    expect(list.body[0].slug).toBeNull();
   });
 
   it('creates a project from the blank template with the pinned integrations document', async () => {
@@ -188,5 +189,89 @@ describe('project templates (e2e)', () => {
       .set(auth(aliceToken))
       .send({ name: 'x', sourceProjectId: '3ad0f6d5-d449-4945-b5f4-9f8d7041a3e9' })
       .expect(403);
+  });
+  describe('by slug', () => {
+    const FN_ID = '5d0c2a7e-0f4b-4c1e-9a55-2f6f0d0a9c11';
+    const payload = (name: string) => ({
+      formatVersion: 1,
+      project: { id: '', name },
+      folders: [],
+      documents: [
+        {
+          id: FN_ID,
+          type: 'function',
+          name: 'run',
+          folderId: null,
+          pinned: false,
+          root: { id: FN_ID, name: 'function', children: [] },
+          data: null,
+        },
+      ],
+    });
+
+    const createPat = async (token: string, body: Record<string, unknown> = {}): Promise<string> => {
+      const created = await http()
+        .post('/auth/tokens')
+        .set(auth(token))
+        .send({ name: 'templates', ...body })
+        .expect(201);
+      return created.body.rawToken as string;
+    };
+
+    it('an admin PAT creates, then replaces a template; users open it by slug', async () => {
+      const adminPat = await createPat(await login(app));
+      const first = await http()
+        .put('/admin/project-templates/by-slug/telegram-bot-otzyvy')
+        .set(auth(adminPat))
+        .send({ name: 'Reviews', description: 'v1', sortOrder: 5, payload: payload('Reviews') });
+      expect(first.status).toBe(200);
+      expect(first.body).toMatchObject({ slug: 'telegram-bot-otzyvy', name: 'Reviews', sortOrder: 5, enabled: true });
+
+      const second = await http()
+        .put('/admin/project-templates/by-slug/telegram-bot-otzyvy')
+        .set(auth(adminPat))
+        .send({ name: 'Reviews 2', description: 'v2', payload: payload('Reviews 2') })
+        .expect(200);
+      expect(second.body).toMatchObject({ id: first.body.id, name: 'Reviews 2', description: 'v2', sortOrder: 5 });
+
+      const userToken = await registerUser('alice');
+      const summary = await http().get('/project-templates/telegram-bot-otzyvy').set(auth(userToken)).expect(200);
+      expect(summary.body).toEqual({
+        id: first.body.id,
+        slug: 'telegram-bot-otzyvy',
+        name: 'Reviews 2',
+        description: 'v2',
+      });
+      const project = await http()
+        .post('/projects/from-template/telegram-bot-otzyvy')
+        .set(auth(userToken))
+        .send({ name: 'My reviews' })
+        .expect(201);
+      const docs = await http().get(`/projects/${project.body.id}/documents`).set(auth(userToken)).expect(200);
+      expect((docs.body as { name: string }[]).map((doc) => doc.name)).toContain('run');
+    });
+
+    it('404s an unknown slug and refuses a bad one', async () => {
+      const adminToken = await login(app);
+      await http().get('/project-templates/no-such-template').set(auth(adminToken)).expect(404);
+      await http()
+        .put('/admin/project-templates/by-slug/Bad_Slug')
+        .set(auth(adminToken))
+        .send({ name: 'x', payload: payload('x') })
+        .expect(400);
+    });
+
+    it("refuses a normal user's PAT, a project-scoped admin PAT and no token at all", async () => {
+      const body = { name: 'x', payload: payload('x') };
+      const alicePat = await createPat(await registerUser('alice'));
+      await http().put('/admin/project-templates/by-slug/x').set(auth(alicePat)).send(body).expect(403);
+
+      const adminToken = await login(app);
+      const created = await http().post('/projects').set(auth(adminToken)).send({ name: 'Scope' });
+      const scopedPat = await createPat(adminToken, { projectId: created.body.id });
+      await http().put('/admin/project-templates/by-slug/x').set(auth(scopedPat)).send(body).expect(403);
+
+      await http().put('/admin/project-templates/by-slug/x').send(body).expect(401);
+    });
   });
 });

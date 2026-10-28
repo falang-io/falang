@@ -24,6 +24,13 @@ export class ProjectTemplatesController {
     return this.service.listEnabled();
   }
 
+  /** One enabled template by id or slug. */
+  @Get('project-templates/:key')
+  get(@Param('key') key: string): Promise<IProjectTemplateSummary> {
+    return this.service.getEnabled(key);
+  }
+
+  /** `templateId` may also be the template's slug. */
   @Post('projects/from-template/:templateId')
   createFromTemplate(
     @CurrentUser() user: IJwtPayloadUser,

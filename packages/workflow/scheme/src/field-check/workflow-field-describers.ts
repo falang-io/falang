@@ -8,7 +8,7 @@ import {
   type IFieldCheckContext,
   type TFieldDescriber,
 } from '@falang/typescript-scheme';
-import { ACTIVEPIECES_ACTION_NAME } from '@falang/workflow-dto';
+import { ACTIVEPIECES_ACTION_NAME, WAIT_NAME } from '@falang/workflow-dto';
 import {
   getChoiceHeaderFields,
   getQuestionHeaderFields,
@@ -85,7 +85,7 @@ const describeIntegrationNode = (node: NodeStore, ctx: IFieldCheckContext): TFie
 let registered = false;
 
 /**
- * Registers the workflow blocks' field describers (ADR 0068 (private)): `activepieces-action` by name, every
+ * Registers the workflow blocks' field describers (ADR 0068 (private)): `activepieces-action` and `wait` by name, every
  * vendor action/question/choice through a resolver — those node kinds exist per vendor and only the scheme's
  * integrations registry (`TOKEN_INTEGRATIONS_REGISTRY`, found through `ctx.container`) knows them. Idempotent.
  */
@@ -93,5 +93,9 @@ export const registerWorkflowFieldDescribers = (): void => {
   if (registered) return;
   registered = true;
   registerFieldDescriber(ACTIVEPIECES_ACTION_NAME, describeActivepiecesAction);
+  // `wait`'s duration: the shared expression block, checked against the bare scope like `throw`.
+  registerFieldDescriber(WAIT_NAME, (node, ctx) => [
+    scopeField(node, ctx, 'value', typeof node.data === 'string' ? node.data : ''),
+  ]);
   registerFieldDescriberResolver({ resolve: (node, ctx) => describeIntegrationNode(node, ctx) });
 };

@@ -4,8 +4,8 @@ import { MigrationInterface, QueryRunner } from 'typeorm';
  * Security audit P1-5 / P1-13: `users.token_version` (JWT revocation), `users.admin_notified_at` (admin digest mails;
  * existing rows are backfilled as already announced) and `auth_mail_events` (per-address / per-IP mail limits).
  */
-export class AuthHardening1790110000000 implements MigrationInterface {
-  name = 'AuthHardening1790110000000';
+export class AuthHardening1790140000000 implements MigrationInterface {
+  name = 'AuthHardening1790140000000';
 
   public async up(queryRunner: QueryRunner): Promise<void> {
     await queryRunner.query(`ALTER TABLE "users" ADD "token_version" integer NOT NULL DEFAULT 0`);

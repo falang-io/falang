@@ -4,6 +4,7 @@ import { functionNodesGroup } from '@falang/typescript-dto';
 import {
   activepiecesActionNodesGroup,
   magicNodesGroup,
+  waitNodesGroup,
   triggerFunctionNodesGroup,
   TRIGGER_FUNCTION_NAME,
 } from '@falang/workflow-dto';
@@ -43,6 +44,7 @@ export const buildWorkflowMcpRegistry = (integrations: readonly IWorkflowIntegra
     new NodesGroup(triggerFunctionNodesGroup),
     new NodesGroup(magicNodesGroup),
     new NodesGroup([commentCfg()]),
+    new NodesGroup(waitNodesGroup),
     new NodesGroup(activepiecesActionNodesGroup),
     new NodesGroup(getIntegrationNodeConfigs(integrations)),
     new NodesGroup(getQuestionNodeConfigs(questions)),

@@ -1,6 +1,6 @@
 import { COMMENT_NAME, type INode } from '@falang/dto';
 import { defaultValueExpression, variableInfoToTsType, type TVariableInfo } from '@falang/typescript-dto';
-import { ACTIVEPIECES_ACTION_NAME, type TActivepiecesActionData } from '@falang/workflow-dto';
+import { ACTIVEPIECES_ACTION_NAME, WAIT_NAME, type TActivepiecesActionData } from '@falang/workflow-dto';
 import { JOURNAL_FN } from './journal-runtime.js';
 import { escapeTemplateLiteralBody } from './escape-template-literal.js';
 import type { TResolveFunctionName } from './resolve-function-name.js';
@@ -107,6 +107,15 @@ export const emitComment = (node: INode): string => {
     .join('\n');
 };
 
+/**
+ * A durable pause (`@temporalio/workflow`'s `sleep`, imported by `compile-project.ts` when a `wait` node exists).
+ * The duration is milliseconds or a duration string literal; a negative number waits 0.
+ */
+const emitWait = (node: INode): string => {
+  const duration = asExpression(node.data as string);
+  return `{ const __falangWait = (${duration}); await sleep(typeof __falangWait === 'number' ? Math.max(0, __falangWait) : __falangWait); }`;
+};
+
 const emitReturn = (node: INode): string => `return ${asExpression(node.data as string)};`;
 
 /**
@@ -141,5 +150,6 @@ export const LEAF_EMITTERS: Record<string, (node: INode) => string> = {
   throw: emitThrow,
   return: emitReturn,
   [COMMENT_NAME]: emitComment,
+  [WAIT_NAME]: emitWait,
   [ACTIVEPIECES_ACTION_NAME]: emitActivepiecesAction,
 };

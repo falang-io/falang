@@ -39,7 +39,9 @@ head:
     <b>HTTP request</b>. A generic outbound call to any HTTP API: method, URL, headers and body are given as
     expressions, and the result is stored in a variable — including, when the response is binary, as a{' '}
     <a href="../files/">file</a> rather than decoded text. No credentials of its own are needed — authorization is simply
-    written into the request headers.
+    written into the request headers. "On network error" decides what happens when there is no response at all (server
+    down, timeout): "Retry until it succeeds" (the default) or "Return status 0" — one attempt of up to 30 seconds, and
+    the scenario decides what to do, e.g. send an alert.
   </li>
   <li>
     <b>Webhook</b>. A generic inbound trigger: each trigger function gets its own URL, and calling it (a POST request)

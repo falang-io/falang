@@ -55,6 +55,11 @@ head:
     icon is highlighted, and a side panel lists every variable in scope. See <a href="./debugging/">Debugging</a>.
   </li>
   <li>
+    <b>Wait</b> — a node that pauses the scenario for a while: milliseconds (which can be computed, e.g. "a day
+    before the appointment") or a string such as <code>'30 minutes'</code>, <code>'1 day'</code>. Nothing is held
+    while it waits, and the pause survives restarts — reminders and delayed messages are built with it.
+  </li>
+  <li>
     <b>Files</b> and <b>Tasks</b> — project tabs next to Runs: the files your scenarios stored, and the decisions
     they are waiting on from you. See <a href="./files/">Files</a> and <a href="./human-tasks/">Tasks for people</a>.
   </li>

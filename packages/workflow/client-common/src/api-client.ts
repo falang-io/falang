@@ -268,8 +268,14 @@ export const workflowApi = {
 
   listProjectTemplates: () => request<IApiProjectTemplate[]>('/project-templates'),
 
+  /** One enabled template by id or slug. */
+  getProjectTemplate: (key: string) => request<IApiProjectTemplate>(`/project-templates/${encodeURIComponent(key)}`),
+
   createProjectFromTemplate: (templateId: string, name: string) =>
-    request<IApiProject>(`/projects/from-template/${templateId}`, { method: 'POST', body: JSON.stringify({ name }) }),
+    request<IApiProject>(`/projects/from-template/${encodeURIComponent(templateId)}`, {
+      method: 'POST',
+      body: JSON.stringify({ name }),
+    }),
 
   importProject: (payload: IApiProjectExport) =>
     request<IApiProject>('/projects/import', { method: 'POST', body: JSON.stringify(payload) }),

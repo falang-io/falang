@@ -14,6 +14,8 @@ import { LanguageSwitcher } from './language-switcher.js';
 import { ChangePasswordModal } from './change-password-modal.js';
 import { DefaultPasswordBanner, EmailNotVerifiedBanner, WelcomeBanner } from './default-password-banner.js';
 import { PersonalAccessTokensModal } from './personal-access-tokens-modal.js';
+import { TemplateStartModal } from './template-start-modal.js';
+import { readPendingTemplate } from '../pending-template.js';
 import { TopBar } from './top-bar.js';
 import { SupportButton } from './support-button.js';
 import { StartWithAgent, useStartWithAgent, type TStartWithAgent } from './start-with-agent.js';
@@ -97,6 +99,11 @@ export const ProjectListPage: React.FC = observer(() => {
   const [importError, setImportError] = useState<string | null>(null);
   const [templateId, setTemplateId] = useState<string | null>(null);
   const startWithAgent = useStartWithAgent(store);
+  // A template picked on the site before signing up (the confirmation link opens without the hash).
+  useEffect(() => {
+    const pending = readPendingTemplate();
+    if (pending && !navigationStore.templateKey) navigationStore.openTemplate(pending);
+  }, []);
 
   const resetModal = () => {
     setModalOpen(false);
@@ -113,7 +120,6 @@ export const ProjectListPage: React.FC = observer(() => {
     const project = templateId
       ? await store.createProjectFromTemplate(templateId, name)
       : await store.createProject(name);
-    // TODO(P3): eventTracker.track('template_used', { templateId })
     if (project) {
       resetModal();
       navigationStore.selectProject(project.id, project.name);
@@ -201,6 +207,9 @@ export const ProjectListPage: React.FC = observer(() => {
         />
       </div>
 
+      {navigationStore.templateKey && (
+        <TemplateStartModal key={navigationStore.templateKey} templateKey={navigationStore.templateKey} store={store} />
+      )}
       <Modal
         title={t('client:project-list-page.modal-title')}
         open={isModalOpen}

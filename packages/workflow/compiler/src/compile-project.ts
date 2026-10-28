@@ -1,7 +1,7 @@
 import type { IDebugMap, IDebugTracePoint } from '@falang/debug';
 import type { IProjectDocument } from '@falang/dto';
 import { registerContainerScopeContributor, registerScopeContributor } from '@falang/typescript-common';
-import { TRIGGER_FUNCTION_NAME } from '@falang/workflow-dto';
+import { TRIGGER_FUNCTION_NAME, WAIT_NAME } from '@falang/workflow-dto';
 import type { IWorkflowIntegration } from '@falang/workflow-integrations-common';
 import {
   registerIntegrationScopeContributors,
@@ -31,7 +31,7 @@ import type { IDebugEmitOptions, TResolveFunctionName } from './node-emitters.js
 import { NodeCompileError } from './node-compile-error.js';
 import { POSITION_RUNTIME_CODE, POSITION_RUNTIME_IMPORTS } from './position-runtime.js';
 import { buildQuestionEmitters } from './question-emitters.js';
-import { selectUsedIntegrations, type IUsedIntegrations } from './used-integrations.js';
+import { containsNodeNamed, selectUsedIntegrations, type IUsedIntegrations } from './used-integrations.js';
 
 export interface ICompileProjectParams {
   /**
@@ -80,7 +80,7 @@ export interface ICompileProjectParams {
  * joins the import set when at least one group actually needs it. `workflowInfo`, unlike those three,
  * *is* conditional (`hasStartDelivery`) — it's only ever read by a `delivery: 'start'` trigger's
  * compiled preamble (see `compile-trigger-function.ts`), which no project need have at all.
- * `CancellationScope`/`isCancellation` are likewise conditional (`hasCloseableQuestion`) — only a
+ * `sleep` is conditional too (`hasWait`, a `wait` node exists). `CancellationScope`/`isCancellation` are likewise conditional (`hasCloseableQuestion`) — only a
  * project with at least one `IQuestionDescriptor.closeActivitySignature` node (ADR 0040 (private)
  * §4) needs the cancellation-safe close its `question-emitters.ts` wraps around the wait.
  */
@@ -90,6 +90,7 @@ const buildWorkflowPreamble = (
   debug: boolean,
   hasStartDelivery: boolean,
   hasCloseableQuestion: boolean,
+  hasWait: boolean,
 ): string => {
   const groups = groupActivityProxyEntries(
     collectActivityProxyEntries(used.integrations, { includeActivepiecesAction: used.usesActivepiecesAction }),
@@ -97,6 +98,7 @@ const buildWorkflowPreamble = (
   const imports = new Set(['condition', 'defineSignal', 'proxyLocalActivities', 'setHandler']);
   if (groups.some((group) => group.options.kind === 'regular')) imports.add('proxyActivities');
   if (hasStartDelivery) imports.add('workflowInfo');
+  if (hasWait) imports.add('sleep');
   if (hasCloseableQuestion) {
     imports.add('CancellationScope');
     imports.add('isCancellation');
@@ -175,6 +177,11 @@ export const compileProject = ({
   // `CancellationScope`/`isCancellation` imports `question-emitters.ts`'s close-on-cancel wrapper needs.
   const hasCloseableQuestion = used.integrations.some((integration) =>
     (integration.questions ?? []).some((question) => Boolean(question.closeActivitySignature)),
+  );
+
+  // `sleep` joins the import set only when some compiled document has a `wait` node.
+  const hasWait = [...functionDocuments, ...triggerFunctionDocuments].some((document) =>
+    document.root ? containsNodeNamed(document.root, WAIT_NAME) : false,
   );
 
   const namesById = new Map(
@@ -275,7 +282,7 @@ export const compileProject = ({
   // Always assembled, even when `errors` isn't empty — the successfully-compiled blocks still form
   // valid partial output, carried on `ProjectCompileError` below so a caller can show the user their
   // code alongside the errors instead of nothing at all.
-  const workflows = `${buildWorkflowPreamble(used, trackPosition, debug, hasStartDeliveryTrigger, hasCloseableQuestion)}\n\n${content}`;
+  const workflows = `${buildWorkflowPreamble(used, trackPosition, debug, hasStartDeliveryTrigger, hasCloseableQuestion, hasWait)}\n\n${content}`;
 
   if (errors.length > 0) {
     throw new ProjectCompileError(errors, workflows, activities);

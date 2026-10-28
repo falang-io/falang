@@ -679,5 +679,11 @@
     "timeout": "Layout did not settle",
     "portrait": "portrait",
     "landscape": "landscape"
+  },
+  "template-start": {
+    "title": "New project from a template",
+    "name-label": "Project name",
+    "not-found": "This template is not available.",
+    "close": "Close"
   }
 }

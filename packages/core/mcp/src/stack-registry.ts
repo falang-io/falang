@@ -16,6 +16,7 @@ import {
 import {
   activepiecesActionNodesGroup,
   magicNodesGroup,
+  waitNodesGroup,
   triggerFunctionNodesGroup,
   TRIGGER_FUNCTION_NAME,
 } from '@falang/workflow-dto';
@@ -176,6 +177,7 @@ const buildWorkflowFunctionRegistration = (): IDocumentTypeRegistration => {
     new NodesGroup(triggerFunctionNodesGroup),
     new NodesGroup(magicNodesGroup),
     new NodesGroup([commentCfg()]),
+    new NodesGroup(waitNodesGroup),
     new NodesGroup(activepiecesActionNodesGroup),
   ]);
   return { rootNodeName: 'function', stack };

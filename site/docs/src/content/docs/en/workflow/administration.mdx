@@ -417,4 +417,11 @@ head:
   <li>
     <b>Delete</b> — removes the template; projects already created from it are unaffected.
   </li>
+  <li>
+    <b>Templates with a slug</b> — a template can be kept as a file and uploaded by a script:
+    <code>PUT /admin/project-templates/by-slug/&lt;slug&gt;</code> creates or replaces the template with that slug (name,
+    description, order, and an export-format payload). Besides an admin session it accepts that admin's personal access
+    token without a project scope. A link <code>https://&lt;app address&gt;/#/templates/&lt;slug&gt;</code> opens a "New
+    project from a template" dialog; someone who signs up first is offered the template again after signing in.
+  </li>
 </ul>
