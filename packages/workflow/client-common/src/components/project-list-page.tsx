@@ -2,22 +2,14 @@ import type React from 'react';
 import { useEffect, useState } from 'react';
 import { observer } from 'mobx-react-lite';
 import { getGlobalI18n, type TFunction } from '@falang/scheme';
-import { Badge, Button, Empty, Input, List, Modal, Segmented, Select, Spin, Typography } from 'antd';
+import { Button, Empty, Input, List, Modal, Segmented, Select, Spin, Typography } from 'antd';
 import type { IApiProjectExport } from '../api-client.js';
 import { DeleteProjectButton, isOwned, renderRoleTags } from './project-list-item-parts.js';
-import { authStore } from '../auth-store.js';
 import { navigationStore } from '../navigation-store.js';
 import { ProjectListStore } from '../project-list-store.js';
-import { sortExtensionNavItems, useClientExtensions } from '../extensions/client-extensions.js';
-import { TasksStore } from '../tasks-store.js';
-import { LanguageSwitcher } from './language-switcher.js';
-import { ChangePasswordModal } from './change-password-modal.js';
-import { DefaultPasswordBanner, EmailNotVerifiedBanner, WelcomeBanner } from './default-password-banner.js';
-import { PersonalAccessTokensModal } from './personal-access-tokens-modal.js';
+import { EmailNotVerifiedBanner, WelcomeBanner } from './default-password-banner.js';
 import { TemplateStartModal } from './template-start-modal.js';
 import { readPendingTemplate } from '../pending-template.js';
-import { TopBar } from './top-bar.js';
-import { SupportButton } from './support-button.js';
 import { StartWithAgent, useStartWithAgent, type TStartWithAgent } from './start-with-agent.js';
 
 type TCreateMode = 'empty' | 'file';
@@ -31,21 +23,16 @@ const parseExportFile = async (file: File): Promise<IApiProjectExport | null> =>
 };
 
 const styles: Record<string, React.CSSProperties> = {
-  root: {
-    height: '100vh',
-    width: '100vw',
-    display: 'flex',
-    flexDirection: 'column',
-    background: '#1e1e2e',
-    overflow: 'auto',
-  },
-  content: { width: 480, maxWidth: '100%', padding: '32px 0', margin: '0 auto' },
+  root: { display: 'flex', flexDirection: 'column' },
+  content: { width: 560, maxWidth: '100%', padding: '32px 16px', margin: '0 auto', boxSizing: 'border-box' },
+  heading: { display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 16, marginBottom: 16 },
+  title: { color: '#cdd6f4', margin: 0 },
   item: { cursor: 'pointer', color: '#cdd6f4' },
   meta: { color: '#6c7086' },
   modeSwitch: { marginBottom: 16 },
   spacedTop: { marginTop: 16 },
   fileHint: { display: 'block', marginTop: 8 },
-  newProject: { marginLeft: 8, fontWeight: 600 },
+  newProject: { fontWeight: 600 },
 };
 
 const renderProjectList = (store: ProjectListStore, t: TFunction, startWithAgent: TStartWithAgent): React.ReactNode => {
@@ -82,17 +69,8 @@ const renderProjectList = (store: ProjectListStore, t: TFunction, startWithAgent
 
 export const ProjectListPage: React.FC = observer(() => {
   const t = getGlobalI18n().t;
-  const extensions = useClientExtensions();
   const [store] = useState(() => new ProjectListStore());
-  // Only used for the "Tasks" button's open-count badge below — the Tasks page itself owns its own
-  // `TasksStore` instance, see `TasksPage`.
-  const [tasksStore] = useState(() => new TasksStore());
-  useEffect(() => {
-    tasksStore.load({ status: 'open' });
-    return () => tasksStore.dispose();
-  }, [tasksStore]);
   const [isModalOpen, setModalOpen] = useState(false);
-  const [isTokensModalOpen, setTokensModalOpen] = useState(false);
   const [newProjectName, setNewProjectName] = useState('');
   const [createMode, setCreateMode] = useState<TCreateMode>('empty');
   const [importPayload, setImportPayload] = useState<IApiProjectExport | null>(null);
@@ -156,55 +134,20 @@ export const ProjectListPage: React.FC = observer(() => {
 
   return (
     <div style={styles.root}>
-      <TopBar title={t('client:project-list-page.title')}>
-        <LanguageSwitcher />
-        {authStore.currentUser && extensions.renderPlanBadge?.(authStore.currentUser)}
-        <Button type="text" onClick={() => navigationStore.goToRuns()}>
-          {t('client:project-list-page.runs')}
-        </Button>
-        <Badge count={tasksStore.openCount} size="small" offset={[-4, 4]}>
-          <Button type="text" onClick={() => navigationStore.goToTasks()}>
-            {t('client:project-list-page.tasks')}
-          </Button>
-        </Badge>
-        {sortExtensionNavItems(extensions.navItems).map((item) => (
-          <Button key={item.key} type="text" icon={item.icon} onClick={() => navigationStore.goToExtension(item.key)}>
-            {item.label}
-          </Button>
-        ))}
-        <SupportButton />
-        <Button type="text" onClick={() => setTokensModalOpen(true)}>
-          {t('client:project-list-page.tokens')}
-        </Button>
-        {authStore.currentUser?.role === 'admin' && (
-          <Button type="text" href="/admin">
-            {t('client:project-list-page.admin')}
-          </Button>
-        )}
-        <Button type="text" onClick={() => authStore.setChangePasswordOpen(true)}>
-          {t('client:project-list-page.change-password')}
-        </Button>
-        <Button type="text" onClick={() => authStore.logout()}>
-          {t('client:project-list-page.logout')}
-        </Button>
-        <Button type="primary" style={styles.newProject} onClick={() => setModalOpen(true)}>
-          {t('client:project-list-page.new-project')}
-        </Button>
-      </TopBar>
-      <DefaultPasswordBanner />
       <WelcomeBanner />
       <EmailNotVerifiedBanner />
       <div style={styles.content}>
+        <div style={styles.heading}>
+          <Typography.Title level={3} style={styles.title}>
+            {t('client:project-list-page.title')}
+          </Typography.Title>
+          <Button type="primary" style={styles.newProject} onClick={() => setModalOpen(true)}>
+            {t('client:project-list-page.new-project')}
+          </Button>
+        </div>
         {renderProjectList(store, t, startWithAgent)}
 
         {store.error && <Typography.Text type="danger">{store.error}</Typography.Text>}
-
-        <ChangePasswordModal />
-        <PersonalAccessTokensModal
-          open={isTokensModalOpen}
-          onClose={() => setTokensModalOpen(false)}
-          projects={store.projects.slice()}
-        />
       </div>
 
       {navigationStore.templateKey && (

@@ -29,7 +29,8 @@ test.describe('auth', () => {
 
   test('logout returns to the login screen and clears the session', async ({ page }) => {
     await loginViaUI(page);
-    await page.getByRole('button', { name: 'Logout' }).click();
+    await page.getByTestId('user-menu').click();
+    await page.getByRole('menuitem', { name: 'Logout' }).click();
     await expect(page.getByRole('heading', { name: 'Sign in' })).toBeVisible();
     await page.reload();
     await expect(page.getByRole('heading', { name: 'Sign in' })).toBeVisible();

@@ -15,7 +15,8 @@ import { useDevRunActions, type IDevRunActions } from './use-dev-run-actions.js'
 import { RunFunctionModal } from './run-function-modal.js';
 import { WebhookSecurityButton } from './webhook-security-button.js';
 import { VersionsModal } from './versions-modal.js';
-import { SupportButton } from './support-button.js';
+import { FalangBrand } from './app-header.js';
+import { UserMenu } from './user-menu.js';
 
 const RUNNING_COLOR = '#a6e3a1';
 const STOPPED_COLOR = '#f38ba8';
@@ -200,13 +201,12 @@ interface IWritableControlsProps {
   readonly prodMenuItems: MenuProps['items'];
 }
 
-/** Support, agent, magic insert and the Dev/Prod menus — hidden for a read-only (admin-viewed) project. */
+/** Agent, magic insert and the Dev/Prod menus — hidden for a read-only (admin-viewed) project. */
 const WritableControls: React.FC<IWritableControlsProps> = observer(({ devRunning, devMenuItems, prodMenuItems }) => {
   const t = getGlobalI18n().t;
   const store = useWorkflowStore();
   return (
     <>
-      <SupportButton type="default" style={S.btn} />
       <AgentPanelButton />
       <MagicInsertButton />
       <Dropdown menu={{ items: devMenuItems }} trigger={['click']}>
@@ -327,12 +327,13 @@ export const Toolbar: React.FC = observer(() => {
 
   return (
     <div style={S.root}>
-      <Button style={S.btn} onClick={() => navigationStore.goToProjectList()}>
-        {t('client:toolbar.back')}
-      </Button>
+      <FalangBrand compact />
       <span style={S.projectName} title={navigationStore.selectedProjectName ?? ''}>
         {navigationStore.selectedProjectName}
       </span>
+      <Button style={S.btn} onClick={() => navigationStore.goToProjectList()}>
+        {t('client:toolbar.back')}
+      </Button>
       {store.readOnly && <ReadOnlyTag />}
       <SuspendedPill />
       <span style={S.spacer} />
@@ -360,11 +361,12 @@ export const Toolbar: React.FC = observer(() => {
       {store.lastPublishedVersion && (
         <span>{t('client:toolbar.published-version', { version: store.lastPublishedVersion.versionNumber })}</span>
       )}
-      <ProjectMenu buttonStyle={S.btn} errorStyle={S.error} />
       <WebhookSecurityButton style={S.btn} />
+      <ProjectMenu buttonStyle={S.btn} errorStyle={S.error} />
       {!store.readOnly && (
         <WritableControls devRunning={devRunning} devMenuItems={devMenuItems} prodMenuItems={prodMenuItems} />
       )}
+      <UserMenu style={S.btn} />
       {devRun.modals}
       <VersionsModal projectId={store.projectId} open={versionsOpen} onClose={() => setVersionsOpen(false)} />
       <BuildErrorsModal

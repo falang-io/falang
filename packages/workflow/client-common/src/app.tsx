@@ -11,6 +11,11 @@ import { ProjectListPage } from './components/project-list-page.js';
 import { ProjectWorkspace } from './components/project-workspace.js';
 import { RunsPage } from './components/runs-page.js';
 import { TasksPage } from './components/tasks-page.js';
+import { AppShell } from './components/app-shell.js';
+import { ChangePasswordModal } from './components/change-password-modal.js';
+import { PersonalAccessTokensPage } from './components/personal-access-tokens-page.js';
+import { SettingsPage } from './components/settings-page.js';
+import { SupportWidget } from './components/support-widget.js';
 import { findExtensionView, useClientExtensions } from './extensions/client-extensions.js';
 import './locales/register-client-locales.js';
 
@@ -37,6 +42,26 @@ export const App: React.FC = observer(() => {
   useEffect(() => bindNavigationToUrl(navigationStore), []);
   // A project opened straight from the URL knows only its id — `ProjectWorkspace` fetches its name (and
   // whether it opens read-only) with `GET /projects/:id`.
+  const page = (): React.ReactNode => {
+    switch (navigationStore.view) {
+      case 'runs': {
+        return <RunsPage />;
+      }
+      case 'tasks': {
+        return <TasksPage />;
+      }
+      case 'settings': {
+        return <SettingsPage />;
+      }
+      case 'tokens': {
+        return <PersonalAccessTokensPage />;
+      }
+      default: {
+        const extensionView = findExtensionView(extensions, navigationStore.view);
+        return extensionView ? extensionView.render() : <ProjectListPage />;
+      }
+    }
+  };
   const content = (() => {
     if (!authStore.isAuthChecked) {
       return (
@@ -46,14 +71,19 @@ export const App: React.FC = observer(() => {
       );
     }
     if (!authStore.currentUser) return <LoginPage />;
-    if (navigationStore.selectedProjectId) {
-      return <ProjectWorkspace key={navigationStore.selectedProjectId} projectId={navigationStore.selectedProjectId} />;
-    }
-    if (navigationStore.view === 'runs') return <RunsPage />;
-    if (navigationStore.view === 'tasks') return <TasksPage />;
-    const extensionView = findExtensionView(extensions, navigationStore.view);
-    if (extensionView) return <>{extensionView.render()}</>;
-    return <ProjectListPage />;
+    const main = navigationStore.selectedProjectId ? (
+      <ProjectWorkspace key={navigationStore.selectedProjectId} projectId={navigationStore.selectedProjectId} />
+    ) : (
+      <AppShell>{page()}</AppShell>
+    );
+    // The support chat and the password dialog are the same everywhere a user is signed in, project included.
+    return (
+      <>
+        {main}
+        <SupportWidget />
+        <ChangePasswordModal />
+      </>
+    );
   })();
 
   return <ConfigProvider theme={{ algorithm: antdTheme.darkAlgorithm }}>{content}</ConfigProvider>;

@@ -64,7 +64,7 @@ describe('SupportStore', () => {
       store.release();
     });
 
-    it('skips the request when signed out or when the drawer is open, yet keeps the timer', async () => {
+    it('skips the request when signed out or when the chat is open, yet keeps the timer', async () => {
       const store = new SupportStore();
       auth.currentUser = null;
       store.acquire();
@@ -90,20 +90,20 @@ describe('SupportStore', () => {
       store.release();
     });
 
-    it('releasing the last holder closes the drawer and stops message polling', async () => {
+    it('releasing the last holder closes the chat and stops message polling', async () => {
       const store = new SupportStore();
       store.acquire();
       await store.open();
-      expect(store.drawerOpen).toBe(true);
+      expect(store.chatOpen).toBe(true);
       store.release();
-      expect(store.drawerOpen).toBe(false);
+      expect(store.chatOpen).toBe(false);
       api.listSupportMessages.mockClear();
       await vi.advanceTimersByTimeAsync(30_000);
       expect(api.listSupportMessages).not.toHaveBeenCalled();
     });
   });
 
-  describe('drawer', () => {
+  describe('chat', () => {
     it('open loads everything, marks read and clears the badge', async () => {
       api.listSupportMessages.mockResolvedValue([msg('a')]);
       const store = new SupportStore();

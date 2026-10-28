@@ -106,6 +106,7 @@ import { VendorDataStore } from './vendor-data-store.js';
 import { resolveServerActivity, type TServerActivity } from './server-activity.js';
 import { buildReadOnlySchemeForDiff as buildReadOnlySchemeForDiffImpl } from './versioning/build-read-only-scheme-for-diff.js';
 import { HttpVersionStore } from './versioning/http-version-store.js';
+import type { TProjectRouteView } from './navigation-url.js';
 import {
   getTriggerFunctionBodyData,
   type DocumentType,
@@ -114,6 +115,9 @@ import {
 } from './workflow-types.js';
 
 export type { DocumentType, WorkflowDocument, WorkflowFolder } from './workflow-types.js';
+
+/** A non-document tab of the workspace (Files, Tasks) — the same names the URL uses for a project view. */
+export type TSystemTab = TProjectRouteView;
 
 const darkTheme: ITheme = {
   background: '#1e1e1e',
@@ -217,7 +221,12 @@ export class WorkflowStore implements IWorkflowAgentStore {
    * the per-document scheme/`IntegrationsEditor` views `activeTabId` already drives. Cleared by
    * `openTab` so switching to a document tab always shows that document again.
    */
-  @observable activeView: 'files' | 'tasks' | null = null;
+  @observable activeView: TSystemTab | null = null;
+  /**
+   * The open "system" tabs (Files, Tasks) — shown in the tabs bar after the document tabs, opened from the
+   * Project menu, closed with their own ×. `activeView` is always one of them (or `null` = a document tab).
+   */
+  @observable systemTabs: TSystemTab[] = [];
 
   /**
    * Scheme tabs that stay mounted (the active one plus the most recently active others, hidden) so a
@@ -448,7 +457,9 @@ export class WorkflowStore implements IWorkflowAgentStore {
     this.keepAliveSchemeIds = pruneKeepAlive(this.keepAliveSchemeIds, (id) => tabs.openTabIds.includes(id));
   }
 
-  @action setActiveView(view: 'files' | 'tasks' | null): void {
+  /** Shows a system tab (opening it if needed), or the active document again for `null`. */
+  @action setActiveView(view: TSystemTab | null): void {
+    if (view !== null && !this.systemTabs.includes(view)) this.systemTabs = [...this.systemTabs, view];
     this.activeView = view;
   }
 
@@ -689,14 +700,15 @@ export class WorkflowStore implements IWorkflowAgentStore {
     this.selectedDocId = null;
   }
 
-  /** The toolbar's "Files" button — clicking it while already open closes it back to whichever document tab was active. */
-  @action toggleFilesView(): void {
-    this.activeView = this.activeView === 'files' ? null : 'files';
+  /** The Project menu's "Files"/"Tasks": opens that system tab (or switches to it when already open). */
+  @action openSystemTab(view: TSystemTab): void {
+    this.setActiveView(view);
   }
 
-  /** The toolbar's "Tasks" button — same toggle-back-to-document shape as `toggleFilesView` above. */
-  @action toggleTasksView(): void {
-    this.activeView = this.activeView === 'tasks' ? null : 'tasks';
+  /** A system tab's ×: closes it; when it was showing, the active document (if any) shows again. */
+  @action closeSystemTab(view: TSystemTab): void {
+    this.systemTabs = this.systemTabs.filter((tab) => tab !== view);
+    if (this.activeView === view) this.activeView = this.systemTabs.at(-1) ?? null;
   }
 
   @action closeTab(id: string): void {

@@ -2,16 +2,21 @@ import { createContext, createElement, useContext, type FC, type ReactNode } fro
 import type { IEventTrackerHandler } from '../analytics/event-tracker.js';
 import type { IApiUser } from '../api-client.js';
 
-/** An extra top-level navigation entry, shown in the project-list header after the built-in ones. */
+/** An extra top-level navigation entry, shown in the app header after the built-in ones (just before the user menu). */
 export interface IClientExtensionNavItem {
   key: string;
   label: string;
   icon?: ReactNode;
+  /**
+   * The item's content instead of `icon` + `label` (cloud: a wallet icon and the current balance). Rendered on every
+   * header render — return an `observer` component to keep it live.
+   */
+  render?: () => ReactNode;
   /** Ascending; items without an order go last (ties keep declaration order). */
   order?: number;
 }
 
-/** A page opened by the nav item with the same `key` (navigation view `ext:<key>`). It replaces the whole screen; use `navigationStore.goToProjectList()` to return. */
+/** A page opened by the nav item with the same `key` (navigation view `ext:<key>`), shown under the app header. */
 export interface IClientExtensionView {
   key: string;
   render: () => ReactNode;
@@ -46,7 +51,7 @@ export interface ISuspendedActionContext {
 export interface IClientExtensions {
   navItems?: IClientExtensionNavItem[];
   views?: IClientExtensionView[];
-  /** Shown in the project-list header next to the built-in controls. */
+  /** Shown in the app header just before the user menu. */
   renderPlanBadge?: (user: IApiUser) => ReactNode;
   /** Analytics handler; `App` installs it into the `eventTracker` singleton. Absent = nothing is tracked anywhere. */
   eventTracker?: IEventTrackerHandler;

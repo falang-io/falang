@@ -4,21 +4,19 @@ import { getGlobalI18n } from '@falang/scheme';
 import { Button, Form, Input, InputNumber, Modal, Popconfirm, Select, Table, Typography, message } from 'antd';
 import { workflowApi, type IApiPersonalAccessToken, type IApiProject } from '../api-client.js';
 
-interface Props {
-  readonly open: boolean;
-  readonly onClose: () => void;
-  /** For the optional project-scope `Select` and for showing a scoped token's project name in the list. */
-  readonly projects: readonly IApiProject[];
-}
+const styles: Record<string, React.CSSProperties> = {
+  root: { width: 960, maxWidth: '100%', margin: '0 auto', padding: '32px 16px' },
+  title: { color: '#cdd6f4', marginTop: 0 },
+};
 
 /**
- * "Personal access tokens" section — see ADR 0029 (private)'s PAT decision
- * (per-user, optional project scope; the raw secret is shown exactly once, at creation, then never
- * again). Reachable from `ProjectListPage`'s header, the same place `LanguageSwitcher`/logout live —
- * this app has no other per-user "settings" surface yet.
+ * "Access tokens" page (`#/tokens`, the user menu) — see ADR 0029 (private)'s PAT decision (per-user, optional
+ * project scope; the raw secret is shown exactly once, at creation, then never again).
  */
-export const PersonalAccessTokensModal: React.FC<Props> = ({ open, onClose, projects }) => {
+export const PersonalAccessTokensPage: React.FC = () => {
   const t = getGlobalI18n().t;
+  // For the optional project-scope `Select` and for showing a scoped token's project name in the list.
+  const [projects, setProjects] = useState<IApiProject[]>([]);
   const [tokens, setTokens] = useState<IApiPersonalAccessToken[] | null>(null);
   const [loading, setLoading] = useState(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
@@ -45,9 +43,14 @@ export const PersonalAccessTokensModal: React.FC<Props> = ({ open, onClose, proj
   }, [t]);
 
   useEffect(() => {
-    if (!open) return;
     load();
-  }, [open, load]);
+    workflowApi
+      .listProjects()
+      .then(setProjects)
+      .catch(() => {
+        // Without names a scoped token shows its project id; the project select is just empty.
+      });
+  }, [load]);
 
   const resetCreateForm = () => {
     setCreateOpen(false);
@@ -95,13 +98,11 @@ export const PersonalAccessTokensModal: React.FC<Props> = ({ open, onClose, proj
 
   return (
     <>
-      <Modal
-        title={t('client:personal-access-tokens-modal.title')}
-        open={open}
-        onCancel={onClose}
-        footer={null}
-        width={720}
-      >
+      <div style={styles.root} data-testid="tokens-page">
+        <Typography.Title level={3} style={styles.title}>
+          {t('client:personal-access-tokens-modal.title')}
+        </Typography.Title>
+        <Typography.Paragraph type="secondary">{t('client:personal-access-tokens-modal.hint')}</Typography.Paragraph>
         {errorMessage && <Typography.Text type="danger">{errorMessage}</Typography.Text>}
 
         {isCreateOpen ? (
@@ -189,7 +190,7 @@ export const PersonalAccessTokensModal: React.FC<Props> = ({ open, onClose, proj
             },
           ]}
         />
-      </Modal>
+      </div>
 
       {/* Shown exactly once, right after creation — the raw secret is never retrievable again. */}
       <Modal

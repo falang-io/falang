@@ -108,11 +108,11 @@ test.describe('tasks page', () => {
     const row = page.getByRole('row', { name: /Approve order/ });
     await expect(row.getByText('done')).toBeVisible();
 
-    // The project list's own standalone "Tasks" button (`navigationStore.goToTasks()`) shows the
-    // same task, cross-project.
+    // The app header's "Tasks" item (`navigationStore.goToTasks()`) shows the same task, cross-project.
     await page.getByRole('button', { name: '← Projects' }).click();
     await expect(page.getByRole('button', { name: '+ New project' })).toBeVisible();
-    await page.getByRole('button', { name: 'Tasks', exact: true }).click();
+    await page.getByTestId('nav-tasks').click();
+    await expect(page.getByTestId('nav-tasks')).toHaveAttribute('data-active', 'true');
     const standaloneRow = page.getByRole('row', { name: new RegExp(`Approve order.*${projectName}`) });
     await expect(standaloneRow).toBeVisible();
     await expect(standaloneRow.getByText('done')).toBeVisible();

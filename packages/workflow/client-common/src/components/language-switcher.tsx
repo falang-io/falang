@@ -8,14 +8,16 @@ const LANGUAGE_OPTIONS = [
   { value: 'ru', label: 'Русский' },
 ];
 
-export const LanguageSwitcher: React.FC = observer(() => {
+/** The interface language (persisted on the user, `authStore.setLanguage`); shown on the Settings page. */
+export const LanguageSwitcher: React.FC<{ width?: number }> = observer(({ width = 100 }) => {
   const language = authStore.currentUser?.language;
   if (!language) return null;
   return (
     <Select
-      size="small"
+      size={width > 100 ? 'middle' : 'small'}
       value={language}
-      style={{ width: 100 }}
+      style={{ width }}
+      data-testid="language-select"
       options={LANGUAGE_OPTIONS}
       onChange={(value: string) => {
         authStore.setLanguage(value).catch((error: unknown) => {

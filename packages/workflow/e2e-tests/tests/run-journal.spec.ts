@@ -90,13 +90,13 @@ test.describe('run journal', () => {
     await toggle.click();
     await expect(toggle).toHaveText(labelBefore);
 
-    // Back to the project: the Project menu's "Run journal" opens the settings modal with the switch.
+    // Back to the project: the Project menu's "Settings" modal has the run journal switch on its own tab.
     await page.keyboard.press('Escape');
     await page.goto('/');
     await openProjectViaUI(page, projectName);
-    await clickProjectMenuItem(page, 'Run journal');
-    // antd puts `data-testid` on the zero-size modal root, so assert the dialog and its switch instead.
-    await expect(page.getByRole('dialog')).toBeVisible();
+    await clickProjectMenuItem(page, 'Settings');
+    await expect(page.getByTestId('project-settings-modal')).toBeVisible();
+    await page.getByTestId('project-settings-tab-run-journal').click();
     await expect(page.getByTestId('run-journal-store-texts')).toBeVisible();
   });
 });

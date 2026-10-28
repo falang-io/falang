@@ -2,7 +2,7 @@ import { action, computed, makeObservable, observable } from 'mobx';
 import type { TAppRoute, TProjectRouteView } from './navigation-url.js';
 import { forgetPendingTemplate, rememberPendingTemplate } from './pending-template.js';
 
-export type TNavigationView = 'projects' | 'runs' | 'tasks' | `ext:${string}`;
+export type TNavigationView = 'projects' | 'runs' | 'tasks' | 'settings' | 'tokens' | `ext:${string}`;
 
 /**
  * Which project (if any) is open, and which top-level screen is shown otherwise — no router library,
@@ -37,6 +37,8 @@ export class NavigationStore {
     if (this.view === 'projects' && this.templateKey) return { kind: 'template', key: this.templateKey };
     if (this.view === 'runs') return { kind: 'runs' };
     if (this.view === 'tasks') return { kind: 'tasks' };
+    if (this.view === 'settings') return { kind: 'settings' };
+    if (this.view === 'tokens') return { kind: 'tokens' };
     if (this.view.startsWith('ext:')) return { kind: 'ext', key: this.view.slice('ext:'.length) };
     return { kind: 'projects' };
   }
@@ -62,6 +64,18 @@ export class NavigationStore {
   @action goToTasks(): void {
     this.leaveProject();
     this.view = 'tasks';
+  }
+
+  /** The user menu's "Settings" page (login, password, language). */
+  @action goToSettings(): void {
+    this.leaveProject();
+    this.view = 'settings';
+  }
+
+  /** The user menu's "Access tokens" page. */
+  @action goToTokens(): void {
+    this.leaveProject();
+    this.view = 'tokens';
   }
 
   /** Opens a page contributed through `IClientExtensions.views` (see `extensions/client-extensions.ts`). */
@@ -117,6 +131,14 @@ export class NavigationStore {
       }
       case 'tasks': {
         this.goToTasks();
+        break;
+      }
+      case 'settings': {
+        this.goToSettings();
+        break;
+      }
+      case 'tokens': {
+        this.goToTokens();
         break;
       }
       case 'ext': {

@@ -11,9 +11,8 @@ import {
   FilePdfOutlined,
   FolderOutlined,
   HistoryOutlined,
-  CloudServerOutlined,
+  SettingOutlined,
   TeamOutlined,
-  ProfileOutlined,
   UnorderedListOutlined,
 } from '@ant-design/icons';
 import { getGlobalI18n } from '@falang/scheme';
@@ -21,9 +20,8 @@ import { authStore } from '../auth-store.js';
 import { useWorkflowStore } from '../workflow-store-context.js';
 import { useProjectExport } from './export-buttons.cmp.js';
 import { CodeViewerModal } from './code-viewer-modal.js';
-import { RuntimeSettingsModal } from './runtime-settings-modal.js';
 import { ProjectMembersModal } from './project-members-modal.js';
-import { RunJournalSettingsModal } from './run-journal-settings-modal.js';
+import { ProjectSettingsModal } from './project-settings-modal.js';
 import { ProjectRunsDrawer } from './project-runs-drawer.js';
 import { useRunningCount } from './use-running-count.js';
 
@@ -46,15 +44,17 @@ const withMark = (label: string, active: boolean, count = 0): React.ReactNode =>
     label
   );
 
-/** The toolbar's "Project" menu: code, files, tasks, history, servers, users, JSON/PDF export and the runs drawer. */
+/**
+ * The toolbar's "Project" menu: code, files and tasks (system tabs), history, runs, settings (servers + run journal),
+ * users, JSON/PDF export.
+ */
 export const ProjectMenu: React.FC<IProjectMenuProps> = observer(({ buttonStyle, errorStyle }) => {
   const t = getGlobalI18n().t;
   const store = useWorkflowStore();
   const projectExport = useProjectExport();
   const [codeViewerOpen, setCodeViewerOpen] = useState(false);
   const [runsOpen, setRunsOpen] = useState(false);
-  const [journalSettingsOpen, setJournalSettingsOpen] = useState(false);
-  const [runtimeSettingsOpen, setRuntimeSettingsOpen] = useState(false);
+  const [settingsOpen, setSettingsOpen] = useState(false);
   const [membersOpen, setMembersOpen] = useState(false);
   const runningCount = useRunningCount(store.projectId, store.liveRun.position?.status ?? null);
 
@@ -69,13 +69,13 @@ export const ProjectMenu: React.FC<IProjectMenuProps> = observer(({ buttonStyle,
       key: 'files',
       icon: <FolderOutlined />,
       label: withMark(t('client:toolbar.files'), store.activeView === 'files'),
-      onClick: () => store.toggleFilesView(),
+      onClick: () => store.openSystemTab('files'),
     },
     {
       key: 'tasks',
       icon: <CarryOutOutlined />,
       label: withMark(t('client:toolbar.tasks'), store.activeView === 'tasks', store.tasks.openCount),
-      onClick: () => store.toggleTasksView(),
+      onClick: () => store.openSystemTab('tasks'),
     },
     {
       key: 'history',
@@ -90,16 +90,10 @@ export const ProjectMenu: React.FC<IProjectMenuProps> = observer(({ buttonStyle,
       onClick: () => setRunsOpen(true),
     },
     {
-      key: 'run-journal-settings',
-      icon: <ProfileOutlined />,
-      label: t('client:toolbar.run-journal'),
-      onClick: () => setJournalSettingsOpen(true),
-    },
-    {
-      key: 'runtime-settings',
-      icon: <CloudServerOutlined />,
-      label: t('client:toolbar.runtime-settings'),
-      onClick: () => setRuntimeSettingsOpen(true),
+      key: 'settings',
+      icon: <SettingOutlined />,
+      label: t('client:toolbar.settings'),
+      onClick: () => setSettingsOpen(true),
     },
     {
       key: 'members',
@@ -126,8 +120,9 @@ export const ProjectMenu: React.FC<IProjectMenuProps> = observer(({ buttonStyle,
   ];
 
   // An admin viewing someone else's project (read-only) gets only what reads: files, tasks and the journal
-  // settings belong to the owner. Members stay: an admin may add users to any project (ADR 0070 (private)).
-  const READ_ONLY_HIDDEN = new Set(['files', 'tasks', 'run-journal-settings', 'runtime-settings']);
+  // settings (servers, run journal) belong to the owner. Members stay: an admin may add users to any project
+  // (ADR 0070 (private)).
+  const READ_ONLY_HIDDEN = new Set(['files', 'tasks', 'settings']);
   if (store.readOnly && authStore.currentUser?.role !== 'admin') READ_ONLY_HIDDEN.add('members');
   const visibleItems = store.readOnly ? items.filter((item) => !READ_ONLY_HIDDEN.has(String(item?.key))) : items;
 
@@ -146,16 +141,7 @@ export const ProjectMenu: React.FC<IProjectMenuProps> = observer(({ buttonStyle,
       </Dropdown>
       {projectExport.exportError && <span style={errorStyle}>{projectExport.exportError}</span>}
       <CodeViewerModal projectId={store.projectId} open={codeViewerOpen} onClose={() => setCodeViewerOpen(false)} />
-      <RunJournalSettingsModal
-        projectId={store.projectId}
-        open={journalSettingsOpen}
-        onClose={() => setJournalSettingsOpen(false)}
-      />
-      <RuntimeSettingsModal
-        projectId={store.projectId}
-        open={runtimeSettingsOpen}
-        onClose={() => setRuntimeSettingsOpen(false)}
-      />
+      <ProjectSettingsModal projectId={store.projectId} open={settingsOpen} onClose={() => setSettingsOpen(false)} />
       <ProjectMembersModal projectId={store.projectId} open={membersOpen} onClose={() => setMembersOpen(false)} />
       <ProjectRunsDrawer open={runsOpen} onClose={() => setRunsOpen(false)} />
     </>

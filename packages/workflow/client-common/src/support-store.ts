@@ -10,15 +10,16 @@ const errorMessage = (error: unknown, fallback: string): string => (error instan
 /**
  * The user's side of the support chat (user ↔ administrator, text only, one thread per user). Polling only —
  * no WebSocket. Two timers, both setTimeout-recursion like `TasksStore`:
- * - the unread badge: `GET /support/unread` every 60s while at least one `SupportButton` is mounted and a user is
- *   signed in (`acquire()`/`release()` are refcounted; the button calls them from a `useEffect`);
- * - the open drawer: `GET /support/messages?after=<newest known createdAt>` every 10s while `drawerOpen`.
- * Opening the drawer marks the admin's messages read, and so does each new admin message arriving while it is open.
+ * - the unread badge: `GET /support/unread` every 60s while the `SupportWidget` is mounted and a user is
+ *   signed in (`acquire()`/`release()` are refcounted; `SupportWidget` calls them from a `useEffect`);
+ * - the open chat: `GET /support/messages?after=<newest known createdAt>` every 10s while `chatOpen`.
+ * Opening the chat (`SupportWidget`'s popup) marks the admin's messages read, and so does each new admin message
+ * arriving while it is open.
  */
 export class SupportStore {
   @observable messages: IApiSupportMessage[] = [];
   @observable unreadCount = 0;
-  @observable drawerOpen = false;
+  @observable chatOpen = false;
   @observable sending = false;
   @observable error: string | null = null;
 
@@ -46,7 +47,7 @@ export class SupportStore {
 
   async open(): Promise<void> {
     runInAction(() => {
-      this.drawerOpen = true;
+      this.chatOpen = true;
       this.error = null;
     });
     await this.pollMessages(true);
@@ -54,7 +55,7 @@ export class SupportStore {
 
   close(): void {
     runInAction(() => {
-      this.drawerOpen = false;
+      this.chatOpen = false;
     });
     this.clearTimer('messages');
   }
@@ -102,7 +103,7 @@ export class SupportStore {
   private async pollUnread(): Promise<void> {
     this.clearTimer('unread');
     if (this.holders === 0) return;
-    if (authStore.currentUser && !this.drawerOpen) {
+    if (authStore.currentUser && !this.chatOpen) {
       try {
         const { count } = await workflowApi.getSupportUnread();
         runInAction(() => {
@@ -118,7 +119,7 @@ export class SupportStore {
 
   private async pollMessages(initial: boolean): Promise<void> {
     this.clearTimer('messages');
-    if (!this.drawerOpen) return;
+    if (!this.chatOpen) return;
     try {
       const incoming = await workflowApi.listSupportMessages(initial ? null : this.newestCreatedAt());
       const hasNewAdminMessage = incoming.some((m) => m.authorRole === 'admin' && m.readAt === null);
@@ -134,7 +135,7 @@ export class SupportStore {
         this.error = errorMessage(error, 'Failed to load messages');
       });
     }
-    if (!this.drawerOpen) return;
+    if (!this.chatOpen) return;
     this.messagesTimer = setTimeout(() => this.pollMessages(false), MESSAGES_POLL_MS);
   }
 }

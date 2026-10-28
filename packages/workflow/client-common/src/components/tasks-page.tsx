@@ -4,12 +4,9 @@ import { observer } from 'mobx-react-lite';
 import { getGlobalI18n, type TFunction } from '@falang/scheme';
 import { Button, Select, Switch, Table, Tag, Typography, type TableProps } from 'antd';
 import { workflowApi, type IApiTask, type TTaskStatus } from '../api-client.js';
-import { navigationStore } from '../navigation-store.js';
 import { TasksStore } from '../tasks-store.js';
-import { LanguageSwitcher } from './language-switcher.js';
 import { RunDetailDrawer } from './run-detail-drawer.js';
 import { TaskDetailDrawer } from './task-detail-drawer.js';
-import { SupportButton } from './support-button.js';
 
 interface Props {
   /** When given, this page filters by that project and hides the project filter — used as the workspace's own "Tasks" view (see `WorkflowStore.activeView`). Omitted, it's the standalone cross-project Tasks page reached via `navigationStore.goToTasks()`. */
@@ -26,15 +23,8 @@ const statusColor = (status: TTaskStatus): string => {
 };
 
 const standaloneStyles: Record<string, React.CSSProperties> = {
-  root: {
-    height: '100vh',
-    width: '100vw',
-    display: 'flex',
-    justifyContent: 'center',
-    background: '#1e1e2e',
-    overflow: 'auto',
-  },
-  content: { width: 960, padding: '48px 0' },
+  root: { display: 'flex', justifyContent: 'center' },
+  content: { width: 960, maxWidth: '100%', padding: '32px 16px', boxSizing: 'border-box' },
 };
 
 const embeddedStyles: Record<string, React.CSSProperties> = {
@@ -96,9 +86,9 @@ const commonStyles: Record<string, React.CSSProperties> = {
 /**
  * Human-in-the-loop Tasks page (ADR 0040 (private) §2's "Tasks page" —
  * a project owner resolving `human-task` nodes). Reused two ways: standalone, cross-project
- * (`navigationStore.view === 'tasks'`, project filter shown, own dark full-page chrome) and embedded in
- * a project workspace (`projectId` given, project filter hidden, `FilesTab`-style flex container — see
- * `ProjectWorkspace`'s `activeView === 'tasks'` branch).
+ * (`navigationStore.view === 'tasks'`, project filter shown, under the app header) and embedded in a project
+ * workspace (`projectId` given, project filter hidden, the "Tasks" system tab — see `ProjectWorkspace`'s
+ * `activeView === 'tasks'` branch).
  */
 export const TasksPage: React.FC<Props> = observer(({ projectId }) => {
   const t = getGlobalI18n().t;
@@ -165,22 +155,9 @@ export const TasksPage: React.FC<Props> = observer(({ projectId }) => {
           <Typography.Title level={projectId ? 4 : 3} style={commonStyles.title}>
             {t('client:tasks-page.title')}
           </Typography.Title>
-          <div>
-            {!projectId && <LanguageSwitcher />}
-            {!projectId && (
-              <span style={{ marginLeft: 8 }}>
-                <SupportButton type="default" />
-              </span>
-            )}
-            {!projectId && (
-              <Button onClick={() => navigationStore.goToProjectList()} style={{ marginLeft: 8, marginRight: 8 }}>
-                {t('client:tasks-page.back-to-projects')}
-              </Button>
-            )}
-            <Button onClick={refresh} loading={store.loading}>
-              {t('client:tasks-page.refresh')}
-            </Button>
-          </div>
+          <Button onClick={refresh} loading={store.loading}>
+            {t('client:tasks-page.refresh')}
+          </Button>
         </div>
 
         <div style={commonStyles.filters}>

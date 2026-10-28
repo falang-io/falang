@@ -4,21 +4,11 @@ import { observer } from 'mobx-react-lite';
 import { getGlobalI18n } from '@falang/scheme';
 import { Button, Select, Table, Tag, Typography } from 'antd';
 import { workflowApi, type IApiWorkflowRunFilters, type IApiWorkflowRunSummary } from '../api-client.js';
-import { navigationStore } from '../navigation-store.js';
-import { LanguageSwitcher } from './language-switcher.js';
 import { RunDetailDrawer } from './run-detail-drawer.js';
-import { SupportButton } from './support-button.js';
 
 const styles: Record<string, React.CSSProperties> = {
-  root: {
-    height: '100vh',
-    width: '100vw',
-    display: 'flex',
-    justifyContent: 'center',
-    background: '#1e1e2e',
-    overflow: 'auto',
-  },
-  content: { width: 960, padding: '48px 0' },
+  root: { display: 'flex', justifyContent: 'center' },
+  content: { width: 960, maxWidth: '100%', padding: '32px 16px', boxSizing: 'border-box' },
   header: { display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 16 },
   title: { color: '#cdd6f4', margin: 0 },
   filters: { display: 'flex', gap: 8, marginBottom: 16, flexWrap: 'wrap' },
@@ -112,18 +102,9 @@ export const RunsPage: React.FC = observer(() => {
           <Typography.Title level={3} style={styles.title}>
             {t('client:runs-page.title')}
           </Typography.Title>
-          <div>
-            <LanguageSwitcher />
-            <span style={{ marginLeft: 8 }}>
-              <SupportButton type="default" />
-            </span>
-            <Button onClick={() => navigationStore.goToProjectList()} style={{ marginLeft: 8, marginRight: 8 }}>
-              {t('client:runs-page.back-to-projects')}
-            </Button>
-            <Button onClick={refresh} loading={loading}>
-              {t('client:runs-page.refresh')}
-            </Button>
-          </div>
+          <Button onClick={refresh} loading={loading}>
+            {t('client:runs-page.refresh')}
+          </Button>
         </div>
 
         <div style={styles.filters}>

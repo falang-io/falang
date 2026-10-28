@@ -6,6 +6,9 @@ export type TAppRoute =
   | { kind: 'projects' }
   | { kind: 'runs' }
   | { kind: 'tasks' }
+  /** The signed-in user's settings (login, password, language) and personal access tokens. */
+  | { kind: 'settings' }
+  | { kind: 'tokens' }
   | { kind: 'ext'; key: string }
   /** "Open a template" link from the public site: the project list with the create-from-template dialog. */
   | { kind: 'template'; key: string }
@@ -37,7 +40,7 @@ const parseProjectSegments = (segments: readonly string[]): TAppRoute | null => 
 
 /**
  * Parses `location.hash` (`#/projects/<id>/documents/<docId>`, `#/projects/<id>/files|tasks`,
- * `#/runs`, `#/tasks`, `#/ext/<key>`, `#/templates/<id-or-slug>`, empty / `#/` = the project list). Returns `null` for a hash this
+ * `#/runs`, `#/tasks`, `#/settings`, `#/tokens`, `#/ext/<key>`, `#/templates/<id-or-slug>`, empty / `#/` = the project list). Returns `null` for a hash this
  * router doesn't own (`#/admin…`, plain anchors, garbage) so the caller leaves the current state alone.
  */
 export const parseAppHash = (hash: string): TAppRoute | null => {
@@ -49,11 +52,11 @@ export const parseAppHash = (hash: string): TAppRoute | null => {
     case 'projects': {
       return segments.length === 1 ? { kind: 'projects' } : parseProjectSegments(segments);
     }
-    case 'runs': {
-      return segments.length === 1 ? { kind: 'runs' } : null;
-    }
-    case 'tasks': {
-      return segments.length === 1 ? { kind: 'tasks' } : null;
+    case 'runs':
+    case 'tasks':
+    case 'settings':
+    case 'tokens': {
+      return segments.length === 1 ? { kind: segments[0] } : null;
     }
     case 'ext': {
       const key = safeDecode(segments[1] ?? '');
@@ -80,6 +83,12 @@ export const formatAppHash = (route: TAppRoute): string => {
     }
     case 'tasks': {
       return '#/tasks';
+    }
+    case 'settings': {
+      return '#/settings';
+    }
+    case 'tokens': {
+      return '#/tokens';
     }
     case 'ext': {
       return `#/ext/${encodeURIComponent(route.key)}`;

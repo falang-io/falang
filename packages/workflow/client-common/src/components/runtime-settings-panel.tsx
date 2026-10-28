@@ -1,6 +1,6 @@
 import type React from 'react';
 import { useEffect, useState } from 'react';
-import { Alert, Button, InputNumber, Modal, message, Spin, Switch, Tooltip, Typography } from 'antd';
+import { Alert, Button, InputNumber, message, Spin, Switch, Tooltip, Typography } from 'antd';
 import { getGlobalI18n } from '@falang/scheme';
 import { workflowApi, type IApiRuntimeSettings, type TApiRunnerEnv } from '../api-client.js';
 import { ApiCodedError } from '../api-coded-error.js';
@@ -17,17 +17,16 @@ import {
 
 interface Props {
   readonly projectId: string;
-  readonly open: boolean;
-  readonly onClose: () => void;
 }
 
 const ENVS: readonly TApiRunnerEnv[] = ['dev', 'prod'];
 
 /**
  * "Project servers" (ADR 0067 (private) §2): per environment (dev stand / production versions) the current state,
- * the idle-stop period and the "always on" switch. Owner only; the host may add a price line per section.
+ * the idle-stop period and the "always on" switch. Owner only; the host may add a price line per section. A tab of
+ * the project "Settings" modal, with its own Save button.
  */
-export const RuntimeSettingsModal: React.FC<Props> = ({ projectId, open, onClose }) => {
+export const RuntimeSettingsPanel: React.FC<Props> = ({ projectId }) => {
   const t = getGlobalI18n().t;
   const extensions = useClientExtensions();
   const [settings, setSettings] = useState<IApiRuntimeSettings | null>(null);
@@ -41,7 +40,6 @@ export const RuntimeSettingsModal: React.FC<Props> = ({ projectId, open, onClose
   };
 
   useEffect(() => {
-    if (!open) return;
     setSettings(null);
     setForm(null);
     setErrorMessage(null);
@@ -51,7 +49,7 @@ export const RuntimeSettingsModal: React.FC<Props> = ({ projectId, open, onClose
       .catch((error: unknown) =>
         setErrorMessage(error instanceof Error ? error.message : t('client:runtime-settings.failed-to-load')),
       );
-  }, [open, projectId, t]);
+  }, [projectId, t]);
 
   const errors = settings && form ? validateRuntimeForm(form, settings.limits.maxIdleMinutes) : null;
   const dirty = settings && form ? !isRuntimeFormEqual(form, toRuntimeForm(settings)) : false;
@@ -66,7 +64,6 @@ export const RuntimeSettingsModal: React.FC<Props> = ({ projectId, open, onClose
       .then((next) => {
         apply(next);
         message.success(t('client:runtime-settings.saved'));
-        onClose();
       })
       .catch((error: unknown) => {
         if (error instanceof ApiCodedError && error.code === 'always_on_not_allowed') {
@@ -103,27 +100,7 @@ export const RuntimeSettingsModal: React.FC<Props> = ({ projectId, open, onClose
   };
 
   return (
-    <Modal
-      title={t('client:runtime-settings.title')}
-      open={open}
-      onCancel={onClose}
-      destroyOnHidden
-      data-testid="runtime-settings-modal"
-      footer={
-        <>
-          <Button onClick={onClose}>{t('client:runtime-settings.close')}</Button>
-          <Button
-            type="primary"
-            loading={saving}
-            disabled={!dirty || invalid || !form}
-            onClick={save}
-            data-testid="runtime-settings-save"
-          >
-            {t('client:runtime-settings.save')}
-          </Button>
-        </>
-      }
-    >
+    <div data-testid="runtime-settings">
       {errorMessage && <Alert type="error" showIcon message={errorMessage} style={{ marginBottom: 12 }} />}
       {settings === null && !errorMessage && <Spin />}
       {settings && form && errors && (
@@ -177,8 +154,19 @@ export const RuntimeSettingsModal: React.FC<Props> = ({ projectId, open, onClose
               </section>
             );
           })}
+          <div style={{ display: 'flex', justifyContent: 'flex-end' }}>
+            <Button
+              type="primary"
+              loading={saving}
+              disabled={!dirty || invalid}
+              onClick={save}
+              data-testid="runtime-settings-save"
+            >
+              {t('client:runtime-settings.save')}
+            </Button>
+          </div>
         </div>
       )}
-    </Modal>
+    </div>
   );
 };

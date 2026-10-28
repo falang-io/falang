@@ -46,9 +46,6 @@
     },
     "project-list-page": {
       "title": "Projects",
-      "logout": "Logout",
-      "runs": "Runs",
-      "tasks": "Tasks",
       "new-project": "+ New project",
       "no-projects": "No projects yet",
       "delete": "Delete",
@@ -63,9 +60,6 @@
       "create": "Create",
       "import": "Import",
       "invalid-json": "Selected file is not valid JSON",
-      "tokens": "Access tokens",
-      "admin": "Admin",
-      "change-password": "Change password",
       "default-project-name": "New project",
       "start-with-agent-title": "What new automation do you want to build?",
       "start-with-agent-hint": "Describe it in your own words — we'll create a project and the AI agent will start building it right away.",
@@ -85,7 +79,6 @@
       "history": "History",
       "agent": "Agent",
       "publishing": "Publishing…",
-      "logout": "Logout",
       "task-queue": "Task queue: {{taskQueue}}",
       "published-version": "Published v{{version}}",
       "terminated-executions_one": "Terminated {{count}} running execution",
@@ -124,17 +117,16 @@
       "magic-insert-tooltip": "A click on a valence point inserts a magic node: describe the step in words and the agent builds it",
       "magic-insert-disabled": "Magic insert needs the AI agent to be configured by an administrator",
       "project-menu": "Project",
-      "run-journal": "Run journal",
       "read-only": "Read-only · owner: {{owner}}",
       "read-only-tooltip": "You are viewing another user’s project as an administrator. Nothing can be changed, built or run here.",
-      "runtime-settings": "Project servers",
       "suspended": {
         "short": "Servers off",
         "balance": "Servers off: balance",
         "admin": "Servers off: suspended by administrator"
       },
       "members": "Users",
-      "webhook-security": "Webhook security"
+      "webhook-security": "Webhook security",
+      "settings": "Settings"
     },
     "run-function-modal": {
       "title": "Run function",
@@ -274,7 +266,6 @@
     },
     "runs-page": {
       "title": "Runs",
-      "back-to-projects": "← Projects",
       "refresh": "Refresh",
       "failed-to-load": "Failed to load runs",
       "filter-project": "Project",
@@ -372,7 +363,8 @@
       "created-title": "Token created",
       "created-warning": "Copy this token now — it will not be shown again.",
       "copied": "Copied to clipboard",
-      "created-close": "Done"
+      "created-close": "Done",
+      "hint": "Personal access tokens let a coding agent (MCP) or a script act on your behalf. A token is shown only once, right after it is created."
     },
     "files-tab": {
       "title": "Files",
@@ -410,7 +402,6 @@
     },
     "tasks-page": {
       "title": "Tasks",
-      "back-to-projects": "← Projects",
       "refresh": "Refresh",
       "filter-status": "Status",
       "filter-project": "Project",
@@ -489,7 +480,8 @@
       "title": "Support",
       "placeholder": "Write to the administrator… (Enter to send, Shift+Enter for a new line)",
       "send": "Send",
-      "empty": "No messages yet. Ask us anything."
+      "empty": "No messages yet. Ask us anything.",
+      "close": "Close"
     },
     "terminate-run": {
       "failed": "Failed to terminate the run",
@@ -529,7 +521,6 @@
       "truncated": "truncated"
     },
     "run-journal-settings": {
-      "title": "Run journal",
       "store-texts": "Store texts (prompts, answers, messages)",
       "hint": "When off, new entries keep only metadata (kind, node, model, sizes, errors). Entries already stored are not rewritten.",
       "failed-to-load": "Failed to load settings",
@@ -542,8 +533,6 @@
     },
     "runtime-settings": {
       "saved": "Settings saved",
-      "title": "Project servers",
-      "close": "Close",
       "save": "Save",
       "env-dev": "Test stand (dev)",
       "env-prod": "Production versions",
@@ -597,6 +586,31 @@
       "version": "Secret version: {{version}}",
       "still-saving": "The change is still being saved — try again in a moment.",
       "failed-to-load": "Failed to load the secret"
+    },
+    "app-header": {
+      "home": "Projects",
+      "projects": "Projects",
+      "admin": "Admin",
+      "runs": "Runs",
+      "tasks": "Tasks"
+    },
+    "user-menu": {
+      "settings": "Settings",
+      "tokens": "Access tokens",
+      "logout": "Logout"
+    },
+    "settings-page": {
+      "title": "Settings",
+      "login": "Login",
+      "email": "E-mail",
+      "password": "Password",
+      "change-password": "Change password",
+      "language": "Language"
+    },
+    "project-settings": {
+      "title": "Project settings",
+      "servers": "Servers",
+      "run-journal": "Run journal"
     }
   },
   "version-history": {
