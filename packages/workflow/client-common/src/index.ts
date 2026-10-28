@@ -1,3 +1,4 @@
+import './zod-csp.js';
 export * from './app.js';
 export * from './analytics/event-tracker.js';
 export * from './api-client.js';
