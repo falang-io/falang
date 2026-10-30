@@ -90,7 +90,7 @@ head:
 
 <p>
   The workflow backend serves MCP over HTTP at <code>/mcp</code> on the backend's host — for example{' '}
-  <code>https://api.workflow.falang.ru/mcp</code>, or <code>http://localhost:4100/mcp</code> for the{' '}
+  <code>https://api.example.com/mcp</code>, or <code>http://localhost:4100/mcp</code> for the{' '}
   <a href="../workflow/local-setup/">local stack</a>. It is authenticated with a personal access token.
 </p>
 <ol>
@@ -103,7 +103,7 @@ head:
   <li>
     Register the server with your agent, for Claude Code:
     <pre>
-      <code>{`claude mcp add --transport http falang-workflow https://api.workflow.falang.ru/mcp \\
+      <code>{`claude mcp add --transport http falang-workflow https://api.example.com/mcp \\
   --header "Authorization: Bearer flg_pat_…"`}</code>
     </pre>
   </li>
@@ -142,6 +142,6 @@ claude plugin install falang@falang`}</code>
   <code>claude mcp add</code>:
 </p>
 <pre>
-  <code>{`export FALANG_MCP_URL="https://api.workflow.falang.ru/mcp"
+  <code>{`export FALANG_MCP_URL="https://api.example.com/mcp"
 export FALANG_TOKEN="flg_pat_…"`}</code>
 </pre>

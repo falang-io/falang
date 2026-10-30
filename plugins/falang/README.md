@@ -42,7 +42,7 @@ itself part of this repo.
    **Personal access token** (PAT) — shown once, optionally scoped to one project.
 2. Set two environment variables before starting Claude Code:
    ```bash
-   export FALANG_MCP_URL="https://api.workflow.falang.ru/mcp"   # the backend's host; locally http://localhost:4100/mcp
+   export FALANG_MCP_URL="https://api.example.com/mcp"   # the backend's host; locally http://localhost:4100/mcp
    export FALANG_TOKEN="<your personal access token>"
    ```
 3. Start `claude` anywhere with this plugin installed. The `falang-workflow` MCP server connects

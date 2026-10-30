@@ -312,9 +312,9 @@ head:
     Add an authorized redirect URI of the form{' '}
     <code>https://&lt;your backend host&gt;/oauth2/callback/&lt;integration id&gt;</code>. The integration id is shown
     in the OAuth credentials table's "Vendor" column — for Google Sheets it's
-    <code>activepieces-google-sheets</code>. For the hosted product, the backend host is
-    <code>api.workflow.falang.ru</code>, so the redirect URI is
-    <code>https://api.workflow.falang.ru/oauth2/callback/activepieces-google-sheets</code>.
+    <code>activepieces-google-sheets</code>. For example, with the backend at
+    <code>api.example.com</code> the redirect URI is
+    <code>https://api.example.com/oauth2/callback/activepieces-google-sheets</code>.
   </li>
   <li>
     One Google Cloud OAuth client can carry several redirect URIs — add one per Google integration you enable (Gmail,
@@ -333,8 +333,8 @@ head:
 
 <p>
   <b>amoCRM example:</b> in an amoCRM technical account, create an external integration with the redirect URL
-  <code>https://&lt;your backend host&gt;/oauth2/callback/amocrm</code> (for the hosted product,
-  <code>https://api.workflow.falang.ru/oauth2/callback/amocrm</code>) and the "Account data access" permission. Then
+  <code>https://&lt;your backend host&gt;/oauth2/callback/amocrm</code> (for example,
+  <code>https://api.example.com/oauth2/callback/amocrm</code>) and the "Account data access" permission. Then
   paste its "Integration ID" as the Client ID and its "Secret key" as the Client secret into the amoCRM row.
 </p>
 <p>

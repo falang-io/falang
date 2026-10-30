@@ -323,9 +323,9 @@ head:
     Добавьте авторизованный redirect URI вида{' '}
     <code>https://&lt;хост вашего бэкенда&gt;/oauth2/callback/&lt;id интеграции&gt;</code>. Id интеграции показан в
     колонке «Vendor» таблицы OAuth-учётных данных — для Google Sheets это
-    <code>activepieces-google-sheets</code>. Для хостингового продукта хост бэкенда —{' '}
-    <code>api.workflow.falang.ru</code>, поэтому redirect URI будет{' '}
-    <code>https://api.workflow.falang.ru/oauth2/callback/activepieces-google-sheets</code>.
+    <code>activepieces-google-sheets</code>. Например, если бэкенд доступен по адресу{' '}
+    <code>api.example.com</code>, redirect URI будет{' '}
+    <code>https://api.example.com/oauth2/callback/activepieces-google-sheets</code>.
   </li>
   <li>
     Один OAuth-клиент Google Cloud может нести несколько redirect URI — добавляйте по одному на каждую включаемую
@@ -345,8 +345,8 @@ head:
 
 <p>
   <b>Пример для amoCRM:</b> в техническом аккаунте amoCRM создайте внешнюю интеграцию, укажите «Ссылку для
-  перенаправления» <code>https://&lt;хост вашего бэкенда&gt;/oauth2/callback/amocrm</code> (для хостингового продукта —
-  <code>https://api.workflow.falang.ru/oauth2/callback/amocrm</code>) и доступ «Доступ к данным аккаунта». Затем
+  перенаправления» <code>https://&lt;хост вашего бэкенда&gt;/oauth2/callback/amocrm</code> (например,
+  <code>https://api.example.com/oauth2/callback/amocrm</code>) и доступ «Доступ к данным аккаунта». Затем
   вставьте «ID интеграции» как Client ID и «Секретный ключ» как Client secret в строку amoCRM.
 </p>
 <p>
