@@ -39,7 +39,12 @@ import { DEFAULT_RUNNER_READY_TIMEOUT_MS, DeploymentCliService } from './deploym
 import { DevArtifactStore } from './dev-artifact-store.service.js';
 import { InternalArtifactsController } from './internal-artifacts.controller.js';
 import { InternalCoverageController } from './internal-coverage.controller.js';
-import { createK8sDeploymentsClient } from './k8s-deployments-client.js';
+import {
+  createK8sDeploymentsClient,
+  pickDeploymentsClient,
+  RUNNER_DEPLOYMENTS_CLIENT,
+  type IK8sDeploymentsClient,
+} from './k8s-deployments-client.js';
 import { ProjectVersion } from './project-version.entity.js';
 import { RUNNER_IDLE_TIMEOUT_MS, RunnerIdleSweepService } from './runner-idle-sweep.service.js';
 import { parseRunnerLogFormat, parseRunnerMetricsPort } from './runner-env.js';
@@ -280,17 +285,29 @@ const createTerminateRunningExecutions = (graceMs: number, tenancy: ITemporalTen
     },
     {
       provide: RunnerProcessManager,
-      inject: [ConfigService, TEMPORAL_TENANCY, RunnerSessionsService],
-      useFactory: (config: ConfigService, tenancy: ITemporalTenancy, sessions: RunnerSessionsService) => {
-        // `loadFromDefault()` reads `KUBECONFIG` (falling back to `~/.kube/config`, or in-cluster
-        // service-account credentials when running as a pod itself) — the same convention every
-        // other k8s tool (`kubectl`, Helm, …) follows, so no bespoke config surface for it here.
-        const kubeConfig = new KubeConfig();
-        kubeConfig.loadFromDefault();
-        const appsApi = kubeConfig.makeApiClient(AppsV1Api);
+      inject: [
+        ConfigService,
+        TEMPORAL_TENANCY,
+        RunnerSessionsService,
+        { token: RUNNER_DEPLOYMENTS_CLIENT, optional: true },
+      ],
+      useFactory: (
+        config: ConfigService,
+        tenancy: ITemporalTenancy,
+        sessions: RunnerSessionsService,
+        deploymentsOverride: IK8sDeploymentsClient | null,
+      ) => {
+        const deploymentsClient = pickDeploymentsClient(deploymentsOverride, () => {
+          // `loadFromDefault()` reads `KUBECONFIG` (falling back to `~/.kube/config`, or in-cluster
+          // service-account credentials when running as a pod itself) — the same convention every
+          // other k8s tool (`kubectl`, Helm, …) follows, so no bespoke config surface for it here.
+          const kubeConfig = new KubeConfig();
+          kubeConfig.loadFromDefault();
+          return createK8sDeploymentsClient(kubeConfig.makeApiClient(AppsV1Api));
+        });
 
         return new RunnerProcessManager({
-          deploymentsClient: createK8sDeploymentsClient(appsApi),
+          deploymentsClient,
           // Durable uptime record, ADR 0067 (private) §1.
           sessions,
           k8sNamespace: config.get<string>('K8S_NAMESPACE', 'workflow'),

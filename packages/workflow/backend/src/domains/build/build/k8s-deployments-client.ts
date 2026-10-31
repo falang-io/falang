@@ -89,3 +89,16 @@ export const createK8sDeploymentsClient = (appsApi: AppsV1Api): IK8sDeploymentsC
     return items;
   },
 });
+
+/**
+ * DI token for an optional `IK8sDeploymentsClient` that replaces the Kubernetes one (ADR 0072 (private): local mode runs
+ * runners as plain processes). Deliberately NOT provided inside `BuildModule` (same pattern as `AGENT_USAGE_SINK`): an
+ * overlay `@Global()` module exports it. When absent, `BuildModule` builds the real k8s client from the kubeconfig.
+ */
+export const RUNNER_DEPLOYMENTS_CLIENT = Symbol('RUNNER_DEPLOYMENTS_CLIENT');
+
+/** Picks the override when given; otherwise builds the k8s client lazily, so a machine without a kubeconfig never loads one. */
+export const pickDeploymentsClient = (
+  override: IK8sDeploymentsClient | undefined | null,
+  createK8s: () => IK8sDeploymentsClient,
+): IK8sDeploymentsClient => override ?? createK8s();

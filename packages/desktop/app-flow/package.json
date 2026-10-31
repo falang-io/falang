@@ -1,0 +1,32 @@
+{
+  "name": "@falang/desktop-app-flow",
+  "private": true,
+  "version": "1.0.0",
+  "description": "Falang Flow: the workflow product as a desktop app (local mode, no Docker)",
+  "author": "",
+  "homepage": "https://falang.io",
+  "type": "module",
+  "main": "./out/main/index.js",
+  "scripts": {
+    "dev": "electron-vite dev",
+    "build": "electron-vite build",
+    "preview": "electron-vite preview",
+    "check": "tsc --noEmit -p tsconfig.node.json && tsc --noEmit -p tsconfig.web.json",
+    "test": "vitest run -c ../../../vitest.config.ts",
+    "coverage": "vitest run --coverage -c ../../../vitest.config.ts"
+  },
+  "dependencies": {
+    "@falang/workflow-client-common": "*",
+    "@types/node": "^25.5.0"
+  },
+  "devDependencies": {
+    "electron": "43.1.0",
+    "electron-vite": "^5.0.0",
+    "vite": "^7.3.6"
+  },
+  "license": "AGPL-3.0-only",
+  "files": [
+    "src",
+    "!src/**/*.test.ts"
+  ]
+}

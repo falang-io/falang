@@ -1,0 +1,60 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta http-equiv="Content-Security-Policy" content="default-src 'self'; style-src 'self' 'unsafe-inline'" />
+    <title>Falang Flow</title>
+    <style>
+      body {
+        margin: 0;
+        height: 100vh;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-family: system-ui, sans-serif;
+        background: #0f1b2d;
+        color: #e6edf7;
+      }
+      main {
+        width: min(720px, 90vw);
+        text-align: center;
+      }
+      h1 {
+        font-weight: 600;
+        letter-spacing: 0.02em;
+      }
+      #status {
+        opacity: 0.8;
+      }
+      #error {
+        display: none;
+        text-align: left;
+      }
+      #log {
+        max-height: 40vh;
+        overflow: auto;
+        background: #08111f;
+        padding: 12px;
+        font-size: 12px;
+        white-space: pre-wrap;
+      }
+      button {
+        margin: 8px 8px 0 0;
+        padding: 8px 16px;
+      }
+    </style>
+  </head>
+  <body>
+    <main>
+      <h1>Falang Flow</h1>
+      <p id="status" data-testid="splash-status">Starting…</p>
+      <section id="error" data-testid="splash-error">
+        <p id="message"></p>
+        <pre id="log"></pre>
+        <button id="open-data">Open data folder</button>
+        <button id="quit">Quit</button>
+      </section>
+    </main>
+    <script type="module" src="/src/splash.ts"></script>
+  </body>
+</html>

@@ -183,6 +183,18 @@ TEMPORAL_SERVER_CONFIG=server.yaml TEMPORAL_TENANT_ISOLATION=per-project \\
   without their own retry policy retry at most 5 times.
 </p>
 
+#### Local mode without Docker
+<p>
+  If you only want to try the engine on one machine, you can skip Docker, kind and Postgres entirely. Run
+  <code>npm install</code> and then <code>npm run start-local</code> in the repository root: a single Node process
+  starts the backend with an embedded database, keeps files on disk, runs every scenario as a child process and serves
+  the editor from the same port (<code>http://localhost:4000</code>, login <code>admin</code>/<code>admin</code>). The
+  Temporal dev server is started alongside it; the <code>temporal</code> CLI is downloaded automatically if it is not
+  installed. Everything is stored in <code>~/.falang-flow</code> — back up the whole folder including
+  <code>secrets.json</code>. ActivePieces integrations and the media service are not available in this mode, and
+  inbound webhooks need a tunnel to the public port.
+</p>
+
 #### Production images
 <p>
   The default targets of <code>docker/backend.Dockerfile</code> and <code>docker/client.Dockerfile</code> are for

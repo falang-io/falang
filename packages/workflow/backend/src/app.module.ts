@@ -54,7 +54,25 @@ export type TAppImport = NonNullable<ModuleMetadata['imports']>[number];
 /** A TypeORM migration: a glob of `.ts` files (resolved like the built-in `migrations/*.ts`) or a migration class. */
 export type TAppMigration = string | (new () => MigrationInterface);
 
+/**
+ * Overrides of the TypeORM connection the app builds from `DB_*` env vars (ADR 0072 (private): PGlite in local mode).
+ * Spread over the env-derived defaults; `autoLoadEntities`, `migrations`, `migrationsRun` and `synchronize` stay fixed.
+ * `driver` is the already-loaded driver module (e.g. a PGlite driver passed with `type: 'postgres'`).
+ */
+export interface TDatabaseOverride {
+  type?: 'postgres';
+  driver?: unknown;
+  host?: string;
+  port?: number;
+  username?: string;
+  password?: string;
+  database?: string;
+  extra?: Record<string, unknown>;
+}
+
 export interface IAppModuleOptions {
+  /** Replaces parts of the env-derived database connection (see `TDatabaseOverride`). */
+  database?: TDatabaseOverride;
   /** Additional Nest modules (e.g. a private "cloud" overlay) appended after every built-in domain module. */
   extraModules?: TAppImport[];
   /**
@@ -64,7 +82,10 @@ export interface IAppModuleOptions {
   extraMigrations?: TAppMigration[];
 }
 
-const buildBuiltInImports = (extraMigrations: readonly TAppMigration[] = []): TAppImport[] => [
+const buildBuiltInImports = (
+  extraMigrations: readonly TAppMigration[] = [],
+  database: TDatabaseOverride = {},
+): TAppImport[] => [
   ConfigModule.forRoot({ isGlobal: true }),
   TypeOrmModule.forRootAsync({
     imports: [ConfigModule],
@@ -76,6 +97,7 @@ const buildBuiltInImports = (extraMigrations: readonly TAppMigration[] = []): TA
       username: config.get<string>('DB_USER', 'falang'),
       password: config.get<string>('DB_PASSWORD', 'falang'),
       database: config.get<string>('DB_NAME', 'falang_workflow'),
+      ...database,
       autoLoadEntities: true,
       // Real migrations (see ADR 0016 (private)'s Phase 0) —
       // `synchronize: true` risked silent data loss on a public deployment's schema drift.
@@ -170,7 +192,7 @@ export class AppModule {
   static forRoot(options: IAppModuleOptions = {}): DynamicModule {
     return {
       module: AppModule,
-      imports: [...buildBuiltInImports(options.extraMigrations), ...(options.extraModules ?? [])],
+      imports: [...buildBuiltInImports(options.extraMigrations, options.database), ...(options.extraModules ?? [])],
       providers: [{ provide: APP_GUARD, useClass: JwtAuthGuard }],
     };
   }

@@ -88,6 +88,7 @@
   "devDependencies": {
     "@electric-sql/pglite": "^0.5.13",
     "@falang/typescript-dto": "*",
+    "@falang/workflow-local": "*",
     "@falang/workflow-mocks": "*",
     "@nestjs/testing": "^11.1.28",
     "@types/supertest": "^6.0.3",

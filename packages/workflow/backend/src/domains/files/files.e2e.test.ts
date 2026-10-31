@@ -67,7 +67,12 @@ describe('files (e2e)', () => {
 
     const uploaded = await internalUpload(projectId, projectToken, bytes, { name: 'hello.txt', mime: 'text/plain' });
     expect(uploaded.status).toBe(201);
-    expect(uploaded.body).toEqual({ id: expect.any(String), name: 'hello.txt', size: bytes.length, mime: 'text/plain' });
+    expect(uploaded.body).toEqual({
+      id: expect.any(String),
+      name: 'hello.txt',
+      size: bytes.length,
+      mime: 'text/plain',
+    });
     const fileId: string = uploaded.body.id;
 
     const meta = await request(app.getHttpServer())
@@ -109,7 +114,12 @@ describe('files (e2e)', () => {
     const list = await request(app.getHttpServer()).get(`/projects/${projectId}/files`).set(auth(token));
     expect(list.status).toBe(200);
     expect(list.body.files).toHaveLength(1);
-    expect(list.body.files[0]).toMatchObject({ id: fileId, name: 'hello.txt', size: bytes.length, createdBy: 'run:unknown' });
+    expect(list.body.files[0]).toMatchObject({
+      id: fileId,
+      name: 'hello.txt',
+      size: bytes.length,
+      createdBy: 'run:unknown',
+    });
     expect(list.body.usage.usedBytes).toBe(bytes.length);
     expect(list.body.usage.maxFileBytes).toBeGreaterThan(0);
     expect(list.body.usage.maxProjectFilesBytes).toBeGreaterThan(0);
@@ -133,7 +143,10 @@ describe('files (e2e)', () => {
     const tokenA = internalToken(projectA);
     const tokenB = internalToken(projectB);
 
-    const uploaded = await internalUpload(projectA, tokenA, Buffer.from('secret'), { name: 's.txt', mime: 'text/plain' });
+    const uploaded = await internalUpload(projectA, tokenA, Buffer.from('secret'), {
+      name: 's.txt',
+      mime: 'text/plain',
+    });
     const fileId: string = uploaded.body.id;
 
     const crossAccess = await request(app.getHttpServer())

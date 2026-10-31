@@ -39,6 +39,7 @@ COPY packages/workflow/egress/package.json packages/workflow/egress/
 COPY packages/workflow/gateway/package.json packages/workflow/gateway/
 COPY packages/workflow/mocks/package.json packages/workflow/mocks/
 COPY packages/workflow/runner/package.json packages/workflow/runner/
+COPY packages/workflow/local/package.json packages/workflow/local/
 COPY packages/workflow/scheme/package.json packages/workflow/scheme/
 COPY playground/package.json playground/
 COPY playground-workflow/package.json playground-workflow/

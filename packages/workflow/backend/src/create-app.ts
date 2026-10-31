@@ -6,7 +6,7 @@ import { ValidationPipe } from '@nestjs/common';
 import type { DynamicModule, INestApplication, Type } from '@nestjs/common';
 import { NestFactory } from '@nestjs/core';
 import type { NestExpressApplication } from '@nestjs/platform-express';
-import { AppModule, type TAppImport, type TAppMigration } from './app.module.js';
+import { AppModule, type TAppImport, type TAppMigration, type TDatabaseOverride } from './app.module.js';
 import { RunnerProcessManager } from './domains/build/build/runner-process-manager.js';
 import { validateSecrets } from './config/validate-secrets.js';
 import { McpService } from './domains/mcp/mcp.service.js';
@@ -25,6 +25,8 @@ export interface ICreateAppOptions {
   extraModules?: TAppImport[];
   /** Migrations of `extraModules`' own tables, run with the built-in ones (ignored when `appModule` is given). */
   extraMigrations?: TAppMigration[];
+  /** Overrides of the env-derived database connection (ignored when `appModule` is given), e.g. PGlite in local mode. */
+  database?: TDatabaseOverride;
   /** Port `startApp` listens on; defaults to the `PORT` env var, then 4000. */
   port?: number;
   /**
@@ -95,6 +97,7 @@ export const createApp = async (options: ICreateAppOptions = {}): Promise<NestEx
     options.appModule ??
     AppModule.forRoot({
       extraMigrations: options.extraMigrations,
+      database: options.database,
       extraModules: options.extraModules,
     });
   // `rawBody: true` populates `req.rawBody` (the exact original bytes) alongside Nest's normal

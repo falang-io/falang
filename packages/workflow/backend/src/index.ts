@@ -5,6 +5,10 @@ export { createApp, startApp, type ICreateAppOptions } from './create-app.js';
 // builds on. Import these from the package root, never by deep `src/…` paths, so an overlay only depends on
 // what is meant to stay stable.
 // `AdminGuard` needs `UsersService`: a module using it imports `UsersModule`.
+// `AuthService.login(user)` mints the same access token as `POST /auth/login` (local mode's auto-login uses it).
+export { AuthModule } from './domains/auth/auth/auth.module.js';
+export { AuthService } from './domains/auth/auth/auth.service.js';
+export { UsersService } from './domains/users/users/users.service.js';
 export { AdminGuard } from './domains/auth/auth/admin.guard.js';
 export { UsersModule } from './domains/users/users/users.module.js';
 export { CurrentUser } from './domains/auth/auth/current-user.decorator.js';
@@ -58,3 +62,14 @@ export { ProjectsService } from './domains/projects/projects/projects.service.js
 // Mail for overlay modules (e.g. the cloud balance watch): `send` never throws, `buildClientLink` builds a client URL.
 export { MailModule } from './domains/mail/mail.module.js';
 export { MailService, type ISendMailInput } from './domains/mail/mail.service.js';
+
+// ADR 0072 (private) local-mode seams: an overlay `@Global()` module may provide these tokens.
+export { RUNNER_DEPLOYMENTS_CLIENT, type IK8sDeploymentsClient } from './domains/build/build/k8s-deployments-client.js';
+export type { V1Deployment } from '@kubernetes/client-node';
+export {
+  FILE_STORAGE_OVERRIDE,
+  type IFileStorage,
+  type IFileStorageGetResult,
+  type IFileStoragePutOptions,
+  type IFileStoragePutResult,
+} from './domains/files/file-storage.js';

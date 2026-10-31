@@ -1,4 +1,5 @@
 // oxlint-disable max-lines -- grew past 300 lines from ADR 0025 (private)'s version-history endpoints and ADR 0029 (private)'s document-lock error handling landing in the same merge; both additions are small, not accumulated complexity.
+import { resolveBackendUrl } from './resolve-backend-url.js';
 import type { INode } from '@falang/dto';
 import type { ICommitInfo, IProjectSnapshot, TCommitKind } from '@falang/versioning';
 import type { IActivepiecesPieceCatalogEntry } from '@falang/workflow-integrations-activepieces';
@@ -6,6 +7,7 @@ import type { IFieldSelectOption } from '@falang/workflow-integrations-common';
 import { ApiCompileErrorsError, type IApiCompileError, type IApiCompileErrorFile } from './api-compile-error.js';
 import { AgentQuotaError } from './agent/agent-quota-error.js';
 import { ApiCodedError } from './api-coded-error.js';
+import { AUTH_TOKEN_STORAGE_KEY as TOKEN_STORAGE_KEY } from './auth-token-storage-key.js';
 import { DocumentLockedError } from './api-document-lock-error.js';
 import type { IDebugLocation } from '@falang/debug';
 import type {
@@ -76,11 +78,10 @@ const journalQuery = (params: IJournalPageParams): string => {
   return text ? `?${text}` : '';
 };
 
-const BACKEND_URL: string = import.meta.env.VITE_BACKEND_URL ?? 'http://localhost:4000';
+const BACKEND_URL: string = resolveBackendUrl(import.meta.env.VITE_BACKEND_URL, globalThis.location?.origin ?? null);
 
 /** Needed to verify a `postMessage` from the OAuth2 callback popup really came from our own backend — see `oauth2-popup.ts`. */
 export const getBackendOrigin = (): string => new URL(BACKEND_URL).origin;
-const TOKEN_STORAGE_KEY = 'falang-workflow-token';
 
 let token: string | null = localStorage.getItem(TOKEN_STORAGE_KEY);
 let onUnauthorized: (() => void) | null = null;

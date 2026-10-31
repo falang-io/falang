@@ -10,6 +10,7 @@
     "test": "vitest -c vitest.config.root.ts",
     "test-e2e": "./scripts/kind-e2e-setup.sh && . ./scripts/temporal-e2e-env.sh && docker compose -f docker-compose.workflow-e2e.yml run --build --rm e2e-tests && npm run test-e2e:workflow && docker compose -f docker-compose.workflow-e2e.yml down -v",
     "test-e2e:workflow": "vitest run -c vitest.config.workflow-e2e.ts",
+    "test-e2e:local": "vitest run -c vitest.config.local-e2e.ts",
     "test-e2e-logic": "./scripts/build-logic-cpp-runner-image.sh && ./scripts/build-logic-go-runner-image.sh && ./scripts/build-logic-rust-runner-image.sh && ./scripts/build-logic-sharp-runner-image.sh && npm test -w @falang/logic-e2e-tests",
     "test-e2e-arduino-debug-protocol": "./scripts/build-logic-cpp-runner-image.sh && vitest run -c vitest.config.arduino-debug-protocol.ts",
     "coverage:unit": "vitest run --coverage -c vitest.config.root.ts --maxWorkers=50% --testTimeout=120000 --hookTimeout=120000",
@@ -30,7 +31,8 @@
     "workflow-recreate-backend": "./scripts/workflow-recreate-backend.sh",
     "workflow-recreate": "npm run workflow-recreate-client && npm run workflow-recreate-backend",
     "publish-npm-packages": "node scripts/publish-npm-packages.js",
-    "publish-docker-images": "./scripts/publish-docker-images.sh"
+    "publish-docker-images": "./scripts/publish-docker-images.sh",
+    "start-local": "tsx packages/workflow/local/src/main.ts"
   },
   "devDependencies": {
     "@stryker-mutator/core": "^9.6.0",

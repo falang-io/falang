@@ -6,7 +6,7 @@ import { UserLimitsModule } from '../admin/user-limits/user-limits.module.js';
 import { ProjectTokenModule } from '../internal-auth/project-token.module.js';
 import { Project } from '../projects/projects/project.entity.js';
 import { ProjectsModule } from '../projects/projects/projects.module.js';
-import { FILE_STORAGE } from './file-storage.js';
+import { FILE_STORAGE, FILE_STORAGE_OVERRIDE, pickFileStorage, type IFileStorage } from './file-storage.js';
 import { File } from './file.entity.js';
 import { FileGcService } from './file-gc.service.js';
 import { GatewayFileUploadPort } from './gateway-file-upload.port.js';
@@ -32,16 +32,20 @@ import { S3FileStorage } from './s3-file-storage.js';
     FileGcService,
     {
       provide: FILE_STORAGE,
-      inject: [ConfigService],
-      useFactory: (config: ConfigService) =>
-        new S3FileStorage({
-          endpoint: config.get<string>('S3_ENDPOINT'),
-          region: config.get<string>('S3_REGION', 'us-east-1'),
-          bucket: config.get<string>('S3_BUCKET', 'falang-files'),
-          accessKeyId: config.get<string>('S3_ACCESS_KEY', ''),
-          secretAccessKey: config.get<string>('S3_SECRET_KEY', ''),
-          forcePathStyle: config.get<string>('S3_FORCE_PATH_STYLE', 'true') !== 'false',
-        }),
+      inject: [ConfigService, { token: FILE_STORAGE_OVERRIDE, optional: true }],
+      useFactory: (config: ConfigService, override: IFileStorage | null): IFileStorage =>
+        pickFileStorage(
+          override,
+          () =>
+            new S3FileStorage({
+              endpoint: config.get<string>('S3_ENDPOINT'),
+              region: config.get<string>('S3_REGION', 'us-east-1'),
+              bucket: config.get<string>('S3_BUCKET', 'falang-files'),
+              accessKeyId: config.get<string>('S3_ACCESS_KEY', ''),
+              secretAccessKey: config.get<string>('S3_SECRET_KEY', ''),
+              forcePathStyle: config.get<string>('S3_FORCE_PATH_STYLE', 'true') !== 'false',
+            }),
+        ),
     },
     // `@falang/workflow-gateway`'s `IFileUploadPort`, registered under its own `FILE_UPLOAD_PORT`
     // token so `app.module.ts` can inject it into `GatewayModule.forRootAsync`'s

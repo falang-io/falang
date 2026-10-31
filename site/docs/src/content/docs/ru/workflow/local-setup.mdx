@@ -186,6 +186,17 @@ TEMPORAL_SERVER_CONFIG=server.yaml TEMPORAL_TENANT_ISOLATION=per-project \\
   отключает). Активности без собственной политики повторов повторяются не более 5 раз.
 </p>
 
+#### Локальный режим без Docker
+<p>
+  Если нужно просто попробовать движок на одной машине, Docker, kind и Postgres не нужны. Выполните
+  <code>npm install</code>, затем <code>npm run start-local</code> в корне репозитория: один процесс Node поднимает
+  backend со встроенной базой, хранит файлы на диске, запускает каждый сценарий как дочерний процесс и отдаёт редактор
+  с того же порта (<code>http://localhost:4000</code>, вход <code>admin</code>/<code>admin</code>). Рядом стартует
+  dev-сервер Temporal; CLI <code>temporal</code> скачивается автоматически, если не установлен. Всё хранится в
+  <code>~/.falang-flow</code> — копируйте папку целиком вместе с <code>secrets.json</code>. Интеграции ActivePieces и
+  медиа-сервис в этом режиме недоступны, а входящим вебхукам нужен туннель до публичного порта.
+</p>
+
 #### Production-образы
 <p>
   Цели по умолчанию в <code>docker/backend.Dockerfile</code> и <code>docker/client.Dockerfile</code> — для разработки

@@ -57,7 +57,9 @@ export const startRunner = async (config: IRunnerConfig): Promise<void> => {
       })
     : null;
   const activities = buildRunnerActivities(
-    loadCjsModuleFromSource(activitiesSource, '/app/activities.js') as object,
+    // `/app` is the runner image's working directory; outside a container (local mode, ADR 0072 (private)) the host
+    // sets RUNNER_MODULE_ROOT to a directory whose `node_modules` chain holds the runner's dependencies.
+    loadCjsModuleFromSource(activitiesSource, `${process.env.RUNNER_MODULE_ROOT ?? '/app'}/activities.js`) as object,
     journal,
   );
 

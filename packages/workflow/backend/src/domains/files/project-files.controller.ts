@@ -21,10 +21,7 @@ export class ProjectFilesController {
   private readonly files: FilesService;
   private readonly projectsService: ProjectsService;
 
-  constructor(
-    @Inject(FilesService) files: FilesService,
-    @Inject(ProjectsService) projectsService: ProjectsService,
-  ) {
+  constructor(@Inject(FilesService) files: FilesService, @Inject(ProjectsService) projectsService: ProjectsService) {
     this.files = files;
     this.projectsService = projectsService;
   }

@@ -27,3 +27,4 @@ playwright/.cache
 .claude/worktrees/
 # Generated e2e-only Temporal JWT signing key (scripts/temporal-e2e-env.sh)
 docker/temporal/e2e-jwt-private.pem
+packages/desktop/app-flow/backend-dist

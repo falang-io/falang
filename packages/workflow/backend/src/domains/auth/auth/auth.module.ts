@@ -53,5 +53,6 @@ const ACCESS_TOKEN_EXPIRY = '7d';
     AdminDigestService,
     UnverifiedAccountGcService,
   ],
+  exports: [AuthService],
 })
 export class AuthModule {}

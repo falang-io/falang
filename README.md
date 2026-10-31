@@ -36,6 +36,20 @@ create users on the admin page, `/admin`); the bundled dev compose file turns it
 to `false` for anything reachable from the internet, and set `SEED_DEFAULT_ADMIN=false` too (the backend itself defaults to `false`; with `NODE_ENV=production` it also refuses to start with missing/dev/short `JWT_SECRET`, `DB_PASSWORD` or `CREDENTIALS_ENCRYPTION_KEY`). The full guide
 is in the docs (Workflow / Local setup).
 
+## Local mode (no Docker)
+
+For trying the workflow product on one machine, without Docker, kind or Postgres: one Node process (embedded
+PGlite database, files on disk, runners as child processes, the built client served from the same port) plus the
+[`temporal` CLI](https://docs.temporal.io/cli) dev server (downloaded into the data directory when it is not on `PATH`).
+
+```sh
+npm install
+npm run start-local          # builds the client on first run, opens the browser, login admin / admin
+```
+
+Data lives in `~/.falang-flow` (`--data-dir`). ActivePieces and media are off, inbound webhooks need a tunnel.
+See [`packages/workflow/local/README.md`](packages/workflow/local/README.md).
+
 ## Desktop apps
 
 ```sh

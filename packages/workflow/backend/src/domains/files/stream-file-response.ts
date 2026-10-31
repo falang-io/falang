@@ -8,7 +8,9 @@ const INLINE_MIME_PREFIXES = ['image/', 'audio/', 'video/'];
 
 /** `image/*`, `audio/*`, `video/*`, and `application/pdf` render inline on the public route (§ "Public route"); everything else, and every project/internal download, is a plain attachment. */
 export const inlineDispositionFor = (mime: string): TFileDisposition =>
-  INLINE_MIME_PREFIXES.some((prefix) => mime.startsWith(prefix)) || mime === 'application/pdf' ? 'inline' : 'attachment';
+  INLINE_MIME_PREFIXES.some((prefix) => mime.startsWith(prefix)) || mime === 'application/pdf'
+    ? 'inline'
+    : 'attachment';
 
 export interface IStreamFileResponseOptions {
   readonly body: Readable;

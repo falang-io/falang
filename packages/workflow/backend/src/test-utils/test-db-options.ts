@@ -1,8 +1,8 @@
 import { uuid_ossp } from '@electric-sql/pglite/contrib/uuid_ossp';
 import type { TypeOrmModuleOptions } from '@nestjs/typeorm';
-import type { MigrationInterface, QueryRunner } from 'typeorm';
 import { PGliteDriver } from 'typeorm-pglite';
-import { queuedPgliteDriver } from './queued-pglite-driver.js';
+// Dev-only cycle backend <-> local is intended: the product-side PGlite driver lives in `@falang/workflow-local`.
+import { queuedPgliteDriver, UuidOsspExtensionMigration } from '@falang/workflow-local';
 import { TEST_MIGRATIONS } from './test-migrations.js';
 
 /**
@@ -14,7 +14,7 @@ import { TEST_MIGRATIONS } from './test-migrations.js';
  *   TypeORM's glob loads `.ts` files through Node's own loader, which fails under vitest), so the migrations
  *   themselves are what gets exercised.
  *
- * `FALANG_TEST_DB_DRIVER`: `queued` (default) — `queued-pglite-driver.ts`, the one session handed to one holder at a
+ * `FALANG_TEST_DB_DRIVER`: `queued` (default) — `@falang/workflow-local`'s queued driver, the one session handed to one holder at a
  * time; `stock` — `typeorm-pglite`'s own pool, which lets concurrent transactions interleave on the single session
  * (see `pglite-migrations-probe.test.ts`). Local-mode spike, 2026-10-31.
  */
@@ -25,22 +25,6 @@ export const resolveTestDb = (): TTestDb => {
   if (value === 'sqlite' || value === 'pglite' || value === 'pglite-migrations') return value;
   throw new Error(`Unknown FALANG_TEST_DB "${value}" (expected sqlite | pglite | pglite-migrations)`);
 };
-
-/**
- * Runs before every real migration (timestamp 0): the migrations assume `uuid-ossp` exists, which on a real
- * Postgres is created once by the DBA/TypeORM's synchronize; after the harness's `dropSchema` it's gone.
- */
-class UuidOsspExtension1000000000000 implements MigrationInterface {
-  name = 'UuidOsspExtension1000000000000';
-
-  async up(queryRunner: QueryRunner): Promise<void> {
-    await queryRunner.query('CREATE EXTENSION IF NOT EXISTS "uuid-ossp"');
-  }
-
-  async down(queryRunner: QueryRunner): Promise<void> {
-    await queryRunner.query('DROP EXTENSION IF EXISTS "uuid-ossp"');
-  }
-}
 
 let pgliteDriver: unknown = null;
 
@@ -65,6 +49,6 @@ export const buildTestDbOptions = (): TypeOrmModuleOptions => {
     ...base,
     synchronize: false,
     migrationsRun: true,
-    migrations: [UuidOsspExtension1000000000000, ...TEST_MIGRATIONS],
+    migrations: [UuidOsspExtensionMigration, ...TEST_MIGRATIONS],
   } as TypeOrmModuleOptions;
 };
