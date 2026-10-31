@@ -2,60 +2,8 @@
 import { spawn } from 'node:child_process';
 import { existsSync } from 'node:fs';
 import path from 'node:path';
+import { parseLocalCliArgs } from './cli-args.js';
 import { defaultDataDir, startLocalMode } from './local-mode.js';
-
-interface ICliArgs {
-  dataDir: string;
-  port?: number;
-  internalPort?: number;
-  clientDir?: string;
-  openBrowser: boolean;
-  temporalUi: boolean;
-  skipClient: boolean;
-  statusFile?: string;
-}
-
-const parseArgs = (argv: readonly string[]): ICliArgs => {
-  const args: ICliArgs = { dataDir: defaultDataDir(), openBrowser: true, temporalUi: true, skipClient: false };
-  for (let i = 0; i < argv.length; i += 1) {
-    const flag = argv[i];
-    const value = (): string => {
-      i += 1;
-      const next = argv[i];
-      if (next === undefined) throw new Error(`${flag} needs a value`);
-      return next;
-    };
-    switch (flag) {
-      case '--data-dir':
-        args.dataDir = value();
-        break;
-      case '--port':
-        args.port = Number(value());
-        break;
-      case '--internal-port':
-        args.internalPort = Number(value());
-        break;
-      case '--client-dir':
-        args.clientDir = value();
-        break;
-      case '--no-browser':
-        args.openBrowser = false;
-        break;
-      case '--no-ui':
-        args.temporalUi = false;
-        break;
-      case '--status-file':
-        args.statusFile = value();
-        break;
-      case '--skip-client':
-        args.skipClient = true;
-        break;
-      default:
-        throw new Error(`Unknown argument "${flag}"`);
-    }
-  }
-  return args;
-};
 
 /** `packages/workflow/local/src` -> the repository root. */
 const REPO_ROOT = path.resolve(__dirname, '..', '..', '..', '..');
@@ -84,7 +32,7 @@ const shutdown = (): void => {
 };
 
 const main = async (): Promise<void> => {
-  const args = parseArgs(process.argv.slice(2));
+  const args = parseLocalCliArgs(process.argv.slice(2), defaultDataDir());
   let clientDir: string | null = null;
   if (!args.skipClient) {
     clientDir = path.resolve(args.clientDir ?? DEFAULT_CLIENT_DIR);

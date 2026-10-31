@@ -19,10 +19,25 @@ const SECRET_KEYS = ['JWT_SECRET', 'CREDENTIALS_ENCRYPTION_KEY', 'PROJECT_TOKEN_
 export const loadOrCreateSecrets = async (dataDir: string): Promise<{ secrets: ILocalSecrets; created: boolean }> => {
   const file = path.join(dataDir, 'secrets.json');
   let existing: Partial<Record<string, string>> = {};
+  let text: string | null = null;
   try {
-    existing = JSON.parse(await readFile(file, 'utf8')) as Partial<Record<string, string>>;
-  } catch {
-    existing = {};
+    text = await readFile(file, 'utf8');
+  } catch (error) {
+    // Only a missing file means "first run"; a permission error or the like must not silently create new secrets.
+    if ((error as NodeJS.ErrnoException).code !== 'ENOENT') throw error;
+  }
+  if (text !== null) {
+    // A corrupt file is never regenerated: fresh values would make every stored credential unreadable without a word.
+    let parsed: unknown = null;
+    try {
+      parsed = JSON.parse(text);
+    } catch (error) {
+      throw new Error(`${file} is not valid JSON; fix or remove it before starting`, { cause: error });
+    }
+    if (typeof parsed !== 'object' || parsed === null || Array.isArray(parsed)) {
+      throw new Error(`${file} must contain a JSON object; fix or remove it before starting`);
+    }
+    existing = parsed as Partial<Record<string, string>>;
   }
   const created = SECRET_KEYS.some((key) => !existing[key]);
   const merged: Record<string, string> = {};
@@ -31,5 +46,5 @@ export const loadOrCreateSecrets = async (dataDir: string): Promise<{ secrets: I
     await writeFile(file, `${JSON.stringify(merged, null, 2)}\n`, { mode: 0o600 });
     await chmod(file, 0o600).catch(() => null);
   }
-  return { secrets: merged as unknown as ILocalSecrets, created: created && Object.keys(existing).length === 0 };
+  return { secrets: merged as unknown as ILocalSecrets, created: created && text === null };
 };
