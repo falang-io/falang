@@ -67,8 +67,12 @@ const buildStructNames = (structs: Map<string, ITypeRegistryObjectItem>): Map<st
 };
 
 /** Like `variableInfoToTsType`, but also accepts a raw `typeof`-based type query for scope variables. */
-const scopeVariableTypeToTsType = (type: TScopeVariableType, structNames: Map<string, string>): string =>
-  type.type === 'raw' ? type.expression : variableInfoToTsType(type, structNames);
+const scopeVariableTypeToTsType = (type: TScopeVariableType, structNames: Map<string, string>): string => {
+  if (type.type === 'raw') return type.expression;
+  const tsType = variableInfoToTsType(type, structNames);
+  // An `optional` variable (e.g. an integration field typed `int64 | undefined`) may also hold `undefined`.
+  return type.optional ? `${tsType} | undefined` : tsType;
+};
 
 /**
  * Builds the source of the hidden preamble prepended to a monaco model: `interface` declarations

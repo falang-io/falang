@@ -33,7 +33,7 @@ export const storedFieldValues = (
  * A field that declares a `defaultValue` is optional: the editor fills it in, and when the default itself is empty an
  * empty value is legitimate, so it isn't checked. A field without one is checked as it stands.
  */
-const isOptional = (field: IFieldConfig): boolean => typeof field.defaultValue === 'string';
+export const isOptionalField = (field: IFieldConfig): boolean => typeof field.defaultValue === 'string';
 
 /**
  * The checked fields of a descriptor-driven node (an integration action, or a question/choice header): `expression`
@@ -51,7 +51,7 @@ export const describeIntegrationFields = (
   const result: ICheckedField[] = [];
   for (const field of fields) {
     const value = values[field.name];
-    const allowEmpty = isOptional(field);
+    const allowEmpty = isOptionalField(field);
     if (field.kind === 'expression') {
       result.push({
         field: field.name,

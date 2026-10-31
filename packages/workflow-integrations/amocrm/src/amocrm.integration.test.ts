@@ -91,9 +91,9 @@ describe('amocrmIntegration', () => {
     const legacy = { credentialId: 'cred-1', name: 'New lead', price: '1000' };
     expect(config.data?.type.parse(legacy)).toEqual({
       ...legacy,
-      pipelineId: 'undefined',
-      statusId: 'undefined',
-      responsibleUserId: 'undefined',
+      pipelineId: '',
+      statusId: '',
+      responsibleUserId: '',
       extra: '{}',
       resultVariable: '',
     });

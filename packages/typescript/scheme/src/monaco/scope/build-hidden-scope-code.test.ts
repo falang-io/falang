@@ -70,4 +70,15 @@ describe('buildHiddenScopeCode', () => {
 
     expect(buildHiddenScopeCode(variables, null)).toBe('declare var x: number;\n');
   });
+
+  it('declares an optional variable as possibly undefined', () => {
+    const variables: IScopeVariable[] = [
+      {
+        name: '_value',
+        type: { type: 'number', numberType: { type: 'integer', integerType: 'int64' }, optional: true },
+      },
+    ];
+
+    expect(buildHiddenScopeCode(variables, null)).toBe('declare var _value: number | undefined;\n');
+  });
 });

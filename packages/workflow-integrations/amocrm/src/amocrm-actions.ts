@@ -74,13 +74,13 @@ const idField = (name: string, label: string): IFieldConfig => ({
   kind: 'expression',
   expectedType: int64,
 });
-/** An optional numeric field: stored as `undefined` until the user types a value. */
+/** An optional numeric field: left empty until the user types a value — an empty expression compiles to `undefined` (`expr`). */
 const optionalIdField = (name: string, label: string): IFieldConfig => ({
   name,
   label,
   kind: 'expression',
   expectedType: optional(int64),
-  defaultValue: 'undefined',
+  defaultValue: '',
 });
 const textField = (name: string, label: string): IFieldConfig => ({ name, label, kind: 'template-string' });
 const priceField: IFieldConfig = {
@@ -88,7 +88,7 @@ const priceField: IFieldConfig = {
   label: 'amocrm:field.price',
   kind: 'expression',
   expectedType: optional(anyNumber),
-  defaultValue: 'undefined',
+  defaultValue: '',
 };
 const extraField = (structId: string): IFieldConfig => ({
   name: 'extra',

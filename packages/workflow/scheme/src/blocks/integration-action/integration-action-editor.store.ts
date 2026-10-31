@@ -17,7 +17,7 @@ import {
   type IFieldOptionsProvider,
 } from '../../registry/di-tokens.js';
 import { expressionFieldPrefix } from '../../field-check/expression-field-prefix.js';
-import { storedFieldValues } from '../../field-check/describe-integration-fields.js';
+import { isOptionalField, storedFieldValues } from '../../field-check/describe-integration-fields.js';
 import { initialFieldValue } from '../../registry/initial-field-value.js';
 
 export type TIntegrationActionData = Readonly<Record<string, string>>;
@@ -96,6 +96,7 @@ export class IntegrationActionEditorStore extends ExpressionBlockEditorStore<TIn
             name: field.name,
             value,
             hiddenPrefix: this.getExpressionHiddenPrefix(field),
+            allowEmpty: isOptionalField(field),
           }),
         );
       } else if (field.kind === 'template-string') {
@@ -114,6 +115,7 @@ export class IntegrationActionEditorStore extends ExpressionBlockEditorStore<TIn
           new NewVariableStore({
             value,
             getScopeNames: () => collectScopeVariables(this.dataNode).map((variable) => variable.name),
+            allowEmpty: isOptionalField(field),
           }),
         );
       } else {
