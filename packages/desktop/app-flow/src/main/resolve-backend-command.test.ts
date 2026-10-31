@@ -33,4 +33,13 @@ describe('resolveBackendCommand', () => {
     );
     expect(result.args.slice(-2)).toEqual(['--client-dir', path.join('/res', 'client')]);
   });
+
+  it('packaged: runs from the staged writable copy, the client stays in resources', () => {
+    const result = resolveBackendCommand({ ...base, isPackaged: true, stagedBackendDist: '/user/flow/backend-dist' });
+    expect(result.cwd).toBe('/user/flow/backend-dist');
+    expect(result.args[2]).toBe(
+      path.join('/user/flow/backend-dist', 'node_modules', '@falang', 'workflow-local', 'src', 'main.ts'),
+    );
+    expect(result.args.slice(-2)).toEqual(['--client-dir', path.join('/res', 'client')]);
+  });
 });

@@ -9,10 +9,14 @@ import { buildApplicationMenu } from './menu.js';
 import { pickPublicPort } from './ports.js';
 import { resolveBackendCommand } from './resolve-backend-command.js';
 import { readSettings, writeSettings } from './settings.js';
+import { stageBackendDist } from './stage-backend-dist.js';
 import type { ILocalStatus } from './status-file.js';
 
 // out/main -> app-flow -> desktop -> packages -> repository root
 const REPO_ROOT = path.resolve(import.meta.dirname, '..', '..', '..', '..', '..');
+
+// Test-only: the packaged-app smoke test (scripts/release/smoke-desktop-app.ts) runs against a throwaway profile.
+if (process.env.FALANG_FLOW_USER_DATA) app.setPath('userData', process.env.FALANG_FLOW_USER_DATA);
 
 let mainWindow: BrowserWindow | null = null;
 let backend: BackendProcess | null = null;
@@ -62,7 +66,16 @@ const startBackend = async (): Promise<void> => {
   const saved = await readSettings();
   const port = await pickPublicPort(saved.port ?? null);
   await writeSettings({ port });
+  let stagedBackendDist: string | null = null;
+  if (app.isPackaged) {
+    setSplash({ kind: 'starting', text: 'Preparing the engine (first run, may take a minute)…' });
+    const began = Date.now();
+    stagedBackendDist = await stageBackendDist(process.resourcesPath, dataDir, app.getVersion());
+    // oxlint-disable-next-line no-console -- the staging cost is worth a log line.
+    console.log(`[flow] backend-dist staged in ${Date.now() - began} ms: ${stagedBackendDist}`);
+  }
   const command = resolveBackendCommand({
+    stagedBackendDist,
     isPackaged: app.isPackaged,
     resourcesPath: process.resourcesPath,
     execPath: process.execPath,

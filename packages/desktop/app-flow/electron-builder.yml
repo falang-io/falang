@@ -1,0 +1,33 @@
+appId: com.falang.flow
+productName: Falang Flow
+executableName: falang-flow
+directories:
+  output: dist
+files:
+  - out/**/*
+  - package.json
+  - '!**/*.{ts,tsx,map}'
+# `backend-dist` (scripts/release/build-flow-backend-dist.ts, the self-contained local-mode backend: a real
+# node_modules tree) and the workflow client are built by the `prebuild:*` npm hooks. The backend must be real files
+# outside app.asar (run by Node, not by Electron's asar-aware fs); `extraResources` cannot carry a node_modules tree
+# (electron-builder always filters it), so `scripts/after-pack.cjs` copies it. ADR 0072 (private).
+afterPack: scripts/after-pack.cjs
+extraResources:
+  - from: ../../workflow/client/dist
+    to: client
+npmRebuild: false
+artifactName: falang-flow-${version}-${arch}.${ext}
+linux:
+  target: [AppImage, deb]
+  category: Development
+  maintainer: Falang <noreply@falang.io>
+deb:
+  packageName: falang-flow
+  artifactName: falang-flow_${version}_${arch}.${ext}
+mac:
+  target: [dmg, zip]
+  category: public.app-category.developer-tools
+win:
+  target: nsis
+nsis:
+  artifactName: falang-flow-setup-${version}.${ext}

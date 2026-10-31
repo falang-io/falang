@@ -2,7 +2,7 @@ import { defineConfig } from 'electron-vite';
 
 // Workspace `@falang/*` packages publish raw TypeScript (see app-sketch's config for the long version): they must be
 // bundled into `out/main` instead of being left as bare imports Node cannot resolve.
-const workspacePackages = ['@falang/workflow-client-common'];
+const workspacePackages = ['@falang/workflow-client-common', '@falang/desktop-worker-process'];
 
 export default defineConfig({
   main: {

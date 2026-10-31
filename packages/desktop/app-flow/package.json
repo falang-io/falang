@@ -11,15 +11,22 @@
     "dev": "electron-vite dev",
     "build": "electron-vite build",
     "preview": "electron-vite preview",
+    "prebuild:linux": "tsx scripts/build-client.ts && tsx ../../../scripts/release/build-flow-backend-dist.ts --platform linux",
+    "build:linux": "electron-vite build && electron-builder --linux",
+    "prebuild:mac": "tsx scripts/build-client.ts && tsx ../../../scripts/release/build-flow-backend-dist.ts --platform darwin",
+    "build:mac": "electron-vite build && electron-builder --mac",
+    "prebuild:win": "tsx scripts/build-client.ts && tsx ../../../scripts/release/build-flow-backend-dist.ts --platform win32",
+    "build:win": "electron-vite build && electron-builder --win",
     "check": "tsc --noEmit -p tsconfig.node.json && tsc --noEmit -p tsconfig.web.json",
     "test": "vitest run -c ../../../vitest.config.ts",
     "coverage": "vitest run --coverage -c ../../../vitest.config.ts"
   },
   "dependencies": {
-    "@falang/workflow-client-common": "*",
     "@types/node": "^25.5.0"
   },
   "devDependencies": {
+    "@falang/desktop-worker-process": "*",
+    "@falang/workflow-client-common": "*",
     "electron": "43.1.0",
     "electron-vite": "^5.0.0",
     "vite": "^7.3.6"

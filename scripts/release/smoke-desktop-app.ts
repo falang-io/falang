@@ -11,7 +11,10 @@
  *  3. the app itself opens a window and renders without a page error (for `arduino`, the serial
  *     debugger's native addon also loads in the main process).
  *
- * Usage: `npx tsx scripts/release/smoke-desktop-app.ts <sketch|arduino> [--screenshot <file.png>]`
+ * `flow` (Falang Flow, ADR 0072 (private)) is different: it checks the packaged shell boots its own backend from the
+ * staged copy under userData (Temporal CLI, PGlite, a runner child process) and really builds and runs a function.
+ *
+ * Usage: `npx tsx scripts/release/smoke-desktop-app.ts <sketch|arduino|flow> [--screenshot <file.png>]`
  * from the repository root, after `electron-builder --dir` (or a full build) for that app.
  * On Linux CI it needs a display (`xvfb-run`). See ADR 0050 (private).
  */
@@ -23,6 +26,7 @@ import { getDefaultEnvironment, StdioClientTransport } from '@modelcontextprotoc
 import { _electron as electron, type Page } from 'playwright';
 import { createProject } from '@falang/desktop-project-fs';
 import { runInWorkerProcess } from '@falang/desktop-worker-process';
+import { smokeFlow } from './smoke-flow-app.js';
 
 type TAppKind = 'sketch' | 'arduino';
 
@@ -117,7 +121,7 @@ interface IPackagedApp {
 }
 
 /** Finds the packaged binary and its `resources` dir in `<appDir>/dist`, per electron-builder's own output layout. */
-const locatePackagedApp = (appDir: string, spec: IAppSpec): IPackagedApp => {
+const locatePackagedApp = (appDir: string, spec: { readonly linuxExecutable: string }): IPackagedApp => {
   const dist = path.join(appDir, 'dist');
   const entries = readdirSync(dist);
   if (process.platform === 'darwin') {
@@ -244,12 +248,16 @@ const checkWindow = async (
 };
 
 const main = async (): Promise<void> => {
-  const kind = process.argv[2] as TAppKind | undefined;
-  if (kind !== 'sketch' && kind !== 'arduino') {
-    throw new Error('usage: smoke-desktop-app.ts <sketch|arduino> [--screenshot <file.png>]');
+  const kind = process.argv[2] as TAppKind | 'flow' | undefined;
+  if (kind !== 'sketch' && kind !== 'arduino' && kind !== 'flow') {
+    throw new Error('usage: smoke-desktop-app.ts <sketch|arduino|flow> [--screenshot <file.png>]');
   }
   const screenshotIndex = process.argv.indexOf('--screenshot');
   const screenshot = screenshotIndex === -1 ? null : path.resolve(process.argv[screenshotIndex + 1]);
+  if (kind === 'flow') {
+    await smokeFlow(locatePackagedApp('packages/desktop/app-flow', { linuxExecutable: 'falang-flow' }), screenshot);
+    return;
+  }
   const spec = APPS[kind];
   const app = locatePackagedApp(spec.appDir, spec);
   console.log(`Smoke-testing ${kind}: ${app.binary}`);

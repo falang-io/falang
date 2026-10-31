@@ -15,7 +15,12 @@
  * `tsx`/`typescript` (the same versions the monorepo uses) and the cloud edition's `tsconfig.json` (tsx applies a
  * tsconfig only to files it includes and skips node_modules by default, hence the explicit `include`).
  *
- * Usage (from the community root): `npx tsx scripts/release/build-flow-backend-dist.ts [--out <dir>] [--keep-tarballs]`
+ * Size trimming: `@temporalio/core-bridge` ships a prebuilt native module for every platform (about 150 MB); only the
+ * one matching `--platform <linux|darwin|win32> --arch <x64|arm64>` (default: this machine) is kept. The other native
+ * modules (`bcrypt`, `@esbuild`, `@swc`) are installed by npm for the building OS only, so the dist is only valid for it.
+ *
+ * Usage (from the community root): `npx tsx scripts/release/build-flow-backend-dist.ts [--out <dir>] [--keep-tarballs]
+ * [--platform <p>] [--arch <a>]`
  * Default out: `packages/desktop/app-flow/backend-dist`. Run with `process.execPath`-based children only: nothing
  * here relies on `node` being on PATH except the `npm` it shells out to.
  */
@@ -31,6 +36,8 @@ const flagValue = (name: string): string | null => {
 };
 const out = path.resolve(flagValue('--out') ?? path.join(root, 'packages', 'desktop', 'app-flow', 'backend-dist'));
 const keepTarballs = argv.includes('--keep-tarballs');
+const targetPlatform = flagValue('--platform') ?? process.platform;
+const targetArch = flagValue('--arch') ?? process.arch;
 
 interface IManifest {
   name: string;
@@ -136,4 +143,21 @@ fs.writeFileSync(path.join(out, 'tsconfig.json'), `${JSON.stringify(tsconfig, nu
 
 run('npm', ['install', '--omit=dev', '--no-audit', '--no-fund', '--no-package-lock'], out);
 if (!keepTarballs) fs.rmSync(tarballDir, { recursive: true, force: true });
+
+// Keep exactly the core-bridge prebuild `core-bridge/common.js` would pick for the target (same mapping as there).
+const archAlias: Record<string, string> = { x64: 'x86_64', arm64: 'aarch64' };
+const platformMapping: Record<string, string> = {
+  darwin: 'apple-darwin',
+  linux: 'unknown-linux-gnu',
+  win32: 'pc-windows-msvc',
+};
+const triple = `${archAlias[targetArch]}-${platformMapping[targetPlatform]}`;
+const releasesDir = path.join(out, 'node_modules', '@temporalio', 'core-bridge', 'releases');
+if (!fs.existsSync(path.join(releasesDir, triple, 'index.node'))) {
+  throw new Error(`core-bridge has no prebuild for ${triple} in ${releasesDir}`);
+}
+for (const entry of fs.readdirSync(releasesDir)) {
+  if (entry !== triple) fs.rmSync(path.join(releasesDir, entry), { recursive: true, force: true });
+}
+console.log(`kept the core-bridge prebuild ${triple}`);
 console.log(`backend-dist ready: ${out}`);

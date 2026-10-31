@@ -1,6 +1,6 @@
 name: Desktop release
 
-# Builds the desktop apps natively on Linux, Windows and macOS runners and smoke-tests each packaged
+# Builds the desktop apps (sketch, arduino, flow = Falang Flow) natively on Linux, Windows and macOS runners and smoke-tests each packaged
 # build on its own OS (scripts/release/smoke-desktop-app.ts). Phase 1: manual runs only, artifacts
 # kept on the run — uploading to the update feed and tag triggers come next.
 on:
@@ -9,8 +9,8 @@ on:
       app:
         description: Which app to build
         type: choice
-        options: [sketch, arduino, both]
-        default: both
+        options: [sketch, arduino, flow, all]
+        default: all
 
 concurrency:
   group: desktop-release-${{ github.ref }}-${{ inputs.app }}
@@ -23,7 +23,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        app: ${{ fromJSON(inputs.app == 'both' && '["sketch","arduino"]' || format('["{0}"]', inputs.app)) }}
+        app: ${{ fromJSON(inputs.app == 'all' && '["sketch","arduino","flow"]' || format('["{0}"]', inputs.app)) }}
         os:
           - { name: linux, runner: ubuntu-latest, builder: --linux }
           - { name: win, runner: windows-latest, builder: --win }
@@ -41,7 +41,9 @@ jobs:
           node-version: 24
           cache: npm
       - run: npm ci
-      - name: Bundle the MCP server and the worker
+      # sketch/arduino: the MCP server and the worker. flow: the workflow client and `backend-dist` (the self-contained
+      # local-mode backend, ~450 MB, a few minutes; the smoke test lets the app download the `temporal` CLI itself).
+      - name: Prebuild bundles
         run: npm run prebuild:${{ matrix.os.name }} -w ${{ env.APP_WORKSPACE }}
       - name: Build the app
         run: npm run build -w ${{ env.APP_WORKSPACE }}

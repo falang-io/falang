@@ -8,6 +8,12 @@ export interface IBackendCommandParams {
   readonly execPath: string;
   /** Dev only: the repository root. */
   readonly repoRoot: string;
+  /**
+   * Packaged only: the WRITABLE copy of `<resources>/backend-dist` under userData (see `stage-backend-dist.ts`). The
+   * install location is read-only (AppImage mount, `/Applications`, `Program Files`) and the backend writes inside its
+   * own tree (`BuildService`'s `.builds/`), so it never runs from `resourcesPath` itself.
+   */
+  readonly stagedBackendDist?: string | null;
   readonly dataDir: string;
   readonly statusFile: string;
   /** Public port; `0` = a free one. */
@@ -23,7 +29,7 @@ export interface IBackendCommand {
 
 /**
  * The one place that knows how the local-mode backend is started. Dev: the sources of the workspace through `tsx`.
- * Packaged: a self-contained copy under `<resources>/backend-dist` (ADR 0072, private) and the built client next to it.
+ * Packaged: a self-contained copy of `<resources>/backend-dist` staged under userData (ADR 0072, private) and the built client next to it.
  */
 export const resolveBackendCommand = (params: IBackendCommandParams): IBackendCommand => {
   const flags = [
@@ -39,7 +45,7 @@ export const resolveBackendCommand = (params: IBackendCommandParams): IBackendCo
   ];
   const env = { ELECTRON_RUN_AS_NODE: '1' };
   if (params.isPackaged) {
-    const cwd = path.join(params.resourcesPath, 'backend-dist');
+    const cwd = params.stagedBackendDist ?? path.join(params.resourcesPath, 'backend-dist');
     return {
       command: params.execPath,
       args: [
