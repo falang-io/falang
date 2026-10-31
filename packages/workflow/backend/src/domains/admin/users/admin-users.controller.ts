@@ -1,4 +1,16 @@
-import { Body, Controller, Get, HttpCode, HttpStatus, Inject, Param, Patch, Post, UseGuards } from '@nestjs/common';
+import {
+  Body,
+  Controller,
+  Get,
+  HttpCode,
+  HttpStatus,
+  Inject,
+  Param,
+  ParseUUIDPipe,
+  Patch,
+  Post,
+  UseGuards,
+} from '@nestjs/common';
 import { CurrentUser } from '../../auth/auth/current-user.decorator.js';
 import { AdminGuard } from '../../auth/auth/admin.guard.js';
 import type { IJwtPayloadUser } from '../../auth/auth/jwt.strategy.js';
@@ -24,26 +36,26 @@ export class AdminUsersController {
   }
 
   @Get(':id')
-  get(@Param('id') id: string): Promise<IAdminUser> {
+  get(@Param('id', ParseUUIDPipe) id: string): Promise<IAdminUser> {
     return this.adminUsersService.getUser(id);
   }
 
   /** Opened read-only in the main client — see `TProjectAccess` in `projects.service.ts`. */
   @Get(':id/projects')
-  listProjects(@Param('id') id: string): Promise<IAdminUserProject[]> {
+  listProjects(@Param('id', ParseUUIDPipe) id: string): Promise<IAdminUserProject[]> {
     return this.adminUsersService.listUserProjects(id);
   }
 
   @Post(':id/activate')
   @HttpCode(HttpStatus.OK)
-  activate(@Param('id') id: string): Promise<{ sent: true } | { sent: false; password: string }> {
+  activate(@Param('id', ParseUUIDPipe) id: string): Promise<{ sent: true } | { sent: false; password: string }> {
     return this.adminUsersService.activate(id);
   }
 
   @Patch(':id/role')
   updateRole(
     @CurrentUser() currentUser: IJwtPayloadUser,
-    @Param('id') id: string,
+    @Param('id', ParseUUIDPipe) id: string,
     @Body() body: UpdateUserRoleDto,
   ): Promise<IAdminUser> {
     return this.adminUsersService.updateRole(currentUser.id, id, body.role);
@@ -56,7 +68,7 @@ export class AdminUsersController {
 
   @Post(':id/reset-password')
   @HttpCode(HttpStatus.OK)
-  resetPassword(@Param('id') id: string): Promise<{ password: string }> {
+  resetPassword(@Param('id', ParseUUIDPipe) id: string): Promise<{ password: string }> {
     return this.adminUsersService.resetPassword(id);
   }
 }

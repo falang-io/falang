@@ -1,5 +1,6 @@
 import { OAuth2PendingStateRow } from '../domains/integrations/oauth2-pending-state.entity.js';
 import { ValidationPipe, type INestApplication } from '@nestjs/common';
+import { buildTestDbOptions } from './test-db-options.js';
 import { ConfigModule } from '@nestjs/config';
 import { APP_GUARD } from '@nestjs/core';
 import { Test } from '@nestjs/testing';
@@ -64,16 +65,13 @@ const noopDiscoveryPort: IIntegrationsDiscoveryPort = {
 };
 
 /**
- * The in-memory-sqlite module list shared by `createTestApp` and `createApp`-based tests
+ * The module list (database per `test-db-options.ts` — in-memory sqlite by default, PGlite via `FALANG_TEST_DB`) shared by `createTestApp` and `createApp`-based tests
  * (`create-app.e2e.test.ts`), so neither re-declares it. `extraModules` are appended last.
  */
 export const buildTestAppImports = (extraModules: TAppImport[] = []) => [
   ConfigModule.forRoot({ isGlobal: true, ignoreEnvFile: true }),
   TypeOrmModule.forRoot({
-    type: 'better-sqlite3',
-    database: ':memory:',
-    dropSchema: true,
-    synchronize: true,
+    ...buildTestDbOptions(),
     entities: [
       User,
       Project,
@@ -124,7 +122,8 @@ export const buildTestAppImports = (extraModules: TAppImport[] = []) => [
 ];
 
 /**
- * Boots the real domain modules against an in-memory sqlite database (swapped in for Postgres —
+ * Boots the real domain modules against an in-memory sqlite database by default, or PGlite — a real Postgres — with
+ * `FALANG_TEST_DB` (see `test-db-options.ts`; sqlite is swapped in for Postgres —
  * nothing here relies on Postgres-specific behavior) so the full HTTP surface can be exercised
  * with `supertest`, including the admin auto-seed and cross-user isolation. Shared by every
  * `*.e2e.test.ts` file so each doesn't have to re-declare the same module wiring — see

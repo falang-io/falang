@@ -141,10 +141,15 @@ describe('account management (auth + admin users)', () => {
       expect(await app.get(PersonalAccessTokensService).resolve(pat.body.rawToken as string)).toBeNull();
     });
 
-    it('404s resetting an unknown user', async () => {
+    it('404s resetting an unknown user and 400s a malformed id', async () => {
       const adminToken = await login(app);
-      const response = await http().post('/admin/users/no-such-user/reset-password').set(auth(adminToken));
-      expect(response.status).toBe(404);
+      const unknown = await http()
+        .post('/admin/users/00000000-0000-4000-8000-000000000000/reset-password')
+        .set(auth(adminToken));
+      expect(unknown.status).toBe(404);
+      // A non-UUID id used to reach the query and surface as a 500 on Postgres (sqlite accepted it) — ParseUUIDPipe.
+      const malformed = await http().post('/admin/users/no-such-user/reset-password').set(auth(adminToken));
+      expect(malformed.status).toBe(400);
     });
   });
 

@@ -48,6 +48,11 @@ describe('runner sessions (ADR 0067)', () => {
     return (created.body as { id: string }).id;
   };
 
+  // Real UUIDs: `runner_sessions.project_id` is a `uuid` column — only sqlite accepted `P1` here.
+  const P1 = '11111111-1111-4111-8111-111111111111';
+  const P2 = '22222222-2222-4222-8222-222222222222';
+  const GHOST = '99999999-9999-4999-8999-999999999999';
+
   const dev = (projectId: string) => ({
     deploymentName: `workflow-dev-${projectId}`,
     taskQueue: `workflow-dev-${projectId}`,
@@ -63,8 +68,8 @@ describe('runner sessions (ADR 0067)', () => {
   });
 
   it('opens once per deployment; a repeated open only heartbeats', async () => {
-    await sessions.open(dev('p1'), T0);
-    await sessions.open(dev('p1'), minutes(T0, 5));
+    await sessions.open(dev(P1), T0);
+    await sessions.open(dev(P1), minutes(T0, 5));
     const open = await sessions.listOpen();
     expect(open).toHaveLength(1);
     expect(open[0]).toMatchObject({
@@ -77,19 +82,19 @@ describe('runner sessions (ADR 0067)', () => {
   });
 
   it('closes with the given reason and end time; closing nothing is a no-op', async () => {
-    await sessions.open(prod('p1', 'v1'), T0);
-    await sessions.close('workflow-p1-v1', 'idle', minutes(T0, 30));
-    await sessions.close('workflow-p1-v1', 'stopped', minutes(T0, 40));
-    const [closed] = await sessions.listForProject('p1');
+    await sessions.open(prod(P1, 'v1'), T0);
+    await sessions.close(`workflow-${P1}-v1`, 'idle', minutes(T0, 30));
+    await sessions.close(`workflow-${P1}-v1`, 'stopped', minutes(T0, 40));
+    const [closed] = await sessions.listForProject(P1);
     expect(closed).toMatchObject({ buildId: 'v1', endedAt: minutes(T0, 30), endReason: 'idle' });
     expect(await sessions.listOpen()).toEqual([]);
   });
 
   it('a new session opens after the previous one of the same deployment was closed', async () => {
-    await sessions.open(dev('p1'), T0);
-    await sessions.close('workflow-dev-p1', 'stopped', minutes(T0, 10));
-    await sessions.open(dev('p1'), minutes(T0, 20));
-    expect(await sessions.listForProject('p1')).toHaveLength(2);
+    await sessions.open(dev(P1), T0);
+    await sessions.close(`workflow-dev-${P1}`, 'stopped', minutes(T0, 10));
+    await sessions.open(dev(P1), minutes(T0, 20));
+    expect(await sessions.listForProject(P1)).toHaveLength(2);
     expect(await sessions.listOpen()).toHaveLength(1);
   });
 
@@ -110,67 +115,67 @@ describe('runner sessions (ADR 0067)', () => {
 
     it('does not adopt a deployment whose project does not exist', async () => {
       const real = await createProject(await registerUser('adopter3'));
-      await sessions.reconcile([dev('ghost-project'), dev(real)], T0);
+      await sessions.reconcile([dev(GHOST), dev(real)], T0);
       const open = await sessions.listOpen();
       expect(open.map((session) => session.projectId)).toEqual([real]);
     });
 
     it('heartbeats a session whose deployment is still there', async () => {
-      await sessions.open(dev('p1'), T0);
-      await sessions.reconcile([dev('p1')], minutes(T0, 1), minutes(T0, 1));
+      await sessions.open(dev(P1), T0);
+      await sessions.reconcile([dev(P1)], minutes(T0, 1), minutes(T0, 1));
       const [session] = await sessions.listOpen();
       expect(session?.lastSeenAt).toEqual(minutes(T0, 1));
       expect(session?.startedAt).toEqual(T0);
     });
 
     it('closes a vanished deployment as lost at its last heartbeat', async () => {
-      await sessions.open(dev('p1'), T0);
-      await sessions.reconcile([dev('p1')], minutes(T0, 3), minutes(T0, 3));
+      await sessions.open(dev(P1), T0);
+      await sessions.reconcile([dev(P1)], minutes(T0, 3), minutes(T0, 3));
       await sessions.reconcile([], minutes(T0, 4), minutes(T0, 4));
-      const [session] = await sessions.listForProject('p1');
+      const [session] = await sessions.listForProject(P1);
       expect(session).toMatchObject({ endReason: 'lost', endedAt: minutes(T0, 3) });
     });
 
     it('leaves alone a session that started after the snapshot was taken', async () => {
       await sessions.reconcile([], minutes(T0, 5), minutes(T0, 5));
-      await sessions.open(dev('p1'), minutes(T0, 6));
+      await sessions.open(dev(P1), minutes(T0, 6));
       await sessions.reconcile([], minutes(T0, 7), minutes(T0, 5));
       expect(await sessions.listOpen()).toHaveLength(1);
     });
 
     it('does not re-open a deployment that was stopped after the snapshot was taken', async () => {
-      await sessions.open(dev('p1'), T0);
-      await sessions.close('workflow-dev-p1', 'stopped', minutes(T0, 6));
-      await sessions.reconcile([dev('p1')], minutes(T0, 7), minutes(T0, 5));
+      await sessions.open(dev(P1), T0);
+      await sessions.close(`workflow-dev-${P1}`, 'stopped', minutes(T0, 6));
+      await sessions.reconcile([dev(P1)], minutes(T0, 7), minutes(T0, 5));
       expect(await sessions.listOpen()).toEqual([]);
     });
   });
 
   describe('closeAllOpen', () => {
     it('closes every open session of every deployment with one end time, skipping closed ones', async () => {
-      await sessions.open(dev('p1'), T0);
-      await sessions.open(prod('p1', 'v1'), T0);
-      await sessions.open(dev('p2'), minutes(T0, 1));
-      await sessions.close('workflow-dev-p2', 'idle', minutes(T0, 5));
+      await sessions.open(dev(P1), T0);
+      await sessions.open(prod(P1, 'v1'), T0);
+      await sessions.open(dev(P2), minutes(T0, 1));
+      await sessions.close(`workflow-dev-${P2}`, 'idle', minutes(T0, 5));
 
       await sessions.closeAllOpen('shutdown', minutes(T0, 20));
 
       expect(await sessions.listOpen()).toEqual([]);
-      const p1 = await sessions.listForProject('p1');
+      const p1 = await sessions.listForProject(P1);
       expect(p1.map((row) => [row.endReason, row.endedAt])).toEqual([
         ['shutdown', minutes(T0, 20)],
         ['shutdown', minutes(T0, 20)],
       ]);
-      const [p2] = await sessions.listForProject('p2');
+      const [p2] = await sessions.listForProject(P2);
       expect(p2).toMatchObject({ endReason: 'idle', endedAt: minutes(T0, 5) });
     });
 
     it('calls sink.onClosed for each session it closes, but not for already-closed ones', async () => {
       const { service, sink } = withSink();
-      await service.open(dev('p1'), T0);
-      await service.open(prod('p1', 'v1'), T0);
-      await service.open(dev('p2'), T0);
-      await service.close('workflow-dev-p2', 'idle', minutes(T0, 5));
+      await service.open(dev(P1), T0);
+      await service.open(prod(P1, 'v1'), T0);
+      await service.open(dev(P2), T0);
+      await service.close(`workflow-dev-${P2}`, 'idle', minutes(T0, 5));
       sink.onClosed.mockClear();
 
       await service.closeAllOpen('shutdown', minutes(T0, 20));
@@ -187,22 +192,22 @@ describe('runner sessions (ADR 0067)', () => {
       const { service, sink } = withSink();
       sink.onOpened.mockRejectedValueOnce(new Error('meter down'));
 
-      await service.open(dev('p1'), T0);
-      await service.open(dev('p2'), T0);
+      await service.open(dev(P1), T0);
+      await service.open(dev(P2), T0);
 
-      expect((await service.listOpen()).map((row) => row.projectId)).toEqual(['p1', 'p2']);
+      expect((await service.listOpen()).map((row) => row.projectId)).toEqual([P1, P2]);
       expect(sink.onOpened).toHaveBeenCalledTimes(2);
     });
 
     it('closes the row even if onClosed throws, and later operations still run', async () => {
       const { service, sink } = withSink();
       sink.onClosed.mockRejectedValue(new Error('meter down'));
-      await service.open(dev('p1'), T0);
+      await service.open(dev(P1), T0);
 
-      await service.close('workflow-dev-p1', 'idle', minutes(T0, 3));
-      await service.open(dev('p1'), minutes(T0, 4));
+      await service.close(`workflow-dev-${P1}`, 'idle', minutes(T0, 3));
+      await service.open(dev(P1), minutes(T0, 4));
 
-      const rows = await service.listForProject('p1');
+      const rows = await service.listForProject(P1);
       expect(rows).toHaveLength(2);
       expect(rows[1]).toMatchObject({ endReason: 'idle', endedAt: minutes(T0, 3) });
       expect(rows[0]?.endedAt).toBeNull();
@@ -211,23 +216,23 @@ describe('runner sessions (ADR 0067)', () => {
     it('still heartbeats the row when onHeartbeat throws', async () => {
       const { service, sink } = withSink();
       sink.onHeartbeat.mockRejectedValue(new Error('meter down'));
-      await service.open(dev('p1'), T0);
+      await service.open(dev(P1), T0);
 
-      await service.reconcile([dev('p1')], minutes(T0, 2), minutes(T0, 2));
-      await service.reconcile([dev('p1')], minutes(T0, 3), minutes(T0, 3));
+      await service.reconcile([dev(P1)], minutes(T0, 2), minutes(T0, 2));
+      await service.reconcile([dev(P1)], minutes(T0, 3), minutes(T0, 3));
 
       expect(sink.onHeartbeat).toHaveBeenCalledTimes(2);
       expect((await service.listOpen())[0]?.lastSeenAt).toEqual(minutes(T0, 3));
     });
 
     it('a rejected task does not wedge the chain: the next call still runs', async () => {
-      await sessions.open(dev('p1'), T0);
+      await sessions.open(dev(P1), T0);
       const repo = app.get<Repository<RunnerSession>>(getRepositoryToken(RunnerSession));
       const find = vi.spyOn(repo, 'find').mockRejectedValueOnce(new Error('db blip'));
 
-      await expect(sessions.close('workflow-dev-p1', 'idle', minutes(T0, 1))).rejects.toThrow('db blip');
+      await expect(sessions.close(`workflow-dev-${P1}`, 'idle', minutes(T0, 1))).rejects.toThrow('db blip');
       find.mockRestore();
-      await sessions.close('workflow-dev-p1', 'idle', minutes(T0, 2));
+      await sessions.close(`workflow-dev-${P1}`, 'idle', minutes(T0, 2));
 
       expect(await sessions.listOpen()).toEqual([]);
     });
@@ -235,32 +240,32 @@ describe('runner sessions (ADR 0067)', () => {
 
   describe('listings', () => {
     it('listOpen is oldest first; listOpenForProject filters by project and open state', async () => {
-      await sessions.open(dev('p2'), minutes(T0, 2));
-      await sessions.open(dev('p1'), T0);
-      await sessions.open(prod('p1', 'v1'), minutes(T0, 1));
-      await sessions.close('workflow-p1-v1', 'idle', minutes(T0, 9));
+      await sessions.open(dev(P2), minutes(T0, 2));
+      await sessions.open(dev(P1), T0);
+      await sessions.open(prod(P1, 'v1'), minutes(T0, 1));
+      await sessions.close(`workflow-${P1}-v1`, 'idle', minutes(T0, 9));
 
-      expect((await sessions.listOpen()).map((row) => row.projectId)).toEqual(['p1', 'p2']);
-      const forP1 = await sessions.listOpenForProject('p1');
-      expect(forP1.map((row) => row.deploymentName)).toEqual(['workflow-dev-p1']);
-      expect(await sessions.listOpenForProject('nobody')).toEqual([]);
+      expect((await sessions.listOpen()).map((row) => row.projectId)).toEqual([P1, P2]);
+      const forP1 = await sessions.listOpenForProject(P1);
+      expect(forP1.map((row) => row.deploymentName)).toEqual([`workflow-dev-${P1}`]);
+      expect(await sessions.listOpenForProject(GHOST)).toEqual([]);
     });
 
     it('listForProject honours before/limit, clamps the limit and ignores other projects', async () => {
       for (let i = 0; i < 4; i += 1) {
-        await sessions.open(dev('p1'), minutes(T0, i * 10));
-        await sessions.close('workflow-dev-p1', 'idle', minutes(T0, i * 10 + 5));
+        await sessions.open(dev(P1), minutes(T0, i * 10));
+        await sessions.close(`workflow-dev-${P1}`, 'idle', minutes(T0, i * 10 + 5));
       }
-      await sessions.open(dev('p2'), T0);
+      await sessions.open(dev(P2), T0);
 
-      const all = await sessions.listForProject('p1');
+      const all = await sessions.listForProject(P1);
       expect(all.map((row) => row.startedAt)).toEqual([30, 20, 10, 0].map((m) => minutes(T0, m)));
-      expect(await sessions.listForProject('p1', { limit: 2 })).toHaveLength(2);
-      expect(await sessions.listForProject('p1', { limit: 0 })).toHaveLength(1);
-      expect(await sessions.listForProject('p1', { limit: -7 })).toHaveLength(1);
-      expect(await sessions.listForProject('p1', { limit: 99_999 })).toHaveLength(4);
+      expect(await sessions.listForProject(P1, { limit: 2 })).toHaveLength(2);
+      expect(await sessions.listForProject(P1, { limit: 0 })).toHaveLength(1);
+      expect(await sessions.listForProject(P1, { limit: -7 })).toHaveLength(1);
+      expect(await sessions.listForProject(P1, { limit: 99_999 })).toHaveLength(4);
       expect(MAX_SESSIONS_LIMIT).toBe(500);
-      const older = await sessions.listForProject('p1', { before: minutes(T0, 20) });
+      const older = await sessions.listForProject(P1, { before: minutes(T0, 20) });
       expect(older.map((row) => row.startedAt)).toEqual([minutes(T0, 10), T0]);
     });
 

@@ -86,13 +86,15 @@
     "undici": "^7.29.1"
   },
   "devDependencies": {
+    "@electric-sql/pglite": "^0.5.13",
     "@falang/typescript-dto": "*",
     "@falang/workflow-mocks": "*",
     "@nestjs/testing": "^11.1.28",
     "@types/supertest": "^6.0.3",
     "better-sqlite3": "^12.11.1",
     "mysql2": "^3.24.4",
-    "supertest": "^7.1.4"
+    "supertest": "^7.1.4",
+    "typeorm-pglite": "^0.3.4"
   },
   "files": [
     "src",

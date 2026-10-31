@@ -1,4 +1,5 @@
 import { ValidationPipe } from '@nestjs/common';
+import { buildTestDbOptions } from '../../test-utils/test-db-options.js';
 import { ConfigModule } from '@nestjs/config';
 import { APP_GUARD } from '@nestjs/core';
 import { Test } from '@nestjs/testing';
@@ -54,10 +55,7 @@ export const createTasksTestApp = async () => {
     imports: [
       ConfigModule.forRoot({ isGlobal: true, ignoreEnvFile: true }),
       TypeOrmModule.forRoot({
-        type: 'better-sqlite3',
-        database: ':memory:',
-        dropSchema: true,
-        synchronize: true,
+        ...buildTestDbOptions(),
         entities: [User, Project, ProjectMember, Folder, Document, Task, RunJournalEntry, UserLimits],
       }),
       TypeOrmModule.forFeature([Task]),
