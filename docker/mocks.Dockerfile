@@ -19,6 +19,7 @@ COPY packages/typescript/scheme/package.json packages/typescript/scheme/
 COPY packages/workflow-integrations/common/package.json packages/workflow-integrations/common/
 COPY packages/workflow-integrations/openai/package.json packages/workflow-integrations/openai/
 COPY packages/workflow-integrations/telegram/package.json packages/workflow-integrations/telegram/
+COPY packages/workflow-integrations/max/package.json packages/workflow-integrations/max/
 COPY packages/workflow/backend/package.json packages/workflow/backend/
 COPY packages/workflow/client-admin/package.json packages/workflow/client-admin/
 COPY packages/workflow/client/package.json packages/workflow/client/

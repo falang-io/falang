@@ -113,7 +113,7 @@
       "max-project-files-bytes-label": "Макс. суммарный размер файлов проекта (байт)",
       "max-file-bytes-label": "Макс. размер одного файла (байт)",
       "dev-file-ttl-hours-label": "TTL файлов dev-запуска (часов)",
-      "ingress-file-ttl-hours-label": "TTL файлов из Telegram (часов)",
+      "ingress-file-ttl-hours-label": "TTL входящих файлов из мессенджеров — Telegram, MAX (часов)",
       "max-concurrent-prod-versions-label": "Макс. одновременно запущенных опубликованных версий на проект",
       "save": "Сохранить",
       "reset": "Сбросить до умолчаний",

@@ -45,6 +45,7 @@ export const buildRunnerEnv = (
   if (managerParams.internalApiUrl) env.BACKEND_INTERNAL_URL = managerParams.internalApiUrl;
   if (managerParams.activepiecesServiceUrl) env.ACTIVEPIECES_SERVICE_URL = managerParams.activepiecesServiceUrl;
   if (managerParams.telegramApiBaseUrl) env.TELEGRAM_API_BASE_URL = managerParams.telegramApiBaseUrl;
+  if (managerParams.maxApiBaseUrl) env.MAX_API_BASE_URL = managerParams.maxApiBaseUrl;
   if (managerParams.mediaServiceUrl) env.MEDIA_SERVICE_URL = managerParams.mediaServiceUrl;
   if (managerParams.backendPublicUrl) env.BACKEND_PUBLIC_URL = managerParams.backendPublicUrl;
   if (managerParams.runnerMetricsPort) env.RUNNER_METRICS_PORT = String(managerParams.runnerMetricsPort);

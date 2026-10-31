@@ -392,6 +392,9 @@ services:
       # Override for runner pods specifically — same reachability reasoning as
       # RUNNER_TEMPORAL_ADDRESS/BACKEND_INTERNAL_URL above (this stack's `mocks` host port is 4102).
       - RUNNER_TELEGRAM_API_BASE_URL=http://${KIND_GATEWAY_IP:-172.18.0.1}:4102/telegram
+      # The same pair for the MAX messenger mock (@falang/workflow-integrations-max).
+      - MAX_API_BASE_URL=http://mocks:4100/max
+      - RUNNER_MAX_API_BASE_URL=http://${KIND_GATEWAY_IP:-172.18.0.1}:4102/max
       # See `activepieces` service below and ADR 0010 (private) —
       # same pattern as docker-compose.workflow.yml, mirrored here for e2e.
       - ACTIVEPIECES_SERVICE_URL=http://activepieces:4100

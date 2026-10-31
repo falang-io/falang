@@ -113,7 +113,7 @@
       "max-project-files-bytes-label": "Max total files per project (bytes)",
       "max-file-bytes-label": "Max single file size (bytes)",
       "dev-file-ttl-hours-label": "Dev-run file TTL (hours)",
-      "ingress-file-ttl-hours-label": "Telegram-ingress file TTL (hours)",
+      "ingress-file-ttl-hours-label": "Messenger-ingress file TTL — Telegram, MAX (hours)",
       "max-concurrent-prod-versions-label": "Max concurrently running published versions per project",
       "save": "Save",
       "reset": "Reset to defaults",

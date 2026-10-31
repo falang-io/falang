@@ -286,9 +286,11 @@ describe('resolveExpiresAt (TTL rule)', () => {
     expect(result).toBeNull();
   });
 
-  it('a Telegram ingress upload gets ingressFileTtlHours', () => {
-    const result = resolveExpiresAt(now, { createdBy: 'ingress:telegram' }, LIMITS);
-    expect(result?.getTime()).toBe(now.getTime() + LIMITS.ingressFileTtlHours * 3_600_000);
+  it('a messenger ingress upload (Telegram, MAX) gets ingressFileTtlHours', () => {
+    for (const createdBy of ['ingress:telegram', 'ingress:max']) {
+      const result = resolveExpiresAt(now, { createdBy }, LIMITS);
+      expect(result?.getTime(), createdBy).toBe(now.getTime() + LIMITS.ingressFileTtlHours * 3_600_000);
+    }
   });
 
   it('a manual upload never expires', () => {

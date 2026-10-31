@@ -44,7 +44,7 @@ export class File {
   @Column({ name: 'storage_key', type: 'varchar' })
   storageKey!: string;
 
-  /** `'run:<workflowId>'` | `'ingress:telegram'` | `'user:<userId>'` — see the ADR's §2/§4. Free-form on purpose; nothing parses it besides the TTL rule's `startsWith('run:')`/`=== 'ingress:telegram'` checks. */
+  /** `'run:<workflowId>'` | `'ingress:<vendor>'` (e.g. `'ingress:telegram'`) | `'user:<userId>'` — see the ADR's §2/§4. Free-form on purpose; nothing parses it besides the TTL rule's `startsWith('run:')`/`startsWith('ingress:')` checks. */
   @Column({ name: 'created_by', type: 'varchar' })
   createdBy!: string;
 

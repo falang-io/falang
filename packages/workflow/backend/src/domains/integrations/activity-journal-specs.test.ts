@@ -33,6 +33,9 @@ describe('run journal specs of every registered vendor (ADR 0059)', () => {
       telegramSendMessage: 'message-out',
       telegramSendFile: 'message-out',
       telegramAskQuestion: 'message-out',
+      maxSendMessage: 'message-out',
+      maxSendFile: 'message-out',
+      maxAskQuestion: 'message-out',
       humanTaskAsk: 'message-out',
     };
     for (const [name, kind] of Object.entries(expected)) expect(journal[name]?.kind, name).toBe(kind);

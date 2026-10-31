@@ -36,6 +36,7 @@
     "@falang/workflow-integrations-files": "*",
     "@falang/workflow-integrations-gigachat": "*",
     "@falang/workflow-integrations-http-request": "*",
+    "@falang/workflow-integrations-max": "*",
     "@falang/workflow-integrations-media": "*",
     "@falang/workflow-integrations-moysklad": "*",
     "@falang/workflow-integrations-mysql": "*",

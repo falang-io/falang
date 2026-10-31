@@ -32,6 +32,18 @@ export const VENDOR_NODE_KIND_NOTES: Record<string, string> = {
     'branch that has already finished the conversation (e.g. the guess was confirmed and a final message',
     'was sent) must use `return`, not `break` — `break` would still run that trailing code.',
   ].join(' '),
+  'max-question': [
+    'The MAX messenger counterpart of `telegram-question`: sends the message with tappable inline-keyboard',
+    "buttons — one per `max-question-option` child, in order, each child's `data.label` the button's text —",
+    "and pauses the workflow until the user taps one. Do **not** match the next incoming message's text",
+    "instead. Set each option's `out` exactly as for `telegram-question-option`.",
+  ].join(' '),
+  'max-question-option': [
+    "One button of the enclosing `max-question`'s inline keyboard; `data.label` is its text and the value of",
+    "the pick. Its `out` follows the same rules as `telegram-question-option`'s: `continue` asks again, `break`",
+    'leaves the loop and runs what comes after it, `return` ends the whole function.',
+  ].join(' '),
+  'max-send-file': '`file` is a `File` variable (e.g. `message.photo`), never a URL; `as: "auto"` picks by mime.',
   'call-ai-choice':
     "One synchronous call asking an AI model to pick among its declared options and return typed data alongside the pick — it never talks to an end user by itself, unlike `telegram-question`. Pair it with the chat vendor's own question node for that. Also accepts optional `attachments` (a `File[]`, see `call-ai-text`).",
   'call-ai-choice-option': [

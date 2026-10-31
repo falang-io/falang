@@ -4,6 +4,7 @@ import { diadocIntegration } from '@falang/workflow-integrations-diadoc';
 import { filesIntegration } from '@falang/workflow-integrations-files';
 import { gigachatIntegration } from '@falang/workflow-integrations-gigachat';
 import { httpRequestIntegration } from '@falang/workflow-integrations-http-request';
+import { maxIntegration } from '@falang/workflow-integrations-max';
 import { mediaIntegration } from '@falang/workflow-integrations-media';
 import { moyskladIntegration } from '@falang/workflow-integrations-moysklad';
 import { mysqlIntegration } from '@falang/workflow-integrations-mysql';
@@ -41,6 +42,7 @@ import { isSqliteIntegrationEnabled } from './optional-vendors.js';
 /** Evaluated once at module load: `sqlite` is included only when `ENABLE_SQLITE_INTEGRATION=true` (see `optional-vendors.ts`). */
 export const REGISTERED_INTEGRATIONS: readonly IWorkflowIntegration[] = [
   telegramIntegration,
+  maxIntegration,
   openaiIntegration,
   httpRequestIntegration,
   webhookIntegration,

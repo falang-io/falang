@@ -7,11 +7,14 @@ const SQL_DIALECT_VENDORS = ['postgres', 'mysql', 'sqlite'];
 const SQL_ACTION_SUFFIXES = ['select', 'select-one', 'insert', 'update', 'delete', 'query'];
 
 describe('node-kind-notes-vendors', () => {
-  it('VENDOR_NODE_KIND_NOTES: has every telegram/AI/files/http entry moved out of node-kinds.ts', () => {
+  it('VENDOR_NODE_KIND_NOTES: has every telegram/MAX/AI/files/http entry moved out of node-kinds.ts', () => {
     expect(Object.keys(VENDOR_NODE_KIND_NOTES).toSorted()).toEqual(
       [
         'telegram-question',
         'telegram-question-option',
+        'max-question',
+        'max-question-option',
+        'max-send-file',
         'call-ai-choice',
         'call-ai-choice-option',
         'call-ai-text',
@@ -80,5 +83,7 @@ describe('node-kind-notes-vendors', () => {
     const stack = new NodesStack([new NodesGroup([{ name: 'postgres-update' }, { name: 'telegram-question' }])]);
     expect(describeNodeKind('postgres-update', stack).notes).toContain('non-empty');
     expect(describeNodeKind('telegram-question', stack).notes).toContain('inline-keyboard');
+    const maxStack = new NodesStack([new NodesGroup([{ name: 'max-question' }])]);
+    expect(describeNodeKind('max-question', maxStack).notes).toContain('inline-keyboard');
   });
 });

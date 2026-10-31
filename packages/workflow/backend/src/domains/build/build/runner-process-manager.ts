@@ -69,6 +69,8 @@ export interface IRunnerProcessManagerParams {
    * mock — pods can't resolve that service by its docker-internal name any more than `backend`'s.
    */
   readonly telegramApiBaseUrl?: string;
+  /** The same for the Max Bot API (`MAX_API_BASE_URL`, default `https://platform-api.max.ru`) — see `@falang/workflow-integrations-max`. */
+  readonly maxApiBaseUrl?: string;
   /**
    * How a runner pod's compiled `media-*` action activities (e.g. `mediaImageResize`) reach the
    * standalone `@falang/workflow-media` service — see ADR 0041 (private).

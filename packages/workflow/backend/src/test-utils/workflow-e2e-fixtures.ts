@@ -153,6 +153,8 @@ export const buildTriggerFunctionRootNode = (
     readonly scopeVariableName: string;
     readonly scopeType: TVariableInfo;
     readonly returnValue?: TVariableInfo;
+    /** The trigger's `contextFields` values, e.g. an on-command trigger's `{ command: 'start' }`. */
+    readonly triggerConfig?: Readonly<Record<string, string>>;
   },
   bodyChildren: readonly INode[] = [],
 ): INode => ({

@@ -343,6 +343,8 @@ const createTerminateRunningExecutions = (graceMs: number, tenancy: ITemporalTen
           // network by its docker-internal name).
           telegramApiBaseUrl:
             config.get<string>('RUNNER_TELEGRAM_API_BASE_URL') ?? config.get<string>('TELEGRAM_API_BASE_URL'),
+          // Same override for the Max Bot API (`@falang/workflow-integrations-max`, mocked in e2e).
+          maxApiBaseUrl: config.get<string>('RUNNER_MAX_API_BASE_URL') ?? config.get<string>('MAX_API_BASE_URL'),
           // See ADR 0041 (private). `RUNNER_MEDIA_SERVICE_URL` overrides
           // `MEDIA_SERVICE_URL` for pods, same reasoning as `RUNNER_ACTIVEPIECES_SERVICE_URL`/
           // `RUNNER_TELEGRAM_API_BASE_URL` above.
