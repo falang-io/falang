@@ -6,6 +6,15 @@ export const DEFAULT_RUNNER_EPHEMERAL_STORAGE_REQUEST = '256Mi';
 export const DEFAULT_RUNNER_TMP_SIZE_LIMIT = '512Mi';
 
 /**
+ * A runner pod's memory request and limit. Measured 2026-10-31 on the simplest function project: ~210 MB RSS idle,
+ * ~260 MB after a minute of back-to-back runs (Node + Temporal worker + tsx); projects with more vendors weigh more.
+ * The request is what the scheduler packs nodes by — the previous 128Mi let it place ~2.5x more runners on a node
+ * than fit in its memory. The limit is the advertised instance size ("Стандарт": 0.5 vCPU / 512 MB).
+ */
+export const RUNNER_MEMORY_REQUEST = '384Mi';
+export const RUNNER_MEMORY_LIMIT = '512Mi';
+
+/**
  * `RUNNER_NODE_SELECTOR`: `key=value,key2=value2` → `nodeSelector`. Empty/unset → `undefined`. A malformed pair
  * (no `=` or an empty key) throws, so a typo in the deploy config fails loudly at boot rather than scheduling runners
  * next to the control plane.

@@ -70,6 +70,8 @@ USER node
 # ever running — see ADR 0016 (private)'s "Runner-pod coverage
 # collection" implementation notes). `main.ts`'s `SIGTERM` handler (coverage flush-and-push, and
 # more generally k8s's own graceful-shutdown signal on every pod deletion, not just
-# coverage-instrumented ones) needs to reach the real Node process directly — `sh -c 'exec ...'`
-# replaces the shell with it instead of forking, so the process the container is signaled *is* it.
-CMD ["sh", "-c", "exec ../../../node_modules/.bin/tsx src/main.ts"]
+# coverage-instrumented ones) needs to reach the real Node process directly. Not the `tsx` CLI
+# either: it is itself a Node process that spawns a second one for `main.ts` (~60 MB of RSS per pod,
+# measured 2026-10-31) — `node --import tsx` registers the same loader in-process, so the exec-form
+# `CMD` makes the one Node process PID 1.
+CMD ["node", "--import", "tsx", "src/main.ts"]

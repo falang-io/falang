@@ -10,6 +10,8 @@ import {
   DEFAULT_RUNNER_EPHEMERAL_STORAGE_LIMIT,
   DEFAULT_RUNNER_EPHEMERAL_STORAGE_REQUEST,
   DEFAULT_RUNNER_TMP_SIZE_LIMIT,
+  RUNNER_MEMORY_LIMIT,
+  RUNNER_MEMORY_REQUEST,
 } from './runner-pod-placement.js';
 
 const APP_LABEL = 'app.kubernetes.io/name';
@@ -397,12 +399,12 @@ export class RunnerProcessManager {
                 resources: {
                   requests: {
                     cpu: '100m',
-                    memory: '128Mi',
+                    memory: RUNNER_MEMORY_REQUEST,
                     'ephemeral-storage': this.params.ephemeralStorageRequest ?? DEFAULT_RUNNER_EPHEMERAL_STORAGE_REQUEST,
                   },
                   limits: {
                     cpu: '500m',
-                    memory: '512Mi',
+                    memory: RUNNER_MEMORY_LIMIT,
                     'ephemeral-storage': this.params.ephemeralStorageLimit ?? DEFAULT_RUNNER_EPHEMERAL_STORAGE_LIMIT,
                   },
                 },

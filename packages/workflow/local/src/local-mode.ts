@@ -5,6 +5,7 @@ import { randomBytes } from 'node:crypto';
 import { mkdir, rename, rm, writeFile } from 'node:fs/promises';
 import os from 'node:os';
 import path from 'node:path';
+import { pathToFileURL } from 'node:url';
 import { startApp } from '@falang/workflow-backend';
 import { createPgliteDatabaseOptions, UuidOsspExtensionMigration } from './db/queued-pglite-driver.js';
 import { DiskFileStorage } from './files/disk-file-storage.js';
@@ -164,10 +165,12 @@ export const startLocalMode = async (options: IStartLocalModeOptions): Promise<I
   );
   // The runner resolves the activities module's imports (`@temporalio/activity`, vendor packages) from this directory.
   runnerEnv.RUNNER_MODULE_ROOT = path.dirname(requireFromHere.resolve('@falang/workflow-runner/package.json'));
-  const tsxCli = requireFromHere.resolve('tsx/cli');
+  // `--import tsx` loads TypeScript in the runner's own process; the `tsx` CLI would add a second Node process
+  // (~60 MB) per runner. A file URL, since `--import` takes a URL or a bare specifier, not a Windows path.
+  const tsxLoader = pathToFileURL(requireFromHere.resolve('tsx')).href;
   const runnerMain = requireFromHere.resolve('@falang/workflow-runner/src/main.ts');
   const deploymentsClient = createProcessDeploymentsClient({
-    command: { file: process.execPath, args: [tsxCli, runnerMain] },
+    command: { file: process.execPath, args: ['--import', tsxLoader, runnerMain] },
     baseEnv: runnerEnv,
     log,
   });
