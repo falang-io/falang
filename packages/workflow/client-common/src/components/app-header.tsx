@@ -6,12 +6,17 @@ import { Badge, Button, Tooltip } from 'antd';
 import { CarryOutOutlined, FolderOpenOutlined, PlayCircleOutlined, SafetyOutlined } from '@ant-design/icons';
 import { authStore } from '../auth-store.js';
 import { navigationStore } from '../navigation-store.js';
-import { sortExtensionNavItems, toExtensionViewName, useClientExtensions } from '../extensions/client-extensions.js';
+import {
+  sortExtensionNavItems,
+  toExtensionViewName,
+  useClientExtensions,
+  type IClientBrand,
+} from '../extensions/client-extensions.js';
 import { TasksStore } from '../tasks-store.js';
 import { UserMenu } from './user-menu.js';
 
-/** The product mark (`/icon.png`, served by both the community and the cloud client). */
-const LOGO_URL = '/icon.png';
+/** The community brand; a host replaces it through `IClientExtensions.brand`. */
+const DEFAULT_BRAND: IClientBrand = { name: 'FalangFlow', logoUrl: '/icon.png' };
 
 const styles: Record<string, React.CSSProperties> = {
   root: {
@@ -60,9 +65,10 @@ export interface IFalangBrandProps {
   readonly compact?: boolean;
 }
 
-/** The Falang logo (and "FalangFlow"), a link back to the project list. */
+/** The product logo (and name — "FalangFlow" unless `IClientExtensions.brand` says otherwise), a link back to the project list. */
 export const FalangBrand: React.FC<IFalangBrandProps> = ({ compact }) => {
   const t = getGlobalI18n().t;
+  const brand = useClientExtensions().brand ?? DEFAULT_BRAND;
   const button = (
     <button
       type="button"
@@ -71,8 +77,8 @@ export const FalangBrand: React.FC<IFalangBrandProps> = ({ compact }) => {
       data-testid="falang-brand"
       onClick={() => navigationStore.goToProjectList()}
     >
-      <img src={LOGO_URL} alt="" style={styles.logo} />
-      {!compact && <span style={styles.brandName}>FalangFlow</span>}
+      <img src={brand.logoUrl} alt="" style={styles.logo} />
+      {!compact && <span style={styles.brandName}>{brand.name}</span>}
     </button>
   );
   return compact ? <Tooltip title={t('client:app-header.home')}>{button}</Tooltip> : button;

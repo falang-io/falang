@@ -44,11 +44,21 @@ export interface ISuspendedActionContext {
   readonly reason: 'balance' | 'admin';
 }
 
+/** The product name and logo shown by the brand link in the top-left corner (`FalangBrand`). */
+export interface IClientBrand {
+  /** Shown next to the logo in the app header (community: "FalangFlow"). */
+  readonly name: string;
+  /** URL of the logo image, square (community: `/icon.png`). */
+  readonly logoUrl: string;
+}
+
 /**
  * The one explicit extension contract of the community client: a separate entry (e.g. the hosted cloud edition)
  * passes these slots to `renderWorkflowApp` instead of forking the client. Every slot is optional; `{}` changes nothing.
  */
 export interface IClientExtensions {
+  /** The brand in the top-left corner (cloud: "Шагомат" and its mark); absent = "FalangFlow" with the Falang logo. */
+  brand?: IClientBrand;
   navItems?: IClientExtensionNavItem[];
   views?: IClientExtensionView[];
   /** Shown in the app header just before the user menu. */
