@@ -17,6 +17,7 @@ import {
   DefaultPasswordBanner,
   LanguageSwitcher,
   TopBar,
+  useClientBrand,
 } from '@falang/workflow-client-common';
 import { findAdminExtensionPage, toAdminExtensionPage, useAdminExtensions } from '../admin-extensions.js';
 import { adminSupportStore } from '../admin-support-store.js';
@@ -32,6 +33,8 @@ const styles: Record<string, React.CSSProperties> = {
   root: { height: '100vh' },
   username: { color: '#a6adc8', marginRight: 8 },
   content: { padding: 24, overflow: 'auto' },
+  brand: { display: 'inline-flex', alignItems: 'center', gap: 8 },
+  logo: { width: 24, height: 24, display: 'block' },
 };
 
 const PAGES: readonly { readonly key: TAdminPage; readonly icon: React.ReactNode }[] = [
@@ -56,6 +59,7 @@ const MENU_LABEL_KEYS: Record<TAdminPage, string> = {
 export const AdminShell: React.FC = observer(() => {
   const t = getGlobalI18n().t;
   const extensions = useAdminExtensions();
+  const brand = useClientBrand();
   const extensionPage = findAdminExtensionPage(extensions, adminNavigationStore.page);
 
   // The unread badge on the "Support" menu entry: polled every 15s for as long as the shell is mounted.
@@ -66,7 +70,14 @@ export const AdminShell: React.FC = observer(() => {
 
   return (
     <Layout style={styles.root}>
-      <TopBar title={t('workflow-client-admin:shell.title')}>
+      <TopBar
+        title={
+          <span style={styles.brand}>
+            <img src={brand.logoUrl} alt="" style={styles.logo} />
+            {brand.name} · {t('workflow-client-admin:shell.title')}
+          </span>
+        }
+      >
         <Typography.Text style={styles.username}>{authStore.currentUser?.username}</Typography.Text>
         <LanguageSwitcher />
         <Button type="text" href="/">

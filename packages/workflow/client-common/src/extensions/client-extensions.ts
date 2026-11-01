@@ -57,7 +57,10 @@ export interface IClientBrand {
  * passes these slots to `renderWorkflowApp` instead of forking the client. Every slot is optional; `{}` changes nothing.
  */
 export interface IClientExtensions {
-  /** The brand in the top-left corner (cloud: "Шагомат" and its mark); absent = "FalangFlow" with the Falang logo. */
+  /**
+   * The product brand (cloud: "Шагомат" and its mark): the top-left brand link and `{{brand}}` in the strings that name
+   * the product. Absent = "FalangFlow" with the Falang logo (`DEFAULT_CLIENT_BRAND`).
+   */
   brand?: IClientBrand;
   navItems?: IClientExtensionNavItem[];
   views?: IClientExtensionView[];
@@ -89,6 +92,13 @@ export const ClientExtensionsProvider: FC<{ extensions?: IClientExtensions; chil
 }) => createElement(ClientExtensionsContext.Provider, { value: extensions ?? EMPTY_EXTENSIONS }, children);
 
 export const useClientExtensions = (): IClientExtensions => useContext(ClientExtensionsContext);
+
+/** The community brand, used when a host passes no `IClientExtensions.brand`. */
+export const DEFAULT_CLIENT_BRAND: IClientBrand = { name: 'FalangFlow', logoUrl: '/icon.png' };
+
+/** The brand to show: the host's `IClientExtensions.brand`, else `DEFAULT_CLIENT_BRAND`. Its `name` is also the
+ * `{{brand}}` parameter of the strings that name the product (signup intro, welcome banner). */
+export const useClientBrand = (): IClientBrand => useClientExtensions().brand ?? DEFAULT_CLIENT_BRAND;
 
 export const EXTENSION_VIEW_PREFIX = 'ext:';
 

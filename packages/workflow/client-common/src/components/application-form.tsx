@@ -4,6 +4,7 @@ import { observer } from 'mobx-react-lite';
 import { getGlobalI18n } from '@falang/scheme';
 import { Button, Checkbox, Form, Input, Typography } from 'antd';
 import { authStore } from '../auth-store.js';
+import { useClientBrand } from '../extensions/client-extensions.js';
 import { authStyles } from './auth-styles.js';
 import { CaptchaWidget } from './captcha-widget.js';
 import type { ICaptchaControl } from './captcha-control.js';
@@ -21,6 +22,7 @@ interface IValues {
  */
 export const ApplicationForm: React.FC = observer(() => {
   const t = getGlobalI18n().t;
+  const brand = useClientBrand();
   const captchaRef = useRef<ICaptchaControl | null>(null);
   const [captchaError, setCaptchaError] = useState(false);
   const termsUrl = authStore.authConfig?.termsUrl ?? null;
@@ -51,7 +53,7 @@ export const ApplicationForm: React.FC = observer(() => {
         {t(autoActivate ? 'client:login-page.signup-title' : 'client:login-page.apply-title')}
       </Typography.Title>
       <Typography.Paragraph type="secondary">
-        {t(autoActivate ? 'client:login-page.signup-intro' : 'client:login-page.apply-intro')}
+        {t(autoActivate ? 'client:login-page.signup-intro' : 'client:login-page.apply-intro', { brand: brand.name })}
       </Typography.Paragraph>
       <Form layout="vertical" onFinish={onFinish} disabled={authStore.isLoggingIn}>
         <Form.Item label={t('client:login-page.email')} name="email" rules={[{ required: true, type: 'email' }]}>

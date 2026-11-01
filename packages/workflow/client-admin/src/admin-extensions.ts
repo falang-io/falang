@@ -1,4 +1,5 @@
 import { createContext, createElement, useContext, type FC, type ReactNode } from 'react';
+import type { IClientBrand } from '@falang/workflow-client-common';
 import type { IAdminUser } from './admin-api.js';
 
 /** An extra admin page: a menu entry after the built-in ones and the content shown when it is selected. */
@@ -15,6 +16,11 @@ export interface IAdminExtensionPage {
  * changes nothing.
  */
 export interface IAdminExtensions {
+  /**
+   * The product brand (the main client's `IClientExtensions.brand`): the shell's title and the shared sign-in form's
+   * `{{brand}}` texts. Absent = the community brand.
+   */
+  brand?: IClientBrand;
   pages?: IAdminExtensionPage[];
   /** Rendered below the built-in fields of the Users page's "Details" modal (cloud: the agent balance). */
   renderUserDetails?: (user: IAdminUser) => ReactNode;

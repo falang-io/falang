@@ -13,6 +13,12 @@ const escapeHtml = (value: string): string =>
 
 const wrapHtml = (paragraphs: string[]): string => `<div>${paragraphs.map((p) => `<p>${p}</p>`).join('')}</div>`;
 
+/**
+ * The product name the mails speak of: `BRAND_NAME` (a hosted service under its own brand), default `Falang`. Read on
+ * every call so a test can set it; the Russian texts never decline it (it stays nominative or follows «сервис»).
+ */
+export const mailBrandName = (): string => process.env.BRAND_NAME?.trim() || 'Falang';
+
 const link = (url: string): string => `<a href="${escapeHtml(url)}">${escapeHtml(url)}</a>`;
 
 /** `signup`: the self-service signup (`SIGNUP_AUTO_ACTIVATE`), `application`: a closed-beta application awaiting review. */
@@ -26,7 +32,7 @@ export const confirmEmailMail = (
   const signup = kind === 'signup';
   if (pickLang(language) === 'ru') {
     const lead = signup
-      ? 'Чтобы подтвердить e-mail и войти в Falang, перейдите по ссылке (действует 24 часа):'
+      ? `Чтобы подтвердить e-mail и войти в ${mailBrandName()}, перейдите по ссылке (действует 24 часа):`
       : 'Чтобы подтвердить e-mail и завершить заявку, перейдите по ссылке (действует 24 часа):';
     const ignore = signup
       ? 'Если вы не регистрировались, просто проигнорируйте это письмо.'
@@ -38,7 +44,7 @@ export const confirmEmailMail = (
     };
   }
   const lead = signup
-    ? 'Follow the link to confirm your e-mail and sign in to Falang (valid for 24 hours):'
+    ? `Follow the link to confirm your e-mail and sign in to ${mailBrandName()} (valid for 24 hours):`
     : 'Follow the link to confirm your e-mail and complete your application (valid for 24 hours):';
   const ignore = signup
     ? 'If you did not sign up, just ignore this message.'
@@ -94,22 +100,27 @@ export const welcomeMail = (
   language: string | undefined,
   info: { login: string; password: string; loginUrl: string },
 ): IMailContent => {
+  const brand = mailBrandName();
+  const ready =
+    pickLang(language) === 'ru'
+      ? `Ваш аккаунт в сервисе ${brand} создан, вы уже вошли в систему.`
+      : `Your ${brand} account is ready and you are already signed in.`;
   if (pickLang(language) === 'ru') {
     return {
-      subject: 'Добро пожаловать в Falang',
-      text: `Ваш аккаунт Falang создан, вы уже вошли в систему.\nДля входа с другого устройства:\nЛогин: ${info.login}\nПароль: ${info.password}\nВход: ${info.loginUrl}\n\nПароль можно сменить в настройках аккаунта.`,
+      subject: `Добро пожаловать в ${brand}`,
+      text: `${ready}\nДля входа с другого устройства:\nЛогин: ${info.login}\nПароль: ${info.password}\nВход: ${info.loginUrl}\n\nПароль можно сменить в настройках аккаунта.`,
       html: wrapHtml([
-        'Ваш аккаунт Falang создан, вы уже вошли в систему.',
+        escapeHtml(ready),
         `Для входа с другого устройства:<br>Логин: ${escapeHtml(info.login)}<br>Пароль: <code>${escapeHtml(info.password)}</code><br>Вход: ${link(info.loginUrl)}`,
         'Пароль можно сменить в настройках аккаунта.',
       ]),
     };
   }
   return {
-    subject: 'Welcome to Falang',
-    text: `Your Falang account is ready and you are already signed in.\nTo sign in from another device:\nLogin: ${info.login}\nPassword: ${info.password}\nSign in: ${info.loginUrl}\n\nYou can change the password in your account settings.`,
+    subject: `Welcome to ${brand}`,
+    text: `${ready}\nTo sign in from another device:\nLogin: ${info.login}\nPassword: ${info.password}\nSign in: ${info.loginUrl}\n\nYou can change the password in your account settings.`,
     html: wrapHtml([
-      'Your Falang account is ready and you are already signed in.',
+      escapeHtml(ready),
       `To sign in from another device:<br>Login: ${escapeHtml(info.login)}<br>Password: <code>${escapeHtml(info.password)}</code><br>Sign in: ${link(info.loginUrl)}`,
       'You can change the password in your account settings.',
     ]),
@@ -222,20 +233,18 @@ export const supportReplyMail = (
 /** Sent to the owner of an address when somebody applies with it again: no new account, a pointer to password recovery. */
 export const accountExistsMail = (language: string | undefined, loginUrl: string): IMailContent => {
   if (pickLang(language) === 'ru') {
-    const lead =
-      'Для этого адреса уже есть аккаунт Falang. Если вы забыли пароль, воспользуйтесь ссылкой «Забыли пароль?» на странице входа:';
+    const lead = `Этот адрес уже зарегистрирован в сервисе ${mailBrandName()}. Если вы забыли пароль, воспользуйтесь ссылкой «Забыли пароль?» на странице входа:`;
     const ignore = 'Если это были не вы, просто проигнорируйте письмо.';
     return {
-      subject: 'У вас уже есть аккаунт Falang',
+      subject: `У вас уже есть аккаунт в сервисе ${mailBrandName()}`,
       text: `${lead}\n${loginUrl}\n\n${ignore}`,
       html: wrapHtml([`${lead}<br>${link(loginUrl)}`, ignore]),
     };
   }
-  const lead =
-    'This address already has a Falang account. If you forgot the password, use "Forgot password?" on the sign-in page:';
+  const lead = `This address already has a ${mailBrandName()} account. If you forgot the password, use "Forgot password?" on the sign-in page:`;
   const ignore = 'If this was not you, just ignore this message.';
   return {
-    subject: 'You already have a Falang account',
+    subject: `You already have a ${mailBrandName()} account`,
     text: `${lead}\n${loginUrl}\n\n${ignore}`,
     html: wrapHtml([`${lead}<br>${link(loginUrl)}`, ignore]),
   };
@@ -263,7 +272,9 @@ export const adminDigestMail = (language: string | undefined, items: readonly IA
   const lead = ru ? `Новых заявок и пользователей: ${items.length}.` : `New applications and users: ${items.length}.`;
   const tail = ru ? 'Активируйте заявки в админке (Users).' : 'Activate applications in the admin app (Users).';
   return {
-    subject: ru ? `Falang: новых заявок ${items.length}` : `Falang: ${items.length} new signup(s)`,
+    subject: ru
+      ? `${mailBrandName()}: новых заявок ${items.length}`
+      : `${mailBrandName()}: ${items.length} new signup(s)`,
     text: `${lead}\n\n${items.map((item) => line(item)).join('\n')}\n\n${tail}`,
     html: wrapHtml([lead, items.map((item) => escapeHtml(line(item))).join('<br>'), tail]),
   };

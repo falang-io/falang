@@ -5,6 +5,7 @@ import { getGlobalI18n } from '@falang/scheme';
 import { Alert, Button } from 'antd';
 import { workflowApi } from '../api-client.js';
 import { authStore } from '../auth-store.js';
+import { useClientBrand } from '../extensions/client-extensions.js';
 
 /**
  * Persistent warning shown while the seeded `admin` account still has the well-known `admin`
@@ -71,6 +72,7 @@ export const EmailNotVerifiedBanner: React.FC = observer(() => {
  */
 export const WelcomeBanner: React.FC = observer(() => {
   const t = getGlobalI18n().t;
+  const brand = useClientBrand();
   const email = authStore.welcomeEmail;
   if (!email) return null;
   return (
@@ -80,7 +82,7 @@ export const WelcomeBanner: React.FC = observer(() => {
       banner
       closable
       onClose={() => authStore.dismissWelcome()}
-      message={t('client:welcome-banner.message', { email })}
+      message={t('client:welcome-banner.message', { email, brand: brand.name })}
       style={{ marginBottom: 16 }}
       data-testid="welcome-banner"
     />

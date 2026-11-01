@@ -9,14 +9,11 @@ import { navigationStore } from '../navigation-store.js';
 import {
   sortExtensionNavItems,
   toExtensionViewName,
+  useClientBrand,
   useClientExtensions,
-  type IClientBrand,
 } from '../extensions/client-extensions.js';
 import { TasksStore } from '../tasks-store.js';
 import { UserMenu } from './user-menu.js';
-
-/** The community brand; a host replaces it through `IClientExtensions.brand`. */
-const DEFAULT_BRAND: IClientBrand = { name: 'FalangFlow', logoUrl: '/icon.png' };
 
 const styles: Record<string, React.CSSProperties> = {
   root: {
@@ -68,7 +65,7 @@ export interface IFalangBrandProps {
 /** The product logo (and name — "FalangFlow" unless `IClientExtensions.brand` says otherwise), a link back to the project list. */
 export const FalangBrand: React.FC<IFalangBrandProps> = ({ compact }) => {
   const t = getGlobalI18n().t;
-  const brand = useClientExtensions().brand ?? DEFAULT_BRAND;
+  const brand = useClientBrand();
   const button = (
     <button
       type="button"
