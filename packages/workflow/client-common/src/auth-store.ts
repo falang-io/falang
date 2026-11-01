@@ -75,11 +75,15 @@ export class AuthStore {
     this.checkExistingToken();
   }
 
-  /** Reads `?verifyEmail=` / `?resetPassword=` once at startup and removes them from the URL right away, so a reload never repeats the call. */
+  /**
+   * Reads `?verifyEmail=` / `?resetPassword=` / `?signup` once at startup and removes them from the URL right away,
+   * so a reload never repeats the call. `?signup` only picks the entry screen: with signup off the sign-up screen
+   * renders the plain sign-in form, and a signed-in user never sees it.
+   */
   private consumeLinkParams(): void {
     if (typeof location === 'undefined') return;
     const params = parseAuthLinkParams(location.search);
-    if (!params.verifyEmail && !params.resetPassword) return;
+    if (!params.verifyEmail && !params.resetPassword && !params.signup) return;
     history.replaceState(null, '', `${location.pathname}${stripAuthLinkParams(location.search)}${location.hash}`);
     if (params.resetPassword) {
       this.resetToken = params.resetPassword;
@@ -87,6 +91,8 @@ export class AuthStore {
     } else if (params.verifyEmail) {
       this.screen = 'verifying';
       this.verifyEmail(params.verifyEmail);
+    } else if (params.signup) {
+      this.screen = 'signup';
     }
   }
 

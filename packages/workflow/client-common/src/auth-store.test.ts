@@ -139,6 +139,14 @@ describe('AuthStore', () => {
       expect(replaceState).toHaveBeenCalledWith(null, '', '/app?keep=1#/x');
     });
 
+    it('?signup=1 opens the sign-up screen and strips the flag from the url', async () => {
+      const replaceState = stubUrl('?signup=1&utm_source=site');
+      const store = new AuthStore();
+      await settle();
+      expect(store.screen).toBe('signup');
+      expect(replaceState).toHaveBeenCalledWith(null, '', '/app?utm_source=site#/x');
+    });
+
     it('?verifyEmail= verifies right away and ends on the verified screen', async () => {
       const replaceState = stubUrl('?verifyEmail=tok');
       h.api.verifyEmail.mockResolvedValue({ status: 'pending_activation' });
