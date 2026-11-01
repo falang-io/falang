@@ -433,4 +433,12 @@ head:
     token without a project scope. A link <code>https://&lt;app address&gt;/#/templates/&lt;slug&gt;</code> opens a "New
     project from a template" dialog; someone who signs up first is offered the template again after signing in.
   </li>
+  <li>
+    <b>Templates without an account</b> — a visitor who is not signed in and follows such a link sees the template as an
+    editable project right away: no menus and no runs, only a "Sign in to save" button. Their changes are kept in the
+    browser (for 30 days, one draft per browser); after signing in or signing up the edited project is created in their
+    account. Without changes, the "New project from a template" dialog opens instead. Enabled templates and their
+    contents are therefore public (<code>GET /project-templates/&lt;slug&gt;</code> and
+    <code>/payload</code>) — never put real credentials into a template.
+  </li>
 </ul>

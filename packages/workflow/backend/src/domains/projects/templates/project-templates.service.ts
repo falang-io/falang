@@ -87,6 +87,12 @@ export class ProjectTemplatesService implements OnModuleInit {
     return this.toSummary(await this.findEnabled(key));
   }
 
+  /** The payload of one enabled template by id or slug — the public guest view of a template. */
+  async getEnabledPayload(key: string): Promise<IProjectExportPayload> {
+    const template = await this.findEnabled(key);
+    return template.payload;
+  }
+
   async listAll(): Promise<IAdminProjectTemplate[]> {
     const rows = await this.templates.find();
     return rows

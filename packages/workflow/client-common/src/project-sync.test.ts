@@ -46,7 +46,7 @@ interface IHooks {
   conflict: ReturnType<typeof vi.fn<(documentId: string, lockExpiresAt: string) => void>>;
 }
 
-const makeSync = (options: { readOnly?: boolean } = {}) => {
+const makeSync = (options: ConstructorParameters<typeof ProjectSync>[4] = {}) => {
   const hooks: IHooks = {
     locked: new Set(),
     owner: null,
@@ -100,6 +100,34 @@ describe('ProjectSync', () => {
       expect(onDocs).toHaveBeenCalled();
       expect(sync.isLoadingTree).toBe(false);
       expect(sync.isLoadingDocuments).toBe(false);
+    });
+
+    it('loads from and saves to a data port, asking the backend nothing when offline (a guest template)', async () => {
+      const port = {
+        getTree: vi.fn().mockResolvedValue({
+          folders: [],
+          documents: [{ id: 'd1', name: 'doc', type: 'function', folderId: null, pinned: false }],
+        }),
+        getDocuments: vi.fn().mockResolvedValue([{ id: 'd1', name: 'doc', type: 'function' }]),
+        createFolder: vi.fn().mockResolvedValue(null),
+        updateFolder: vi.fn().mockResolvedValue(null),
+        deleteFolder: vi.fn().mockResolvedValue(null),
+        createDocument: vi.fn().mockResolvedValue(null),
+        updateDocument: vi.fn().mockResolvedValue(null),
+        deleteDocument: vi.fn().mockResolvedValue(null),
+      };
+      const { sync, onTree } = makeSync({ dataPort: port, offline: true });
+      await settle();
+      expect(onTree).toHaveBeenCalledWith(
+        [],
+        [{ id: 'd1', name: 'doc', type: 'function', folderId: null, pinned: false }],
+      );
+      sync.createFolderRemote({ id: 'f', name: 'F', parentId: null });
+      sync.scheduleSaveDocument(doc({ id: 'd1', name: 'function' }));
+      await sync.flushPendingSaves();
+      expect(port.createFolder).toHaveBeenCalledWith({ id: 'f', name: 'F', parentId: null });
+      expect(port.updateDocument).toHaveBeenCalledWith('d1', { name: 'doc', root: { id: 'd1', name: 'function' } });
+      for (const fn of Object.values(api)) expect(fn).not.toHaveBeenCalled();
     });
 
     it('reports a tree load failure and skips documents', async () => {

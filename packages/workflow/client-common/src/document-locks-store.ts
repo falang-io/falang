@@ -33,11 +33,12 @@ export class DocumentLocksStore {
   private timer: ReturnType<typeof setTimeout> | null = null;
   private disposed = false;
 
-  constructor(projectId: string, onChange?: () => void) {
+  /** `poll: false` — a project with no backend side (a guest's template): nothing can lock it, nothing is asked. */
+  constructor(projectId: string, onChange?: () => void, options: { poll?: boolean } = {}) {
     this.projectId = projectId;
     this.onChange = onChange;
     makeObservable(this);
-    this.poll();
+    if (options.poll !== false) this.poll();
   }
 
   isLocked(documentId: string): boolean {

@@ -10,6 +10,7 @@ import { ProjectListStore } from '../project-list-store.js';
 import { EmailNotVerifiedBanner, WelcomeBanner } from './default-password-banner.js';
 import { TemplateStartModal } from './template-start-modal.js';
 import { readPendingTemplate } from '../pending-template.js';
+import { claimGuestProjectDraft } from '../guest-project/claim-guest-project-draft.js';
 import { StartWithAgent, useStartWithAgent, type TStartWithAgent } from './start-with-agent.js';
 
 type TCreateMode = 'empty' | 'file';
@@ -77,8 +78,10 @@ export const ProjectListPage: React.FC = observer(() => {
   const [importError, setImportError] = useState<string | null>(null);
   const [templateId, setTemplateId] = useState<string | null>(null);
   const startWithAgent = useStartWithAgent(store);
-  // A template picked on the site before signing up (the confirmation link opens without the hash).
+  // A template edited as a guest becomes the new project right away; otherwise a template picked on the site
+  // before signing up opens its dialog (the confirmation link opens without the hash).
   useEffect(() => {
+    if (claimGuestProjectDraft(store)) return;
     const pending = readPendingTemplate();
     if (pending && !navigationStore.templateKey) navigationStore.openTemplate(pending);
   }, []);

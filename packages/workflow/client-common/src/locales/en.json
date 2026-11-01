@@ -611,6 +611,19 @@
       "title": "Project settings",
       "servers": "Servers",
       "run-journal": "Run journal"
+    },
+    "guest-template": {
+      "sign-in-to-save": "Sign in to save",
+      "sign-in-hint": "Your changes are kept in this browser. Sign in or sign up, and this project will be created in your account.",
+      "loading": "Loading the template…",
+      "not-found": "This template is not available.",
+      "to-sign-in": "Sign in"
+    },
+    "template-start": {
+      "title": "New project from a template",
+      "name-label": "Project name",
+      "not-found": "This template is not available.",
+      "close": "Close"
     }
   },
   "version-history": {
@@ -693,11 +706,5 @@
     "timeout": "Layout did not settle",
     "portrait": "portrait",
     "landscape": "landscape"
-  },
-  "template-start": {
-    "title": "New project from a template",
-    "name-label": "Project name",
-    "not-found": "This template is not available.",
-    "close": "Close"
   }
 }

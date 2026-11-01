@@ -98,6 +98,7 @@ import { DocumentLocksStore } from './document-locks-store.js';
 import { FilesStore } from './files-store.js';
 import { LiveRunStore } from './live-run-store.js';
 import { ProjectSync, type IProjectSyncLockHooks } from './project-sync.js';
+import type { IProjectDataPort } from './project-data-port.js';
 import { ScheduleStatusStore } from './schedule-status-store.js';
 import { TasksStore } from './tasks-store.js';
 import { TemporalDebugAdapter } from './temporal-debug-adapter.js';
@@ -137,6 +138,12 @@ export interface IWorkflowStoreOptions {
   readonly readOnly?: boolean;
   /** Who owns the project — shown in the read-only banner. */
   readonly owner?: IApiProjectOwner | null;
+  /**
+   * A visitor without an account editing a template in the browser: folders and documents go through this
+   * port instead of the backend, and nothing that needs a project on the server is started (tasks, lock and
+   * schedule polling, dev/prod status, the agent, vendor data). The guest workspace shows none of their UI.
+   */
+  readonly guest?: { readonly dataPort: IProjectDataPort };
 }
 
 /** Local editor state for one open project — folders, tabs, scheme instances, selection. Backend I/O is `ProjectSync`'s job. */
@@ -144,6 +151,8 @@ export class WorkflowStore implements IWorkflowAgentStore {
   readonly projectId: string;
   /** See `IWorkflowStoreOptions.readOnly`. */
   readonly readOnly: boolean;
+  /** See `IWorkflowStoreOptions.guest`. */
+  readonly isGuest: boolean;
   readonly owner: IApiProjectOwner | null;
   readonly container: DependencyContainer;
   readonly folders = observable<WorkflowFolder>([]);
@@ -260,16 +269,17 @@ export class WorkflowStore implements IWorkflowAgentStore {
     loadDisabledVendors();
     this.projectId = projectId;
     this.readOnly = options.readOnly === true;
+    this.isGuest = Boolean(options.guest);
     this.owner = options.owner ?? null;
     this.container = container.createChildContainer();
     registerTypescriptProjectService(this.container);
     // `this.documents` (the observable array field above) is already the live instance at this point
     // (class field initializers run before constructor-body code) — safe for `hasScheduleTrigger`'s
     // closure to read it here, even though it's still empty until `ProjectSync`'s first load resolves.
-    this.scheduleStatus = new ScheduleStatusStore(projectId, () => this.hasScheduleTrigger());
+    this.scheduleStatus = new ScheduleStatusStore(projectId, () => !this.isGuest && this.hasScheduleTrigger());
     this.container.register(TOKEN_SCHEDULE_STATUS, { useValue: this.scheduleStatus });
     // Tasks are always the viewer's own (`GET /tasks` is owner-scoped) — nothing to show read-only.
-    if (!this.readOnly) {
+    if (!this.readOnly && !this.isGuest) {
       this.tasks.load({ status: 'open', projectId });
       this.tasks.start();
     }
@@ -298,7 +308,9 @@ export class WorkflowStore implements IWorkflowAgentStore {
     );
     // `onLocksChanged` is only ever invoked after this constructor returns (the store's first poll
     // is async), so it's safe for this callback to close over `this.sync` before it's assigned below.
-    this.documentLocksStore = new DocumentLocksStore(projectId, () => this.sync.onLocksChanged());
+    this.documentLocksStore = new DocumentLocksStore(projectId, () => this.sync.onLocksChanged(), {
+      poll: !this.isGuest,
+    });
     this.agentLocks = new AgentLockTracker({
       lock: (documentId, owner) => workflowApi.lockDocument(projectId, documentId, owner),
       onConflict: (documentId, lockExpiresAt) =>
@@ -340,7 +352,8 @@ export class WorkflowStore implements IWorkflowAgentStore {
         });
       },
     );
-    this.agentSettings.load();
+    // A guest has no agent: the settings stay "loading", so nothing agent-related (auto-start, magic insert) starts.
+    if (!this.isGuest) this.agentSettings.load();
     this.magicInsert = new MagicInsertSetting(authStore.currentUser?.id);
     this.magicRuns = createWorkflowMagicRunStore({
       createLlmClient: () => new HttpLlmClient(projectId),
@@ -367,9 +380,9 @@ export class WorkflowStore implements IWorkflowAgentStore {
         // The `integrations` document's instances (if any) are only known once this callback runs —
         // see ADR 0039 (private) §4/§5. `loadAll` never rejects (per-instance
         // errors are logged and swallowed), so this fire-and-forget chain is safe.
-        this.loadVendorData();
+        if (!this.isGuest) this.loadVendorData();
       },
-      { readOnly: this.readOnly },
+      { readOnly: this.readOnly, dataPort: options.guest?.dataPort, offline: this.isGuest },
     );
     // Keep-alive bookkeeping: whenever the active tab is a scheme document, it becomes the most recent.
     this.keepAliveDisposer = reaction(
@@ -797,12 +810,17 @@ export class WorkflowStore implements IWorkflowAgentStore {
     if (doc) await this.sync.flushSaveCustomDocument(doc);
   }
 
+  /** Runs every still-debounced document save now — a guest's last edit reaches the draft before they leave. */
+  flushPendingSaves(): Promise<void> {
+    return this.sync.flushPendingSaves();
+  }
+
   /** Re-fetches the `integrations` document from the backend — needed after an OAuth2 "Connect"
    * completes, since the callback writes tokens directly into storage, bypassing this client
    * entirely (see ADR 0015 (private)). */
   async refreshIntegrationsDocument(): Promise<void> {
     const doc = this.integrationsDocument;
-    if (!doc) return;
+    if (!doc || this.isGuest) return;
     const projectDocuments = await workflowApi.getProjectDocuments(this.projectId);
     const fresh = projectDocuments.find((candidate) => candidate.id === doc.id);
     if (fresh) {
@@ -1047,13 +1065,18 @@ export class WorkflowStore implements IWorkflowAgentStore {
       ],
       theme: darkTheme,
       getCredentialInstances: () => getIntegrationInstances(this.documents),
-      getFieldOptionsProvider: () => createFieldOptionsProvider(this.projectId),
-      getActivepiecesCatalogProvider: () => createActivepiecesCatalogProvider(),
-      getActivepiecesFieldOptionsProvider: () => createActivepiecesFieldOptionsProvider(this.projectId),
+      // The option/catalog lookups are the backend's (and need an account) — a guest gets the empty defaults.
+      ...(this.isGuest
+        ? {}
+        : {
+            getFieldOptionsProvider: () => createFieldOptionsProvider(this.projectId),
+            getActivepiecesCatalogProvider: () => createActivepiecesCatalogProvider(),
+            getActivepiecesFieldOptionsProvider: () => createActivepiecesFieldOptionsProvider(this.projectId),
+          }),
       ...(isFunctionDoc ? { validationModule: this.createValidationModule(doc.id) } : {}),
       defaultInsertNodeName: () => (this.agentSettings.configured && this.magicInsert.enabled ? MAGIC_NAME : 'action'),
       onSchemeCreated: (created) => {
-        if (isFunctionDoc && !this.readOnly) this.magicRuns.registerHost(doc.id, created);
+        if (isFunctionDoc && !this.readOnly && !this.isGuest) this.magicRuns.registerHost(doc.id, created);
       },
     });
     if (!this.readOnly) {

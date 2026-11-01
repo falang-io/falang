@@ -269,8 +269,12 @@ export const workflowApi = {
 
   listProjectTemplates: () => request<IApiProjectTemplate[]>('/project-templates'),
 
-  /** One enabled template by id or slug. */
+  /** One enabled template by id or slug. Public — the guest view opens it without an account. */
   getProjectTemplate: (key: string) => request<IApiProjectTemplate>(`/project-templates/${encodeURIComponent(key)}`),
+
+  /** An enabled template's contents in the export format. Public, like `getProjectTemplate`. */
+  getProjectTemplatePayload: (key: string) =>
+    request<IApiProjectExport>(`/project-templates/${encodeURIComponent(key)}/payload`),
 
   createProjectFromTemplate: (templateId: string, name: string) =>
     request<IApiProject>(`/projects/from-template/${encodeURIComponent(templateId)}`, {

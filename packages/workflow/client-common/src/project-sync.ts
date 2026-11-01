@@ -21,6 +21,7 @@ import { ApiCodedError } from './api-coded-error.js';
 import { describeStartError } from './start-error-message.js';
 import { PendingSaves } from './pending-saves.js';
 import { loadDevStatus, loadProdStatus } from './project-sync-status.js';
+import { createHttpProjectDataPort, type IProjectDataPort } from './project-data-port.js';
 import type { WorkflowDocument, WorkflowFolder } from './workflow-types.js';
 
 const SAVE_DEBOUNCE_MS = 500;
@@ -51,7 +52,8 @@ export interface IProjectSyncLockHooks {
  * Owns everything that talks to `@falang/workflow-backend`'s HTTP API for one open project.
  * Loads in two phases, per the product requirement that cross-document type-checking needs every
  * document loaded: first the structure (`GET /tree` — folders + document metadata, no payloads,
- * so the tree renders immediately), then every document's full payload (`GET /documents`). Kept
+ * so the tree renders immediately), then every document's full payload (`GET /documents`). Folders and
+ * documents go through an `IProjectDataPort` (the backend, or the browser for a guest's template). Kept
  * separate from `WorkflowStore` (local editor state — tabs, scheme instances, selection) so each
  * class has one reason to change.
  */
@@ -81,6 +83,8 @@ export class ProjectSync {
   private readonly lockHooks: IProjectSyncLockHooks;
   /** An admin viewing someone else's project: load only, never write (the backend refuses writes too). */
   private readonly readOnly: boolean;
+  /** Where folders and documents are loaded from and written to — the backend, or the browser for a guest. */
+  private readonly port: IProjectDataPort;
   private readonly pendingSaves = new PendingSaves(SAVE_DEBOUNCE_MS, (error) => this.reportError(error));
   /** One suspended debounced save per locked document — see `scheduleSaveDocument`/`onLocksChanged`. */
   private readonly suspendedSaves = new Map<string, () => Promise<unknown>>();
@@ -90,14 +94,21 @@ export class ProjectSync {
     lockHooks: IProjectSyncLockHooks,
     onTreeLoaded: TOnTreeLoaded,
     onDocumentsLoaded: TOnDocumentsLoaded,
-    options: { readOnly?: boolean } = {},
+    options: {
+      readOnly?: boolean;
+      /** Defaults to the backend's project routes. */
+      dataPort?: IProjectDataPort;
+      /** No backend side at all (a guest's template): the dev/prod status is never asked for. */
+      offline?: boolean;
+    } = {},
   ) {
     this.projectId = projectId;
     this.lockHooks = lockHooks;
     this.readOnly = options.readOnly === true;
+    this.port = options.dataPort ?? createHttpProjectDataPort(projectId);
     makeObservable(this);
     this.init(onTreeLoaded, onDocumentsLoaded);
-    if (this.readOnly) return;
+    if (this.readOnly || options.offline === true) return;
     loadDevStatus(
       projectId,
       () => this.buildStatus,
@@ -112,7 +123,7 @@ export class ProjectSync {
 
   private async init(onTreeLoaded: TOnTreeLoaded, onDocumentsLoaded: TOnDocumentsLoaded): Promise<void> {
     try {
-      const tree = await workflowApi.getProjectTree(this.projectId);
+      const tree = await this.port.getTree();
       const folders: WorkflowFolder[] = tree.folders.map((folder) => ({ ...folder }));
       const documents: WorkflowDocument[] = tree.documents.map((doc) => ({
         id: doc.id,
@@ -135,7 +146,7 @@ export class ProjectSync {
     }
 
     try {
-      const documents = await workflowApi.getProjectDocuments(this.projectId);
+      const documents = await this.port.getDocuments();
       onDocumentsLoaded(documents);
       runInAction(() => {
         this.isLoadingDocuments = false;
@@ -150,24 +161,24 @@ export class ProjectSync {
 
   createFolderRemote(folder: WorkflowFolder): void {
     if (this.readOnly) return;
-    workflowApi.createFolder(this.projectId, folder).catch((error: unknown) => this.reportError(error));
+    this.port.createFolder(folder).catch((error: unknown) => this.reportError(error));
   }
 
   updateFolderRemote(id: string, input: { name?: string; parentId?: string | null }): void {
     if (this.readOnly) return;
-    workflowApi.updateFolder(this.projectId, id, input).catch((error: unknown) => this.reportError(error));
+    this.port.updateFolder(id, input).catch((error: unknown) => this.reportError(error));
   }
 
   deleteFolderRemote(id: string): void {
     if (this.readOnly) return;
-    workflowApi.deleteFolder(this.projectId, id).catch((error: unknown) => this.reportError(error));
+    this.port.deleteFolder(id).catch((error: unknown) => this.reportError(error));
   }
 
   createDocumentRemote(doc: WorkflowDocument): void {
     if (this.readOnly) return;
     this.markChanged();
-    workflowApi
-      .createDocument(this.projectId, {
+    this.port
+      .createDocument({
         id: doc.id,
         type: doc.type,
         name: doc.name,
@@ -183,7 +194,7 @@ export class ProjectSync {
     // distinguishing for a flag that only costs an extra build.
     this.markChanged();
     this.pendingSaves
-      .exclusive(id, () => workflowApi.updateDocument(this.projectId, id, input))
+      .exclusive(id, () => this.port.updateDocument(id, input))
       .catch((error: unknown) => this.handleDocumentSaveError(id, error));
   }
 
@@ -193,7 +204,7 @@ export class ProjectSync {
     this.suspendedSaves.delete(id);
     this.markChanged();
     this.pendingSaves
-      .exclusive(id, () => workflowApi.deleteDocument(this.projectId, id))
+      .exclusive(id, () => this.port.deleteDocument(id))
       .catch((error: unknown) => this.handleDocumentSaveError(id, error));
   }
 
@@ -210,7 +221,7 @@ export class ProjectSync {
     this.markChanged();
     const performSave = () =>
       (root
-        ? workflowApi.updateDocument(this.projectId, doc.id, { name: doc.name, root, ...this.ownLockOwnerBody(doc.id) })
+        ? this.port.updateDocument(doc.id, { name: doc.name, root, ...this.ownLockOwnerBody(doc.id) })
         : Promise.resolve(null)
       ).catch((error: unknown) => this.handleDocumentSaveError(doc.id, error));
     this.scheduleOrSuspend(doc.id, performSave);
@@ -222,8 +233,8 @@ export class ProjectSync {
     const data = doc.customData;
     this.markChanged();
     const performSave = () =>
-      workflowApi
-        .updateDocument(this.projectId, doc.id, { name: doc.name, data, ...this.ownLockOwnerBody(doc.id) })
+      this.port
+        .updateDocument(doc.id, { name: doc.name, data, ...this.ownLockOwnerBody(doc.id) })
         .catch((error: unknown) => this.handleDocumentSaveError(doc.id, error));
     this.scheduleOrSuspend(doc.id, performSave);
   }
@@ -234,7 +245,7 @@ export class ProjectSync {
     this.pendingSaves.cancel(doc.id);
     const data = doc.customData;
     await this.pendingSaves.exclusive(doc.id, () =>
-      workflowApi.updateDocument(this.projectId, doc.id, {
+      this.port.updateDocument(doc.id, {
         name: doc.name,
         data,
         ...this.ownLockOwnerBody(doc.id),

@@ -1,3 +1,4 @@
+// oxlint-disable max-lines -- one e2e suite for the whole templates domain (admin CRUD, slugs, the public guest view)
 import type { INestApplication } from '@nestjs/common';
 import request from 'supertest';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
@@ -249,6 +250,35 @@ describe('project templates (e2e)', () => {
         .expect(201);
       const docs = await http().get(`/projects/${project.body.id}/documents`).set(auth(userToken)).expect(200);
       expect((docs.body as { name: string }[]).map((doc) => doc.name)).toContain('run');
+    });
+
+    it('serves an enabled template and its payload without a token (guest view), never a disabled one', async () => {
+      const adminToken = await login(app);
+      const created = await http()
+        .put('/admin/project-templates/by-slug/guest-view')
+        .set(auth(adminToken))
+        .send({ name: 'Guest', payload: payload('Guest') })
+        .expect(200);
+      const summary = await http().get('/project-templates/guest-view').expect(200);
+      expect(summary.body).toMatchObject({ id: created.body.id, slug: 'guest-view', name: 'Guest' });
+      const content = await http().get('/project-templates/guest-view/payload').expect(200);
+      expect(content.body).toMatchObject({
+        formatVersion: 1,
+        documents: [{ id: FN_ID, type: 'function', name: 'run' }],
+      });
+      await http().get(`/project-templates/${created.body.id}/payload`).expect(200);
+
+      await http()
+        .patch(`/admin/project-templates/${created.body.id}`)
+        .set(auth(adminToken))
+        .send({ enabled: false })
+        .expect(200);
+      await http().get('/project-templates/guest-view').expect(404);
+      await http().get('/project-templates/guest-view/payload').expect(404);
+      await http().get('/project-templates/no-such-template/payload').expect(404);
+      // The list and creating a project still need an account.
+      await http().get('/project-templates').expect(401);
+      await http().post('/projects/from-template/guest-view').send({ name: 'x' }).expect(401);
     });
 
     it('404s an unknown slug and refuses a bad one', async () => {

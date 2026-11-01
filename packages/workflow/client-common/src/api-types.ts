@@ -166,6 +166,8 @@ export interface IApiProjectExportFolder {
   readonly id: string;
   readonly name: string;
   readonly parentId: string | null;
+  /** The fixed root section kind (ADR 0055 (private)); absent/`null` on user folders and in older files. */
+  readonly fixedKind?: string | null;
 }
 
 export interface IApiProjectExportDocument {

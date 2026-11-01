@@ -2,101 +2,20 @@ import type React from 'react';
 import { useEffect, useState } from 'react';
 import { reaction } from 'mobx';
 import { observer } from 'mobx-react-lite';
-import { ContainerContext, getGlobalI18n } from '@falang/scheme';
+import { getGlobalI18n } from '@falang/scheme';
 import { message } from 'antd';
-import { PrintExportModal, PrintLayer, ResizeHandle, useResizablePanelWidth, VersionDiffModal } from '@falang/antd';
-import { INTEGRATIONS_DOCUMENT_TYPE } from '@falang/workflow-integrations-common';
+import { PrintExportModal, PrintLayer, VersionDiffModal } from '@falang/antd';
 import { workflowApi } from '../api-client.js';
 import { navigationStore } from '../navigation-store.js';
 import { WorkflowStore } from '../workflow-store.js';
 import { WorkflowStoreContext } from '../workflow-store-context.js';
-import { ProjectTree } from './project-tree.js';
-import { TabsBar } from './tabs-bar.js';
-import { SchemeView } from './scheme-view.js';
-import { FilesTab } from './files-tab.js';
-import { IntegrationsEditor } from './integrations-editor.js';
 import { MagicConfirmModal } from './magic-confirm-modal.js';
 import { MagicEditorModal } from './magic-editor-modal.js';
 import { ProjectRightSidebar } from './project-right-sidebar.js';
-import { Sidebar } from './sidebar.js';
-import { TasksPage } from './tasks-page.js';
 import { ServerActivityBar } from './server-activity-bar.js';
 import { Toolbar } from './toolbar.js';
 import { TasksOnlyWorkspace } from './tasks-only-workspace.js';
-
-const styles = {
-  root: {
-    display: 'flex',
-    flexDirection: 'column' as const,
-    height: '100vh',
-    width: '100vw',
-    overflow: 'hidden',
-    background: '#1e1e2e',
-  },
-  body: {
-    display: 'flex',
-    flex: 1,
-    overflow: 'hidden',
-  },
-  projectTree: {
-    flexShrink: 0,
-    display: 'flex',
-    flexDirection: 'column' as const,
-    overflow: 'hidden',
-  },
-  main: {
-    flex: 1,
-    display: 'flex',
-    flexDirection: 'column' as const,
-    overflow: 'hidden',
-    minWidth: 0,
-  },
-  /** Holds every mounted scheme layer plus the non-scheme views, stacked. */
-  stage: {
-    flex: 1,
-    position: 'relative' as const,
-    minHeight: 0,
-    overflow: 'hidden',
-  },
-  schemeLayer: {
-    position: 'absolute' as const,
-    inset: 0,
-    display: 'flex',
-    overflow: 'hidden',
-  },
-  schemeLayerActive: {
-    visibility: 'visible' as const,
-    zIndex: 1,
-  },
-  // `visibility: hidden` (not `display: none`) on purpose: a kept-alive canvas keeps its real size, so
-  // blocks that are re-measured while it is hidden (an agent editing a background document) get real
-  // heights, and `scrollToNode`/`focusNode` still find a laid-out root div to pan. Hidden elements take
-  // no pointer events and cannot be focused.
-  schemeLayerHidden: {
-    visibility: 'hidden' as const,
-    pointerEvents: 'none' as const,
-    zIndex: 0,
-  },
-  otherLayer: {
-    position: 'absolute' as const,
-    inset: 0,
-    display: 'flex',
-    overflow: 'hidden',
-    zIndex: 2,
-    background: '#1e1e2e',
-  },
-  welcome: {
-    flex: 1,
-    display: 'flex',
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  welcomeText: {
-    color: '#6c7086',
-    fontFamily: 'system-ui, sans-serif',
-    fontSize: 14,
-  },
-};
+import { WorkspaceLayout } from './workspace-layout.js';
 
 interface Props {
   projectId: string;
@@ -164,85 +83,21 @@ export const ProjectWorkspace: React.FC<Props> = observer(({ projectId }) => {
     );
   }, [store]);
 
-  const [treeWidth, onTreeResizeStart] = useResizablePanelWidth('falang:panel-width:project-tree', 220, {
-    min: 160,
-    max: 480,
-    direction: 'right',
-  });
-
   if (tasksOnlyName !== null) return <TasksOnlyWorkspace projectId={projectId} name={tasksOnlyName} />;
   if (!store) return null;
 
-  const activeId = store.activeTabId;
-  const activeDocument = activeId ? store.getDocument(activeId) : null;
-  const isIntegrationsDoc = activeDocument?.type === INTEGRATIONS_DOCUMENT_TYPE;
-  // The scheme tabs kept mounted (the active one plus the most recently active others, hidden — see
-  // `keep-alive.ts`). The active scheme is always among them even on the very first render, before the
-  // store's keep-alive reaction has run.
-  const activeSchemeId = store.activeSchemeDocumentId;
-  const mountedSchemeIds = store.keepAliveSchemeIds.filter(
-    (id) => store.getDocument(id) && store.openTabIds.includes(id),
-  );
-  if (activeSchemeId && !mountedSchemeIds.includes(activeSchemeId)) mountedSchemeIds.push(activeSchemeId);
-  const showScheme = store.activeView === null && activeSchemeId !== null;
-
-  // The in-tab column (only the icon editor, `Sidebar`) lives inside each scheme's own layer, within
-  // that scheme's `ContainerContext`. The project-level right sidebar (agent chat, version history,
-  // run/debug panels) is a sibling of this whole `main` column, rendered once below — a tab switch
-  // between these variants (or to no document at all) never unmounts it (ADR 0036 (private) §3).
-  const otherContent = (() => {
-    if (store.activeView === 'files') return <FilesTab />;
-    if (store.activeView === 'tasks') return <TasksPage projectId={store.projectId} />;
-    if (isIntegrationsDoc) return <IntegrationsEditor />;
-    if (showScheme) return null;
-    return (
-      <div style={styles.welcome}>
-        <div style={styles.welcomeText}>
-          {store.isLoadingTree ? 'Loading project…' : 'Create or open a document from the project tree'}
-        </div>
-      </div>
-    );
-  })();
-
-  const mainContent = (
-    <div style={styles.stage}>
-      {mountedSchemeIds.map((id) => {
-        const active = showScheme && id === activeSchemeId;
-        return (
-          <ContainerContext key={id} value={store.getScheme(id).container}>
-            <div
-              style={{ ...styles.schemeLayer, ...(active ? styles.schemeLayerActive : styles.schemeLayerHidden) }}
-              aria-hidden={!active}
-            >
-              <SchemeView scheme={store.getScheme(id)} documentId={id} active={active} />
-              <Sidebar />
-            </div>
-          </ContainerContext>
-        );
-      })}
-      {otherContent && <div style={styles.otherLayer}>{otherContent}</div>}
-    </div>
-  );
-
   return (
     <WorkflowStoreContext value={store}>
-      <div style={styles.root}>
-        <Toolbar />
-        <ServerActivityBar />
-        <div style={styles.body}>
-          <div style={{ ...styles.projectTree, width: treeWidth }}>
-            <ProjectTree />
-          </div>
-          <ResizeHandle onPointerDown={onTreeResizeStart} style={{ borderRight: '1px solid #313244' }} />
-
-          <div style={styles.main}>
-            <TabsBar />
-            {mainContent}
-          </div>
-
-          <ProjectRightSidebar />
-        </div>
-      </div>
+      <WorkspaceLayout
+        store={store}
+        header={
+          <>
+            <Toolbar />
+            <ServerActivityBar />
+          </>
+        }
+        rightSidebar={<ProjectRightSidebar />}
+      />
       <MagicEditorModal />
       <MagicConfirmModal />
       <VersionDiffModal

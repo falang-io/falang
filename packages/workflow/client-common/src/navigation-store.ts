@@ -98,6 +98,14 @@ export class NavigationStore {
     forgetPendingTemplate();
   }
 
+  /**
+   * A guest leaves the template they edit for the sign-in screen: the template stays remembered (and their edits
+   * stay in the draft), so signing in or up brings them back to it as a project.
+   */
+  @action leaveTemplateForSignIn(): void {
+    this.templateKey = null;
+  }
+
   /** The project's name arrived later than its id (a project opened straight from the URL). */
   @action setProjectName(id: string, name: string): void {
     if (this.selectedProjectId === id) this.selectedProjectName = name;

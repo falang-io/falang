@@ -7,6 +7,7 @@ import { authStore } from './auth-store.js';
 import { navigationStore } from './navigation-store.js';
 import { bindNavigationToUrl } from './navigation-url-sync.js';
 import { LoginPage } from './components/login-page.js';
+import { GuestTemplateWorkspace } from './components/guest-template-workspace.js';
 import { ProjectListPage } from './components/project-list-page.js';
 import { ProjectWorkspace } from './components/project-workspace.js';
 import { RunsPage } from './components/runs-page.js';
@@ -70,7 +71,11 @@ export const App: React.FC = observer(() => {
         </div>
       );
     }
-    if (!authStore.currentUser) return <LoginPage />;
+    // A visitor without an account opens a template as an editable guest project (`GuestTemplateWorkspace`).
+    if (!authStore.currentUser) {
+      const templateKey = navigationStore.templateKey;
+      return templateKey ? <GuestTemplateWorkspace key={templateKey} templateKey={templateKey} /> : <LoginPage />;
+    }
     const main = navigationStore.selectedProjectId ? (
       <ProjectWorkspace key={navigationStore.selectedProjectId} projectId={navigationStore.selectedProjectId} />
     ) : (

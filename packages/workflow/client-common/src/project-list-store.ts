@@ -88,6 +88,22 @@ export class ProjectListStore {
     }
   }
 
+  /**
+   * Creates the project a guest edited from a template before signing in (`claimGuestProjectDraft`) — an import of
+   * the draft, tracked like a project made from a template.
+   */
+  @action async createProjectFromGuestDraft(
+    templateKey: string,
+    payload: IApiProjectExport,
+  ): Promise<IApiProject | null> {
+    const project = await this.importProject(payload);
+    if (project) {
+      eventTracker.track('template_used', { templateId: templateKey });
+      eventTracker.track('project_created', { fromTemplate: true });
+    }
+    return project;
+  }
+
   @action async importProject(payload: IApiProjectExport): Promise<IApiProject | null> {
     this.isCreating = true;
     try {
