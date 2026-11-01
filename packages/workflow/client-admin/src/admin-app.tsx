@@ -1,9 +1,15 @@
 import type React from 'react';
-import { useMemo } from 'react';
+import { useMemo, useState } from 'react';
 import { observer } from 'mobx-react-lite';
 import { getGlobalI18n } from '@falang/scheme';
 import { ConfigProvider, Result, Spin, theme as antdTheme } from 'antd';
-import { authStore, ClientExtensionsProvider, LoginPage, type IClientExtensions } from '@falang/workflow-client-common';
+import {
+  applyDefaultLanguage,
+  authStore,
+  ClientExtensionsProvider,
+  LoginPage,
+  type IClientExtensions,
+} from '@falang/workflow-client-common';
 import { AdminExtensionsProvider, type IAdminExtensions } from './admin-extensions.js';
 import { AdminShell } from './components/admin-shell.js';
 import './locales/register-admin-locales.js';
@@ -27,6 +33,8 @@ const styles: Record<string, React.CSSProperties> = {
  */
 export const AdminApp: React.FC<{ extensions?: IAdminExtensions }> = observer(({ extensions }) => {
   const t = getGlobalI18n().t;
+  // Once, before the first paint of the sign-in form (a signed-in admin's own language follows from `AuthStore`).
+  useState(() => applyDefaultLanguage(extensions?.defaultLanguage));
   // The shared client-common components (sign-in form, brand) read the brand from the main client's context.
   const brand = extensions?.brand;
   const clientExtensions = useMemo<IClientExtensions>(() => (brand ? { brand } : {}), [brand]);

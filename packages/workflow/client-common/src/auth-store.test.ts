@@ -288,7 +288,7 @@ describe('AuthStore', () => {
       h.api.register.mockResolvedValue({ accessToken: 'tok', user: user() });
       const store = new AuthStore();
       await store.register('u', 'p', true);
-      expect(h.api.register).toHaveBeenLastCalledWith({ username: 'u', password: 'p' });
+      expect(h.api.register).toHaveBeenLastCalledWith({ username: 'u', password: 'p', language: 'en' });
 
       store.authConfig = { selfServiceSignup: true, termsUrl: 'http://t' } as never;
       await store.register('u', 'p', true, 'a@b.c');
@@ -297,6 +297,7 @@ describe('AuthStore', () => {
         password: 'p',
         email: 'a@b.c',
         acceptTerms: true,
+        language: 'en',
       });
       expect(store.currentUser).toMatchObject({ id: 'u1' });
       expect(h.setAuthToken).toHaveBeenCalledWith('tok');
@@ -328,7 +329,7 @@ describe('AuthStore', () => {
       h.api.apply.mockResolvedValue(undefined);
       const store = new AuthStore();
       await expect(store.apply(input)).resolves.toBe(true);
-      expect(h.api.apply).toHaveBeenLastCalledWith({ ...input, acceptTerms: true });
+      expect(h.api.apply).toHaveBeenLastCalledWith({ ...input, acceptTerms: true, language: 'en' });
       expect(store.screen).toBe('check-email');
       expect(store.pendingEmail).toBe('a@b.c');
       expect(store.resendState).toBe('idle');
@@ -339,7 +340,7 @@ describe('AuthStore', () => {
       const store = new AuthStore();
       store.authConfig = { selfServiceSignup: true, termsUrl: 'http://t' } as never;
       await store.apply(input);
-      expect(h.api.apply).toHaveBeenLastCalledWith({ ...input, acceptTerms: false });
+      expect(h.api.apply).toHaveBeenLastCalledWith({ ...input, acceptTerms: false, language: 'en' });
     });
 
     it('failure returns false and keeps the form screen', async () => {

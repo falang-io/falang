@@ -153,6 +153,7 @@ export class AuthController {
           companyName: body.companyName,
           automationInterest: body.automationInterest,
           termsAcceptedAt,
+          ...(body.language ? { language: body.language } : {}),
         },
         req.ip ?? null,
       );
@@ -161,7 +162,13 @@ export class AuthController {
       return result;
     }
     if (!body.username || !body.password) throw new BadRequestException('username and password are required');
-    const result = await this.authService.register(body.username, body.password, termsAcceptedAt, body.email ?? null);
+    const result = await this.authService.register(
+      body.username,
+      body.password,
+      termsAcceptedAt,
+      body.email ?? null,
+      body.language ?? null,
+    );
     const user = body.email ? await this.usersService.findById(result.user.id) : null;
     if (user) await this.account.sendVerification(user, { respectCooldown: false, ip: req.ip ?? null });
     signupsTotal.inc({ mode });

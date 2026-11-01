@@ -212,6 +212,7 @@ export class AuthStore {
         password,
         ...(email ? { email } : {}),
         ...(this.authConfig?.termsUrl ? { acceptTerms } : {}),
+        language: getGlobalI18n().language,
       });
       setAuthToken(result.accessToken);
       syncI18nLanguage(result.user.language);
@@ -240,7 +241,11 @@ export class AuthStore {
     this.isLoggingIn = true;
     this.loginError = null;
     try {
-      await workflowApi.apply({ ...input, acceptTerms: this.authConfig?.termsUrl ? input.acceptTerms : true });
+      await workflowApi.apply({
+        ...input,
+        acceptTerms: this.authConfig?.termsUrl ? input.acceptTerms : true,
+        language: getGlobalI18n().language,
+      });
       runInAction(() => {
         this.pendingEmail = input.email;
         this.resendState = 'idle';

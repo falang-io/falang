@@ -43,6 +43,8 @@ export interface IApiApplicationInput {
   readonly automationInterest: string;
   readonly acceptTerms: boolean;
   readonly captchaToken: string;
+  /** The interface language of the form, stored on the new account. */
+  readonly language?: string;
 }
 
 /** `POST /auth/register` body in `open` mode. */
@@ -51,6 +53,8 @@ export interface IApiOpenSignupInput {
   readonly password: string;
   readonly email?: string;
   readonly acceptTerms?: boolean;
+  /** The interface language of the form, stored on the new account. */
+  readonly language?: string;
 }
 
 export interface IApiLoginResult {

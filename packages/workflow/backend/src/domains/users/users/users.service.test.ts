@@ -131,4 +131,14 @@ describe('UsersService.onModuleInit — ADMIN_USERNAMES promotion', () => {
     expect(usersRepo.findOneBy).not.toHaveBeenCalled();
     expect(usersRepo.update).not.toHaveBeenCalled();
   });
+
+  it('stores DEFAULT_LANGUAGE on a user created without a language, an explicit one otherwise', async () => {
+    await service.create({ username: 'a', password: 'secret123' });
+    expect(usersRepo.create).toHaveBeenLastCalledWith(expect.objectContaining({ language: 'en' }));
+    configValues['DEFAULT_LANGUAGE'] = 'ru';
+    await service.create({ username: 'b', password: 'secret123' });
+    expect(usersRepo.create).toHaveBeenLastCalledWith(expect.objectContaining({ language: 'ru' }));
+    await service.create({ username: 'c', password: 'secret123', language: 'en' });
+    expect(usersRepo.create).toHaveBeenLastCalledWith(expect.objectContaining({ language: 'en' }));
+  });
 });

@@ -4,6 +4,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { auth, createTestApp, login } from '../../../test-utils/e2e-app.js';
 import type { CapturingMailTransport } from '../../../test-utils/capturing-mail-transport.js';
 import { MAIL_TRANSPORT } from '../../mail/mail.service.js';
+import { UsersService } from '../../users/users/users.service.js';
 import { AdminDigestService } from './admin-digest.service.js';
 
 const APPLICANT = 'boss@acme.test';
@@ -40,6 +41,20 @@ describe('closed-beta application signup', () => {
       automationInterest: 'Orders from Telegram into CRM',
       acceptTerms: true,
     });
+
+  it('stores the form language on the account and mails the confirmation in it', async () => {
+    const applied = await http().post('/auth/register').send({
+      email: APPLICANT,
+      companyName: 'Acme',
+      automationInterest: 'Orders',
+      acceptTerms: true,
+      language: 'ru',
+    });
+    expect(applied.status).toBe(202);
+    expect(mailbox.to(APPLICANT)[0]?.subject).toBe('Подтвердите e-mail');
+    const user = await app.get(UsersService).findByEmail(APPLICANT);
+    expect(user?.language).toBe('ru');
+  });
 
   it('reports the mode in /auth/config', async () => {
     const response = await http().get('/auth/config');

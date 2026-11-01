@@ -31,6 +31,8 @@ export interface IApplicationInput {
   readonly companyName: string;
   readonly automationInterest: string;
   readonly termsAcceptedAt: Date | null;
+  /** The interface language of the form; absent = `DEFAULT_LANGUAGE`. Also the language of the confirmation mail. */
+  readonly language?: string;
 }
 
 /**
@@ -110,6 +112,7 @@ export class AccountService {
       activatedAt: null,
       signupSource: 'self-service',
       termsAcceptedAt: input.termsAcceptedAt,
+      ...(input.language ? { language: input.language } : {}),
     });
     await this.usersService.setUnusablePassword(user.id);
     await this.sendVerification(user, { respectCooldown: false, ip });

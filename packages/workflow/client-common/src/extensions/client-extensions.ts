@@ -1,4 +1,5 @@
 import { createContext, createElement, useContext, type FC, type ReactNode } from 'react';
+import { getGlobalI18n } from '@falang/scheme';
 import type { IEventTrackerHandler } from '../analytics/event-tracker.js';
 import type { IApiUser } from '../api-client.js';
 
@@ -62,6 +63,11 @@ export interface IClientExtensions {
    * the product. Absent = "FalangFlow" with the Falang logo (`DEFAULT_CLIENT_BRAND`).
    */
   brand?: IClientBrand;
+  /**
+   * The interface language before anyone signs in (sign-in and signup screens), instead of the browser's (cloud: `ru`).
+   * Applied by `renderWorkflowApp` before the first render; a signed-in user's own language still wins.
+   */
+  defaultLanguage?: string;
   navItems?: IClientExtensionNavItem[];
   views?: IClientExtensionView[];
   /** Shown in the app header just before the user menu. */
@@ -92,6 +98,21 @@ export const ClientExtensionsProvider: FC<{ extensions?: IClientExtensions; chil
 }) => createElement(ClientExtensionsContext.Provider, { value: extensions ?? EMPTY_EXTENSIONS }, children);
 
 export const useClientExtensions = (): IClientExtensions => useContext(ClientExtensionsContext);
+
+/**
+ * Switches the shared `I18NStore` to a host's default language (`IClientExtensions.defaultLanguage`,
+ * `IAdminExtensions.defaultLanguage`) — call before the first render so the sign-in screen never shows another one.
+ * No-op without a language or when already on it.
+ */
+export const applyDefaultLanguage = (language: string | undefined): void => {
+  if (!language) return;
+  const i18n = getGlobalI18n();
+  if (i18n.language === language) return;
+  i18n.setLanguage(language).catch((error: unknown) => {
+    // oxlint-disable-next-line no-console
+    console.error('Failed to apply the default UI language', error);
+  });
+};
 
 /** The community brand, used when a host passes no `IClientExtensions.brand`. */
 export const DEFAULT_CLIENT_BRAND: IClientBrand = { name: 'FalangFlow', logoUrl: '/icon.png' };

@@ -21,6 +21,8 @@ export interface IAdminExtensions {
    * `{{brand}}` texts. Absent = the community brand.
    */
   brand?: IClientBrand;
+  /** The interface language before sign-in (the main client's `IClientExtensions.defaultLanguage`). */
+  defaultLanguage?: string;
   pages?: IAdminExtensionPage[];
   /** Rendered below the built-in fields of the Users page's "Details" modal (cloud: the agent balance). */
   renderUserDetails?: (user: IAdminUser) => ReactNode;

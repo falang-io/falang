@@ -1,6 +1,6 @@
 import { createElement } from 'react';
 import { renderToStaticMarkup } from 'react-dom/server';
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
 import {
   ClientExtensionsProvider,
   findExtensionView,
@@ -59,5 +59,20 @@ describe('client extensions', () => {
       ),
     );
     expect(html).toBe('<div><b>Pro</b></div>');
+  });
+});
+
+describe('applyDefaultLanguage', () => {
+  it('switches the shared i18n store to the host language, and does nothing without one', async () => {
+    const { getGlobalI18n } = await import('@falang/scheme');
+    const { applyDefaultLanguage } = await import('./client-extensions.js');
+    const i18n = getGlobalI18n();
+    const before = i18n.language;
+    applyDefaultLanguage('');
+    expect(i18n.language).toBe(before);
+    const target = before === 'ru' ? 'en' : 'ru';
+    applyDefaultLanguage(target);
+    await vi.waitFor(() => expect(i18n.language).toBe(target));
+    await i18n.setLanguage(before);
   });
 });

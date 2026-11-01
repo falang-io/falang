@@ -95,6 +95,11 @@ head:
     <code>BRAND_NAME</code> — the product name used in mail texts (default <code>Falang</code>).
   </li>
   <li>
+    <code>DEFAULT_LANGUAGE</code> — the interface and mail language of accounts created without one: by an
+    administrator, the seeded <code>admin</code> (default <code>en</code>). A self-service signup stores the language its
+    form was shown in.
+  </li>
+  <li>
     <code>CLIENT_PUBLIC_URL</code> — the public URL of the client app; every link in a mail (confirm e-mail, reset
     password) points at it. Falls back to the origin of <code>BACKEND_PUBLIC_URL</code>.
   </li>

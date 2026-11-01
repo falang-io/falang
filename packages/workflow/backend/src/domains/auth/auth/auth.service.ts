@@ -104,6 +104,7 @@ export class AuthService {
     password: string,
     termsAcceptedAt: Date | null = null,
     email: string | null = null,
+    language: string | null = null,
   ): Promise<ILoginResult> {
     const existing = await this.usersService.findByUsername(username);
     if (existing) throw new ConflictException('Username is already taken');
@@ -117,6 +118,7 @@ export class AuthService {
       termsAcceptedAt,
       email: normalizedEmail,
       signupSource: 'self-service',
+      ...(language ? { language } : {}),
     });
     return this.login(user);
   }

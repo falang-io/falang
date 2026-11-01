@@ -9,6 +9,8 @@ import { User, type TSignupSource, type TUserRole } from './user.entity.js';
 const SALT_ROUNDS = 10;
 const DEFAULT_ADMIN_USERNAME = 'admin';
 const DEFAULT_ADMIN_PASSWORD = 'admin';
+/** `users.language` when neither the caller nor `DEFAULT_LANGUAGE` gives one (the column's own default). */
+const FALLBACK_USER_LANGUAGE = 'en';
 
 /**
  * Seeds a default `admin`/`admin` user on boot, behind `SEED_DEFAULT_ADMIN` (default `false`; set `SEED_DEFAULT_ADMIN=true` for local dev/e2e) —
@@ -138,9 +140,17 @@ export class UsersService implements OnModuleInit {
       companyName: input.companyName ?? null,
       automationInterest: input.automationInterest ?? null,
       signupSource: input.signupSource ?? 'admin',
-      ...(input.language ? { language: input.language } : {}),
+      language: input.language || this.defaultLanguage(),
     });
     return this.users.save(user);
+  }
+
+  /**
+   * The interface language of an account created without one (admin-created users, the seeded admin, a signup from an
+   * older client): `DEFAULT_LANGUAGE`, default `en`. Read per call so the setting follows the live environment.
+   */
+  defaultLanguage(): string {
+    return this.config.get<string>('DEFAULT_LANGUAGE')?.trim() || FALLBACK_USER_LANGUAGE;
   }
 
   /** ~16 URL-safe characters from a CSPRNG — handed to an admin exactly once, never stored in plaintext or logged. */

@@ -40,4 +40,10 @@ export class RegisterDto {
   @IsString()
   @MaxLength(4096)
   captchaToken?: string;
+
+  /** The interface language the form was shown in — stored on the new account (default `DEFAULT_LANGUAGE`). */
+  @IsOptional()
+  @IsString()
+  @Length(2, 10)
+  language?: string;
 }
