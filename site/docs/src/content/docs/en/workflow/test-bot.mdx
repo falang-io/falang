@@ -1,0 +1,79 @@
+---
+title: Testing a bot with the platform test bot
+description: Trying a Telegram bot on the dev stand without creating a bot of your own — the sandbox switch, connecting a chat, and what the administrator configures
+head:
+  - tag: meta
+    attrs:
+      name: keywords
+      content: 'test bot, sandbox, telegram, dev stand, connect chat, deep link, workflow'
+---
+
+<p>
+  While you build a messenger bot you don't need a bot of your own. If the administrator has set up a shared{' '}
+  <b>test bot</b> for the messenger, the dev stand of your project can use it: you connect your personal chat to the
+  project, and everything you write to the test bot goes to your scenario. Currently this works for Telegram.
+</p>
+
+#### For a user
+
+<ol>
+  <li>
+    Open <b>Integrations</b>, add (or edit) a Telegram credential and turn on <b>Dev: test in the platform bot</b>. The
+    dev token field can stay empty; the production token is still your own bot's.
+  </li>
+  <li>
+    After saving, a dialog opens with a one-time link and a QR code (it is also available later with the{' '}
+    <b>Connect chat</b> button). Open the link in Telegram and press <b>Start</b> — the test bot answers that the chat
+    is connected to your project.
+  </li>
+  <li>
+    Start the dev stand and write to the test bot. Messages reach the triggers of your project, and your scenario's
+    answers come back to the same chat.
+  </li>
+</ol>
+
+<p>
+  The dialog lists the chats connected to the credential; <b>Disconnect</b> removes one.
+</p>
+
+#### Good to know
+
+<ul>
+  <li>
+    Only <b>private chats</b> can be connected; the test bot ignores groups (it says so once).
+  </li>
+  <li>
+    A chat connects to one project credential at a time; connecting it again moves it. The link works once and for 15
+    minutes.
+  </li>
+  <li>
+    A connection lasts <b>15 minutes</b> (the administrator can change it) <i>since the last message</i> — each message
+    and each answer of your scenario prolongs it. When it expires the bot asks you to open a fresh link.
+  </li>
+  <li>
+    In the chat, the service command <code>/falang</code> shows which project the chat is connected to, and{' '}
+    <code>/falang off</code> disconnects it. Every other text, including a plain <code>/start</code>, goes to your
+    scenario. (The administrator can rename the command.)
+  </li>
+  <li>If the dev stand is stopped, the test bot tells you to start it in the editor.</li>
+  <li>
+    The sandbox affects only the <b>dev stand</b>. A published (prod) version always uses the token of your own bot.
+  </li>
+  <li>
+    Limits protect the shared bot: only the messages of the connected chat are sent to it, and the number of calls per
+    project and per chat is bounded.
+  </li>
+</ul>
+
+#### For the administrator (self-hosted)
+
+<p>
+  In the admin app open <b>Test bots</b>. For each supported messenger create a bot (for Telegram — with @BotFather) and
+  paste its token: the token is checked and the bot's name is shown. Here you can also set the{' '}
+  <b>connection lifetime</b> (minutes since the last activity, 15 by default), rename the service command, check the
+  token again, or delete the test bot (users then no longer see the switch's link and connections stay inert).
+</p>
+<p>
+  The test bot is served by the backend itself: with <code>GATEWAY_PUBLIC_HOST</code> set it uses a webhook, otherwise
+  long polling. Run a single backend replica for it — two replicas would compete for the same updates.
+</p>

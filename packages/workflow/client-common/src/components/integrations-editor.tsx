@@ -45,7 +45,8 @@ export const IntegrationsEditor: React.FC = observer(() => {
   const [dynamicIntegrations, setDynamicIntegrations] = useState<readonly IWorkflowIntegration[]>([]);
   const [connecting, setConnecting] = useState(false);
   const [devSandbox, setDevSandbox] = useState(false);
-  const [sandboxLinkOpen, setSandboxLinkOpen] = useState(false);
+  // Instance whose connect-a-chat dialog is open; independent of the edit dialog so it can outlive it.
+  const [sandboxLinkId, setSandboxLinkId] = useState<string | null>(null);
   const disabledVendors = useDisabledVendors();
 
   // Sandbox (test) bot platforms — empty on any failure, then no sandbox UI is shown (ADR 0073 (private)).
@@ -120,14 +121,18 @@ export const IntegrationsEditor: React.FC = observer(() => {
     const integration = findIntegration(values.vendor);
     if (!integration) return;
     const previousInstance = instances.find((instance) => instance.id === editingId);
+    const id = editingId ?? generateUuid();
+    const sandboxOn = resolveDevSandbox(integration, devSandbox);
     store.saveIntegrationInstance({
-      id: editingId ?? generateUuid(),
+      id,
       vendor: integration.vendor,
       name: values.name,
       fields: formValuesToFields(integration, values, previousInstance),
-      ...(resolveDevSandbox(integration, devSandbox) ? { devSandbox: true } : {}),
+      ...(sandboxOn ? { devSandbox: true } : {}),
     });
     closeModal();
+    // The switch was just turned on: go straight to connecting a chat.
+    if (sandboxOn && previousInstance?.devSandbox !== true) setSandboxLinkId(id);
   };
 
   /** Saves the credential (assigning it an id if new) immediately, then opens the vendor's consent
@@ -305,7 +310,7 @@ export const IntegrationsEditor: React.FC = observer(() => {
               readOnly={readOnly}
               onChange={setDevSandbox}
               onConnect={
-                editingId !== null && savedInstance?.devSandbox === true ? () => setSandboxLinkOpen(true) : null
+                editingId !== null && savedInstance?.devSandbox === true ? () => setSandboxLinkId(editingId) : null
               }
             />
           ) : null}
@@ -333,14 +338,14 @@ export const IntegrationsEditor: React.FC = observer(() => {
           )}
         </Form>
       </Modal>
-      {editingId === null ? null : (
+      {sandboxLinkId === null ? null : (
         <SandboxLinkModal
-          open={sandboxLinkOpen}
+          open
           projectId={store.projectId}
-          credentialId={editingId}
+          credentialId={sandboxLinkId}
           readOnly={readOnly}
           flushSave={() => store.flushIntegrationsSave()}
-          onClose={() => setSandboxLinkOpen(false)}
+          onClose={() => setSandboxLinkId(null)}
         />
       )}
     </div>

@@ -1,4 +1,5 @@
 // oxlint-disable init-declarations, no-undefined -- optional adapter results.
+import { runWithEgressVendor } from '@falang/workflow-egress';
 import {
   BadRequestException,
   Body,
@@ -81,7 +82,7 @@ export class AdminSandboxBotsController {
     if (token !== '') {
       let info;
       try {
-        info = await adapter.getBotInfo(token);
+        info = await runWithEgressVendor(vendor, () => adapter.getBotInfo(token));
       } catch (error) {
         throw new BadRequestException({
           code: 'invalid_token',
@@ -112,7 +113,7 @@ export class AdminSandboxBotsController {
     const stored = await this.settings.load(vendor);
     if (!stored) return { ok: false, error: 'No token is configured' };
     try {
-      const info = await adapter.getBotInfo(stored.token);
+      const info = await runWithEgressVendor(vendor, () => adapter.getBotInfo(stored.token));
       return { ok: true, username: info.username, title: info.title };
     } catch (error) {
       return { ok: false, error: error instanceof Error ? error.message : 'The token was rejected' };

@@ -9,6 +9,7 @@ import {
 } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { InjectRepository } from '@nestjs/typeorm';
+import { runWithEgressVendor } from '@falang/workflow-egress';
 import {
   IntegrationsRuntimeService,
   deriveIntegrationSecret,
@@ -194,30 +195,33 @@ export class SandboxBotsService implements ISandboxIngressPort, OnApplicationBoo
     const publicHost = this.config.get<string>('GATEWAY_PUBLIC_HOST');
     const webhookUrl = publicHost ? `${publicHost.replace(/\/+$/, '')}/webhooks/sandbox-bots/${vendor}` : null;
     try {
-      const dispose = await bot.adapter.startIngress({
-        token: bot.token,
-        webhookUrl,
-        secret: this.deriveIngressSecret(vendor),
-        registerWebHook: (handler) => {
-          this.webhookHandlers.set(vendor, handler);
-        },
-        registerInterval: (callback, intervalMs) => {
-          let running = false;
-          const handle = setInterval(() => {
-            if (running) return;
-            running = true;
-            callback()
-              .catch((error: unknown) => {
-                this.logger.error(`Sandbox poll failed for ${vendor}`, error instanceof Error ? error.stack : error);
-              })
-              .finally(() => {
-                running = false;
-              });
-          }, intervalMs);
-          bot.intervals.push(handle);
-        },
-        onUpdate: (update) => this.handleUpdate(vendor, update),
-      });
+      const inVendor = <T>(fn: () => T): T => runWithEgressVendor(vendor, fn);
+      const dispose = await inVendor(() =>
+        bot.adapter.startIngress({
+          token: bot.token,
+          webhookUrl,
+          secret: this.deriveIngressSecret(vendor),
+          registerWebHook: (handler) => {
+            this.webhookHandlers.set(vendor, (request, info) => inVendor(() => handler(request, info)));
+          },
+          registerInterval: (callback, intervalMs) => {
+            let running = false;
+            const handle = setInterval(() => {
+              if (running) return;
+              running = true;
+              inVendor(() => callback())
+                .catch((error: unknown) => {
+                  this.logger.error(`Sandbox poll failed for ${vendor}`, error instanceof Error ? error.stack : error);
+                })
+                .finally(() => {
+                  running = false;
+                });
+            }, intervalMs);
+            bot.intervals.push(handle);
+          },
+          onUpdate: (update) => this.handleUpdate(vendor, update),
+        }),
+      );
       bot.dispose = dispose;
     } catch (error) {
       // Retried by the next reconcile tick; targets still start (the bot is configured, only its consumer failed).
@@ -248,7 +252,7 @@ export class SandboxBotsService implements ISandboxIngressPort, OnApplicationBoo
     this.webhookHandlers.delete(vendor);
     for (const handle of bot.intervals) clearInterval(handle);
     try {
-      await bot.dispose?.();
+      await runWithEgressVendor(vendor, () => bot.dispose?.() ?? Promise.resolve());
     } catch (error) {
       this.logger.error(
         `Failed to stop the sandbox ingress of ${vendor}`,
@@ -267,7 +271,7 @@ export class SandboxBotsService implements ISandboxIngressPort, OnApplicationBoo
     const bot = this.active.get(vendor);
     if (!bot) return;
     try {
-      await bot.adapter.sendText(bot.token, chatId, text);
+      await runWithEgressVendor(vendor, () => bot.adapter.sendText(bot.token, chatId, text));
     } catch (error) {
       this.logger.warn(
         `Could not send a service text to ${vendor} chat: ${error instanceof Error ? error.message : error}`,
@@ -353,7 +357,7 @@ export class SandboxBotsService implements ISandboxIngressPort, OnApplicationBoo
     }
     await this.bindings.touch([binding.id]);
     try {
-      await handler(update);
+      await runWithEgressVendor(vendor, () => handler(update));
     } catch (error) {
       this.logger.error(
         `Sandbox subscriber failed for ${vendor}/${binding.projectId}`,

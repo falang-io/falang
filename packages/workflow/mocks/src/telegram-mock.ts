@@ -107,6 +107,13 @@ export const createTelegramMockRouter = (): Router => {
     });
   });
 
+  // The platform "test bot" check (ADR 0073 (private)) identifies a token with getMe before saving it.
+  router.all('/telegram/:botSegment/getMe', (req: Request, res: Response) => {
+    const token = tokenFromSegment(req.params.botSegment);
+    okResult(res, { id: 4242, is_bot: true, first_name: 'Mock Test Bot', username: 'mock_test_bot' });
+    getState(token);
+  });
+
   router.post('/telegram/:botSegment/editMessageReplyMarkup', (req: Request, res: Response) => {
     const state = getState(tokenFromSegment(req.params.botSegment));
     state.calls.push({ method: 'editMessageReplyMarkup', body: req.body });

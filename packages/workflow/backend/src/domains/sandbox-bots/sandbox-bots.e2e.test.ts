@@ -2,6 +2,7 @@
 // oxlint-disable max-lines-per-function, no-await-in-loop, no-undefined -- scenario-style e2e over one fake messenger.
 import type { INestApplication } from '@nestjs/common';
 import { getRepositoryToken } from '@nestjs/typeorm';
+import { getEgressVendor } from '@falang/workflow-egress';
 import { IntegrationsRuntimeService } from '@falang/workflow-gateway';
 import request from 'supertest';
 import type { Repository } from 'typeorm';
@@ -302,6 +303,17 @@ describe('sandbox bots: settings, link codes, routing', () => {
       unsubscribe();
       await send(update);
       expect(handler).toHaveBeenCalledTimes(1);
+    });
+
+    it('runs the subscriber and the messenger calls inside the vendor egress scope', async () => {
+      const { projectId } = await bind();
+      let seen: string | undefined = 'unset';
+      service().subscribe({ vendor: 'fakegram', projectId, credentialId: CRED }, () => {
+        seen = getEgressVendor();
+        return Promise.resolve();
+      });
+      await send({ chat: '42', text: 'hello' });
+      expect(seen).toBe('fakegram');
     });
 
     it('survives a throwing subscriber', async () => {
