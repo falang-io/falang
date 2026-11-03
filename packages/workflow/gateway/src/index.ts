@@ -12,3 +12,4 @@ export * from './runner-start-refused-error.js';
 export * from './workflow-execution-timeout.js';
 export * from './schedule-guard.js';
 export * from './derive-integration-secret.js';
+export * from './sandbox-ingress-port.js';

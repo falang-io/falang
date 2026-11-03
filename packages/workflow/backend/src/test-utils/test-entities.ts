@@ -20,6 +20,8 @@ import { ProjectTemplate } from '../domains/projects/templates/project-template.
 import { ProjectBlob } from '../domains/projects/versioning/project-blob.entity.js';
 import { ProjectCommit } from '../domains/projects/versioning/project-commit.entity.js';
 import { SupportMessage } from '../domains/support/support-message.entity.js';
+import { SandboxBotBinding } from '../domains/sandbox-bots/sandbox-bot-binding.entity.js';
+import { SandboxBotLinkCode } from '../domains/sandbox-bots/sandbox-bot-link-code.entity.js';
 import { User } from '../domains/users/users/user.entity.js';
 
 export const TEST_ENTITIES = [
@@ -45,4 +47,6 @@ export const TEST_ENTITIES = [
   RunnerSession,
   ProjectMember,
   Task,
+  SandboxBotBinding,
+  SandboxBotLinkCode,
 ];

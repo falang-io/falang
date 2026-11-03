@@ -4,6 +4,7 @@ import { TypeOrmModule } from '@nestjs/typeorm';
 import { OAuthCredentialsModule } from '../admin/oauth-credentials/oauth-credentials.module.js';
 import { ProjectTokenModule } from '../internal-auth/project-token.module.js';
 import { Document } from '../projects/documents/document.entity.js';
+import { SandboxBotsModule } from '../sandbox-bots/sandbox-bots.module.js';
 import { ProjectsModule } from '../projects/projects/projects.module.js';
 import { ActivepiecesCatalogService } from './activepieces-catalog.service.js';
 import { ActivepiecesFieldOptionsController } from './activepieces-field-options.controller.js';
@@ -26,6 +27,7 @@ import { SyncVendorDataController } from './vendor-data/sync-vendor-data.control
     ProjectTokenModule,
     OAuthCredentialsModule,
     IntegrationVendorDataModule,
+    SandboxBotsModule,
   ],
   controllers: [
     InternalCredentialsController,

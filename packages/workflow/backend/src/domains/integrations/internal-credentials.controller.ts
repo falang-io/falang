@@ -1,10 +1,20 @@
-import { Body, Controller, Inject, NotFoundException, Post, UseGuards } from '@nestjs/common';
+import {
+  Body,
+  Controller,
+  Inject,
+  NotFoundException,
+  Post,
+  PreconditionFailedException,
+  UseGuards,
+} from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { InjectRepository } from '@nestjs/typeorm';
 import { INTEGRATIONS_DOCUMENT_TYPE, type IIntegrationsDocumentData } from '@falang/workflow-integrations-common';
 import type { Repository } from 'typeorm';
 import { Public } from '../auth/auth/public.decorator.js';
 import { ProjectTokenGuard } from '../internal-auth/project-token.guard.js';
+import { ProjectTokenService } from '../internal-auth/project-token.service.js';
+import { SandboxBotsService } from '../sandbox-bots/sandbox-bots.service.js';
 import { Document } from '../projects/documents/document.entity.js';
 import { ActivepiecesCatalogService } from './activepieces-catalog.service.js';
 import { resolveFieldValue } from './credentials-codec.js';
@@ -39,17 +49,23 @@ export class InternalCredentialsController {
   private readonly config: ConfigService;
   private readonly activepiecesCatalog: ActivepiecesCatalogService;
   private readonly oauth2AccessTokens: OAuth2AccessTokenService;
+  private readonly sandboxBots: SandboxBotsService;
+  private readonly projectTokens: ProjectTokenService;
 
   constructor(
     @InjectRepository(Document) documents: Repository<Document>,
     @Inject(ConfigService) config: ConfigService,
     @Inject(ActivepiecesCatalogService) activepiecesCatalog: ActivepiecesCatalogService,
     @Inject(OAuth2AccessTokenService) oauth2AccessTokens: OAuth2AccessTokenService,
+    @Inject(SandboxBotsService) sandboxBots: SandboxBotsService,
+    @Inject(ProjectTokenService) projectTokens: ProjectTokenService,
   ) {
     this.documents = documents;
     this.config = config;
     this.activepiecesCatalog = activepiecesCatalog;
     this.oauth2AccessTokens = oauth2AccessTokens;
+    this.sandboxBots = sandboxBots;
+    this.projectTokens = projectTokens;
   }
 
   /**
@@ -60,9 +76,11 @@ export class InternalCredentialsController {
    * vendors: amoCRM, Diadoc) resolves them from the instance like any other field.
    */
   @Post('resolve')
-  async resolve(@Body() body: ResolveCredentialDto): Promise<{ value: string }> {
+  async resolve(@Body() body: ResolveCredentialDto): Promise<{ value: string; apiBaseUrl?: string }> {
     const integrations = [...REGISTERED_INTEGRATIONS, ...(await this.activepiecesCatalog.getDynamicIntegrations())];
-    const integration = integrations.find((candidate) => candidate.vendor === body.vendor);
+    const integration =
+      integrations.find((candidate) => candidate.vendor === body.vendor) ??
+      this.sandboxBots.listSandboxIntegrations().find((candidate) => candidate.vendor === body.vendor);
     const field = integration?.credentialFields.find((candidate) => candidate.name === body.field);
     if (!field) {
       throw new NotFoundException(`No "${body.field}" field declared for vendor "${body.vendor}"`);
@@ -78,6 +96,13 @@ export class InternalCredentialsController {
       );
       if (!instance) continue;
 
+      // Sandbox mode (ADR 0073 (private)): a dev instance talks to the messenger through the host's relay, so the pod gets the
+      // project's internal token (never the shared test bot's real one) and the relay base URL instead of its own token.
+      const sandbox = integration?.sandbox;
+      if (sandbox && body.env === 'dev' && instance.devSandbox === true && field.name === sandbox.tokenField) {
+        return this.resolveSandboxRelay(body.vendor, body.projectId);
+      }
+
       const encryptionKey = requireEncryptionKey(this.config.get<string>('CREDENTIALS_ENCRYPTION_KEY'));
       const value = resolveFieldValue(instance, field, body.env, encryptionKey);
       if (!value)
@@ -87,6 +112,20 @@ export class InternalCredentialsController {
       return { value };
     }
     throw new NotFoundException(`Credential "${body.credentialId}" not found`);
+  }
+
+  private resolveSandboxRelay(vendor: string, projectId: string): { value: string; apiBaseUrl: string } {
+    const internalUrl = this.config.get<string>('BACKEND_INTERNAL_URL')?.replace(/\/+$/, '');
+    if (!this.sandboxBots.getBot(vendor) || !internalUrl) {
+      throw new PreconditionFailedException({
+        code: 'sandbox_not_configured',
+        message: 'No test bot is configured for this messenger',
+      });
+    }
+    return {
+      value: this.projectTokens.getOrCreateToken(projectId),
+      apiBaseUrl: `${internalUrl}/internal/sandbox-bots/${vendor}/${projectId}`,
+    };
   }
 
   /**

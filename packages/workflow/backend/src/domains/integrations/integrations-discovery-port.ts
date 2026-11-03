@@ -59,7 +59,12 @@ export const createIntegrationsDiscoveryPort = (
     for (const document of integrationsDocuments) {
       const data = document.data as IIntegrationsDocumentData | null;
       for (const instance of data?.instances ?? []) {
-        instances.push({ instanceId: instance.id, vendor: instance.vendor, projectId: document.projectId });
+        instances.push({
+          instanceId: instance.id,
+          vendor: instance.vendor,
+          projectId: document.projectId,
+          ...(instance.devSandbox === true ? { devSandbox: true } : {}),
+        });
       }
     }
     return instances;

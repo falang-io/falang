@@ -1,5 +1,6 @@
-// oxlint-disable no-await-in-loop -- every loop below is a sequential, deliberately-not-parallel drive over targets (discovery, startup registration — low-frequency, not a hot path).
+// oxlint-disable no-await-in-loop, no-undefined, complexity, init-declarations, no-inline-comments -- every loop below is a sequential, deliberately-not-parallel drive over targets (discovery, startup registration — low-frequency, not a hot path).
 // oxlint-disable max-lines -- over the default cap because of the new `ensureRunnerRunning`/`setEnsureRunnerRunning` wake-on-signal wiring (ADR 0016 (private)'s Phase 2 "Scale-to-zero" follow-up), not accumulated complexity.
+import { createHash } from 'node:crypto';
 import { deriveIntegrationSecret } from './derive-integration-secret.js';
 import { RunnerStartRefusedError } from './runner-start-refused-error.js';
 import { runWithEgressVendor } from '@falang/workflow-egress';
@@ -12,6 +13,7 @@ import type {
 import type { IIntegrationCredentialInstance, IIntegrationsDiscoveryPort } from './discovery-port.js';
 import type { IFileUploadPort } from './file-upload-port.js';
 import type { IOAuth2AccessTokenPort } from './oauth2-access-token-port.js';
+import type { ISandboxIngressPort } from './sandbox-ingress-port.js';
 import type { IScheduleGuard } from './schedule-guard.js';
 import type { IRunJournalProblemPort } from './run-journal-problem-port.js';
 import type { IScheduleClientPort } from './schedule-client.js';
@@ -39,7 +41,12 @@ interface IKnownTarget {
   readonly credentialId: string;
   readonly projectId: string;
   readonly env: TEnv;
+  /** Latest `devSandbox` flag of the explicit instance (dev targets only matter) — not part of the key. */
+  devSandbox?: boolean;
 }
+
+/** Mode a dev target was started in: `normal`, or `sandbox:<hash of the test-bot fields>` (ADR 0073 (private)). */
+type TTargetMode = string;
 
 /**
  * **Must** include `projectId` — an *implicit* target's `credentialId` is the vendor's own id (see
@@ -67,7 +74,17 @@ interface IActiveTarget {
   readonly onRunnerResume: (() => Promise<void>) | undefined;
   readonly webhookKeys: readonly string[];
   readonly intervalHandles: readonly NodeJS.Timeout[];
+  readonly mode: TTargetMode;
+  readonly unsubscribe: (() => void) | undefined;
 }
+
+const NORMAL_MODE: TTargetMode = 'normal';
+
+const sandboxModeOf = (botFields: Readonly<Record<string, string>>): TTargetMode =>
+  `sandbox:${createHash('sha256')
+    .update(JSON.stringify(Object.entries(botFields).toSorted()))
+    .digest('hex')
+    .slice(0, 16)}`;
 
 /** Normalizes `TRegisterIntegrationBackend`'s two possible return shapes (a bare `dispose` function, or a full `IIntegrationBackendHandle`) into one. */
 const normalizeBackendHandle = (
@@ -157,6 +174,7 @@ export class IntegrationsRuntimeService implements OnModuleInit, OnModuleDestroy
   private stopped = false;
   private ensureRunnerRunning: TEnsureRunnerRunning | undefined;
   private runJournal: IRunJournalProblemPort | undefined;
+  private sandboxIngress: ISandboxIngressPort | undefined;
 
   constructor(params: IIntegrationsRuntimeParams) {
     this.integrations = params.integrations;
@@ -256,6 +274,24 @@ export class IntegrationsRuntimeService implements OnModuleInit, OnModuleDestroy
    */
   setRunJournal(runJournal: IRunJournalProblemPort): void {
     this.runJournal = runJournal;
+  }
+
+  /**
+   * Installs the sandbox-bot ingress port (ADR 0073 (private)) — a post-construction setter like `setRunJournal`. Without it
+   * a `devSandbox` instance's dev target never starts (there is no test bot to talk through).
+   */
+  setSandboxIngress(port: ISandboxIngressPort): void {
+    this.sandboxIngress = port;
+  }
+
+  /**
+   * Re-evaluates every dev target in sandbox mode: the host calls this when a vendor's test bot is configured, changed or
+   * removed. A target whose mode (`devSandbox` flag + test-bot token fingerprint) changed is stopped and started again by the
+   * discovery tick; a sandbox target with no test bot left just stays stopped. `vendor` limits nothing today (the tick is
+   * cheap) but documents the intent.
+   */
+  async restartSandboxTargets(_vendor?: string): Promise<void> {
+    await this.discoveryTick();
   }
 
   /**
@@ -418,23 +454,35 @@ export class IntegrationsRuntimeService implements OnModuleInit, OnModuleDestroy
     };
     const key = targetKey(target);
     const isNewTarget = !this.knownTargets.has(key);
+    target.devSandbox = env === 'dev' && instance.devSandbox === true && integration.sandbox !== undefined;
     this.knownTargets.set(key, target);
     if (isNewTarget && !this.activatedProjects[env].has(instance.projectId)) {
       this.stoppedTargets.add(key);
     }
-    if (this.activeTargets.has(key) || this.stoppedTargets.has(key)) return;
 
-    const fields = await this.discovery.resolveCredentialFields(
+    // Sandbox mode (ADR 0073 (private)): the dev target runs on the platform's shared test bot instead of its own token.
+    const botFields = target.devSandbox ? this.sandboxIngress?.getBotFields(instance.vendor) : undefined;
+    let wantedMode: TTargetMode = NORMAL_MODE;
+    if (botFields) wantedMode = sandboxModeOf(botFields);
+    else if (target.devSandbox) wantedMode = 'sandbox-pending';
+    const active = this.activeTargets.get(key);
+    if (active && active.mode !== wantedMode) await this.stopTarget(key);
+    else if (active) return;
+    if (this.stoppedTargets.has(key)) return;
+    if (target.devSandbox && !botFields) return; // no test bot configured — retried on the next tick
+
+    const resolved = await this.discovery.resolveCredentialFields(
       instance.vendor,
       instance.instanceId,
       env,
       instance.projectId,
     );
     // Not configured for this env yet — leave it out of `activeTargets` so the next discovery tick retries it.
-    if (!fields) return;
+    if (!resolved && !botFields) return;
+    const fields = botFields ? { ...resolved, ...botFields } : (resolved as Readonly<Record<string, string>>);
 
     try {
-      await this.startTarget(integration, target, fields);
+      await this.startTarget(integration, target, fields, botFields ? wantedMode : NORMAL_MODE);
     } catch (error) {
       this.logger.error(
         `Failed to register backend for ${target.vendor}/${target.credentialId}/${target.env}`,
@@ -447,6 +495,7 @@ export class IntegrationsRuntimeService implements OnModuleInit, OnModuleDestroy
     integration: IWorkflowIntegration,
     target: IKnownTarget,
     fields: Readonly<Record<string, string>>,
+    mode: TTargetMode = NORMAL_MODE,
   ): Promise<void> {
     const registerBackend = integration.registerBackend;
     if (!registerBackend) return;
@@ -455,9 +504,12 @@ export class IntegrationsRuntimeService implements OnModuleInit, OnModuleDestroy
     const webhookKeys: string[] = [];
     const intervalHandles: NodeJS.Timeout[] = [];
     const taskQueue = this.discovery.taskQueueFor(target.projectId, target.env);
-    const webhookUrl = this.publicHost
-      ? `${this.publicHost}/webhooks/${target.vendor}/${target.projectId}/${target.credentialId}/${target.env}`
-      : null;
+    const sandboxPort = mode === NORMAL_MODE ? undefined : this.sandboxIngress;
+    let unsubscribe: (() => void) | undefined;
+    const webhookUrl =
+      this.publicHost && !sandboxPort
+        ? `${this.publicHost}/webhooks/${target.vendor}/${target.projectId}/${target.credentialId}/${target.env}`
+        : null;
 
     const vendorId = target.vendor;
     const inVendor = <T>(fn: () => T): T => runWithEgressVendor(vendorId, fn);
@@ -470,6 +522,19 @@ export class IntegrationsRuntimeService implements OnModuleInit, OnModuleDestroy
         fields,
         webhookUrl,
         taskQueue,
+        ...(sandboxPort
+          ? {
+              sharedIngress: {
+                subscribe: (handler: (update: unknown) => Promise<void>) => {
+                  unsubscribe?.();
+                  unsubscribe = sandboxPort.subscribe(
+                    { vendor: target.vendor, projectId: target.projectId, credentialId: target.credentialId },
+                    handler,
+                  );
+                },
+              },
+            }
+          : {}),
         registerWebHook: (uri, handler) => {
           const handlerKey = webhookHandlerKey(target.vendor, target.projectId, target.credentialId, target.env, uri);
           this.webhookHandlers.set(handlerKey, (request, info) => inVendor(() => handler(request, info)));
@@ -578,6 +643,8 @@ export class IntegrationsRuntimeService implements OnModuleInit, OnModuleDestroy
       onRunnerResume: onRunnerResume && (() => inVendor(() => onRunnerResume.call(backendHandle))),
       webhookKeys,
       intervalHandles,
+      mode,
+      unsubscribe: () => unsubscribe?.(),
     });
   }
 
@@ -643,6 +710,7 @@ export class IntegrationsRuntimeService implements OnModuleInit, OnModuleDestroy
     this.activeTargets.delete(key);
     for (const webhookKey of active.webhookKeys) this.webhookHandlers.delete(webhookKey);
     for (const handle of active.intervalHandles) clearInterval(handle);
+    active.unsubscribe?.();
     try {
       await active.dispose();
     } catch (error) {

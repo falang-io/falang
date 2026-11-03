@@ -4,6 +4,8 @@ export interface IIntegrationCredentialInstance {
   readonly instanceId: string;
   readonly vendor: string;
   readonly projectId: string;
+  /** ADR 0073 (private): the instance's dev stand talks through the platform's shared test bot. */
+  readonly devSandbox?: boolean;
 }
 
 /**

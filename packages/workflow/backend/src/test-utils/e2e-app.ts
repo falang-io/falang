@@ -52,6 +52,9 @@ import { ProjectCommit } from '../domains/projects/versioning/project-commit.ent
 import { VersioningModule } from '../domains/projects/versioning/versioning.module.js';
 import { SupportMessage } from '../domains/support/support-message.entity.js';
 import { SupportModule } from '../domains/support/support.module.js';
+import { SandboxBotBinding } from '../domains/sandbox-bots/sandbox-bot-binding.entity.js';
+import { SandboxBotLinkCode } from '../domains/sandbox-bots/sandbox-bot-link-code.entity.js';
+import { SandboxBotsModule } from '../domains/sandbox-bots/sandbox-bots.module.js';
 import { User } from '../domains/users/users/user.entity.js';
 import { UsersModule } from '../domains/users/users/users.module.js';
 
@@ -95,6 +98,8 @@ export const buildTestAppImports = (extraModules: TAppImport[] = []) => [
       RunnerSession,
       ProjectMember,
       Task,
+      SandboxBotBinding,
+      SandboxBotLinkCode,
     ],
   }),
   UsersModule,
@@ -117,6 +122,7 @@ export const buildTestAppImports = (extraModules: TAppImport[] = []) => [
   ProjectRuntimeSettingsModule,
   TemporalModule,
   EgressProxyModule,
+  SandboxBotsModule,
   GatewayModule.forRoot([], noopDiscoveryPort),
   ...extraModules,
 ];

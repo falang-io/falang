@@ -29,6 +29,8 @@ const AUTH_MAIL_PATH =
 const PROJECT_ACTION_PATH =
   /^\/+projects\/([^/]+)\/(build|run|runs|publish|debug\/start|versions\/start|versions\/[^/]+\/activate|agent\/chat)\/?$/i;
 
+const SANDBOX_WEBHOOK_PATH = /^\/+webhooks\/sandbox-bots\//i;
+
 /** Windows and numbers of security audit item P1-1; scaled by `RATE_LIMIT_MULTIPLIER`. */
 export const buildRatePolicies = (multiplier: number): IRatePolicy[] => {
   const scale = (n: number): number => Math.max(1, Math.round(n * multiplier));
@@ -58,10 +60,19 @@ export const buildRatePolicies = (multiplier: number): IRatePolicy[] => {
       keys: (req) => `ip:${ip(req)}`,
     },
     {
+      // The shared sandbox test bots (ADR 0073 (private)): one URL for every chat on the platform, so a higher ceiling.
+      name: 'sandbox-webhooks',
+      limit: scale(1200),
+      windowMs: MINUTE,
+      matches: (req) => req.method === 'POST' && SANDBOX_WEBHOOK_PATH.test(req.path),
+      keys: (req) => `ip:${ip(req)}`,
+    },
+    {
       name: 'webhooks',
       limit: scale(120),
       windowMs: MINUTE,
-      matches: (req) => req.method === 'POST' && /^\/+webhooks\//i.test(req.path),
+      matches: (req) =>
+        req.method === 'POST' && /^\/+webhooks\//i.test(req.path) && !SANDBOX_WEBHOOK_PATH.test(req.path),
       keys: (req) => `ip:${ip(req)}`,
     },
     {
