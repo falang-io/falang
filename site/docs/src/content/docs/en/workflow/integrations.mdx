@@ -36,7 +36,9 @@ head:
     become <a href="../files/">File</a>s. Data differences: <code>message.messageId</code> is a string and{' '}
     <code>message.timestamp</code> is in milliseconds. Without a public address the engine long-polls MAX (without a
     marker MAX returns only the latest event, so events sent while the engine was down are lost); with one it uses a
-    webhook subscription, as MAX itself recommends.
+    webhook subscription, as MAX itself recommends. The engine talks to <code>platform-api2.max.ru</code>, whose
+    certificate is issued by the Russian Trusted CA of the Ministry of Digital Development; that root is trusted only
+    for MAX requests, not for the whole process.
   </li>
   <li>
     <b>VK (VKontakte) community bot</b>. The same as Telegram: "On message" and "On command" triggers, "Send message",

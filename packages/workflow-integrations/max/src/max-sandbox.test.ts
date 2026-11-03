@@ -141,7 +141,7 @@ describe('max sandbox adapter', () => {
 
     it('builds the upstream URL and headers from the real token', () => {
       expect(relay.upstreamUrl!('real', '/messages', '?chat_id=42')).toBe(
-        'https://platform-api.max.ru/messages?chat_id=42',
+        'https://platform-api2.max.ru/messages?chat_id=42',
       );
       expect(relay.upstreamHeaders!('real')).toEqual({ Authorization: 'real' });
     });

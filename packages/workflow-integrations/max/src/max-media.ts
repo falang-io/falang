@@ -8,7 +8,7 @@ const MAX_INGRESS_CREATED_BY = 'ingress:max';
 
 export interface IIncomingMediaDeps {
   readonly botToken: string;
-  /** e.g. `https://platform-api.max.ru`, or the e2e mocks' `<mocksUrl>/max` — only used for `GET /videos/{token}`. */
+  /** e.g. `https://platform-api2.max.ru`, or the e2e mocks' `<mocksUrl>/max` — only used for `GET /videos/{token}`. */
   readonly apiBaseUrl: string;
   readonly uploadFile: IIntegrationBackendContext['uploadFile'];
 }

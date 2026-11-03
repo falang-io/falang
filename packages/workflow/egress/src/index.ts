@@ -4,3 +4,4 @@ export { createInternalOriginMatcher } from './internal-origin.js';
 export { createEgressConfigPoller, type IEgressConfigPoller } from './config-poller.js';
 export { fetchEgressProxyConfig } from './fetch-config.js';
 export type { IEgressProxyConfig, IEgressRoutingOptions } from './types.js';
+export { VENDOR_EXTRA_CA, buildVendorCa } from './vendor-ca.js';

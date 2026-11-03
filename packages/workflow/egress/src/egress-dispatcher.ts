@@ -1,5 +1,6 @@
 import { Agent, Dispatcher, ProxyAgent, getGlobalDispatcher, setGlobalDispatcher } from 'undici';
 import type { IEgressRoutingOptions } from './types.js';
+import { buildVendorCa } from './vendor-ca.js';
 import { getEgressVendor } from './vendor-context.js';
 
 // oxlint-disable-next-line no-empty-function -- swallow errors of fire-and-forget closes
@@ -28,12 +29,27 @@ class EgressDispatcher extends Dispatcher {
   private readonly direct = new Agent();
   private proxyKey: string | null = null;
   private proxyAgent: ProxyAgent | null = null;
+  /** Vendors with extra trusted CAs: one direct agent and one proxy agent (per proxy config) per vendor. */
+  private readonly vendorDirect = new Map<string, Agent>();
+  private readonly vendorProxy = new Map<string, { key: string; agent: ProxyAgent }>();
 
   private readonly options: IEgressRoutingOptions;
 
   constructor(options: IEgressRoutingOptions) {
     super();
     this.options = options;
+  }
+
+  private pickDirect(url: URL): Dispatcher {
+    const vendor = getEgressVendor();
+    const ca = buildVendorCa(vendor ?? null);
+    if (!vendor || !ca || this.options.isInternal?.(url)) return this.direct;
+    let agent = this.vendorDirect.get(vendor);
+    if (!agent) {
+      agent = new Agent({ connect: { ca } });
+      this.vendorDirect.set(vendor, agent);
+    }
+    return agent;
   }
 
   private pickProxy(url: URL): ProxyAgent | null {
@@ -43,6 +59,16 @@ class EgressDispatcher extends Dispatcher {
     if (!vendor || !config.vendors.includes(vendor)) return null;
     if (this.options.isInternal?.(url)) return null;
     const key = `${config.url}\n${config.token}`;
+    const ca = buildVendorCa(vendor ?? null);
+    if (ca) {
+      const cached = this.vendorProxy.get(vendor);
+      if (cached?.key === key) return cached.agent;
+      // oxlint-disable-next-line no-void -- fire-and-forget close of the replaced agent
+      if (cached) void cached.agent.close().catch(noop);
+      const agent = new ProxyAgent({ uri: config.url, token: `Bearer ${config.token}`, requestTls: { ca } });
+      this.vendorProxy.set(vendor, { key, agent });
+      return agent;
+    }
     if (this.proxyKey !== key) {
       const stale = this.proxyAgent;
       this.proxyAgent = new ProxyAgent({ uri: config.url, token: `Bearer ${config.token}` });
@@ -58,25 +84,35 @@ class EgressDispatcher extends Dispatcher {
     let target: Dispatcher = this.direct;
     try {
       const origin = typeof opts.origin === 'string' ? opts.origin : opts.origin?.toString();
-      if (origin) target = this.pickProxy(new URL(opts.path, origin)) ?? this.direct;
+      if (origin) {
+        const url = new URL(opts.path, origin);
+        target = this.pickProxy(url) ?? this.pickDirect(url);
+      }
     } catch {
       target = this.direct;
     }
     return target.dispatch(opts, handler);
   }
 
+  private takeVendorAgents(): Dispatcher[] {
+    const agents = [...this.vendorDirect.values(), ...[...this.vendorProxy.values()].map((p) => p.agent)];
+    this.vendorDirect.clear();
+    this.vendorProxy.clear();
+    return agents;
+  }
+
   async close(): Promise<void> {
     const proxy = this.proxyAgent;
     this.proxyAgent = null;
     this.proxyKey = null;
-    await Promise.all([this.direct.close(), proxy?.close()]);
+    await Promise.all([this.direct.close(), proxy?.close(), ...this.takeVendorAgents().map((a) => a.close())]);
   }
 
   async destroy(): Promise<void> {
     const proxy = this.proxyAgent;
     this.proxyAgent = null;
     this.proxyKey = null;
-    await Promise.all([this.direct.destroy(), proxy?.destroy()]);
+    await Promise.all([this.direct.destroy(), proxy?.destroy(), ...this.takeVendorAgents().map((a) => a.destroy())]);
   }
 }
 

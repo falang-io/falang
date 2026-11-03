@@ -13,7 +13,7 @@ export const MAX_QUESTION_ANSWER_SIGNAL_NAME = 'maxQuestionAnswer';
 export const MAX_SCOPE_VARIABLE_NAME = 'message';
 
 /** Max Bot API's default endpoint (`https://dev.max.ru/docs-api`); overridable via `MAX_API_BASE_URL` for e2e mocks. */
-export const MAX_DEFAULT_API_BASE_URL = 'https://platform-api.max.ru';
+export const MAX_DEFAULT_API_BASE_URL = 'https://platform-api2.max.ru';
 
 export const MAX_USER_TYPE_ID = 'max/User';
 export const MAX_CHAT_TYPE_ID = 'max/Chat';

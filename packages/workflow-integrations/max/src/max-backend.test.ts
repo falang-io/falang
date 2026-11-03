@@ -117,7 +117,7 @@ describe('registerMaxBackend', () => {
       const dispose = asDispose(await registerMaxBackend(ctx));
 
       const [url, init] = fetchMock.mock.calls[0] as [URL, RequestInit];
-      expect(String(url)).toBe('https://platform-api.max.ru/subscriptions');
+      expect(String(url)).toBe('https://platform-api2.max.ru/subscriptions');
       expect(init.method).toBe('POST');
       expect(init.headers).toMatchObject({ Authorization: 'bot-token' });
       expect(JSON.parse(String(init.body))).toEqual({
@@ -263,7 +263,7 @@ describe('registerMaxBackend', () => {
       const ctx = buildCtx();
       await registerMaxBackend(ctx);
 
-      expect(calledUrls()).toContain('https://platform-api.max.ru/subscriptions?url=https%3A%2F%2Fold%2Fhook');
+      expect(calledUrls()).toContain('https://platform-api2.max.ru/subscriptions?url=https%3A%2F%2Fold%2Fhook');
 
       await ctx.interval?.();
       const firstPoll = new URL(calledUrls().at(-1) ?? '');
