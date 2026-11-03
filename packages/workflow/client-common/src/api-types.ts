@@ -560,3 +560,25 @@ export interface IApiRuntimeSettingsInput {
   readonly dev: IApiRuntimeEnvSettings;
   readonly prod: IApiRuntimeEnvSettings;
 }
+
+/** One configured test-bot platform of `GET /sandbox-bots` (ADR 0073 (private)). */
+export interface IApiSandboxPlatform {
+  readonly vendor: string;
+  readonly username: string;
+  readonly title: string;
+}
+
+/** `POST /projects/:id/integrations/:credentialId/sandbox-link`. */
+export interface IApiSandboxLink {
+  readonly url: string;
+  readonly expiresAt: string;
+}
+
+/** One live chat binding of `GET .../sandbox-bindings`. */
+export interface IApiSandboxBinding {
+  readonly id: string;
+  readonly chatTitle: string | null;
+  readonly createdAt: string;
+  readonly lastActivityAt: string;
+  readonly expiresAt: string;
+}

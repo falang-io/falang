@@ -50,6 +50,9 @@ import type {
   IApiProdStatus,
   IApiRunnerSession,
   IApiRuntimeSettings,
+  IApiSandboxBinding,
+  IApiSandboxLink,
+  IApiSandboxPlatform,
   IApiRuntimeSettingsInput,
   IApiWorkflowPosition,
   IApiWorkflowRunDetail,
@@ -447,6 +450,20 @@ export const workflowApi = {
     const suffix = query.size > 0 ? `?${query.toString()}` : '';
     return request<{ sessions: IApiRunnerSession[] }>(`/projects/${projectId}/runner-sessions${suffix}`);
   },
+
+  /** Configured sandbox (test) bot platforms, ADR 0073 (private). */
+  getSandboxBots: () => request<{ platforms: IApiSandboxPlatform[] }>('/sandbox-bots'),
+
+  createSandboxLink: (projectId: string, credentialId: string) =>
+    request<IApiSandboxLink>(`/projects/${projectId}/integrations/${credentialId}/sandbox-link`, { method: 'POST' }),
+
+  listSandboxBindings: (projectId: string, credentialId: string) =>
+    request<IApiSandboxBinding[]>(`/projects/${projectId}/integrations/${credentialId}/sandbox-bindings`),
+
+  deleteSandboxBinding: (projectId: string, credentialId: string, bindingId: string) =>
+    request<null>(`/projects/${projectId}/integrations/${credentialId}/sandbox-bindings/${bindingId}`, {
+      method: 'DELETE',
+    }),
 
   startProd: (projectId: string) => request<null>(`/projects/${projectId}/versions/start`, { method: 'POST' }),
 
