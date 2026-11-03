@@ -207,8 +207,10 @@ describe('integrations (workflow tier): MAX', () => {
       async (botToken) => {
         await pushMaxUpdate(WORKFLOW_E2E_MOCKS_URL, botToken, incomingMessage(777, 'in.1', 'hi bot'));
 
-        // The question is this fresh token's first sent message, whatever `mid` the mock gave it is irrelevant here (the mock does not check edits).
+        // The press must carry the question's real `mid`: the mock's mids are globally unique, and removing the buttons
+        // reads the message back by that id (`GET /messages/<mid>`).
         const asked = await waitForCall(botToken, isTextMessage('Pick A or B'));
+        const questionMid = asked.mid ?? '';
         expect((asked.body as { attachments?: unknown }).attachments).toEqual([
           {
             type: 'inline_keyboard',
@@ -227,14 +229,17 @@ describe('integrations (workflow tier): MAX', () => {
           message: {
             recipient: { chat_id: 777, chat_type: 'dialog', user_id: 1 },
             timestamp: Date.now(),
-            body: { mid: 'mid.1', seq: 2, text: 'Pick A or B' },
+            body: { mid: questionMid, seq: 2, text: 'Pick A or B' },
           },
         });
 
         const ack = await waitForCall(botToken, (call) => call.method === 'answerCallback');
         expect(ack.query).toEqual({ callback_id: 'cb-1' });
         const edit = await waitForCall(botToken, (call) => call.method === 'editMessage');
-        expect(edit).toMatchObject({ query: { message_id: 'mid.1' }, body: { text: 'Pick A or B', attachments: [] } });
+        expect(edit).toMatchObject({
+          query: { message_id: questionMid },
+          body: { text: 'Pick A or B', attachments: [] },
+        });
         await waitForCall(botToken, isTextMessage('Выбрано B'));
         await waitForCall(botToken, isTextMessage('Chose B'));
       },
