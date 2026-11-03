@@ -40,10 +40,10 @@ head:
   </li>
   <li>
     <b>VK (VKontakte) community bot</b>. The same as Telegram: "On message" and "On command" triggers, "Send message",
-    "Send file" and "Ask question" with callback buttons and an optional timeout. The key comes from the community: Manage
-    → API usage → Access tokens, with the rights "Community messages", "Photos", "Documents" and "Community management";
-    also turn on community messages and bot abilities in the messages settings. Pressing "Start" in a new dialog reaches
-    the scenario as <code>/start</code>, and a <code>vk.me/&lt;community&gt;?ref=…</code> link as{' '}
+    "Send file" and "Ask question" with callback buttons and an optional timeout. The key comes from the community:
+    Manage → API usage → Access tokens, with the rights "Community messages", "Photos", "Documents" and "Community
+    management"; also turn on community messages and bot abilities in the messages settings. Pressing "Start" in a new
+    dialog reaches the scenario as <code>/start</code>, and a <code>vk.me/&lt;community&gt;?ref=…</code> link as{' '}
     <code>/start &lt;ref&gt;</code>. Without a public address the engine uses Bots Long Poll; with one it registers a
     Callback API server. <code>message.chat.id</code> is the VK <code>peer_id</code> (reply to it); incoming photos,
     documents and voice messages become <a href="../files/">File</a>s (video is not supported).
