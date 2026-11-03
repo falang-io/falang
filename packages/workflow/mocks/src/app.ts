@@ -1,6 +1,7 @@
 import express, { type Express } from 'express';
 import { createMaxMockRouter, resetAllMaxMockState } from './max-mock.js';
 import { createOpenAiMockRouter, resetAllOpenAiMockState } from './openai-mock.js';
+import { createVkMockRouter, resetAllVkMockState } from './vk-mock.js';
 import { createTelegramMockRouter, resetAllTelegramMockState } from './telegram-mock.js';
 
 export interface IMockContext {
@@ -21,20 +22,25 @@ const maxMock: MockRegistration = (app, ctx) => {
   ctx.reset(resetAllMaxMockState);
 };
 
+const vkMock: MockRegistration = (app, ctx) => {
+  app.use(createVkMockRouter());
+  ctx.reset(resetAllVkMockState);
+};
+
 const openAiMock: MockRegistration = (app, ctx) => {
   app.use(createOpenAiMockRouter());
   ctx.reset(resetAllOpenAiMockState);
 };
 
 /** The built-in mocks — registered through the exact same mechanism as extensions. */
-export const BUILTIN_MOCKS: readonly MockRegistration[] = [telegramMock, maxMock, openAiMock];
+export const BUILTIN_MOCKS: readonly MockRegistration[] = [telegramMock, maxMock, vkMock, openAiMock];
 
 export interface ICreateMocksAppOptions {
   /** Extra mocks registered after the built-in ones (e.g. private vendors in a downstream repo). */
   readonly extraMocks?: readonly MockRegistration[];
 }
 
-/** Builds the combined mock app — one process standing in for several vendors, path-prefixed (`/telegram`, `/max`, `/openai`, ...). */
+/** Builds the combined mock app — one process standing in for several vendors, path-prefixed (`/telegram`, `/max`, `/vk`, `/openai`, ...). */
 export const createMocksApp = (options: ICreateMocksAppOptions = {}): Express => {
   const app = express();
   app.use(express.json());

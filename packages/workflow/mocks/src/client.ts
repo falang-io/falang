@@ -1,4 +1,5 @@
 import type { IMaxMockCall, IMaxMockFileSeed } from './max-mock.js';
+import type { IVkMockCall, IVkMockFileSeed } from './vk-mock.js';
 import type { IOpenAiMockToolCall } from './openai-mock.js';
 import type { ITelegramMockCall, ITelegramMockFileSeed } from './telegram-mock.js';
 
@@ -59,6 +60,34 @@ export const getMaxCalls = async (mocksUrl: string, token: string): Promise<read
 
 export const resetMaxMock = async (mocksUrl: string, token: string): Promise<void> => {
   await fetch(`${mocksUrl}/__mock__/max/${encodeURIComponent(token)}/reset`, { method: 'POST' });
+};
+
+/**
+ * Queues fake incoming VK Bots Long Poll updates (`{ type: 'message_new', object }`, `message_event`, …; the mock adds
+ * `event_id`/`group_id`/`v`) for the next `a_check` of this community token. `files` seeds downloadable attachments:
+ * reference them as `__VK_MOCK_BASE__/files/<token>/<path>` (`VK_MOCK_BASE_PLACEHOLDER`).
+ */
+export const pushVkUpdate = async (
+  mocksUrl: string,
+  token: string,
+  updates: readonly { readonly type: string; readonly object: unknown }[],
+  files?: readonly IVkMockFileSeed[],
+): Promise<void> => {
+  await postJson(
+    `${mocksUrl}/__mock__/vk/${encodeURIComponent(token)}/updates`,
+    files ? { updates, files } : { updates },
+  );
+};
+
+/** Every VK API call and upload recorded so far for this token (all methods except `groups.getLongPollServer`). */
+export const getVkCalls = async (mocksUrl: string, token: string): Promise<readonly IVkMockCall[]> => {
+  const response = await fetch(`${mocksUrl}/__mock__/vk/${encodeURIComponent(token)}/calls`);
+  const body = (await response.json()) as { calls: readonly IVkMockCall[] };
+  return body.calls;
+};
+
+export const resetVkMock = async (mocksUrl: string, token: string): Promise<void> => {
+  await fetch(`${mocksUrl}/__mock__/vk/${encodeURIComponent(token)}/reset`, { method: 'POST' });
 };
 
 /** Queues the next `/chat/completions` response's `content` string for this `apiKey` — consumed once, in order. */
