@@ -2,6 +2,7 @@ import './zod-csp.js';
 export * from './app.js';
 export * from './analytics/event-tracker.js';
 export * from './api-client.js';
+export { ApiCodedError } from './api-coded-error.js';
 export * from './auth-store.js';
 // `LoginPage`/`LanguageSwitcher` cross the package boundary for `@falang/workflow-client-admin` —
 // see ADR 0030 (private) ("Auth is shared").

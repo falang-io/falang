@@ -8,6 +8,7 @@ import {
   CustomerServiceOutlined,
   GlobalOutlined,
   KeyOutlined,
+  ExperimentOutlined,
   RobotOutlined,
   TeamOutlined,
 } from '@ant-design/icons';
@@ -24,6 +25,7 @@ import { adminSupportStore } from '../admin-support-store.js';
 import { adminNavigationStore, type TAdminPage } from '../admin-navigation-store.js';
 import { AgentSettingsPage } from './agent-settings-page.js';
 import { ProxySettingsPage } from './proxy-settings-page.js';
+import { SandboxBotsPage } from './sandbox-bots-page.js';
 import { OAuthCredentialsPage } from './oauth-credentials-page.js';
 import { ProjectTemplatesPage } from './project-templates-page.js';
 import { SupportPage } from './support-page.js';
@@ -42,6 +44,7 @@ const PAGES: readonly { readonly key: TAdminPage; readonly icon: React.ReactNode
   { key: 'oauth-credentials', icon: <KeyOutlined /> },
   { key: 'agent-settings', icon: <RobotOutlined /> },
   { key: 'proxy', icon: <GlobalOutlined /> },
+  { key: 'sandbox-bots', icon: <ExperimentOutlined /> },
   { key: 'project-templates', icon: <AppstoreAddOutlined /> },
   { key: 'support', icon: <CustomerServiceOutlined /> },
 ];
@@ -51,6 +54,7 @@ const MENU_LABEL_KEYS: Record<TAdminPage, string> = {
   'oauth-credentials': 'shell.oauth-credentials-menu',
   'agent-settings': 'shell.agent-settings-menu',
   proxy: 'shell.proxy-menu',
+  'sandbox-bots': 'shell.sandbox-bots-menu',
   'project-templates': 'shell.project-templates-menu',
   support: 'shell.support-menu',
 };
@@ -124,6 +128,7 @@ export const AdminShell: React.FC = observer(() => {
           {adminNavigationStore.page === 'oauth-credentials' ? <OAuthCredentialsPage /> : null}
           {adminNavigationStore.page === 'agent-settings' ? <AgentSettingsPage /> : null}
           {adminNavigationStore.page === 'proxy' ? <ProxySettingsPage /> : null}
+          {adminNavigationStore.page === 'sandbox-bots' ? <SandboxBotsPage /> : null}
           {adminNavigationStore.page === 'project-templates' ? <ProjectTemplatesPage /> : null}
           {adminNavigationStore.page === 'support' ? <SupportPage /> : null}
           {extensionPage?.render()}

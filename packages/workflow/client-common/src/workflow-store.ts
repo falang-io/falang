@@ -103,6 +103,7 @@ import { ScheduleStatusStore } from './schedule-status-store.js';
 import { TasksStore } from './tasks-store.js';
 import { TemporalDebugAdapter } from './temporal-debug-adapter.js';
 import { buildTriggerFunctionDocument } from './trigger-function-document.js';
+import { SandboxBotsStore } from './sandbox-bots-store.js';
 import { VendorDataStore } from './vendor-data-store.js';
 import { resolveServerActivity, type TServerActivity } from './server-activity.js';
 import { buildReadOnlySchemeForDiff as buildReadOnlySchemeForDiffImpl } from './versioning/build-read-only-scheme-for-diff.js';
@@ -224,6 +225,8 @@ export class WorkflowStore implements IWorkflowAgentStore {
    * `IntegrationsEditor`'s "Sync structure" button.
    */
   readonly vendorData = new VendorDataStore();
+  /** The deployment's sandbox (test) bot platforms, loaded lazily by the integrations editor (ADR 0073 (private)). */
+  readonly sandboxBots = new SandboxBotsStore();
   /**
    * Which non-document main-content view is showing, if any — `'files'` for the project-wide Files tab
    * (ADR 0038 (private) §7), `'tasks'` for the Tasks view (ADR 0040 (private) §2), both siblings of

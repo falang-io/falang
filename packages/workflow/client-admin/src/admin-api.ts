@@ -1,3 +1,4 @@
+// oxlint-disable max-lines -- one thin wrapper per admin endpoint.
 import { apiRequest, type IApiRunnerSession, type TApiSuspendedReason } from '@falang/workflow-client-common';
 
 /**
@@ -76,6 +77,24 @@ export interface IAdminProxySettings {
   readonly vendors: string[];
   readonly updatedAt: string | null;
 }
+
+/** One platform row of `GET /admin/settings/sandbox-bots` (ADR 0073 (private)); the token is never returned. */
+export interface IAdminSandboxPlatform {
+  readonly vendor: string;
+  readonly configured: boolean;
+  readonly username: string | null;
+  readonly title: string | null;
+  readonly commandName: string;
+}
+
+export interface IAdminSandboxSettings {
+  readonly bindingTtlMinutes: number;
+  readonly platforms: IAdminSandboxPlatform[];
+}
+
+export type TAdminSandboxCheck =
+  | { readonly ok: true; readonly username: string; readonly title: string }
+  | { readonly ok: false; readonly error: string };
 
 /** One selectable integration of `GET /admin/settings/proxy/vendors`; a `builtin` label is an i18n key, an `activepieces` one plain text. */
 export interface IAdminProxyVendor {
@@ -229,6 +248,28 @@ export const adminApi = {
   deleteProxySettings: () => apiRequest<null>('/admin/settings/proxy', { method: 'DELETE' }),
 
   listProxyVendors: () => apiRequest<{ vendors: IAdminProxyVendor[] }>('/admin/settings/proxy/vendors'),
+
+  getSandboxSettings: () => apiRequest<IAdminSandboxSettings>('/admin/settings/sandbox-bots'),
+
+  putSandboxTtl: (bindingTtlMinutes: number) =>
+    apiRequest<IAdminSandboxSettings>('/admin/settings/sandbox-bots', {
+      method: 'PUT',
+      body: JSON.stringify({ bindingTtlMinutes }),
+    }),
+
+  putSandboxPlatform: (vendor: string, input: { token?: string; commandName?: string }) =>
+    apiRequest<IAdminSandboxPlatform>(`/admin/settings/sandbox-bots/${encodeURIComponent(vendor)}`, {
+      method: 'PUT',
+      body: JSON.stringify(input),
+    }),
+
+  deleteSandboxPlatform: (vendor: string) =>
+    apiRequest<null>(`/admin/settings/sandbox-bots/${encodeURIComponent(vendor)}`, { method: 'DELETE' }),
+
+  checkSandboxPlatform: (vendor: string) =>
+    apiRequest<TAdminSandboxCheck>(`/admin/settings/sandbox-bots/${encodeURIComponent(vendor)}/check`, {
+      method: 'POST',
+    }),
 
   listProjectTemplates: () => apiRequest<IAdminProjectTemplate[]>('/admin/project-templates'),
 

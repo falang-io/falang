@@ -10,7 +10,8 @@
       "change-password": "Change password",
       "project-templates-menu": "Project templates",
       "support-menu": "User support",
-      "proxy-menu": "Proxy"
+      "proxy-menu": "Proxy",
+      "sandbox-bots-menu": "Test bots"
     },
     "forbidden": {
       "title": "403",
@@ -255,6 +256,28 @@
       "ok": "Transfer",
       "done": "“{{name}}” now belongs to {{login}}",
       "failed": "Couldn't transfer the project"
+    },
+    "sandbox-bots-page": {
+      "description": "One test bot per messenger is shared by all projects: a user connects a chat to their project's dev stand through a one-time link, so no bot of their own is needed while developing. Create the bot in the messenger and enter its token here.",
+      "ttl-label": "Connection lifetime, minutes (since last activity)",
+      "configured": "Configured",
+      "not-configured": "Not configured",
+      "token-label": "Bot token",
+      "token-extra": "Leave empty to keep the stored token",
+      "command-label": "Service command",
+      "command-invalid": "Lowercase letters, digits and underscore, 1–32 characters",
+      "save": "Save",
+      "check": "Check",
+      "delete": "Delete",
+      "delete-title": "Remove this test bot?",
+      "delete-description": "Chats stay bound but stop working until a bot is configured again.",
+      "saved": "Saved",
+      "load-failed": "Couldn't load test bot settings",
+      "save-failed": "Couldn't save",
+      "delete-failed": "Couldn't delete",
+      "check-ok": "Bot @{{username}} is reachable",
+      "check-failed": "Check failed: {{error}}",
+      "no-platforms": "No messenger integration supports test bots yet."
     }
   }
 }

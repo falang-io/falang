@@ -19,17 +19,21 @@ import {
   isOAuth2Connected,
   type IIntegrationFormValues,
 } from '../integrations-editor-form.js';
+import { findSandboxPlatform, resolveDevSandbox } from '../sandbox-bots-model.js';
 import { createActivepiecesCatalogProvider } from '../integrations-document-helpers.js';
 import { REGISTERED_INTEGRATIONS } from '../integrations-registry.js';
 import { connectOAuth2Instance } from '../oauth2-connect.js';
 import { OAuth2ConnectionField } from './oauth2-connection-field.cmp.js';
 import { useDisabledVendors } from './use-disabled-vendors.js';
 import { useVendorAutoName } from './use-vendor-auto-name.js';
+import { SandboxDevField } from './sandbox-dev-field.cmp.js';
+import { SandboxLinkModal } from './sandbox-link-modal.cmp.js';
 import { VendorDataSyncField } from './vendor-data-sync-field.cmp.js';
 
 const { Title } = Typography;
 
 /** Ant-based CRUD editor for the pinned `integrations` document's credential instances — see ADR 0006's "Credentials" section. */
+// oxlint-disable-next-line complexity -- the sandbox switch/modal added a few more optional branches.
 export const IntegrationsEditor: React.FC = observer(() => {
   const t = getGlobalI18n().t;
   const store = useWorkflowStore();
@@ -40,7 +44,18 @@ export const IntegrationsEditor: React.FC = observer(() => {
   const [selectedVendor, setSelectedVendor] = useState<string | null>(null);
   const [dynamicIntegrations, setDynamicIntegrations] = useState<readonly IWorkflowIntegration[]>([]);
   const [connecting, setConnecting] = useState(false);
+  const [devSandbox, setDevSandbox] = useState(false);
+  const [sandboxLinkOpen, setSandboxLinkOpen] = useState(false);
   const disabledVendors = useDisabledVendors();
+
+  // Sandbox (test) bot platforms — empty on any failure, then no sandbox UI is shown (ADR 0073 (private)).
+  useEffect(() => {
+    if (!store.isGuest) {
+      store.sandboxBots.ensureLoaded().catch(() => {
+        // no sandbox UI on failure
+      });
+    }
+  }, [store]);
 
   // ActivePieces vendors aren't statically registered — see ADR 0010 (private).
   // Without this, there would be no way to ever create a credential for one.
@@ -75,6 +90,7 @@ export const IntegrationsEditor: React.FC = observer(() => {
   const openCreate = () => {
     const firstVendor = allIntegrations[0]?.vendor ?? null;
     setEditingId(null);
+    setDevSandbox(false);
     setSelectedVendor(firstVendor);
     form.resetFields();
     form.setFieldsValue({ name: '', vendor: firstVendor ?? '' });
@@ -87,6 +103,7 @@ export const IntegrationsEditor: React.FC = observer(() => {
     const integration = findIntegration(instance.vendor);
     if (!integration) return;
     setEditingId(instance.id);
+    setDevSandbox(instance.devSandbox === true);
     setSelectedVendor(instance.vendor);
     form.setFieldsValue(instanceToFormValues(instance, integration));
     setModalOpen(true);
@@ -108,6 +125,7 @@ export const IntegrationsEditor: React.FC = observer(() => {
       vendor: integration.vendor,
       name: values.name,
       fields: formValuesToFields(integration, values, previousInstance),
+      ...(resolveDevSandbox(integration, devSandbox) ? { devSandbox: true } : {}),
     });
     closeModal();
   };
@@ -135,6 +153,7 @@ export const IntegrationsEditor: React.FC = observer(() => {
           vendor: integration.vendor,
           name: values.name,
           fields: formValuesToFields(integration, values, previousInstance),
+          ...(resolveDevSandbox(integration, devSandbox) ? { devSandbox: true } : {}),
         },
       );
       if (result.status === 'success') message.success(t('client:integrations-editor.oauth2-connected'));
@@ -165,6 +184,8 @@ export const IntegrationsEditor: React.FC = observer(() => {
   // An admin viewing someone else's project: instances open in a disabled form, nothing can be added, saved,
   // connected, synced or deleted. Secret values are masked by the backend for every reader anyway.
   const { readOnly } = store;
+  const sandboxPlatform = findSandboxPlatform(activeIntegration, store.sandboxBots.platforms);
+  const savedInstance = instances.find((instance) => instance.id === editingId);
 
   return (
     <div style={{ flex: 1, overflow: 'auto', padding: 24 }}>
@@ -277,6 +298,17 @@ export const IntegrationsEditor: React.FC = observer(() => {
                 </Form.Item>
               ),
             )}
+          {sandboxPlatform ? (
+            <SandboxDevField
+              platform={sandboxPlatform}
+              checked={devSandbox}
+              readOnly={readOnly}
+              onChange={setDevSandbox}
+              onConnect={
+                editingId !== null && savedInstance?.devSandbox === true ? () => setSandboxLinkOpen(true) : null
+              }
+            />
+          ) : null}
           {!readOnly && activeIntegration?.oauth2 && (
             <OAuth2ConnectionField
               connected={isOAuth2Connected(instances.find((instance) => instance.id === editingId))}
@@ -301,6 +333,16 @@ export const IntegrationsEditor: React.FC = observer(() => {
           )}
         </Form>
       </Modal>
+      {editingId === null ? null : (
+        <SandboxLinkModal
+          open={sandboxLinkOpen}
+          projectId={store.projectId}
+          credentialId={editingId}
+          readOnly={readOnly}
+          flushSave={() => store.flushIntegrationsSave()}
+          onClose={() => setSandboxLinkOpen(false)}
+        />
+      )}
     </div>
   );
 });

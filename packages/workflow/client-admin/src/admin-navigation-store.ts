@@ -1,7 +1,14 @@
 import { action, makeObservable, observable } from 'mobx';
 import type { TAdminExtensionPage } from './admin-extensions.js';
 
-export type TAdminPage = 'users' | 'oauth-credentials' | 'agent-settings' | 'proxy' | 'project-templates' | 'support';
+export type TAdminPage =
+  | 'users'
+  | 'oauth-credentials'
+  | 'agent-settings'
+  | 'proxy'
+  | 'sandbox-bots'
+  | 'project-templates'
+  | 'support';
 
 /** Which admin sub-page is shown — the admin app has no router either, same as the main client's `NavigationStore`. */
 export class AdminNavigationStore {
