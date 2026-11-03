@@ -1,0 +1,35 @@
+{
+  "vk": {
+    "label": "ВКонтакте",
+    "credentialField": {
+      "accessToken": "Ключ доступа сообщества"
+    },
+    "trigger": {
+      "onMessage": "При сообщении",
+      "onCommand": "При команде"
+    },
+    "field": {
+      "command": "Команда",
+      "bot": "Сообщество",
+      "chatId": "ID чата (peer_id)",
+      "text": "Текст",
+      "question": "Вопрос",
+      "timeout": "Таймаут (например, 10m, 48h) — оставьте пустым, если таймаут не нужен",
+      "file": "Файл",
+      "sendFileAs": "Отправить как",
+      "caption": "Подпись"
+    },
+    "action": {
+      "sendMessage": "Отправить сообщение",
+      "sendFile": "Отправить файл"
+    },
+    "question": {
+      "askQuestion": "Задать вопрос"
+    },
+    "sendFileAs": {
+      "auto": "Авто (по типу файла)",
+      "photo": "Изображение",
+      "document": "Документ"
+    }
+  }
+}
