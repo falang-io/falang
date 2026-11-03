@@ -84,6 +84,12 @@ describe('telegram sandbox adapter', () => {
       const request = new Request('http://relay/x?chat_id=5', { method: 'POST' });
       expect(await adapter.relay.inspect(request, '/bottok/sendChatAction')).toMatchObject({ recipients: ['5'] });
     });
+    it('refuses a chat_id that differs between the query and the body', async () => {
+      const mixed = json('sendMessage', { chat_id: 666, text: 'a' }, '?chat_id=5');
+      expect(await adapter.relay.inspect(mixed, '/bottok/sendMessage')).toHaveProperty('error');
+      const same = json('sendMessage', { chat_id: 5, text: 'a' }, '?chat_id=5');
+      expect(await adapter.relay.inspect(same, '/bottok/sendMessage')).toMatchObject({ recipients: ['5'] });
+    });
     it('refuses unknown methods, missing chat_id and bad paths', async () => {
       expect(await adapter.relay.inspect(json('getUpdates', { chat_id: 1 }), '/bottok/getUpdates')).toHaveProperty(
         'error',

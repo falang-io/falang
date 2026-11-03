@@ -97,22 +97,32 @@ const startIngress = async (ctx: ISandboxIngressContext): Promise<() => Promise<
 const recipientOf = (value: unknown): string | null =>
   typeof value === 'string' || typeof value === 'number' ? String(value) : null;
 
+/**
+ * Every `chat_id` the call carries — query and body alike, since the Bot API accepts both and the relay must not guess
+ * which one Telegram would use. Returns `null` when there is none or the values disagree (a bound chat in the query and
+ * a foreign one in the body must not pass), or when the body can't be read.
+ */
 const readChatId = async (request: Request, search: URLSearchParams): Promise<string | null> => {
-  const fromQuery = search.get('chat_id');
-  if (fromQuery) return fromQuery;
+  const values: (string | null)[] = search.getAll('chat_id');
   const contentType = request.headers.get('content-type') ?? '';
   try {
     if (contentType.includes('application/json')) {
-      return recipientOf(((await request.json()) as { chat_id?: unknown } | null)?.chat_id);
-    }
-    if (contentType.includes('multipart/form-data') || contentType.includes('application/x-www-form-urlencoded')) {
+      const body = (await request.json()) as Record<string, unknown> | null;
+      if (body && 'chat_id' in body) values.push(recipientOf(body.chat_id));
+    } else if (
+      contentType.includes('multipart/form-data') ||
+      contentType.includes('application/x-www-form-urlencoded')
+    ) {
       const form = await request.formData();
-      return recipientOf(form.get('chat_id'));
+      for (const value of form.getAll('chat_id')) values.push(recipientOf(value));
     }
   } catch {
     return null;
   }
-  return null;
+  const distinct = new Set(values);
+  if (distinct.size !== 1) return null;
+  const [chatId] = distinct;
+  return chatId || null;
 };
 
 const inspect = async (request: Request, path: string): Promise<TSandboxRelayDecision> => {
