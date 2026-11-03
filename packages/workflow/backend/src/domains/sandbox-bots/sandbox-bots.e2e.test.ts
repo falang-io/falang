@@ -246,6 +246,27 @@ describe('sandbox bots: settings, link codes, routing', () => {
       expect(lastText()).toContain('not connected');
     });
 
+    it('treats a repeated used link from the chat bound to the same project as a plain message', async () => {
+      const alice = await registerUser(app, 'alice');
+      const projectId = await createProjectWithInstance(app, alice, { id: CRED, devSandbox: true });
+      await configureBot();
+      const link = await makeLink(alice, projectId);
+      const payload = codeOf(link.body.url);
+      await send({ chat: '42', payload });
+      const handler = vi.fn().mockResolvedValue(undefined);
+      service().subscribe({ vendor: 'fakegram', projectId, credentialId: CRED }, handler);
+      const sentBefore = fake.sent.length;
+
+      const repeat = { chat: '42', payload, text: 'Start' };
+      await send(repeat);
+      expect(handler).toHaveBeenCalledWith(repeat);
+      expect(fake.sent.length).toBe(sentBefore);
+
+      // The same used code from another, unbound chat is still invalid.
+      await send({ chat: '43', payload });
+      expect(lastText()).toContain('invalid');
+    });
+
     it('rejects an expired code', async () => {
       const alice = await registerUser(app, 'alice');
       const projectId = await createProjectWithInstance(app, alice, { id: CRED, devSandbox: true });

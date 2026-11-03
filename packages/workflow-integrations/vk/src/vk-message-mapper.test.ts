@@ -25,6 +25,13 @@ describe('vk message mapper', () => {
     expect(toVkMessage({ ...base, ref: 'promo' }, null)).toMatchObject({ text: '/start promo', ref: 'promo' });
   });
 
+  it('hides a sandbox link ref from the project', () => {
+    const base = { id: 1, peer_id: 7, text: 'Начать', payload: '{"command":"start"}' };
+    const message = toVkMessage({ ...base, ref: 'fl_abc' }, null);
+    expect(message.text).toBe('/start');
+    expect(message).not.toHaveProperty('ref');
+  });
+
   it('classifies peers', () => {
     expect(vkChatTypeOf(7)).toBe('private');
     expect(vkChatTypeOf(2_000_000_003)).toBe('chat');

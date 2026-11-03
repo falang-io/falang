@@ -367,74 +367,74 @@ interface ICallbackServerList {
   readonly items?: readonly { readonly id: number; readonly url: string }[];
 }
 
+export interface IVkIngressParams {
+  readonly accessToken: string;
+  readonly groupId: number;
+  /** Receives every VK event in order (confirmations and secret checks are done before). */
+  onUpdate(update: IVkUpdate): Promise<void>;
+}
+
+export interface IVkCallbackIngressParams extends IVkIngressParams {
+  readonly webhookUrl: string;
+  /** The `secret_key` of the callback server (at most 50 characters), checked on every event. */
+  readonly secret: string;
+  registerWebHook(handler: (request: Request) => Promise<Response>): void;
+}
+
 /**
- * Drives VK for one credential/env: the Callback API (a server added with a derived secret, removed on dispose) when
- * the host has a public URL, else Bots Long Poll. With `ctx.sharedIngress` (sandbox mode) it only subscribes. The Long
- * Poll position lives in this closure only — a restart takes a fresh `ts` from `groups.getLongPollServer`, so events
- * between the stop and the restart are lost (webhook mode is the production path).
+ * Callback API: a server titled "Falang" is added for `webhookUrl` (old ones with the same URL are removed first) and
+ * deleted on dispose. VK calls the URL with `type: confirmation` while `groups.addCallbackServer` runs, so the code is
+ * fetched and the handler mounted first. Shared by the production backend and the sandbox test bot.
  */
-export const registerVkBackend: TRegisterIntegrationBackend = async (ctx) => {
-  const accessToken = ctx.fields.accessToken;
-  if (!accessToken) return noopDispose;
-
-  const state: IVkTargetState = { chatTriggerFunctions: new Map(), users: new Map() };
-
-  // Sandbox mode (ADR 0073 (private)): the host owns the test bot's only consumer and feeds this target the updates of
-  // its bound chats — no server, no polling here.
-  if (ctx.sharedIngress) {
-    ctx.sharedIngress.subscribe((update) => handleVkUpdate(ctx, update as IVkUpdate, state));
-    return noopDispose;
+export const startVkCallbackIngress = async (params: IVkCallbackIngressParams): Promise<() => Promise<void>> => {
+  const { accessToken, groupId, webhookUrl, secret } = params;
+  const { code } = await vkApiJson<{ code: string }>(accessToken, 'groups.getCallbackConfirmationCode', {
+    group_id: groupId,
+  });
+  params.registerWebHook(async (request) => {
+    const update = (await request.json()) as IVkUpdate;
+    if (update.type === 'confirmation') return new Response(code, { status: 200 });
+    if (!constantTimeEqual(update.secret ?? '', secret)) return new Response(null, { status: 401 });
+    await params.onUpdate(update);
+    return new Response('ok', { status: 200 });
+  });
+  const existing = await vkApiJson<ICallbackServerList>(accessToken, 'groups.getCallbackServers', {
+    group_id: groupId,
+  });
+  for (const server of existing.items ?? []) {
+    if (server.url !== webhookUrl) continue;
+    // oxlint-disable-next-line no-await-in-loop -- a handful of servers at most.
+    await vkApiJson(accessToken, 'groups.deleteCallbackServer', { group_id: groupId, server_id: server.id });
   }
+  const { server_id: serverId } = await vkApiJson<{ server_id: number }>(accessToken, 'groups.addCallbackServer', {
+    group_id: groupId,
+    url: webhookUrl,
+    title: VK_CALLBACK_SERVER_TITLE,
+    secret_key: secret,
+  });
+  await vkApiJson(accessToken, 'groups.setCallbackSettings', {
+    group_id: groupId,
+    server_id: serverId,
+    api_version: VK_API_VERSION,
+    message_new: 1,
+    message_event: 1,
+  });
+  return async () => {
+    await vkApiJson(accessToken, 'groups.deleteCallbackServer', { group_id: groupId, server_id: serverId });
+  };
+};
 
-  const groupId = await vkGetGroupId(accessToken);
+export interface IVkLongPollIngressParams extends IVkIngressParams {
+  registerInterval(callback: () => Promise<void>, intervalMs: number): void;
+}
 
-  if (ctx.webhookUrl) {
-    const webhookUrl = ctx.webhookUrl;
-    if (!ctx.deriveSecret) throw new Error('VK webhook mode needs ctx.deriveSecret (host did not provide it)');
-    // base64url of an HMAC — 43 characters, within VK's `secret_key` limit (50).
-    const secret = ctx.deriveSecret(VK_CALLBACK_SECRET_LABEL);
-    // VK calls the URL with `type: confirmation` while `groups.addCallbackServer` runs, so the code is fetched and the
-    // handler mounted first.
-    const { code } = await vkApiJson<{ code: string }>(accessToken, 'groups.getCallbackConfirmationCode', {
-      group_id: groupId,
-    });
-    ctx.registerWebHook('', async (request) => {
-      const update = (await request.json()) as IVkUpdate;
-      if (update.type === 'confirmation') return new Response(code, { status: 200 });
-      if (!constantTimeEqual(update.secret ?? '', secret)) return new Response(null, { status: 401 });
-      await handleVkUpdate(ctx, update, state);
-      return new Response('ok', { status: 200 });
-    });
-    const existing = await vkApiJson<ICallbackServerList>(accessToken, 'groups.getCallbackServers', {
-      group_id: groupId,
-    });
-    for (const server of existing.items ?? []) {
-      if (server.url !== webhookUrl) continue;
-      // oxlint-disable-next-line no-await-in-loop -- a handful of servers at most.
-      await vkApiJson(accessToken, 'groups.deleteCallbackServer', { group_id: groupId, server_id: server.id });
-    }
-    const { server_id: serverId } = await vkApiJson<{ server_id: number }>(accessToken, 'groups.addCallbackServer', {
-      group_id: groupId,
-      url: webhookUrl,
-      title: VK_CALLBACK_SERVER_TITLE,
-      secret_key: secret,
-    });
-    await vkApiJson(accessToken, 'groups.setCallbackSettings', {
-      group_id: groupId,
-      server_id: serverId,
-      api_version: VK_API_VERSION,
-      message_new: 1,
-      message_event: 1,
-    });
-    return async () => {
-      await vkApiJson(accessToken, 'groups.deleteCallbackServer', { group_id: groupId, server_id: serverId });
-    };
-  }
-
+/** Bots Long Poll: a non-overlapping loop with `failed` handling; the position lives in this closure only. */
+export const startVkLongPollIngress = async (params: IVkLongPollIngressParams): Promise<() => Promise<void>> => {
+  const { accessToken, groupId } = params;
   await vkEnableLongPoll(accessToken, groupId);
   let poll: IVkLongPollServer | null = null;
   let polling = false;
-  ctx.registerInterval(async () => {
+  params.registerInterval(async () => {
     if (polling) return;
     polling = true;
     try {
@@ -457,11 +457,54 @@ export const registerVkBackend: TRegisterIntegrationBackend = async (ctx) => {
       if (answer.ts !== undefined) poll = { ...poll, ts: String(answer.ts) };
       for (const update of answer.updates ?? []) {
         // oxlint-disable-next-line no-await-in-loop -- updates are signalled in order, one at a time.
-        await handleVkUpdate(ctx, update, state);
+        await params.onUpdate(update);
       }
     } finally {
       polling = false;
     }
   }, VK_POLL_INTERVAL_MS);
   return noopDispose;
+};
+
+/**
+ * Drives VK for one credential/env: the Callback API (a server added with a derived secret, removed on dispose) when
+ * the host has a public URL, else Bots Long Poll. With `ctx.sharedIngress` (sandbox mode) it only subscribes. The Long
+ * Poll position lives in this closure only — a restart takes a fresh `ts` from `groups.getLongPollServer`, so events
+ * between the stop and the restart are lost (webhook mode is the production path).
+ */
+export const registerVkBackend: TRegisterIntegrationBackend = async (ctx) => {
+  const accessToken = ctx.fields.accessToken;
+  if (!accessToken) return noopDispose;
+
+  const state: IVkTargetState = { chatTriggerFunctions: new Map(), users: new Map() };
+
+  // Sandbox mode (ADR 0073 (private)): the host owns the test bot's only consumer and feeds this target the updates of
+  // its bound chats — no server, no polling here.
+  if (ctx.sharedIngress) {
+    ctx.sharedIngress.subscribe((update) => handleVkUpdate(ctx, update as IVkUpdate, state));
+    return noopDispose;
+  }
+
+  const groupId = await vkGetGroupId(accessToken);
+  const onUpdate = (update: IVkUpdate): Promise<void> => handleVkUpdate(ctx, update, state);
+
+  if (ctx.webhookUrl) {
+    if (!ctx.deriveSecret) throw new Error('VK webhook mode needs ctx.deriveSecret (host did not provide it)');
+    return startVkCallbackIngress({
+      accessToken,
+      groupId,
+      onUpdate,
+      webhookUrl: ctx.webhookUrl,
+      // base64url of an HMAC — 43 characters, within VK's `secret_key` limit (50).
+      secret: ctx.deriveSecret(VK_CALLBACK_SECRET_LABEL),
+      registerWebHook: (handler) => ctx.registerWebHook('', handler),
+    });
+  }
+
+  return startVkLongPollIngress({
+    accessToken,
+    groupId,
+    onUpdate,
+    registerInterval: (callback, intervalMs) => ctx.registerInterval(callback, intervalMs),
+  });
 };

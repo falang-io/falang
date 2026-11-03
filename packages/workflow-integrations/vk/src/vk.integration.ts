@@ -13,6 +13,7 @@ import {
   VK_VENDOR,
 } from './constants.js';
 import { registerVkBackend } from './vk-backend.js';
+import { vkSandboxAdapter } from './vk-sandbox.js';
 import { vkSendFileAction } from './vk-send-file-action.js';
 import { VK_SHARED_ACTIVITY_CODE } from './vk-shared-activity-code.js';
 import { vkStructTypes } from './vk-struct-types.js';
@@ -197,4 +198,5 @@ export const vkIntegration: IWorkflowIntegration = {
   ],
   sharedActivityCode: VK_SHARED_ACTIVITY_CODE,
   registerBackend: registerVkBackend,
+  sandbox: vkSandboxAdapter,
 };

@@ -1,3 +1,5 @@
+import { SANDBOX_LINK_PAYLOAD_PREFIX } from '@falang/workflow-integrations-common';
+
 /**
  * VK API's own snake_case wire shapes (`https://dev.vk.com/ru/reference/objects/message`) — only the subset the ingress
  * reads. Attachments are kept loose: `vk-media.ts` picks the kinds it turns into `files/File`s and ignores the rest.
@@ -98,13 +100,18 @@ export const toVkUser = (raw: IVkRawUser | null | undefined): IVkUser | undefine
   };
 };
 
+/** A `ref` starting with the sandbox link prefix binds a chat to the test bot (ADR 0073 (private)); the project never sees it. */
+const projectRef = (raw: IVkRawMessage): string | null =>
+  raw.ref && !raw.ref.startsWith(SANDBOX_LINK_PAYLOAD_PREFIX) ? raw.ref : null;
+
 /**
  * VK has no `/start` message: pressing "Начать" sends `payload = {"command":"start"}` with a text like "Начать". It is
  * delivered to the workflow as `/start` (`/start <ref>` for a `vk.me/<community>?ref=<ref>` deep link — the same text
  * Telegram sends), so an on-command trigger for `start` works the same in every messenger.
  */
 const messageText = (raw: IVkRawMessage, payload: Record<string, unknown> | null): string => {
-  if (payload?.command === 'start') return raw.ref ? `/start ${raw.ref}` : '/start';
+  const ref = projectRef(raw);
+  if (payload?.command === 'start') return ref ? `/start ${ref}` : '/start';
   return raw.text ?? '';
 };
 
@@ -118,7 +125,7 @@ export const toVkMessage = (raw: IVkRawMessage, from: IVkUser | null | undefined
     date: raw.date ?? 0,
     chat: { id: raw.peer_id, type: vkChatTypeOf(raw.peer_id) },
     ...(from ? { from } : {}),
-    ...(raw.ref ? { ref: raw.ref } : {}),
+    ...(projectRef(raw) ? { ref: projectRef(raw) } : {}),
     payload,
   };
 };

@@ -25,7 +25,9 @@ const MESSAGE_MAX_AGE_MS = 30 * DAY_MS;
 
 export const hashLinkCode = (code: string): string => createHash('sha256').update(code).digest('hex');
 
-export type TRedeemResult = { readonly ok: true; readonly binding: SandboxBotBinding } | { readonly ok: false };
+export type TRedeemResult =
+  | { readonly ok: true; readonly binding: SandboxBotBinding }
+  | { readonly ok: false; readonly reason?: 'already-bound-here' };
 
 /** Chat bindings and link codes of the sandbox bots (ADR 0073 (private)): creation, sliding expiry, redemption, sweep. */
 @Injectable()
@@ -135,6 +137,12 @@ export class SandboxBindingsService {
   ): Promise<TRedeemResult> {
     const row = await this.codes.findOneBy({ codeHash: hashLinkCode(code) });
     const now = this.now();
+    if (row && row.vendor === vendor && row.usedAt !== null) {
+      // A messenger may repeat the link payload (VK's `ref`); a used code coming from a chat that is live-bound to the
+      // code's own project is not a stale link — the host treats it as an ordinary message.
+      const bound = await this.bindings.findOneBy({ vendor, chatId: chat.chatId, projectId: row.projectId });
+      if (bound && (await this.isLive(bound))) return { ok: false, reason: 'already-bound-here' };
+    }
     if (!row || row.vendor !== vendor || row.usedAt !== null || row.expiresAt.getTime() <= now.getTime()) {
       return { ok: false };
     }

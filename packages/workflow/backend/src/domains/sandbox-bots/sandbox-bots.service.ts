@@ -315,12 +315,16 @@ export class SandboxBotsService implements ISandboxIngressPort, OnApplicationBoo
     }
 
     const code = this.bindings.parsePayload(info.startPayload);
-    if (code !== null) {
-      const result = await this.bindings.redeem(vendor, code, { chatId: info.chatId, chatTitle: info.chatTitle });
-      if (!result.ok) return reply(texts.linkInvalid());
-      const project = await this.projects.findOneBy({ id: result.binding.projectId });
+    const redeemed =
+      code === null
+        ? null
+        : await this.bindings.redeem(vendor, code, { chatId: info.chatId, chatTitle: info.chatTitle });
+    if (redeemed && !redeemed.ok && redeemed.reason !== 'already-bound-here') return reply(texts.linkInvalid());
+    if (redeemed?.ok) {
+      const project = await this.projects.findOneBy({ id: redeemed.binding.projectId });
       return reply(project ? texts.linked(project.name) : texts.linkInvalid());
     }
+    // `redeemed` is null (no link) or the repeat of an already used link from the bound chat: route as a plain message.
 
     const command = `/${bot.commandName}`;
     const text = info.text?.trim() ?? null;
