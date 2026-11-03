@@ -38,6 +38,7 @@ COPY packages/workflow-integrations/sqlite/package.json packages/workflow-integr
 COPY packages/workflow-integrations/tasks/package.json packages/workflow-integrations/tasks/
 COPY packages/workflow-integrations/telegram/package.json packages/workflow-integrations/telegram/
 COPY packages/workflow-integrations/max/package.json packages/workflow-integrations/max/
+COPY packages/workflow-integrations/vk/package.json packages/workflow-integrations/vk/
 COPY packages/workflow/backend/package.json packages/workflow/backend/
 COPY packages/workflow/client-admin/package.json packages/workflow/client-admin/
 COPY packages/workflow/client/package.json packages/workflow/client/

@@ -73,6 +73,8 @@ export interface IRunnerProcessManagerParams {
   readonly telegramApiBaseUrl?: string;
   /** The same for the Max Bot API (`MAX_API_BASE_URL`, default `https://platform-api.max.ru`) — see `@falang/workflow-integrations-max`. */
   readonly maxApiBaseUrl?: string;
+  /** The same for the VK API (`VK_API_BASE_URL`, default `https://api.vk.ru`) — see `@falang/workflow-integrations-vk`. */
+  readonly vkApiBaseUrl?: string;
   /**
    * How a runner pod's compiled `media-*` action activities (e.g. `mediaImageResize`) reach the
    * standalone `@falang/workflow-media` service — see ADR 0041 (private).

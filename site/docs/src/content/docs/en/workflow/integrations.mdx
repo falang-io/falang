@@ -1,11 +1,11 @@
 ---
 title: Integrations
-description: Catalog of Falang workflow engine integrations — Telegram, MAX, OpenAI, HTTP requests, webhooks, Russian services (1С, Bitrix24, amoCRM, ЮKassa, marketplaces), ActivePieces
+description: Catalog of Falang workflow engine integrations — Telegram, MAX, VK, OpenAI, HTTP requests, webhooks, Russian services (1С, Bitrix24, amoCRM, ЮKassa, marketplaces), ActivePieces
 head:
   - tag: meta
     attrs:
       name: keywords
-      content: 'integrations, telegram, max messenger, openai, webhook, 1c, bitrix24, amocrm, yookassa, ozon, wildberries, moysklad, gigachat, yandexgpt, activepieces, workflow'
+      content: 'integrations, telegram, max messenger, vk, vkontakte, openai, webhook, 1c, bitrix24, amocrm, yookassa, ozon, wildberries, moysklad, gigachat, yandexgpt, activepieces, workflow'
 ---
 
 <p>
@@ -37,6 +37,16 @@ head:
     <code>message.timestamp</code> is in milliseconds. Without a public address the engine long-polls MAX (without a
     marker MAX returns only the latest event, so events sent while the engine was down are lost); with one it uses a
     webhook subscription, as MAX itself recommends.
+  </li>
+  <li>
+    <b>VK (VKontakte) community bot</b>. The same as Telegram: "On message" and "On command" triggers, "Send message",
+    "Send file" and "Ask question" with callback buttons and an optional timeout. The key comes from the community: Manage
+    → API usage → Access tokens, with the rights "Community messages", "Photos", "Documents" and "Community management";
+    also turn on community messages and bot abilities in the messages settings. Pressing "Start" in a new dialog reaches
+    the scenario as <code>/start</code>, and a <code>vk.me/&lt;community&gt;?ref=…</code> link as{' '}
+    <code>/start &lt;ref&gt;</code>. Without a public address the engine uses Bots Long Poll; with one it registers a
+    Callback API server. <code>message.chat.id</code> is the VK <code>peer_id</code> (reply to it); incoming photos,
+    documents and voice messages become <a href="../files/">File</a>s (video is not supported).
   </li>
   <li>
     <b>OpenAI-compatible models</b>. The "Call AI" action sends a chat-completion request to the selected model and

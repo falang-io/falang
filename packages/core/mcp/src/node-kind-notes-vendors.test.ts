@@ -15,6 +15,9 @@ describe('node-kind-notes-vendors', () => {
         'max-question',
         'max-question-option',
         'max-send-file',
+        'vk-question',
+        'vk-question-option',
+        'vk-send-file',
         'call-ai-choice',
         'call-ai-choice-option',
         'call-ai-text',
@@ -85,5 +88,7 @@ describe('node-kind-notes-vendors', () => {
     expect(describeNodeKind('telegram-question', stack).notes).toContain('inline-keyboard');
     const maxStack = new NodesStack([new NodesGroup([{ name: 'max-question' }])]);
     expect(describeNodeKind('max-question', maxStack).notes).toContain('inline-keyboard');
+    const vkStack = new NodesStack([new NodesGroup([{ name: 'vk-question' }])]);
+    expect(describeNodeKind('vk-question', vkStack).notes).toContain('inline-keyboard');
   });
 });

@@ -11,6 +11,13 @@ interface IRunnerEnvCallParams {
   readonly buildId?: string;
 }
 
+/** The messenger vendors' API base-URL overrides (e2e mocks), pulled out to keep `buildRunnerEnv` under the complexity limit. */
+const addMessengerApiBaseUrls = (env: Record<string, string>, managerParams: IRunnerProcessManagerParams): void => {
+  if (managerParams.telegramApiBaseUrl) env.TELEGRAM_API_BASE_URL = managerParams.telegramApiBaseUrl;
+  if (managerParams.maxApiBaseUrl) env.MAX_API_BASE_URL = managerParams.maxApiBaseUrl;
+  if (managerParams.vkApiBaseUrl) env.VK_API_BASE_URL = managerParams.vkApiBaseUrl;
+};
+
 /** Builds a runner pod's env from `RunnerProcessManager`'s process-wide params plus this one `start()` call's own — pulled out of `RunnerProcessManager.start()` to keep that method (and the file's line count) manageable as more optional vendor-specific env vars accumulate. */
 export const buildRunnerEnv = (
   managerParams: IRunnerProcessManagerParams,
@@ -44,8 +51,7 @@ export const buildRunnerEnv = (
   if (managerParams.internalApiUrl) env.ARTIFACT_BASE_URL = managerParams.internalApiUrl;
   if (managerParams.internalApiUrl) env.BACKEND_INTERNAL_URL = managerParams.internalApiUrl;
   if (managerParams.activepiecesServiceUrl) env.ACTIVEPIECES_SERVICE_URL = managerParams.activepiecesServiceUrl;
-  if (managerParams.telegramApiBaseUrl) env.TELEGRAM_API_BASE_URL = managerParams.telegramApiBaseUrl;
-  if (managerParams.maxApiBaseUrl) env.MAX_API_BASE_URL = managerParams.maxApiBaseUrl;
+  addMessengerApiBaseUrls(env, managerParams);
   if (managerParams.mediaServiceUrl) env.MEDIA_SERVICE_URL = managerParams.mediaServiceUrl;
   if (managerParams.backendPublicUrl) env.BACKEND_PUBLIC_URL = managerParams.backendPublicUrl;
   if (managerParams.runnerMetricsPort) env.RUNNER_METRICS_PORT = String(managerParams.runnerMetricsPort);

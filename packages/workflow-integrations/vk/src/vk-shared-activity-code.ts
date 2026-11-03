@@ -70,7 +70,7 @@ export const VK_SHARED_ACTIVITY_CODE = [
   '  let attempt: number;',
   '  try {',
   '    const info = VkActivityContext.current().info;',
-  '    seed = `${info.workflowExecution.runId}|${info.activityId}`;',
+  '    seed = `${info.workflowExecution?.runId}|${info.activityId}`;',
   '    attempt = info.attempt;',
   '  } catch {',
   '    return Math.floor(Math.random() * 2147483646) + 1;',

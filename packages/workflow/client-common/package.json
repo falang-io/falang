@@ -49,6 +49,7 @@
     "@falang/workflow-integrations-tasks": "*",
     "@falang/workflow-integrations-tbank": "*",
     "@falang/workflow-integrations-telegram": "*",
+    "@falang/workflow-integrations-vk": "*",
     "@falang/workflow-integrations-webhook": "*",
     "@falang/workflow-integrations-wildberries": "*",
     "@falang/workflow-integrations-yandexgpt": "*",

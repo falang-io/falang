@@ -43,6 +43,18 @@ export const VENDOR_NODE_KIND_NOTES: Record<string, string> = {
     "the pick. Its `out` follows the same rules as `telegram-question-option`'s: `continue` asks again, `break`",
     'leaves the loop and runs what comes after it, `return` ends the whole function.',
   ].join(' '),
+  'vk-question': [
+    'The VK (ВКонтакте) counterpart of `telegram-question`: sends the message with tappable inline-keyboard',
+    "buttons — one per `vk-question-option` child, in order, each child's `data.label` the button's text —",
+    "and pauses the workflow until the user taps one. Do **not** match the next incoming message's text",
+    "instead. Set each option's `out` exactly as for `telegram-question-option`.",
+  ].join(' '),
+  'vk-question-option': [
+    "One button of the enclosing `vk-question`'s inline keyboard; `data.label` is its text and the value of",
+    "the pick. Its `out` follows the same rules as `telegram-question-option`'s: `continue` asks again, `break`",
+    'leaves the loop and runs what comes after it, `return` ends the whole function.',
+  ].join(' '),
+  'vk-send-file': '`file` is a `File` variable (e.g. `message.photo`), never a URL; `as: "auto"` picks by mime.',
   'max-send-file': '`file` is a `File` variable (e.g. `message.photo`), never a URL; `as: "auto"` picks by mime.',
   'call-ai-choice':
     "One synchronous call asking an AI model to pick among its declared options and return typed data alongside the pick — it never talks to an end user by itself, unlike `telegram-question`. Pair it with the chat vendor's own question node for that. Also accepts optional `attachments` (a `File[]`, see `call-ai-text`).",

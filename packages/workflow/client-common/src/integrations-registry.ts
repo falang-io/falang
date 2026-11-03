@@ -6,6 +6,7 @@ import { filesIntegration } from '@falang/workflow-integrations-files';
 import { gigachatIntegration } from '@falang/workflow-integrations-gigachat';
 import { httpRequestIntegration } from '@falang/workflow-integrations-http-request';
 import { maxIntegration } from '@falang/workflow-integrations-max';
+import { vkIntegration } from '@falang/workflow-integrations-vk';
 import { mediaIntegration } from '@falang/workflow-integrations-media';
 import { moyskladIntegration } from '@falang/workflow-integrations-moysklad';
 import { mysqlIntegration } from '@falang/workflow-integrations-mysql';
@@ -39,6 +40,7 @@ import type { IWorkflowIntegration } from '@falang/workflow-integrations-common'
 export const REGISTERED_INTEGRATIONS: readonly IWorkflowIntegration[] = [
   telegramIntegration,
   maxIntegration,
+  vkIntegration,
   openaiIntegration,
   httpRequestIntegration,
   webhookIntegration,

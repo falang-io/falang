@@ -233,6 +233,16 @@ describe('RunnerProcessManager', () => {
     expect(envOf(unset.client.deployments.get('workflow-1'), 'MAX_API_BASE_URL')).toBeUndefined();
   });
 
+  it('includes VK_API_BASE_URL only when configured on the manager', async () => {
+    const configured = createManager({ vkApiBaseUrl: 'http://mocks:4100/vk' });
+    await configured.manager.start({ taskQueue: 'workflow-1', projectId: 'p', internalProjectToken: 't', workflowEnv: 'dev' });
+    expect(envOf(configured.client.deployments.get('workflow-1'), 'VK_API_BASE_URL')).toBe('http://mocks:4100/vk');
+
+    const unset = createManager();
+    await unset.manager.start({ taskQueue: 'workflow-1', projectId: 'p', internalProjectToken: 't', workflowEnv: 'dev' });
+    expect(envOf(unset.client.deployments.get('workflow-1'), 'VK_API_BASE_URL')).toBeUndefined();
+  });
+
   it('exposes a named metrics container port and env only when runnerMetricsPort is set (ADR 0060 (private))', async () => {
     const { manager, client } = createManager({ runnerMetricsPort: 9464, runnerLogFormat: 'json' });
     await manager.start({ taskQueue: 'workflow-1', projectId: 'p', internalProjectToken: 't', workflowEnv: 'prod' });

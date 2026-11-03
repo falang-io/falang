@@ -395,6 +395,9 @@ services:
       # The same pair for the MAX messenger mock (@falang/workflow-integrations-max).
       - MAX_API_BASE_URL=http://mocks:4100/max
       - RUNNER_MAX_API_BASE_URL=http://${KIND_GATEWAY_IP:-172.18.0.1}:4102/max
+      # The same pair for the VK API mock (@falang/workflow-integrations-vk).
+      - VK_API_BASE_URL=http://mocks:4100/vk
+      - RUNNER_VK_API_BASE_URL=http://${KIND_GATEWAY_IP:-172.18.0.1}:4102/vk
       # See `activepieces` service below and ADR 0010 (private) —
       # same pattern as docker-compose.workflow.yml, mirrored here for e2e.
       - ACTIVEPIECES_SERVICE_URL=http://activepieces:4100
