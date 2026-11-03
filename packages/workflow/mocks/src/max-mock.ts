@@ -88,6 +88,12 @@ export const createMaxMockRouter = (): Router => {
   const router = Router();
   const rawBody = express.raw({ type: () => true, limit: '30mb' });
 
+  // The platform "test bot" check (ADR 0073 (private)) identifies a token with `GET /me` before saving it.
+  router.get('/max/me', (req: Request, res: Response) => {
+    if (!authorized(req, res)) return;
+    res.json({ user_id: 4242, first_name: 'Mock Test Bot', username: 'mock_max_test_bot', is_bot: true });
+  });
+
   router.post('/max/messages', (req: Request, res: Response) => {
     const state = authorized(req, res);
     if (!state) return;

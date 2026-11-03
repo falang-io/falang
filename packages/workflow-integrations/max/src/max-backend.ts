@@ -25,12 +25,12 @@ import {
 } from './max-message-mapper.js';
 
 /** Max's own long-poll timeout (seconds) — `GET /updates` blocks server-side for roughly this long when idle. */
-const MAX_POLL_TIMEOUT_SECONDS = 30;
+export const MAX_POLL_TIMEOUT_SECONDS = 30;
 /** Gap between successive polls; Max allows at most 2 long-poll requests per second. */
-const POLL_INTERVAL_MS = 1000;
+export const POLL_INTERVAL_MS = 1000;
 
 /** The update kinds a bot built in falang reacts to — subscribed to explicitly, so Max never sends the rest. */
-const MAX_UPDATE_TYPES = ['message_created', 'message_callback', 'bot_started'] as const;
+export const MAX_UPDATE_TYPES = ['message_created', 'message_callback', 'bot_started'] as const;
 
 interface ITriggerFunctionBodyData {
   readonly vendor: string;
@@ -75,13 +75,13 @@ type TMaxUpdate =
  * Overridable so e2e tests can point this at `@falang/workflow-mocks`'s Max mock. Guarded by `typeof process` because
  * this module is also reached from the browser bundle through the package barrel (same as `telegram-backend.ts`).
  */
-const MAX_API_BASE_URL =
+export const MAX_API_BASE_URL =
   typeof process === 'undefined'
     ? MAX_DEFAULT_API_BASE_URL
     : (process.env.MAX_API_BASE_URL ?? MAX_DEFAULT_API_BASE_URL);
 
 /** Max echoes the subscription `secret` in this header on every webhook delivery. */
-const MAX_SECRET_HEADER = 'x-max-bot-api-secret';
+export const MAX_SECRET_HEADER = 'x-max-bot-api-secret';
 const MAX_WEBHOOK_SECRET_LABEL = 'max-webhook';
 
 // oxlint-disable-next-line no-empty-function -- shared no-op dispose for targets with nothing to tear down remotely.
@@ -91,7 +91,7 @@ const noopDispose = async (): Promise<void> => {};
 type TQuery = Readonly<Record<string, string | number | null>>;
 
 /** One Max Bot API call: the token goes in `Authorization` (Max no longer accepts it as a query parameter). */
-const maxApiFetch = (
+export const maxApiFetch = (
   botToken: string,
   method: 'GET' | 'POST' | 'DELETE',
   path: string,
@@ -311,7 +311,7 @@ interface IMaxSubscriptionsResponse {
   readonly subscriptions?: readonly { readonly url: string }[];
 }
 
-const getUpdates = (botToken: string, marker: number | null): Promise<IMaxUpdatesResponse> =>
+export const getUpdates = (botToken: string, marker: number | null): Promise<IMaxUpdatesResponse> =>
   maxApiJson<IMaxUpdatesResponse>(botToken, 'GET', 'updates', {
     timeout: MAX_POLL_TIMEOUT_SECONDS,
     marker,
@@ -319,7 +319,7 @@ const getUpdates = (botToken: string, marker: number | null): Promise<IMaxUpdate
   });
 
 /** Long polling gets nothing while any webhook subscription exists — drop them all before polling (as max-io does). */
-const deleteAllSubscriptions = async (botToken: string): Promise<void> => {
+export const deleteAllSubscriptions = async (botToken: string): Promise<void> => {
   const response = await maxApiFetch(botToken, 'GET', 'subscriptions');
   if (!response.ok) return;
   const { subscriptions } = (await response.json()) as IMaxSubscriptionsResponse;
@@ -340,6 +340,13 @@ export const registerMaxBackend: TRegisterIntegrationBackend = async (ctx) => {
   if (!botToken) return noopDispose;
 
   const chatTriggerFunctions: TChatTriggerMap = new Map();
+
+  // Sandbox mode (ADR 0073 (private)): the host owns the test bot's only consumer and feeds this target the updates of
+  // its bound chats — no subscription, no polling here.
+  if (ctx.sharedIngress) {
+    ctx.sharedIngress.subscribe((update) => handleMaxUpdate(ctx, update as TMaxUpdate, chatTriggerFunctions));
+    return noopDispose;
+  }
 
   if (ctx.webhookUrl) {
     const webhookUrl = ctx.webhookUrl;

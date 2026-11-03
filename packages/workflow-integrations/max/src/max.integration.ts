@@ -13,6 +13,7 @@ import {
   MAX_VENDOR,
 } from './constants.js';
 import { registerMaxBackend } from './max-backend.js';
+import { maxSandboxAdapter } from './max-sandbox.js';
 import { maxSendFileAction } from './max-send-file-action.js';
 import { MAX_SHARED_ACTIVITY_CODE } from './max-shared-activity-code.js';
 import { maxStructTypes } from './max-struct-types.js';
@@ -99,8 +100,8 @@ export const maxIntegration: IWorkflowIntegration = {
       journal: { kind: 'message-out', args: ['chatId', 'text'], result: false },
       activityCode: [
         'export const maxSendMessage = async (credentialId: string, chatId: number, text: string): Promise<void> => {',
-        '  const botToken = await resolveMaxBotToken(credentialId);',
-        '  await maxSendText(botToken, chatId, text);',
+        '  const bot = await resolveMaxBotToken(credentialId);',
+        '  await maxSendText(bot, chatId, text);',
         '};',
       ].join('\n'),
     },
@@ -130,11 +131,11 @@ export const maxIntegration: IWorkflowIntegration = {
         '  question: string,',
         '  options: readonly string[],',
         '): Promise<{ messageId: string }> => {',
-        '  const botToken = await resolveMaxBotToken(credentialId);',
+        '  const bot = await resolveMaxBotToken(credentialId);',
         // One callback button per row; the button's payload is its label — the answer signal's `value`.
         "  const buttons = options.map((label) => [{ type: 'callback', text: label, payload: label }]);",
         '  const data = await maxApiRequest(',
-        '    botToken,',
+        '    bot,',
         "    'POST',",
         "    'messages',",
         '    { chat_id: chatId },',
@@ -154,9 +155,9 @@ export const maxIntegration: IWorkflowIntegration = {
         '  messageId: string,',
         '  selectedLabel: string,',
         '): Promise<void> => {',
-        '  const botToken = await resolveMaxBotToken(credentialId);',
-        '  await maxStripButtons(botToken, messageId);',
-        '  await maxSendText(botToken, chatId, `Выбрано ${selectedLabel}`);',
+        '  const bot = await resolveMaxBotToken(credentialId);',
+        '  await maxStripButtons(bot, messageId);',
+        '  await maxSendText(bot, chatId, `Выбрано ${selectedLabel}`);',
         '};',
       ].join('\n'),
       // Called instead of the resolve activity when the wait ends without an answer — timeout (`expired`) or a
@@ -170,13 +171,14 @@ export const maxIntegration: IWorkflowIntegration = {
         '  messageId: string,',
         '  reason: string,',
         '): Promise<void> => {',
-        '  const botToken = await resolveMaxBotToken(credentialId);',
-        '  await maxStripButtons(botToken, messageId);',
-        "  await maxSendText(botToken, chatId, reason === 'cancelled' ? 'Отменено' : 'Время истекло');",
+        '  const bot = await resolveMaxBotToken(credentialId);',
+        '  await maxStripButtons(bot, messageId);',
+        "  await maxSendText(bot, chatId, reason === 'cancelled' ? 'Отменено' : 'Время истекло');",
         '};',
       ].join('\n'),
     },
   ],
   sharedActivityCode: MAX_SHARED_ACTIVITY_CODE,
   registerBackend: registerMaxBackend,
+  sandbox: maxSandboxAdapter,
 };

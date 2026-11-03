@@ -32,6 +32,13 @@ describe('max mock', () => {
     expect(response.status).toBe(401);
   });
 
+  it('answers GET /me with the bot identity and requires the token', async () => {
+    const me = await api<{ username: string; is_bot: boolean }>(server.url, 'GET', 'me');
+    expect(me).toMatchObject({ username: 'mock_max_test_bot', is_bot: true });
+    const unauthenticated = await fetch(`${server.url}/max/me`);
+    expect(unauthenticated.status).toBe(401);
+  });
+
   it('records sent messages, serves them back by mid and records edits', async () => {
     const sent = await api<{ message: { body: { mid: string } } }>(server.url, 'POST', 'messages?chat_id=42', {
       text: 'Continue?',

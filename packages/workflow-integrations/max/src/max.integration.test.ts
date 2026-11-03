@@ -63,6 +63,14 @@ describe('maxIntegration', () => {
     for (const name of declared) expect(name.toLowerCase()).toContain('max');
   });
 
+  it('activities reach MAX through the resolved { token, apiBaseUrl } pair, so a sandbox relay can stand in', () => {
+    const shared = maxIntegration.sharedActivityCode ?? '';
+    expect(shared).toContain('Promise<{ token: string; apiBaseUrl: string }>');
+    expect(shared).toContain('apiBaseUrl: data.apiBaseUrl ?? MAX_API_BASE_URL');
+    expect(shared).toContain('new URL(`${bot.apiBaseUrl}/${path}`)');
+    expect(shared).not.toContain('${MAX_API_BASE_URL}/');
+  });
+
   it('question activities send an inline keyboard and remove it after the answer', () => {
     const question = maxIntegration.questions?.[0];
     expect(question?.askActivityCode).toContain("type: 'inline_keyboard'");
