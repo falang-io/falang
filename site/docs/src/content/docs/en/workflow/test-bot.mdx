@@ -11,20 +11,23 @@ head:
 <p>
   While you build a messenger bot you don't need a bot of your own. If the administrator has set up a shared{' '}
   <b>test bot</b> for the messenger, the dev stand of your project can use it: you connect your personal chat to the
-  project, and everything you write to the test bot goes to your scenario. Currently this works for Telegram, MAX and VK.
+  project, and everything you write to the test bot goes to your scenario. Currently this works for Telegram, MAX and
+  VK.
 </p>
 
 #### For a user
 
 <ol>
   <li>
-    Open <b>Integrations</b>, add (or edit) a Telegram, MAX or VK credential and turn on <b>Dev: test in the platform bot</b>. The
-    dev token field can stay empty; the production token is still your own bot's.
+    Open <b>Integrations</b>, add (or edit) a Telegram, MAX or VK credential and turn on{' '}
+    <b>Dev: test in the platform bot</b>. The dev token field can stay empty; the production token is still your own
+    bot's.
   </li>
   <li>
     After saving, a dialog opens with a one-time link and a QR code (it is also available later with the{' '}
-    <b>Connect chat</b> button). Open the link in the messenger (<code>t.me/…</code> for Telegram, <code>max.ru/…</code> for MAX, <code>vk.me/…</code> for VK) and press <b>Start</b> (<b>Начать</b> in MAX and VK) — the test bot answers that the chat
-    is connected to your project.
+    <b>Connect chat</b> button). Open the link in the messenger (<code>t.me/…</code> for Telegram, <code>max.ru/…</code>{' '}
+    for MAX, <code>vk.me/…</code> for VK) and press <b>Start</b> (<b>Начать</b> in MAX and VK) — the test bot answers
+    that the chat is connected to your project.
   </li>
   <li>
     Start the dev stand and write to the test bot. Messages reach the triggers of your project, and your scenario's
@@ -68,12 +71,18 @@ head:
 #### For the administrator (self-hosted)
 
 <p>
-  In the admin app open <b>Test bots</b>. For each supported messenger create a bot (for Telegram — with @BotFather, for MAX — on the MAX bot platform, for VK — a community with messages allowed and a community access key with message rights) and
-  paste its token: the token is checked and the bot's name is shown. Here you can also set the{' '}
+  In the admin app open <b>Test bots</b>. For each supported messenger create a bot (for Telegram — with @BotFather, for
+  MAX — on the MAX bot platform, for VK — a community with messages allowed and a community access key with message
+  rights) and paste its token: the token is checked and the bot's name is shown. Here you can also set the{' '}
   <b>connection lifetime</b> (minutes since the last activity, 15 by default), rename the service command, check the
   token again, or delete the test bot (users then no longer see the switch's link and connections stay inert).
 </p>
 <p>
   The test bot is served by the backend itself: with <code>GATEWAY_PUBLIC_HOST</code> set it uses a webhook, otherwise
   long polling. Run a single backend replica for it — two replicas would compete for the same updates.
+</p>
+<p>
+  The built-in AI agent knows about test bots too: when you ask it to try a messenger bot on the dev stand and you have
+  no token yet, it creates the integration with the test-bot switch on and a blank token, then asks you to press
+  "Connect a chat".
 </p>

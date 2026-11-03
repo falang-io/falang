@@ -33,9 +33,10 @@ const withTelegramCredential = (): readonly WorkflowDocument[] => {
   ];
 };
 
-const buildStore = (documents: readonly WorkflowDocument[] = []) => {
+const buildStore = (documents: readonly WorkflowDocument[] = [], sandboxVendors: readonly string[] = []) => {
   const saveIntegrationInstance = vi.fn();
-  const store = { documents, saveIntegrationInstance } as unknown as WorkflowStore;
+  const getSandboxVendors = () => sandboxVendors;
+  const store = { documents, getSandboxVendors, saveIntegrationInstance } as unknown as WorkflowStore;
   return { saveIntegrationInstance, store };
 };
 
@@ -102,6 +103,53 @@ describe('IntegrationToolProvider', () => {
 
     expect(result.ok).toBe(false);
     expect(saveIntegrationInstance).not.toHaveBeenCalled();
+  });
+});
+
+describe('IntegrationToolProvider — devSandbox (platform test bot)', () => {
+  const create = (store: WorkflowStore, extra: Record<string, unknown>) =>
+    new IntegrationToolProvider(store).execute(
+      call('create_integration_instance', { name: 'Bot', vendor: TELEGRAM_VENDOR, ...extra }),
+    );
+
+  it('saves devSandbox when the vendor has a configured test bot', () => {
+    const { saveIntegrationInstance, store } = buildStore([], [TELEGRAM_VENDOR]);
+    expect(create(store, { devSandbox: true }).ok).toBe(true);
+    const saved = saveIntegrationInstance.mock.calls[0][0] as IIntegrationInstance;
+    expect(saved.devSandbox).toBe(true);
+    expect(saved.fields).toEqual({ botToken: { dev: '', prod: '' } });
+  });
+
+  it('rejects devSandbox when the test bot is not configured', () => {
+    const { saveIntegrationInstance, store } = buildStore();
+    const result = create(store, { devSandbox: true });
+    expect(result.ok).toBe(false);
+    expect(saveIntegrationInstance).not.toHaveBeenCalled();
+  });
+
+  it('rejects devSandbox for a vendor without a sandbox adapter', () => {
+    const { saveIntegrationInstance, store } = buildStore([], ['http-request']);
+    const result = new IntegrationToolProvider(store).execute(
+      call('create_integration_instance', { devSandbox: true, name: 'x', vendor: 'http-request' }),
+    );
+    expect(result.ok).toBe(false);
+    expect(saveIntegrationInstance).not.toHaveBeenCalled();
+  });
+
+  it('does not set the flag when omitted or false', () => {
+    const { saveIntegrationInstance, store } = buildStore([], [TELEGRAM_VENDOR]);
+    create(store, { devSandbox: false });
+    expect((saveIntegrationInstance.mock.calls[0][0] as IIntegrationInstance).devSandbox).toBeUndefined();
+  });
+
+  it('list_integration_instances shows devSandbox when set', () => {
+    const docs = withTelegramCredential();
+    (docs[0].customData as { instances: Record<string, unknown>[] }).instances[0].devSandbox = true;
+    const { store } = buildStore(docs, [TELEGRAM_VENDOR]);
+    const instances = parseOk(
+      new IntegrationToolProvider(store).execute(call('list_integration_instances', {})),
+    ) as Record<string, unknown>[];
+    expect(instances[0]).toEqual({ devSandbox: true, id: 'cred-1', name: 'My bot', vendor: TELEGRAM_VENDOR });
   });
 });
 

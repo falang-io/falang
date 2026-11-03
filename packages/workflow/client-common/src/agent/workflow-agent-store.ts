@@ -28,6 +28,8 @@ export interface IWorkflowAgentStore {
   createTriggerFunctionDocument(name: string, bodyData: TTriggerFunctionBodyData, folderId?: string | null): string;
   /** Creates or replaces an integration instance in the `integrations` document. */
   saveIntegrationInstance(instance: IIntegrationInstance): void;
+  /** Vendors with a configured platform test bot on this deployment (ADR 0073 (private)); empty when none. */
+  getSandboxVendors(): readonly string[];
   /** The project's struct-type registry (`list_types` reads the project's own interfaces from it). */
   readonly typesRegistry: Pick<TypesRegistryStore, 'types'>;
   /** Backend-synced per-instance data (`list_types` derives vendor instance types from it). */
