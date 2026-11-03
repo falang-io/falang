@@ -118,6 +118,7 @@ const messageText = (raw: IVkRawMessage, payload: Record<string, unknown> | null
 /** snake_case VK `message` -> camelCase `vk/Message`. `from` is resolved separately (`users.get`). */
 export const toVkMessage = (raw: IVkRawMessage, from: IVkUser | null | undefined): IVkMessage => {
   const payload = parseVkPayload(raw.payload);
+  const ref = projectRef(raw);
   return {
     messageId: raw.id ?? 0,
     conversationMessageId: raw.conversation_message_id ?? 0,
@@ -125,7 +126,7 @@ export const toVkMessage = (raw: IVkRawMessage, from: IVkUser | null | undefined
     date: raw.date ?? 0,
     chat: { id: raw.peer_id, type: vkChatTypeOf(raw.peer_id) },
     ...(from ? { from } : {}),
-    ...(projectRef(raw) ? { ref: projectRef(raw) } : {}),
+    ...(ref ? { ref } : {}),
     payload,
   };
 };
