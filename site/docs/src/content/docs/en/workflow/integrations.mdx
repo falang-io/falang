@@ -68,7 +68,9 @@ head:
   </li>
   <li>
     <b>Webhook</b>. A generic inbound trigger: each trigger function gets its own URL, and calling it (a POST request)
-    starts the scenario, passing the request body as input. To accept only your own callers, open the trigger function
+    starts the scenario, passing the request body as input. The dev and prod URLs are listed under <b>Project → Addresses</b>
+    (and in the <b>Webhook security</b> window); a trigger added while the dev stand is running gets its route after a
+    restart of the stand. To accept only your own callers, open the trigger function
     and use <b>Webhook security</b> in the toolbar: switch on "Require signed calls" and the editor shows a secret for
     dev and for prod. A call must then send it in the <code>X-Webhook-Secret</code> header, or an{' '}
     <code>X-Webhook-Signature: sha256=&lt;hex&gt;</code> header (HMAC-SHA256 of the raw request body keyed with the

@@ -566,6 +566,26 @@ export interface IApiSandboxPlatform {
   readonly vendor: string;
   readonly username: string;
   readonly title: string;
+  /** Opens a chat with the test bot (`https://t.me/<username>` …); absent from older servers. */
+  readonly url?: string;
+}
+
+/** One trigger whose inbound URL the user pastes into a third-party service (`GET /projects/:id/trigger-addresses`). */
+export interface IApiTriggerAddress {
+  readonly documentId: string;
+  readonly documentName: string;
+  readonly vendor: string;
+  readonly triggerName: string;
+  readonly devPath: string;
+  readonly prodPath: string;
+  /** `null` when the server has no public address configured (then only the paths are known). */
+  readonly devUrl: string | null;
+  readonly prodUrl: string | null;
+}
+
+export interface IApiTriggerAddresses {
+  readonly baseUrl: string | null;
+  readonly triggers: readonly IApiTriggerAddress[];
 }
 
 /** `POST /projects/:id/integrations/:credentialId/sandbox-link`. */

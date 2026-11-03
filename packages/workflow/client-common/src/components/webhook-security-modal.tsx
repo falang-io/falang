@@ -1,5 +1,5 @@
 import type React from 'react';
-import { useCallback, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import { Alert, Button, Input, Modal, Popconfirm, Switch, Typography } from 'antd';
 import { CMD_SET_DATA, getGlobalI18n } from '@falang/scheme';
 import {
@@ -11,7 +11,7 @@ import {
 import { observer } from 'mobx-react-lite';
 import { toJS } from 'mobx';
 import { workflowApi } from '../api-client.js';
-import type { IApiWebhookSecret } from '../api-types.js';
+import type { IApiTriggerAddress, IApiWebhookSecret } from '../api-types.js';
 import { useWorkflowStore } from '../workflow-store-context.js';
 
 type TEnv = 'dev' | 'prod';
@@ -38,8 +38,13 @@ const copy = async (text: string): Promise<void> => {
   }
 };
 
-const buildExample = (secret: IApiWebhookSecret): string =>
-  `curl -X POST '<webhook URL>' -H 'Content-Type: application/json' -H '${secret.header}: ${secret.secret}' -d '{"hello":"world"}'`;
+const buildExample = (secret: IApiWebhookSecret, url: string | null): string =>
+  `curl -X POST '${url ?? '<webhook URL>'}' -H 'Content-Type: application/json' -H '${secret.header}: ${secret.secret}' -d '{"hello":"world"}'`;
+
+const addressFor = (address: IApiTriggerAddress | null, env: TEnv): string | null => {
+  if (!address) return null;
+  return env === 'dev' ? (address.devUrl ?? address.devPath) : (address.prodUrl ?? address.prodPath);
+};
 
 /**
  * "Webhook security": switches `require_signature` of a generic webhook trigger, shows its server-derived secret
@@ -52,6 +57,23 @@ export const WebhookSecurityModal: React.FC<IProps> = observer(({ documentId, op
   const [secrets, setSecrets] = useState<Partial<Record<TEnv, IApiWebhookSecret>>>({});
   const [loadingEnv, setLoadingEnv] = useState<TEnv | null>(null);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
+  const [address, setAddress] = useState<IApiTriggerAddress | null>(null);
+
+  useEffect(() => {
+    if (!open) return;
+    let cancelled = false;
+    workflowApi
+      .getTriggerAddresses(store.projectId)
+      .then((result) => {
+        if (!cancelled) setAddress(result.triggers.find((trigger) => trigger.documentId === documentId) ?? null);
+      })
+      .catch(() => {
+        // The address block just stays hidden.
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [open, store.projectId, documentId]);
 
   const scheme = open ? store.getScheme(documentId) : null;
   const body = scheme?.rootNode?.children[1];
@@ -118,6 +140,21 @@ export const WebhookSecurityModal: React.FC<IProps> = observer(({ documentId, op
             <span>{t('client:webhook-security.require')}</span>
           </div>
           <Typography.Text type="secondary">{t('client:webhook-security.hint')}</Typography.Text>
+          {address && (
+            <div data-testid="webhook-addresses">
+              <Typography.Text strong>{t('client:webhook-security.addresses')}</Typography.Text>
+              {ENVS.map((env) => (
+                <Typography.Paragraph
+                  key={env}
+                  copyable={{ text: addressFor(address, env) ?? '' }}
+                  style={{ margin: '4px 0 0', wordBreak: 'break-all' }}
+                  data-testid={`webhook-address-${env}`}
+                >
+                  {t(`client:webhook-security.env-short-${env}`)}: <code>{addressFor(address, env)}</code>
+                </Typography.Paragraph>
+              ))}
+            </div>
+          )}
           {errorMessage && <Alert type="error" showIcon message={errorMessage} />}
           {required && (
             <>
@@ -154,11 +191,11 @@ export const WebhookSecurityModal: React.FC<IProps> = observer(({ documentId, op
                     </div>
                     {secret && (
                       <Typography.Paragraph
-                        copyable={{ text: buildExample(secret) }}
+                        copyable={{ text: buildExample(secret, addressFor(address, env)) }}
                         code
                         style={{ marginTop: 6, marginBottom: 0, wordBreak: 'break-all' }}
                       >
-                        {buildExample(secret)}
+                        {buildExample(secret, addressFor(address, env))}
                       </Typography.Paragraph>
                     )}
                   </div>

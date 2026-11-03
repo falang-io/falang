@@ -144,7 +144,9 @@ describe('sandbox bots: settings, link codes, routing', () => {
       expect((await request(server()).get('/sandbox-bots').set(auth(alice))).body).toEqual({ platforms: [] });
       await configureBot();
       expect((await request(server()).get('/sandbox-bots').set(auth(alice))).body).toEqual({
-        platforms: [{ vendor: 'fakegram', username: 'fake_bot', title: 'Fake Bot' }],
+        platforms: [
+          { vendor: 'fakegram', username: 'fake_bot', title: 'Fake Bot', url: 'https://fake.example/fake_bot' },
+        ],
       });
     });
 

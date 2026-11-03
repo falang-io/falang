@@ -1,5 +1,6 @@
 import { runInAction, observable } from 'mobx';
 import { describe, expect, it } from 'vitest';
+import type { TProjectRouteView } from './navigation-url.js';
 import { NavigationStore } from './navigation-store.js';
 import { projectTabsStorageKey } from './project-tabs-storage.js';
 import { startWorkspaceSync, type IWorkspaceSyncStore } from './workspace-sync.js';
@@ -22,7 +23,7 @@ const createFakeStore = (documents: string[], overrides: Partial<{ connectionErr
     connectionError: overrides.connectionError ?? null,
     openTabIds: [] as string[],
     activeTabId: null as string | null,
-    activeView: null as 'files' | 'tasks' | null,
+    activeView: null as TProjectRouteView | null,
   });
   const store: IWorkspaceSyncStore = {
     projectId: 'p1',

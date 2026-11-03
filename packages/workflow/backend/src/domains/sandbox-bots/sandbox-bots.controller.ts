@@ -25,7 +25,20 @@ export interface ISandboxPlatformPublic {
   readonly vendor: string;
   readonly username: string;
   readonly title: string;
+  /** Opens a chat with the test bot (the adapter's deep link without a payload), e.g. `https://t.me/<username>`. */
+  readonly url: string;
 }
+
+/** The adapter's deep link with its (empty) payload parameter dropped. */
+const plainChatLink = (link: string): string => {
+  try {
+    const url = new URL(link);
+    url.search = '';
+    return url.toString();
+  } catch {
+    return link;
+  }
+};
 
 export interface ISandboxBindingResponse {
   readonly id: string;
@@ -63,8 +76,10 @@ export class SandboxBotsController {
     const platforms: ISandboxPlatformPublic[] = [];
     for (const integration of this.bots.listSandboxIntegrations()) {
       const row = await this.settings.row(integration.vendor);
-      if (row.configured) {
-        platforms.push({ vendor: integration.vendor, username: row.username ?? '', title: row.title ?? '' });
+      const adapter = this.bots.getAdapter(integration.vendor);
+      if (row.configured && adapter) {
+        const info = { username: row.username ?? '', title: row.title ?? '' };
+        platforms.push({ vendor: integration.vendor, ...info, url: plainChatLink(adapter.buildChatLink(info, '')) });
       }
     }
     return { platforms };

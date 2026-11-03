@@ -53,6 +53,7 @@ import type {
   IApiSandboxBinding,
   IApiSandboxLink,
   IApiSandboxPlatform,
+  IApiTriggerAddresses,
   IApiRuntimeSettingsInput,
   IApiWorkflowPosition,
   IApiWorkflowRunDetail,
@@ -453,6 +454,8 @@ export const workflowApi = {
 
   /** Configured sandbox (test) bot platforms, ADR 0073 (private). */
   getSandboxBots: () => request<{ platforms: IApiSandboxPlatform[] }>('/sandbox-bots'),
+  /** Inbound URLs of the project's webhook-style triggers (generic webhook, Bitrix24, YooKassa). */
+  getTriggerAddresses: (projectId: string) => request<IApiTriggerAddresses>(`/projects/${projectId}/trigger-addresses`),
 
   createSandboxLink: (projectId: string, credentialId: string) =>
     request<IApiSandboxLink>(`/projects/${projectId}/integrations/${credentialId}/sandbox-link`, { method: 'POST' }),

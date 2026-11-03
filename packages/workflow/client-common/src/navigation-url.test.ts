@@ -13,6 +13,7 @@ describe('navigation url', () => {
     { kind: 'project', projectId: 'p1', documentId: 'd-2', view: null },
     { kind: 'project', projectId: 'p1', documentId: null, view: 'files' },
     { kind: 'project', projectId: 'p1', documentId: null, view: 'tasks' },
+    { kind: 'project', projectId: 'p1', documentId: null, view: 'addresses' },
     { kind: 'settings' },
     { kind: 'tokens' },
   ];

@@ -1,5 +1,7 @@
 /** Which project-level main view a project route points at instead of a document. */
-export type TProjectRouteView = 'files' | 'tasks';
+export type TProjectRouteView = 'files' | 'tasks' | 'addresses';
+
+const PROJECT_ROUTE_VIEWS: ReadonlySet<string> = new Set(['files', 'tasks', 'addresses']);
 
 /** Where the app is, as far as the URL hash can say: the whole of the navigation state, serialized. */
 export type TAppRoute =
@@ -28,8 +30,8 @@ const parseProjectSegments = (segments: readonly string[]): TAppRoute | null => 
   const third = segments[2];
   const fourth = segments[3];
   if (segments.length === 2) return { kind: 'project', projectId, documentId: null, view: null };
-  if (segments.length === 3 && (third === 'files' || third === 'tasks')) {
-    return { kind: 'project', projectId, documentId: null, view: third };
+  if (segments.length === 3 && third && PROJECT_ROUTE_VIEWS.has(third)) {
+    return { kind: 'project', projectId, documentId: null, view: third as TProjectRouteView };
   }
   if (segments.length === 4 && third === 'documents') {
     const documentId = safeDecode(fourth ?? '');
@@ -39,7 +41,7 @@ const parseProjectSegments = (segments: readonly string[]): TAppRoute | null => 
 };
 
 /**
- * Parses `location.hash` (`#/projects/<id>/documents/<docId>`, `#/projects/<id>/files|tasks`,
+ * Parses `location.hash` (`#/projects/<id>/documents/<docId>`, `#/projects/<id>/files|tasks|addresses`,
  * `#/runs`, `#/tasks`, `#/settings`, `#/tokens`, `#/ext/<key>`, `#/templates/<id-or-slug>`, empty / `#/` = the project list). Returns `null` for a hash this
  * router doesn't own (`#/admin…`, plain anchors, garbage) so the caller leaves the current state alone.
  */

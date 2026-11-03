@@ -8,6 +8,7 @@ import { WorkflowStoreContext } from '../workflow-store-context.js';
 import { ProjectTree } from './project-tree.js';
 import { TabsBar } from './tabs-bar.js';
 import { SchemeView } from './scheme-view.js';
+import { AddressesTab } from './addresses-tab.js';
 import { FilesTab } from './files-tab.js';
 import { IntegrationsEditor } from './integrations-editor.js';
 import { Sidebar } from './sidebar.js';
@@ -127,6 +128,7 @@ export const WorkspaceLayout: React.FC<IWorkspaceLayoutProps> = observer(({ stor
   const otherContent = (() => {
     if (store.activeView === 'files') return <FilesTab />;
     if (store.activeView === 'tasks') return <TasksPage projectId={store.projectId} />;
+    if (store.activeView === 'addresses') return <AddressesTab />;
     if (isIntegrationsDoc) return <IntegrationsEditor />;
     if (showScheme) return null;
     return (

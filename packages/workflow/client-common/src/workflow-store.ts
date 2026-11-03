@@ -118,7 +118,7 @@ import {
 
 export type { DocumentType, WorkflowDocument, WorkflowFolder } from './workflow-types.js';
 
-/** A non-document tab of the workspace (Files, Tasks) — the same names the URL uses for a project view. */
+/** A non-document tab of the workspace (Files, Tasks, Addresses) — the same names the URL uses for a project view. */
 export type TSystemTab = TProjectRouteView;
 
 const darkTheme: ITheme = {

@@ -1,7 +1,7 @@
 import type React from 'react';
 import { observer } from 'mobx-react-lite';
 import { Badge, Tabs } from 'antd';
-import { CarryOutOutlined, FolderOutlined } from '@ant-design/icons';
+import { CarryOutOutlined, FolderOutlined, LinkOutlined } from '@ant-design/icons';
 import { getGlobalI18n } from '@falang/scheme';
 import { useWorkflowStore } from '../workflow-store-context.js';
 import type { TSystemTab } from '../workflow-store.js';
@@ -37,6 +37,7 @@ const SYSTEM_TAB_PREFIX = 'system:';
 const SYSTEM_TAB_ICONS: Record<TSystemTab, React.ReactNode> = {
   files: <FolderOutlined />,
   tasks: <CarryOutOutlined />,
+  addresses: <LinkOutlined />,
 };
 
 /** A system tab's title: its icon and name, plus the open-task count on "Tasks". */
@@ -56,7 +57,7 @@ const SystemTabLabel: React.FC<{ tab: TSystemTab }> = observer(({ tab }) => {
 const isSystemKey = (key: string): boolean => key.startsWith(SYSTEM_TAB_PREFIX);
 const toSystemTab = (key: string): TSystemTab => key.slice(SYSTEM_TAB_PREFIX.length) as TSystemTab;
 
-/** The document tabs, then the open system tabs (Files, Tasks — `WorkflowStore.systemTabs`). */
+/** The document tabs, then the open system tabs (Files, Tasks, Addresses — `WorkflowStore.systemTabs`). */
 export const TabsBar: React.FC = observer(() => {
   const store = useWorkflowStore();
   if (store.openTabIds.length === 0 && store.systemTabs.length === 0) return null;

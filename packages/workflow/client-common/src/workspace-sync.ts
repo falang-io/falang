@@ -11,7 +11,7 @@ export interface IWorkspaceSyncStore {
   readonly connectionError: string | null;
   readonly openTabIds: readonly string[];
   readonly activeTabId: string | null;
-  readonly activeView: TProjectRouteView | 'files' | 'tasks' | null;
+  readonly activeView: TProjectRouteView | null;
   hasDocument(documentId: string): boolean;
   restoreTabs(tabs: IProjectTabs): void;
   setActiveView(view: TProjectRouteView | null): void;

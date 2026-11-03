@@ -76,6 +76,7 @@
       "versions": "Versions",
       "files": "Files",
       "tasks": "Tasks",
+      "addresses": "Addresses",
       "history": "History",
       "agent": "Agent",
       "publishing": "Publishing…",
@@ -609,7 +610,10 @@
       "rotate-confirm": "The current secret will stop working at once. Continue?",
       "version": "Secret version: {{version}}",
       "still-saving": "The change is still being saved — try again in a moment.",
-      "failed-to-load": "Failed to load the secret"
+      "failed-to-load": "Failed to load the secret",
+      "addresses": "Webhook address",
+      "env-short-dev": "Dev stand",
+      "env-short-prod": "Prod"
     },
     "app-header": {
       "home": "Projects",
@@ -648,6 +652,25 @@
       "name-label": "Project name",
       "not-found": "This template is not available.",
       "close": "Close"
+    },
+    "addresses-tab": {
+      "triggers-title": "Trigger addresses",
+      "triggers-hint": "Paste these addresses into the external service: a webhook, a Bitrix24 outgoing webhook, YooKassa notifications. The dev address works while the dev stand runs, the prod address while prod is on.",
+      "triggers-empty": "No triggers in this project need an address pasted by hand",
+      "no-public-host": "The server has no public address configured — only paths are shown. Prepend the address the server is reachable at from the internet.",
+      "column-trigger": "Trigger",
+      "column-dev": "Dev stand",
+      "column-prod": "Prod",
+      "copy": "Copy",
+      "copied": "Copied",
+      "copy-failed": "Could not copy",
+      "bots-title": "Test bots",
+      "bots-hint": "Test a messenger bot on the dev stand without a token of your own: turn on \"Dev: test in the platform bot\" on the messenger integration and connect your chat with a one-time link.",
+      "bots-empty": "No test bots are configured on this server",
+      "column-messenger": "Messenger",
+      "column-bot": "Bot",
+      "open-bot": "Open",
+      "auto-hint": "Telegram, MAX, VK and amoCRM register their webhooks themselves — no address to paste for them."
     }
   },
   "version-history": {
