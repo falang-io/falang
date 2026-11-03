@@ -1,4 +1,4 @@
-// oxlint-disable typescript-eslint/no-non-null-assertion, init-declarations, no-await-in-loop -- test captures handlers registered through callbacks.
+// oxlint-disable max-lines, typescript-eslint/no-non-null-assertion, init-declarations, no-await-in-loop -- test captures handlers registered through callbacks.
 import type { ISandboxIngressContext } from '@falang/workflow-integrations-common';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { vkSandboxAdapter as adapter } from './vk-sandbox.js';
@@ -135,9 +135,49 @@ describe('vk sandbox adapter', () => {
       }
     });
 
+    it('refuses parameters outside the per-method allowlist', async () => {
+      const send = (params: Record<string, string>, method = 'messages.send') =>
+        adapter.relay.inspect(post(params), `/method/${method}`);
+      for (const extra of ['forward_messages', 'forward', 'reply_to', 'user_id', 'sticker_id', 'unknown']) {
+        expect(await send({ peer_id: '7', [extra]: '1' })).toHaveProperty('error');
+      }
+      expect(await send({ peer_id: '7', forward: '{}' }, 'messages.edit')).toHaveProperty('error');
+      expect(await send({ photo: 'x', owner_id: '1' }, 'photos.saveMessagesPhoto')).toHaveProperty('error');
+    });
+
+    it('requires an access key on attachments of a photo or doc only', async () => {
+      const send = (attachment: string, method = 'messages.send') =>
+        adapter.relay.inspect(post({ peer_id: '7', attachment }), `/method/${method}`);
+      for (const bad of ['photo-1_2', 'wall-1_2_k', 'audio1_2_k', 'photo-1_2_k,doc-3_4', 'doc1_2_k;x']) {
+        expect(await send(bad)).toHaveProperty('error');
+      }
+      expect(await send('photo-1_2_ab12CD')).toMatchObject({ recipients: ['7'] });
+      expect(await send('photo-1_2_ab,doc3_4_cd')).toMatchObject({ recipients: ['7'] });
+      expect(await send('doc-1_2_ab', 'messages.edit')).toMatchObject({ recipients: ['7'] });
+    });
+
+    it('lets through every parameter the activities send', async () => {
+      const cases: [string, Record<string, string>][] = [
+        ['messages.send', { peer_id: '7', random_id: '1', message: 'm', attachment: 'doc1_2_k', keyboard: '{}' }],
+        ['messages.send', { peer_ids: '7', random_id: '1', message: 'm', keyboard: '{}', v: '5.199' }],
+        ['messages.getByConversationMessageId', { peer_id: '7', conversation_message_ids: '3' }],
+        ['messages.edit', { peer_id: '7', conversation_message_id: '3', message: 'm', keyboard: '{}' }],
+        ['messages.setActivity', { peer_id: '7', type: 'typing' }],
+        ['photos.getMessagesUploadServer', { peer_id: '7' }],
+        ['docs.getMessagesUploadServer', { peer_id: '7', type: 'doc' }],
+      ];
+      for (const [method, params] of cases) {
+        expect(await adapter.relay.inspect(post(params), `/method/${method}`)).not.toHaveProperty('error');
+      }
+    });
+
     it('allows upload saves as unaddressed', async () => {
+      const bodies: Record<string, Record<string, string>> = {
+        'photos.saveMessagesPhoto': { photo: 'x', server: '1', hash: 'h' },
+        'docs.save': { file: 'x', title: 't' },
+      };
       for (const method of ['photos.saveMessagesPhoto', 'docs.save']) {
-        expect(await adapter.relay.inspect(post({ photo: 'x' }), `/method/${method}`)).toEqual({
+        expect(await adapter.relay.inspect(post(bodies[method]), `/method/${method}`)).toEqual({
           method,
           recipients: [],
           unaddressed: true,

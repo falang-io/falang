@@ -18,6 +18,44 @@ import { vkChatTypeOf, type IVkRawMessage } from './vk-message-mapper.js';
 /** Label of the derived callback secret is chosen by the host (`ctx.secret`); VK's `secret_key` allows 50 characters. */
 const MAX_SECRET_LENGTH = 50;
 
+/**
+ * Allowed body parameters per relayable method. The test bot is ONE community shared by every customer, and VK lets a
+ * request refer to other people's data (`forward_messages`/`forward` re-send messages of other dialogs, attachments are
+ * addressed by guessable ids), so anything not listed here is refused.
+ */
+const ALLOWED_PARAMS: Readonly<Record<string, ReadonlySet<string>>> = {
+  'messages.send': new Set([
+    'peer_id',
+    'peer_ids',
+    'random_id',
+    'message',
+    'attachment',
+    'keyboard',
+    'dont_parse_links',
+    'disable_mentions',
+    'v',
+  ]),
+  'messages.edit': new Set([
+    'peer_id',
+    'message_id',
+    'conversation_message_id',
+    'message',
+    'keyboard',
+    'attachment',
+    'keep_forward_messages',
+    'keep_snippets',
+    'dont_parse_links',
+    'disable_mentions',
+    'v',
+  ]),
+  'messages.getByConversationMessageId': new Set(['peer_id', 'conversation_message_ids', 'v']),
+  'messages.setActivity': new Set(['peer_id', 'type', 'v']),
+  'photos.getMessagesUploadServer': new Set(['peer_id', 'v']),
+  'docs.getMessagesUploadServer': new Set(['peer_id', 'type', 'v']),
+  'photos.saveMessagesPhoto': new Set(['photo', 'server', 'hash', 'v']),
+  'docs.save': new Set(['file', 'title', 'tags', 'v']),
+};
+
 /** Methods whose recipient is the `peer_id` parameter. */
 const PEER_METHODS: ReadonlySet<string> = new Set([
   'messages.edit',
@@ -30,8 +68,8 @@ const PEER_METHODS: ReadonlySet<string> = new Set([
 /** Second step of an upload: the file is already on VK's server, nothing addresses a chat. */
 const UNADDRESSED_METHODS: ReadonlySet<string> = new Set(['photos.saveMessagesPhoto', 'docs.save']);
 
-/** Parameters that would address a chat other than through `peer_id`/`peer_ids` — never allowed on a send. */
-const FORBIDDEN_SEND_PARAMS = ['user_id', 'user_ids', 'chat_id', 'domain'] as const;
+/** An attachment must carry the `access_key` VK hands out only to the uploader. */
+const ATTACHMENT_PATTERN = /^(photo|doc)-?\d+_\d+_[A-Za-z0-9]+$/;
 
 const METHOD_PATH_PATTERN = /^\/method\/([A-Za-z0-9_.]+)$/;
 const PEER_ID_PATTERN = /^-?\d+$/;
@@ -121,6 +159,17 @@ const singlePeerId = (params: URLSearchParams, name: string): string | null => {
   return values.length === 1 && PEER_ID_PATTERN.test(values[0].trim()) ? values[0].trim() : null;
 };
 
+const checkParams = (method: string, allowed: ReadonlySet<string>, params: URLSearchParams): string | null => {
+  for (const key of params.keys()) {
+    if (!allowed.has(key)) return `Parameter ${key} is not allowed in ${method}`;
+  }
+  if (!params.has('attachment')) return null;
+  const values = params.getAll('attachment');
+  if (values.length !== 1) return 'Exactly one attachment parameter is allowed';
+  const valid = values[0].split(',').every((item) => ATTACHMENT_PATTERN.test(item.trim()));
+  return valid ? null : 'attachments must carry an access key and be a photo or a doc';
+};
+
 /**
  * The calls the VK activities of this package make through the relay. The relay token is the pod's
  * `Authorization: Bearer`. The query may hold only `v`, so query and form body can never disagree about a recipient.
@@ -139,17 +188,15 @@ const inspect = async (request: Request, path: string): Promise<TSandboxRelayDec
     if (key !== 'v') return { error: `Query parameter ${key} is not allowed` };
   }
   const isSend = method === 'messages.send';
-  if (!isSend && !PEER_METHODS.has(method) && !UNADDRESSED_METHODS.has(method)) {
-    return { error: `VK method ${method} is not allowed in the test bot` };
-  }
-  if (UNADDRESSED_METHODS.has(method)) return { method, recipients: [], unaddressed: true, relayToken };
+  const allowed = ALLOWED_PARAMS[method];
+  if (!allowed) return { error: `VK method ${method} is not allowed in the test bot` };
 
   const params = await readParams(request);
   if (!params) return { error: 'The request body must be form data' };
+  const problem = checkParams(method, allowed, params);
+  if (problem) return { error: problem };
+  if (UNADDRESSED_METHODS.has(method)) return { method, recipients: [], unaddressed: true, relayToken };
   if (isSend) {
-    for (const name of FORBIDDEN_SEND_PARAMS) {
-      if (params.has(name)) return { error: `${name} is not allowed, use peer_id` };
-    }
     const hasPeerId = params.has('peer_id');
     const hasPeerIds = params.has('peer_ids');
     if (hasPeerId === hasPeerIds) return { error: 'Exactly one of peer_id or peer_ids is required' };
@@ -157,6 +204,7 @@ const inspect = async (request: Request, path: string): Promise<TSandboxRelayDec
     if (!peer) return { error: 'Exactly one numeric peer is required' };
     return { method, recipients: [peer], relayToken };
   }
+  if (!PEER_METHODS.has(method)) return { error: `VK method ${method} is not allowed in the test bot` };
   const peer = singlePeerId(params, 'peer_id');
   if (!peer) return { error: 'peer_id is required' };
   return { method, recipients: [peer], relayToken };
