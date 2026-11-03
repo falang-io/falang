@@ -57,7 +57,7 @@ export const telegramSendFileAction: IActionDescriptor = {
     '  as: string,',
     '  caption: string,',
     '): Promise<void> => {',
-    '  const botToken = await resolveTelegramBotToken(credentialId);',
+    '  const { token: botToken, apiBaseUrl } = await resolveTelegramBotToken(credentialId);',
     "  const mime = file.mime || '';",
     '  const resolveMethod = (): { method: string; fieldName: string } => {',
     "    if (as === 'voice') return { method: 'sendVoice', fieldName: 'voice' };",
@@ -76,7 +76,7 @@ export const telegramSendFileAction: IActionDescriptor = {
     // `ArrayBufferView<ArrayBuffer>`, and `readFileBytes`'s `Uint8Array` is typed over the wider
     // `ArrayBufferLike` (which also covers `SharedArrayBuffer`); `Buffer` is always real-`ArrayBuffer`-backed.
     "  form.set(fieldName, new Blob([Buffer.from(bytes)], { type: mime || 'application/octet-stream' }), file.name);",
-    '  const response = await fetch(`${TELEGRAM_API_BASE_URL}/bot${botToken}/${method}`, {',
+    '  const response = await fetch(`${apiBaseUrl}/bot${botToken}/${method}`, {',
     "    method: 'POST',",
     '    body: form,',
     '  });',

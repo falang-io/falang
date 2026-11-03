@@ -50,7 +50,7 @@ describe('telegramIntegration', () => {
 
   it('activityCode is a self-contained, parseable TS module fragment', () => {
     expect(telegramIntegration.actions[0].activityCode).toContain('export const telegramSendMessage');
-    expect(telegramIntegration.actions[0].activityCode).toContain('TELEGRAM_API_BASE_URL');
+    expect(telegramIntegration.actions[0].activityCode).toContain('apiBaseUrl');
   });
 
   it('sharedActivityCode declares an overridable TELEGRAM_API_BASE_URL, defaulting to the real Bot API', () => {

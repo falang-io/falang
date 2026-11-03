@@ -19,7 +19,7 @@ import { toTelegramMessage, type ITelegramRawMessage } from './telegram-message-
 /** Telegram's own long-poll timeout (seconds) — `getUpdates` blocks server-side for roughly this long when idle. */
 const TELEGRAM_POLL_TIMEOUT_SECONDS = 30;
 /** Gap between successive polls — negligible on top of `getUpdates`' own server-side blocking wait above. */
-const POLL_INTERVAL_MS = 1000;
+export const POLL_INTERVAL_MS = 1000;
 
 interface ITriggerFunctionBodyData {
   readonly vendor: string;
@@ -38,7 +38,7 @@ interface ITelegramCallbackQuery {
   readonly from?: ITelegramRawMessage['from'];
 }
 
-interface ITelegramUpdate {
+export interface ITelegramUpdate {
   readonly update_id: number;
   readonly message?: ITelegramRawMessage;
   readonly callback_query?: ITelegramCallbackQuery;
@@ -50,14 +50,15 @@ interface ITelegramUpdate {
  * bundle (`@falang/workflow-client` imports `registerTelegramBackend` via this package's barrel
  * export), where the Node `process` global doesn't exist.
  */
-const TELEGRAM_API_BASE_URL =
+export const TELEGRAM_API_BASE_URL =
   typeof process === 'undefined'
     ? 'https://api.telegram.org'
     : (process.env.TELEGRAM_API_BASE_URL ?? 'https://api.telegram.org');
 
-const telegramApiUrl = (token: string, method: string): string => `${TELEGRAM_API_BASE_URL}/bot${token}/${method}`;
+export const telegramApiUrl = (token: string, method: string): string =>
+  `${TELEGRAM_API_BASE_URL}/bot${token}/${method}`;
 
-const TELEGRAM_SECRET_HEADER = 'x-telegram-bot-api-secret-token';
+export const TELEGRAM_SECRET_HEADER = 'x-telegram-bot-api-secret-token';
 const TELEGRAM_WEBHOOK_SECRET_LABEL = 'telegram-webhook';
 
 // oxlint-disable-next-line no-empty-function -- shared no-op dispose for targets with nothing to tear down remotely (missing bot token, poll mode — see call sites below).
@@ -258,7 +259,7 @@ const handleUpdate = async (
   if (update.message) await handleMessage(ctx, update.message, chatTriggerFunctions);
 };
 
-const getUpdates = async (botToken: string, offset: number): Promise<readonly ITelegramUpdate[]> => {
+export const getUpdates = async (botToken: string, offset: number): Promise<readonly ITelegramUpdate[]> => {
   const url = new URL(telegramApiUrl(botToken, 'getUpdates'));
   url.searchParams.set('timeout', String(TELEGRAM_POLL_TIMEOUT_SECONDS));
   // Telegram update ids are always positive, so a falsy `offset` unambiguously means "no offset stored yet".
@@ -283,6 +284,13 @@ export const registerTelegramBackend: TRegisterIntegrationBackend = async (ctx) 
   if (!botToken) return noopDispose;
 
   const chatTriggerFunctions: TChatTriggerMap = new Map();
+
+  // Sandbox mode (ADR 0073 (private)): the host owns the test bot's only consumer and feeds this target the updates of
+  // its bound chats — no webhook, no polling here.
+  if (ctx.sharedIngress) {
+    ctx.sharedIngress.subscribe((update) => handleUpdate(ctx, update as ITelegramUpdate, chatTriggerFunctions));
+    return noopDispose;
+  }
 
   if (ctx.webhookUrl) {
     const webhookUrl = ctx.webhookUrl;

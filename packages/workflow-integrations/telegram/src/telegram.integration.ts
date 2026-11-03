@@ -14,6 +14,7 @@ import {
   TELEGRAM_VENDOR,
 } from './constants.js';
 import { registerTelegramBackend } from './telegram-backend.js';
+import { telegramSandboxAdapter } from './telegram-sandbox.js';
 import { telegramSendFileAction } from './telegram-send-file-action.js';
 import { telegramStructTypes } from './telegram-struct-types.js';
 
@@ -122,8 +123,8 @@ export const telegramIntegration: IWorkflowIntegration = {
       // interpolate when that emitted file runs, not now.
       activityCode: [
         'export const telegramSendMessage = async (credentialId: string, chatId: number, text: string): Promise<void> => {',
-        '  const botToken = await resolveTelegramBotToken(credentialId);',
-        '  const response = await fetch(`${TELEGRAM_API_BASE_URL}/bot${botToken}/sendMessage`, {',
+        '  const { token: botToken, apiBaseUrl } = await resolveTelegramBotToken(credentialId);',
+        '  const response = await fetch(`${apiBaseUrl}/bot${botToken}/sendMessage`, {',
         "    method: 'POST',",
         "    headers: { 'Content-Type': 'application/json' },",
         '    body: JSON.stringify({ chat_id: chatId, text }),',
@@ -169,8 +170,8 @@ export const telegramIntegration: IWorkflowIntegration = {
         '  question: string,',
         '  options: readonly string[],',
         '): Promise<{ messageId: string }> => {',
-        '  const botToken = await resolveTelegramBotToken(credentialId);',
-        '  const response = await fetch(`${TELEGRAM_API_BASE_URL}/bot${botToken}/sendMessage`, {',
+        '  const { token: botToken, apiBaseUrl } = await resolveTelegramBotToken(credentialId);',
+        '  const response = await fetch(`${apiBaseUrl}/bot${botToken}/sendMessage`, {',
         "    method: 'POST',",
         "    headers: { 'Content-Type': 'application/json' },",
         '    body: JSON.stringify({',
@@ -198,8 +199,8 @@ export const telegramIntegration: IWorkflowIntegration = {
         '  messageId: string,',
         '  selectedLabel: string,',
         '): Promise<void> => {',
-        '  const botToken = await resolveTelegramBotToken(credentialId);',
-        '  const stripButtonsResponse = await fetch(`${TELEGRAM_API_BASE_URL}/bot${botToken}/editMessageReplyMarkup`, {',
+        '  const { token: botToken, apiBaseUrl } = await resolveTelegramBotToken(credentialId);',
+        '  const stripButtonsResponse = await fetch(`${apiBaseUrl}/bot${botToken}/editMessageReplyMarkup`, {',
         "    method: 'POST',",
         "    headers: { 'Content-Type': 'application/json' },",
         '    body: JSON.stringify({ chat_id: chatId, message_id: Number(messageId), reply_markup: { inline_keyboard: [] } }),',
@@ -209,7 +210,7 @@ export const telegramIntegration: IWorkflowIntegration = {
         '      `Telegram editMessageReplyMarkup failed: ${stripButtonsResponse.status} ${await stripButtonsResponse.text()}`,',
         '    );',
         '  }',
-        '  const confirmResponse = await fetch(`${TELEGRAM_API_BASE_URL}/bot${botToken}/sendMessage`, {',
+        '  const confirmResponse = await fetch(`${apiBaseUrl}/bot${botToken}/sendMessage`, {',
         "    method: 'POST',",
         "    headers: { 'Content-Type': 'application/json' },",
         '    body: JSON.stringify({ chat_id: chatId, text: `Выбрано ${selectedLabel}` }),',
@@ -233,8 +234,8 @@ export const telegramIntegration: IWorkflowIntegration = {
         '  messageId: string,',
         '  reason: string,',
         '): Promise<void> => {',
-        '  const botToken = await resolveTelegramBotToken(credentialId);',
-        '  const stripButtonsResponse = await fetch(`${TELEGRAM_API_BASE_URL}/bot${botToken}/editMessageReplyMarkup`, {',
+        '  const { token: botToken, apiBaseUrl } = await resolveTelegramBotToken(credentialId);',
+        '  const stripButtonsResponse = await fetch(`${apiBaseUrl}/bot${botToken}/editMessageReplyMarkup`, {',
         "    method: 'POST',",
         "    headers: { 'Content-Type': 'application/json' },",
         '    body: JSON.stringify({ chat_id: chatId, message_id: Number(messageId), reply_markup: { inline_keyboard: [] } }),',
@@ -245,7 +246,7 @@ export const telegramIntegration: IWorkflowIntegration = {
         '    );',
         '  }',
         "  const text = reason === 'cancelled' ? 'Отменено' : 'Время истекло';",
-        '  const confirmResponse = await fetch(`${TELEGRAM_API_BASE_URL}/bot${botToken}/sendMessage`, {',
+        '  const confirmResponse = await fetch(`${apiBaseUrl}/bot${botToken}/sendMessage`, {',
         "    method: 'POST',",
         "    headers: { 'Content-Type': 'application/json' },",
         '    body: JSON.stringify({ chat_id: chatId, text }),',
@@ -280,7 +281,7 @@ export const telegramIntegration: IWorkflowIntegration = {
     '// see ADR 0006 and ADR 0016 (private) (per-project scoped token, not a shared secret). Never',
     '// caches: these activities run at most once per outbound call, and the resolver call itself is',
     '// cheap relative to the Telegram API call right after it.',
-    'const resolveTelegramBotToken = async (credentialId: string): Promise<string> => {',
+    'const resolveTelegramBotToken = async (credentialId: string): Promise<{ token: string; apiBaseUrl: string }> => {',
     '  const backendUrl = process.env.BACKEND_INTERNAL_URL;',
     '  const internalProjectToken = process.env.INTERNAL_PROJECT_TOKEN;',
     '  const projectId = process.env.PROJECT_ID;',
@@ -296,9 +297,11 @@ export const telegramIntegration: IWorkflowIntegration = {
     '  if (!response.ok) {',
     '    throw new Error(`Failed to resolve Telegram credential ${credentialId}: ${response.status} ${await response.text()}`);',
     '  }',
-    '  const data = (await response.json()) as { value: string };',
-    '  return data.value;',
+    '  // A dev instance in sandbox mode (ADR 0073 (private)) answers the relay base URL too: calls then go to the host, not Telegram.',
+    '  const data = (await response.json()) as { value: string; apiBaseUrl?: string };',
+    '  return { token: data.value, apiBaseUrl: data.apiBaseUrl ?? TELEGRAM_API_BASE_URL };',
     '};',
   ].join('\n'),
   registerBackend: registerTelegramBackend,
+  sandbox: telegramSandboxAdapter,
 };
