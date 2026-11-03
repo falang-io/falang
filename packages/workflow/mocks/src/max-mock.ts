@@ -1,3 +1,4 @@
+import { randomBytes } from 'node:crypto';
 import express, { Router, type Request, type Response } from 'express';
 import { parseMultipart } from './multipart.js';
 
@@ -6,6 +7,8 @@ export interface IMaxMockCall {
   readonly method: string;
   readonly query: Record<string, string>;
   readonly body: unknown;
+  /** `sendMessage` only: the `mid` the mock gave the sent message. */
+  readonly mid?: string;
 }
 
 /** A seeded inbound file, downloadable at `<base>/files/<token>/<path>` — see `pushMaxUpdate`'s `files`. */
@@ -26,6 +29,8 @@ interface IMaxTokenState {
   readonly messages: Map<string, { body: { mid: string; text: string | null } }>;
   readonly subscriptions: Map<string, unknown>;
   readonly files: Map<string, IMaxMockFile>;
+  /** Makes every `mid` globally unique, like MAX's real ones — a rerun on a database that remembers old ones never collides. */
+  readonly midPrefix: string;
   nextMessageId: number;
   nextMarker: number;
   nextUploadId: number;
@@ -46,6 +51,7 @@ const getState = (token: string): IMaxTokenState => {
       messages: new Map(),
       subscriptions: new Map(),
       files: new Map(),
+      midPrefix: randomBytes(4).toString('hex'),
       nextMessageId: 1,
       nextMarker: 1,
       nextUploadId: 1,
@@ -98,8 +104,8 @@ export const createMaxMockRouter = (): Router => {
     const state = authorized(req, res);
     if (!state) return;
     const body = req.body as { text?: string | null };
-    state.calls.push({ method: 'sendMessage', query: queryOf(req), body });
-    const mid = `mid.${state.nextMessageId}`;
+    const mid = `mid.${state.midPrefix}.${state.nextMessageId}`;
+    state.calls.push({ method: 'sendMessage', query: queryOf(req), body, mid });
     state.nextMessageId += 1;
     const message = {
       recipient: { chat_id: Number(req.query.chat_id), chat_type: 'dialog', user_id: null },
@@ -113,6 +119,7 @@ export const createMaxMockRouter = (): Router => {
   router.get('/max/messages/:mid', (req: Request, res: Response) => {
     const state = authorized(req, res);
     if (!state) return;
+    state.calls.push({ method: 'getMessage', query: { message_id: paramString(req.params.mid) }, body: null });
     const message = state.messages.get(paramString(req.params.mid));
     if (!message) {
       res.status(404).json({ code: 'not.found', message: 'Message not found' });

@@ -44,16 +44,18 @@ describe('max mock', () => {
       text: 'Continue?',
       attachments: [],
     });
-    expect(sent.message.body.mid).toBe('mid.1');
+    const mid = sent.message.body.mid;
+    expect(mid).toMatch(/^mid\.[0-9a-f]+\.1$/);
 
-    const fetched = await api<{ body: { text: string } }>(server.url, 'GET', 'messages/mid.1');
+    const fetched = await api<{ body: { text: string } }>(server.url, 'GET', `messages/${mid}`);
     expect(fetched.body.text).toBe('Continue?');
 
-    await api(server.url, 'PUT', 'messages?message_id=mid.1', { text: 'Continue?', attachments: [] });
+    await api(server.url, 'PUT', `messages?message_id=${mid}`, { text: 'Continue?', attachments: [] });
     const calls = await getMaxCalls(server.url, TOKEN);
     expect(calls.map((call) => [call.method, call.query])).toEqual([
       ['sendMessage', { chat_id: '42' }],
-      ['editMessage', { message_id: 'mid.1' }],
+      ['getMessage', { message_id: mid }],
+      ['editMessage', { message_id: mid }],
     ]);
   });
 

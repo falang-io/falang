@@ -207,7 +207,7 @@ describe('integrations (workflow tier): MAX', () => {
       async (botToken) => {
         await pushMaxUpdate(WORKFLOW_E2E_MOCKS_URL, botToken, incomingMessage(777, 'in.1', 'hi bot'));
 
-        // The question is this fresh token's first sent message, so the mock gives it `mid.1`.
+        // The question is this fresh token's first sent message, whatever `mid` the mock gave it is irrelevant here (the mock does not check edits).
         const asked = await waitForCall(botToken, isTextMessage('Pick A or B'));
         expect((asked.body as { attachments?: unknown }).attachments).toEqual([
           {

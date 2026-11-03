@@ -1,5 +1,11 @@
 import { describe, expect, it } from 'vitest';
-import { buildSandboxPlatformPayload, formatTtl, isValidCommandName, isValidTtl } from './sandbox-bots-payload.js';
+import {
+  buildSandboxPlatformPayload,
+  formatTtl,
+  isValidCommandName,
+  isValidTtl,
+  platformDisplayName,
+} from './sandbox-bots-payload.js';
 
 describe('buildSandboxPlatformPayload', () => {
   it('omits a blank token', () => {
@@ -36,5 +42,13 @@ describe('formatTtl', () => {
     expect(formatTtl(15)).toBe('15 min');
     expect(formatTtl(120)).toBe('2 h');
     expect(formatTtl(1560)).toBe('1 d 2 h');
+  });
+});
+
+describe('platformDisplayName', () => {
+  it('maps known vendors and falls back to the id', () => {
+    expect(platformDisplayName('max')).toBe('MAX');
+    expect(platformDisplayName('telegram')).toBe('Telegram');
+    expect(platformDisplayName('other')).toBe('other');
   });
 });

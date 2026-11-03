@@ -9,6 +9,7 @@ import { adminApi, type IAdminSandboxPlatform } from '../admin-api.js';
 import {
   buildSandboxPlatformPayload,
   isValidCommandName,
+  platformDisplayName,
   SANDBOX_TTL_MAX,
   SANDBOX_TTL_MIN,
 } from './sandbox-bots-payload.js';
@@ -145,7 +146,7 @@ const PlatformCard: React.FC<IPlatformCardProps> = observer(({ platform, store }
       style={{ marginBottom: 16 }}
       title={
         <span>
-          {platform.vendor}{' '}
+          {platformDisplayName(platform.vendor)}{' '}
           {platform.configured ? (
             <Tag color="green">{t('workflow-client-admin:sandbox-bots-page.configured')}</Tag>
           ) : (

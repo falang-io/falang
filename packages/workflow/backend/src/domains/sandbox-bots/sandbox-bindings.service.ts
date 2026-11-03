@@ -7,9 +7,9 @@ import {
   SANDBOX_LINK_PAYLOAD_PREFIX,
   type IIntegrationInstance,
   type IIntegrationsDocumentData,
+  type ISandboxSentMessage,
 } from '@falang/workflow-integrations-common';
 import { In, IsNull, LessThan, type Repository } from 'typeorm';
-import type { ISandboxSentMessage } from '@falang/workflow-integrations-common';
 import { Document } from '../projects/documents/document.entity.js';
 import { SandboxBotBinding } from './sandbox-bot-binding.entity.js';
 import { SandboxBotLinkCode } from './sandbox-bot-link-code.entity.js';

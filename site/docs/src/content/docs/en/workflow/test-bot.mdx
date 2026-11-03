@@ -1,29 +1,29 @@
 ---
 title: Testing a bot with the platform test bot
-description: Trying a Telegram bot on the dev stand without creating a bot of your own — the sandbox switch, connecting a chat, and what the administrator configures
+description: Trying a Telegram or MAX bot on the dev stand without creating a bot of your own — the sandbox switch, connecting a chat, and what the administrator configures
 head:
   - tag: meta
     attrs:
       name: keywords
-      content: 'test bot, sandbox, telegram, dev stand, connect chat, deep link, workflow'
+      content: 'test bot, sandbox, telegram, max, dev stand, connect chat, deep link, workflow'
 ---
 
 <p>
   While you build a messenger bot you don't need a bot of your own. If the administrator has set up a shared{' '}
   <b>test bot</b> for the messenger, the dev stand of your project can use it: you connect your personal chat to the
-  project, and everything you write to the test bot goes to your scenario. Currently this works for Telegram.
+  project, and everything you write to the test bot goes to your scenario. Currently this works for Telegram and MAX.
 </p>
 
 #### For a user
 
 <ol>
   <li>
-    Open <b>Integrations</b>, add (or edit) a Telegram credential and turn on <b>Dev: test in the platform bot</b>. The
+    Open <b>Integrations</b>, add (or edit) a Telegram or MAX credential and turn on <b>Dev: test in the platform bot</b>. The
     dev token field can stay empty; the production token is still your own bot's.
   </li>
   <li>
     After saving, a dialog opens with a one-time link and a QR code (it is also available later with the{' '}
-    <b>Connect chat</b> button). Open the link in Telegram and press <b>Start</b> — the test bot answers that the chat
+    <b>Connect chat</b> button). Open the link in the messenger (<code>t.me/…</code> for Telegram, <code>max.ru/…</code> for MAX) and press <b>Start</b> (<b>Начать</b> in MAX) — the test bot answers that the chat
     is connected to your project.
   </li>
   <li>
@@ -68,7 +68,7 @@ head:
 #### For the administrator (self-hosted)
 
 <p>
-  In the admin app open <b>Test bots</b>. For each supported messenger create a bot (for Telegram — with @BotFather) and
+  In the admin app open <b>Test bots</b>. For each supported messenger create a bot (for Telegram — with @BotFather, for MAX — on the MAX bot platform) and
   paste its token: the token is checked and the bot's name is shown. Here you can also set the{' '}
   <b>connection lifetime</b> (minutes since the last activity, 15 by default), rename the service command, check the
   token again, or delete the test bot (users then no longer see the switch's link and connections stay inert).

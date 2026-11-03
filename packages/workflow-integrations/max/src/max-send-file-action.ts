@@ -57,6 +57,7 @@ export const maxSendFileAction: IActionDescriptor = {
     '  const form = new FormData();',
     // `Buffer.from(bytes)`: `Blob` wants an `ArrayBuffer`-backed view (see Telegram's send-file action).
     "  form.set('data', new Blob([Buffer.from(bytes)], { type: mime || 'application/octet-stream' }), file.name);",
+    // The upload URL carries its own upload token, not the bot token, so it goes straight to MAX's upload server, not through the relay.
     "  const uploadResponse = await fetch(upload.url, { method: 'POST', body: form });",
     '  const uploadText = await uploadResponse.text();',
     '  if (!uploadResponse.ok) {',

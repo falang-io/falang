@@ -237,7 +237,7 @@
       "sandbox-hint": "Dev runs go through the platform's test bot, so the dev token is not needed. Prod still uses your own token.",
       "sandbox-connect": "Connect chat",
       "sandbox-modal-title": "Connect a chat to the test stand",
-      "sandbox-link-intro": "Open the link (or scan the QR code) in the messenger and press Start — that chat will talk to this project's dev stand.",
+      "sandbox-link-intro": "Open the link (or scan the QR code) in the messenger and start the bot (the Start button) — that chat will talk to this project's dev stand.",
       "sandbox-copy": "Copy",
       "sandbox-copied": "Link copied",
       "sandbox-open": "Open",

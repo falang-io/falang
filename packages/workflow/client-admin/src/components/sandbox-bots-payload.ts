@@ -29,3 +29,8 @@ export const buildSandboxPlatformPayload = (
   const commandName = values.commandName.trim();
   return token ? { token, commandName } : { commandName };
 };
+
+const PLATFORM_NAMES: Readonly<Record<string, string>> = { telegram: 'Telegram', max: 'MAX', vk: 'VK' };
+
+/** Brand name of a platform for display; an unknown vendor id is shown as is. */
+export const platformDisplayName = (vendor: string): string => PLATFORM_NAMES[vendor] ?? vendor;
