@@ -108,94 +108,95 @@ export const SandboxLinkModal: React.FC<ISandboxLinkModalProps> = ({
       destroyOnHidden
       title={t('client:integrations-editor.sandbox-modal-title')}
       width={560}
-      data-testid="sandbox-link-modal"
     >
-      {!readOnly && (
-        <div style={{ marginBottom: 16 }}>
-          <Typography.Paragraph>{t('client:integrations-editor.sandbox-link-intro')}</Typography.Paragraph>
-          {linkError ? <Alert type="error" showIcon message={linkError} style={{ marginBottom: 12 }} /> : null}
-          {link ? (
-            <div style={{ display: 'flex', gap: 16, alignItems: 'flex-start' }}>
-              <QRCode
-                data-testid="sandbox-link-qr"
-                value={link.url}
-                status={expired ? 'expired' : 'active'}
-                size={140}
-              />
-              <div style={{ flex: 1 }}>
-                <Input.Group compact style={{ display: 'flex' }}>
-                  <Input data-testid="sandbox-link-url" readOnly value={link.url} />
-                  <Button
-                    onClick={() => {
-                      navigator.clipboard
-                        .writeText(link.url)
-                        .then(() => message.success(t('client:integrations-editor.sandbox-copied')))
-                        .catch(ignore);
-                    }}
-                  >
-                    {t('client:integrations-editor.sandbox-copy')}
-                  </Button>
-                  <Button href={link.url} target="_blank" rel="noreferrer">
-                    {t('client:integrations-editor.sandbox-open')}
-                  </Button>
-                </Input.Group>
-                <Typography.Text type={expired ? 'danger' : 'secondary'}>
-                  {expired
-                    ? t('client:integrations-editor.sandbox-link-expired')
-                    : t('client:integrations-editor.sandbox-link-expires', {
-                        remaining: formatRemaining(link.expiresAt, now),
-                      })}
-                </Typography.Text>
+      <div data-testid="sandbox-link-modal">
+        {!readOnly && (
+          <div style={{ marginBottom: 16 }}>
+            <Typography.Paragraph>{t('client:integrations-editor.sandbox-link-intro')}</Typography.Paragraph>
+            {linkError ? <Alert type="error" showIcon message={linkError} style={{ marginBottom: 12 }} /> : null}
+            {link ? (
+              <div style={{ display: 'flex', gap: 16, alignItems: 'flex-start' }}>
+                <QRCode
+                  data-testid="sandbox-link-qr"
+                  value={link.url}
+                  status={expired ? 'expired' : 'active'}
+                  size={140}
+                />
+                <div style={{ flex: 1 }}>
+                  <Input.Group compact style={{ display: 'flex' }}>
+                    <Input data-testid="sandbox-link-url" readOnly value={link.url} />
+                    <Button
+                      onClick={() => {
+                        navigator.clipboard
+                          .writeText(link.url)
+                          .then(() => message.success(t('client:integrations-editor.sandbox-copied')))
+                          .catch(ignore);
+                      }}
+                    >
+                      {t('client:integrations-editor.sandbox-copy')}
+                    </Button>
+                    <Button href={link.url} target="_blank" rel="noreferrer">
+                      {t('client:integrations-editor.sandbox-open')}
+                    </Button>
+                  </Input.Group>
+                  <Typography.Text type={expired ? 'danger' : 'secondary'}>
+                    {expired
+                      ? t('client:integrations-editor.sandbox-link-expired')
+                      : t('client:integrations-editor.sandbox-link-expires', {
+                          remaining: formatRemaining(link.expiresAt, now),
+                        })}
+                  </Typography.Text>
+                </div>
               </div>
-            </div>
-          ) : null}
-          <Button style={{ marginTop: 12 }} loading={creating} onClick={() => createLink()}>
-            {t('client:integrations-editor.sandbox-new-link')}
-          </Button>
-        </div>
-      )}
-      <Typography.Title level={5}>{t('client:integrations-editor.sandbox-bindings-title')}</Typography.Title>
-      <Table<IApiSandboxBinding>
-        data-testid="sandbox-bindings-table"
-        rowKey="id"
-        size="small"
-        pagination={false}
-        dataSource={[...bindings]}
-        locale={{ emptyText: t('client:integrations-editor.sandbox-bindings-empty') }}
-        onRow={() => ({ 'data-testid': 'sandbox-binding-row' }) as React.HTMLAttributes<HTMLElement>}
-        columns={[
-          {
-            title: t('client:integrations-editor.sandbox-col-chat'),
-            dataIndex: 'chatTitle',
-            render: (value: string | null) => value ?? t('client:integrations-editor.sandbox-chat-fallback'),
-          },
-          {
-            title: t('client:integrations-editor.sandbox-col-activity'),
-            dataIndex: 'lastActivityAt',
-            render: (value: string) => new Date(value).toLocaleString(),
-          },
-          {
-            title: t('client:integrations-editor.sandbox-col-expires'),
-            dataIndex: 'expiresAt',
-            render: (value: string) => new Date(value).toLocaleString(),
-          },
-          {
-            title: '',
-            key: 'actions',
-            render: (_, binding) =>
-              readOnly ? null : (
-                <Popconfirm
-                  title={t('client:integrations-editor.sandbox-disconnect-confirm')}
-                  onConfirm={() => disconnect(binding.id)}
-                >
-                  <Button size="small" danger data-testid="sandbox-binding-disconnect">
-                    {t('client:integrations-editor.sandbox-disconnect')}
-                  </Button>
-                </Popconfirm>
-              ),
-          },
-        ]}
-      />
+            ) : null}
+            <Button style={{ marginTop: 12 }} loading={creating} onClick={() => createLink()}>
+              {t('client:integrations-editor.sandbox-new-link')}
+            </Button>
+          </div>
+        )}
+        <Typography.Title level={5}>{t('client:integrations-editor.sandbox-bindings-title')}</Typography.Title>
+        <Table<IApiSandboxBinding>
+          data-testid="sandbox-bindings-table"
+          rowKey="id"
+          size="small"
+          pagination={false}
+          dataSource={[...bindings]}
+          locale={{ emptyText: t('client:integrations-editor.sandbox-bindings-empty') }}
+          onRow={() => ({ 'data-testid': 'sandbox-binding-row' }) as React.HTMLAttributes<HTMLElement>}
+          columns={[
+            {
+              title: t('client:integrations-editor.sandbox-col-chat'),
+              dataIndex: 'chatTitle',
+              render: (value: string | null) => value ?? t('client:integrations-editor.sandbox-chat-fallback'),
+            },
+            {
+              title: t('client:integrations-editor.sandbox-col-activity'),
+              dataIndex: 'lastActivityAt',
+              render: (value: string) => new Date(value).toLocaleString(),
+            },
+            {
+              title: t('client:integrations-editor.sandbox-col-expires'),
+              dataIndex: 'expiresAt',
+              render: (value: string) => new Date(value).toLocaleString(),
+            },
+            {
+              title: '',
+              key: 'actions',
+              render: (_, binding) =>
+                readOnly ? null : (
+                  <Popconfirm
+                    title={t('client:integrations-editor.sandbox-disconnect-confirm')}
+                    onConfirm={() => disconnect(binding.id)}
+                  >
+                    <Button size="small" danger data-testid="sandbox-binding-disconnect">
+                      {t('client:integrations-editor.sandbox-disconnect')}
+                    </Button>
+                  </Popconfirm>
+                ),
+            },
+          ]}
+        />
+      </div>
     </Modal>
   );
 };

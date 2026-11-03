@@ -13,6 +13,17 @@ import {
 } from '../../test-utils/workflow-e2e-client.js';
 import { buildTelegramSendMessageNode, buildTriggerFunctionRootNode } from '../../test-utils/workflow-e2e-fixtures.js';
 
+/** Import mints fresh credential ids (security audit P0-6), so the id the fixture used is not the stored one. */
+const findImportedInstanceId = async (token: string, projectId: string): Promise<string> => {
+  const response = await workflowE2eApi().get(`/projects/${projectId}/documents`).set(workflowE2eAuth(token));
+  const integrations = (
+    response.body as readonly { type: string; data?: { instances: readonly { id: string }[] } }[]
+  ).find((doc) => doc.type === 'integrations');
+  const id = integrations?.data?.instances[0]?.id;
+  if (!id) throw new Error(`No integration instance in project ${projectId}`);
+  return id;
+};
+
 /**
  * Sandbox ("test") bot, Telegram flavour — ADR 0073 (private). The platform test bot is the mock's token below; a
  * project instance with `devSandbox: true` and no dev token of its own receives, through the shared ingress, only the
@@ -121,7 +132,7 @@ describe('integrations (workflow tier): Telegram sandbox bot', () => {
       }, 60_000);
 
       const link = await workflowE2eApi()
-        .post(`/projects/${projectId}/integrations/${credentialId}/sandbox-link`)
+        .post(`/projects/${projectId}/integrations/${await findImportedInstanceId(token, projectId)}/sandbox-link`)
         .set(workflowE2eAuth(token));
       expect(link.status).toBe(201);
       const code = ((link.body as { url: string }).url.split('start=')[1] ?? '').trim();
@@ -129,19 +140,23 @@ describe('integrations (workflow tier): Telegram sandbox bot', () => {
 
       // 1) /start fl_<code> in a private chat connects it.
       await pushTelegramUpdate(WORKFLOW_E2E_MOCKS_URL, testBotToken, privateMessage(9001, `/start ${code}`, 1));
-      await workflowE2eWaitForValue(async () => (await sendCalls()).find((call) => call.chat_id === 9001), 30_000);
+      await workflowE2eWaitForValue(
+        async () => (await sendCalls()).find((call) => String(call.chat_id) === '9001'),
+        30_000,
+      );
 
       // 2) A plain message of the connected chat reaches the workflow; the echo leaves through the relay.
       await pushTelegramUpdate(WORKFLOW_E2E_MOCKS_URL, testBotToken, privateMessage(9001, 'hello sandbox', 2));
       await workflowE2eWaitForValue(
-        async () => (await sendCalls()).find((call) => call.chat_id === 9001 && call.text === 'Echo: hello sandbox'),
+        async () =>
+          (await sendCalls()).find((call) => String(call.chat_id) === '9001' && call.text === 'Echo: hello sandbox'),
         60_000,
       );
 
       // 3) A chat that never connected only gets the service reply; the workflow does not start for it.
       await pushTelegramUpdate(WORKFLOW_E2E_MOCKS_URL, testBotToken, privateMessage(9002, 'anybody home?', 3));
       const reply = await workflowE2eWaitForValue(
-        async () => (await sendCalls()).find((call) => call.chat_id === 9002),
+        async () => (await sendCalls()).find((call) => String(call.chat_id) === '9002'),
         30_000,
       );
       expect(reply.text).not.toContain('Echo:');
@@ -149,7 +164,9 @@ describe('integrations (workflow tier): Telegram sandbox bot', () => {
       await new Promise((resolve) => {
         setTimeout(resolve, 5000);
       });
-      const echoes = (await sendCalls()).filter((call) => call.chat_id === 9002 && call.text?.startsWith('Echo:'));
+      const echoes = (await sendCalls()).filter(
+        (call) => String(call.chat_id) === '9002' && call.text?.startsWith('Echo:'),
+      );
       expect(echoes).toEqual([]);
 
       await workflowE2eApi().post(`/projects/${projectId}/stop`).set(workflowE2eAuth(token)).expect(204);
