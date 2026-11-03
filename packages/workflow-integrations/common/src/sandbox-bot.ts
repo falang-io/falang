@@ -43,30 +43,56 @@ export interface ISandboxUpdateInfo {
   readonly chatTitle: string | null;
 }
 
+/** An allowed outbound call: what it addresses and the relay token it carries. */
+export interface ISandboxRelayCall {
+  /** The vendor API method being called, e.g. `sendMessage` — logged and rate-limited by the host. */
+  readonly method: string;
+  /** Every chat the call addresses; the host refuses the call unless each is bound to the calling project. */
+  readonly recipients: readonly string[];
+  /**
+   * Messages the call addresses by id only, without naming a chat (MAX `PUT /messages?message_id=…`,
+   * `GET /messages/<mid>`). The host allows each only if it recorded that message as sent by the calling project
+   * (`ISandboxRelay.sentMessages`) and the message's chat is still bound, live, to that project; that chat then counts as
+   * a recipient for rate limits and the binding's activity.
+   */
+  readonly messageIds?: readonly string[];
+  /**
+   * The call addresses no chat and no message (MAX `POST /uploads`, which only hands out an upload URL). Only the
+   * project rate limit applies. Without this flag a call with no `recipients` and no `messageIds` is refused.
+   */
+  readonly unaddressed?: boolean;
+  /** The relay token the pod presented (the project's internal token); the host verifies it for the project in the URL. */
+  readonly relayToken: string;
+}
+
 /** The relay's verdict on one outbound call a runner pod sent to the relay instead of the vendor API. */
-export type TSandboxRelayDecision =
-  | {
-      /** The vendor API method being called, e.g. `sendMessage` — logged and rate-limited by the host. */
-      readonly method: string;
-      /** Every chat the call addresses; the host refuses the call unless each is bound to the calling project. */
-      readonly recipients: readonly string[];
-      /** The relay token the pod presented (the project's internal token); the host verifies it for the project in the URL. */
-      readonly relayToken: string;
-    }
-  | { readonly error: string };
+export type TSandboxRelayDecision = ISandboxRelayCall | { readonly error: string };
+
+/** One message a relayed call created — recorded by the host so later id-only calls (`messageIds`) can be checked. */
+export interface ISandboxSentMessage {
+  readonly messageId: string;
+  readonly chatId: string;
+}
 
 export interface ISandboxRelay {
   /**
    * Inspects one outbound request without consuming the caller's copy (the host passes a clone). `path` is what follows
-   * the relay base URL the pod was given (e.g. `/bot<relayToken>/sendMessage` for Telegram), `request` carries the
-   * method, headers, query and body (JSON or multipart — `request.formData()` works). Methods outside the adapter's
-   * allowlist, and calls whose recipients can't be determined, are `{ error }`.
+   * the relay base URL the pod was given (e.g. `/bot<relayToken>/sendMessage` for Telegram, `/messages` for MAX),
+   * `request` carries the method, the pod's headers (including its `Authorization`, where MAX puts the relay token —
+   * the host drops it only from the upstream call), query and body (JSON or multipart — `request.formData()` works).
+   * Methods outside the adapter's allowlist, and calls whose recipients can't be determined, are `{ error }`.
    */
   inspect(request: Request, path: string): Promise<TSandboxRelayDecision>;
   /** The real vendor URL for `path` + `search` (`?a=b` or `''`) with the relay token replaced by the real `token`. */
   upstreamUrl(token: string, path: string, search: string): string;
   /** Extra headers the upstream call needs that carry the real token (e.g. MAX `Authorization`); the host drops the pod's own auth headers. */
   upstreamHeaders?(token: string): Readonly<Record<string, string>>;
+  /**
+   * The messages a successful (2xx) upstream answer to `call` created, for the host's ownership table. `responseBody` is
+   * the parsed JSON answer, or `undefined` when it isn't JSON. Only vendors whose edit methods address a message by id
+   * alone need it (MAX); Telegram's edits carry `chat_id` and are checked as recipients.
+   */
+  sentMessages?(call: ISandboxRelayCall, responseBody: unknown): readonly ISandboxSentMessage[];
 }
 
 export interface ISandboxBotInfo {
