@@ -54,6 +54,7 @@ import { SupportMessage } from '../domains/support/support-message.entity.js';
 import { SupportModule } from '../domains/support/support.module.js';
 import { SandboxBotBinding } from '../domains/sandbox-bots/sandbox-bot-binding.entity.js';
 import { SandboxBotLinkCode } from '../domains/sandbox-bots/sandbox-bot-link-code.entity.js';
+import { SandboxBotMessage } from '../domains/sandbox-bots/sandbox-bot-message.entity.js';
 import { SandboxBotsModule } from '../domains/sandbox-bots/sandbox-bots.module.js';
 import { User } from '../domains/users/users/user.entity.js';
 import { UsersModule } from '../domains/users/users/users.module.js';
@@ -100,6 +101,7 @@ export const buildTestAppImports = (extraModules: TAppImport[] = []) => [
       Task,
       SandboxBotBinding,
       SandboxBotLinkCode,
+      SandboxBotMessage,
     ],
   }),
   UsersModule,

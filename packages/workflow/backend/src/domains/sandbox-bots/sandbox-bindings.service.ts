@@ -9,15 +9,19 @@ import {
   type IIntegrationsDocumentData,
 } from '@falang/workflow-integrations-common';
 import { In, IsNull, LessThan, type Repository } from 'typeorm';
+import type { ISandboxSentMessage } from '@falang/workflow-integrations-common';
 import { Document } from '../projects/documents/document.entity.js';
 import { SandboxBotBinding } from './sandbox-bot-binding.entity.js';
 import { SandboxBotLinkCode } from './sandbox-bot-link-code.entity.js';
+import { SandboxBotMessage } from './sandbox-bot-message.entity.js';
 import { SandboxBotSettingsService } from './sandbox-bot-settings.service.js';
 
 /** A link code is valid for 15 minutes (ADR 0073 (private)). */
 export const LINK_CODE_TTL_MS = 15 * 60_000;
 const MINUTE_MS = 60_000;
 const DAY_MS = 24 * 60 * MINUTE_MS;
+/** A recorded message never outlives this, whatever its chat does. */
+const MESSAGE_MAX_AGE_MS = 30 * DAY_MS;
 
 export const hashLinkCode = (code: string): string => createHash('sha256').update(code).digest('hex');
 
@@ -28,6 +32,7 @@ export type TRedeemResult = { readonly ok: true; readonly binding: SandboxBotBin
 export class SandboxBindingsService {
   private readonly bindings: Repository<SandboxBotBinding>;
   private readonly codes: Repository<SandboxBotLinkCode>;
+  private readonly messages: Repository<SandboxBotMessage>;
   private readonly documents: Repository<Document>;
   private readonly settings: SandboxBotSettingsService;
   now: () => Date = () => new Date();
@@ -35,9 +40,11 @@ export class SandboxBindingsService {
   constructor(
     @InjectRepository(SandboxBotBinding) bindings: Repository<SandboxBotBinding>,
     @InjectRepository(SandboxBotLinkCode) codes: Repository<SandboxBotLinkCode>,
+    @InjectRepository(SandboxBotMessage) messages: Repository<SandboxBotMessage>,
     @InjectRepository(Document) documents: Repository<Document>,
     @Inject(SandboxBotSettingsService) settings: SandboxBotSettingsService,
   ) {
+    this.messages = messages;
     this.bindings = bindings;
     this.codes = codes;
     this.documents = documents;
@@ -147,11 +154,42 @@ export class SandboxBindingsService {
     return { ok: true, binding: await this.bindings.save(binding) };
   }
 
+  /** The ownership rows of `messageIds` that `projectId` sent (a missing id is simply absent from the result). */
+  findOwnedMessages(vendor: string, projectId: string, messageIds: readonly string[]): Promise<SandboxBotMessage[]> {
+    if (messageIds.length === 0) return Promise.resolve([]);
+    return this.messages.find({ where: { vendor, projectId, messageId: In([...messageIds]) } });
+  }
+
+  /** Records messages a call created (insert-or-ignore: the first writer of a `(vendor, messageId)` wins). */
+  async recordMessages(vendor: string, projectId: string, sent: readonly ISandboxSentMessage[]): Promise<void> {
+    if (sent.length === 0) return;
+    await this.messages
+      .createQueryBuilder()
+      .insert()
+      .values(sent.map((item) => ({ vendor, projectId, messageId: item.messageId, chatId: item.chatId })))
+      .orIgnore()
+      .execute();
+  }
+
   /** Deletes bindings expired for more than a day (the "expired" reply stays accurate meanwhile) and old link codes. */
   async sweep(): Promise<void> {
     const ttl = await this.settings.getBindingTtlMinutes();
     const now = this.now().getTime();
     await this.bindings.delete({ lastActivityAt: LessThan(new Date(now - ttl * MINUTE_MS - DAY_MS)) });
     await this.codes.delete({ expiresAt: LessThan(new Date(now - DAY_MS)) });
+    await this.sweepMessages(now);
+  }
+
+  /** Messages live while their chat's binding does (plus the binding's own day of grace) and at most 30 days. */
+  private async sweepMessages(now: number): Promise<void> {
+    await this.messages.delete({ createdAt: LessThan(new Date(now - MESSAGE_MAX_AGE_MS)) });
+    await this.messages
+      .createQueryBuilder()
+      .delete()
+      .where('created_at < :cutoff', { cutoff: new Date(now - DAY_MS) })
+      .andWhere(
+        'NOT EXISTS (SELECT 1 FROM sandbox_bot_bindings b WHERE b.vendor = sandbox_bot_messages.vendor AND b.chat_id = sandbox_bot_messages.chat_id AND b.project_id = sandbox_bot_messages.project_id)',
+      )
+      .execute();
   }
 }

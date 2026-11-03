@@ -42,10 +42,19 @@ export interface IUpstreamCall {
 export const createFakeMessenger = async () => {
   const sent: { token: string; chatId: string; text: string }[] = [];
   const upstreamCalls: IUpstreamCall[] = [];
-  const state: { ingress?: ISandboxIngressContext; disposed: number; upstreamStatus: number } = {
+  const state: {
+    ingress?: ISandboxIngressContext;
+    disposed: number;
+    upstreamStatus: number;
+    /** Headers the adapter saw in its last `inspect`. */
+    inspectHeaders?: Headers;
+    /** What `sentMessages` reports for a `sendMessage` call; the default is one message `m-<n>` in the first recipient. */
+    sentOverride?: { messageId: string; chatId: string }[];
+  } = {
     disposed: 0,
     upstreamStatus: 200,
   };
+  let sentCounter = 0;
   const server = http.createServer((req, res) => {
     const chunks: Buffer[] = [];
     req.on('data', (chunk: Buffer) => chunks.push(chunk));
@@ -94,11 +103,27 @@ export const createFakeMessenger = async () => {
     buildChatLink: (info, payload) => `https://fake.example/${info.username}?start=${payload}`,
     relay: {
       inspect: async (req, path) => {
+        state.inspectHeaders = new Headers(req.headers);
         const match = /^\/bot([^/]+)\/(\w+)/.exec(path);
         if (!match) return { error: 'unrecognised path' };
-        if (match[2] !== 'sendMessage') return { error: `method ${match[2]} is not allowed` };
-        const body = (await req.json()) as { chat_id?: string | number };
-        return { method: match[2], recipients: [String(body.chat_id)], relayToken: match[1] ?? '' };
+        const relayToken = match[1] ?? '';
+        const method = match[2] ?? '';
+        const body = (await req.json()) as { chat_id?: string | number; message_id?: string };
+        if (method === 'sendMessage') return { method, recipients: [String(body.chat_id)], relayToken };
+        // Id-only edit (MAX `PUT /messages`), an upload (nothing addressed), and two malformed decisions.
+        if (method === 'editMessage')
+          return { method, recipients: [], messageIds: [String(body.message_id)], relayToken };
+        if (method === 'upload') return { method, recipients: [], unaddressed: true, relayToken };
+        if (method === 'nothing') return { method, recipients: [], relayToken };
+        if (method === 'mixed') {
+          return { method, recipients: [String(body.chat_id)], unaddressed: true, relayToken };
+        }
+        return { error: `method ${method} is not allowed` };
+      },
+      sentMessages: (call) => {
+        if (call.method !== 'sendMessage') return [];
+        sentCounter += 1;
+        return state.sentOverride ?? [{ messageId: `m-${sentCounter}`, chatId: call.recipients[0] ?? '' }];
       },
       upstreamUrl: (token, path, search) => `${upstreamBase}${path.replace(/^\/bot[^/]+/, `/bot${token}`)}${search}`,
       upstreamHeaders: (token) => ({ 'x-real-token': token }),

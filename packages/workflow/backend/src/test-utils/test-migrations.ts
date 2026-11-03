@@ -25,6 +25,7 @@ import { ProjectProdEnabled1790040000000 } from '../migrations/1790040000000-Pro
 import { ProjectProdBuildId1790050000000 } from '../migrations/1790050000000-ProjectProdBuildId.js';
 import { AgentUsageCachedPromptTokens1790060000000 } from '../migrations/1790060000000-AgentUsageCachedPromptTokens.js';
 import { SandboxBots1790150000000 } from '../migrations/1790150000000-SandboxBots.js';
+import { SandboxBotMessages1790160000000 } from '../migrations/1790160000000-SandboxBotMessages.js';
 import { RunJournal1790070000000 } from '../migrations/1790070000000-RunJournal.js';
 import { InstanceRuntime1790090000000 } from '../migrations/1790090000000-InstanceRuntime.js';
 import { ProjectMembers1790100000000 } from '../migrations/1790100000000-ProjectMembers.js';
@@ -66,4 +67,5 @@ export const TEST_MIGRATIONS = [
   ResourceLimits1790130000000,
   AuthHardening1790140000000,
   SandboxBots1790150000000,
+  SandboxBotMessages1790160000000,
 ];
