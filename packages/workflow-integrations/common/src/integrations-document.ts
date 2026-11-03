@@ -36,6 +36,12 @@ export interface IIntegrationInstance {
   readonly vendor: string;
   readonly name: string;
   readonly fields: Readonly<Record<string, IEnvironmentValue | string>>;
+  /**
+   * Dev runs on the platform's test bot instead of this instance's own token (ADR 0073 (private)) — meaningful only for a
+   * vendor with an `IWorkflowIntegration.sandbox` adapter; the dev value of its `tokenField` may then be empty. Never
+   * affects prod.
+   */
+  readonly devSandbox?: boolean;
 }
 
 export interface IIntegrationsDocumentData {
@@ -50,6 +56,7 @@ const buildInstanceSchema = (integration: IWorkflowIntegration): zod.ZodType<IIn
     vendor: zod.literal(integration.vendor),
     name: zod.string(),
     fields: zod.object(shape),
+    devSandbox: zod.boolean().optional(),
   });
 };
 

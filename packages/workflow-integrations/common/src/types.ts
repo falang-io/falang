@@ -3,6 +3,7 @@ import type { TVariableInfo } from '@falang/typescript-dto';
 import type { TRegisterIntegrationBackend } from './backend-runtime.js';
 import type { IBackendEgress, IFieldOptionsContext } from './field-options-context.js';
 import type { IIntegrationInstance } from './integrations-document.js';
+import type { ISandboxBotAdapter } from './sandbox-bot.js';
 import type { IOAuth2Config } from './oauth2-config.js';
 import type { IQuestionDescriptorExtensions } from './question-extensions.js';
 
@@ -301,6 +302,8 @@ export interface IWorkflowIntegration {
    * triggers (e.g. OpenAI-compatible, which is action-only).
    */
   readonly registerBackend?: TRegisterIntegrationBackend;
+  /** The messenger-specific half of the platform's test bot (ADR 0073 (private)) — present on Telegram, MAX, VK. See `sandbox-bot.ts`. */
+  readonly sandbox?: ISandboxBotAdapter;
   /** "Sync structure" (ADR 0039 (private) §4) — connects with resolved (always **dev**) credential fields, returns data to persist per key via `IntegrationVendorDataService.set` (read back through `instanceTypes` below/`GET .../vendor-data`); `env` is unused by every v1 (SQL) implementer. */
   readonly syncVendorData?: (
     credentialFields: Readonly<Record<string, string>>,

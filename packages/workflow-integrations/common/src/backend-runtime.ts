@@ -1,4 +1,5 @@
 import type { INode } from '@falang/dto';
+import type { ISharedIngress } from './sandbox-bot.js';
 
 /** Extra facts about a webhook call that the fetch-API `Request` cannot carry. */
 export interface IWebhookRequestInfo {
@@ -211,6 +212,11 @@ export interface IIntegrationBackendContext {
    * that has no journal still works — callers use `ctx.reportJournalProblem?.(…)`.
    */
   reportJournalProblem?(report: IJournalProblemReport): Promise<void>;
+  /**
+   * Present only on a dev target of an instance in sandbox mode (`IIntegrationInstance.devSandbox`) while the host has a
+   * test bot configured for this vendor — subscribe instead of polling or registering a webhook. See `ISharedIngress`.
+   */
+  readonly sharedIngress?: ISharedIngress;
 }
 
 /** Params of `IIntegrationBackendContext.reportJournalProblem`. */
