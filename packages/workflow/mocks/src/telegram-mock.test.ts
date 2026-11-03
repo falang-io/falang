@@ -41,7 +41,14 @@ describe('telegram mock', () => {
 
   it('editMessageReplyMarkup/answerCallbackQuery/setWebhook/deleteWebhook all return {ok:true} and get recorded', async () => {
     const token = '123:DEF';
-    const routes = ['editMessageReplyMarkup', 'answerCallbackQuery', 'setWebhook', 'deleteWebhook'];
+    const routes = [
+      'editMessageReplyMarkup',
+      'answerCallbackQuery',
+      'setWebhook',
+      'deleteWebhook',
+      'setMyCommands',
+      'deleteMyCommands',
+    ];
     const responses = await Promise.all(
       routes.map((route) =>
         fetch(`${server.url}/telegram/bot${token}/${route}`, {

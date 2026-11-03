@@ -1,5 +1,6 @@
 // oxlint-disable no-promise-executor-return, no-undefined -- test harness.
 // oxlint-disable max-lines-per-function -- a scenario harness: one fake messenger and the app wiring around it.
+import { randomUUID } from 'node:crypto';
 import http from 'node:http';
 import type { AddressInfo } from 'node:net';
 import { ValidationPipe, type INestApplication } from '@nestjs/common';
@@ -41,10 +42,14 @@ export interface IUpstreamCall {
 /** A fake messenger plus a local "vendor API" server the relay forwards to. */
 export const createFakeMessenger = async () => {
   const sent: { token: string; chatId: string; text: string }[] = [];
+  /** Every `chatCommands.set` call, in order. */
+  const menus: { token: string; chatId: string; commands: { command: string; description: string }[] }[] = [];
   const upstreamCalls: IUpstreamCall[] = [];
   const state: {
     ingress?: ISandboxIngressContext;
     disposed: number;
+    /** Makes `chatCommands.set` reject. */
+    menuFails?: boolean;
     upstreamStatus: number;
     /** Headers the adapter saw in its last `inspect`. */
     inspectHeaders?: Headers;
@@ -101,6 +106,14 @@ export const createFakeMessenger = async () => {
       return Promise.resolve({ username: 'fake_bot', title: 'Fake Bot' });
     },
     buildChatLink: (info, payload) => `https://fake.example/${info.username}?start=${payload}`,
+    // The fake lists one command per trigger-function document of the project: its name.
+    chatCommands: {
+      list: (documents) => documents.map((doc) => ({ command: doc.name, description: `Run ${doc.name}` })),
+      set: (token, chatId, commands) => {
+        menus.push({ token, chatId, commands: [...commands] });
+        return state.menuFails ? Promise.reject(new Error('menu failed')) : Promise.resolve();
+      },
+    },
     relay: {
       inspect: async (req, path) => {
         state.inspectHeaders = new Headers(req.headers);
@@ -139,7 +152,7 @@ export const createFakeMessenger = async () => {
     actions: [],
     sandbox: adapter,
   };
-  return { adapter, integration, sent, upstreamCalls, state, close: () => server.close() };
+  return { adapter, integration, sent, menus, upstreamCalls, state, close: () => server.close() };
 };
 
 export type TFakeMessenger = Awaited<ReturnType<typeof createFakeMessenger>>;
@@ -192,4 +205,21 @@ export const createProjectWithInstance = async (
   };
   await documents.save(doc);
   return projectId;
+};
+
+/** Adds a `trigger-function` document named `name` to the project (the fake adapter turns it into a menu command). */
+export const addTriggerDocument = async (app: INestApplication, projectId: string, name: string): Promise<void> => {
+  const documents = app.get<Repository<Document>>(getRepositoryToken(Document));
+  await documents.save(
+    documents.create({
+      id: randomUUID(),
+      type: 'trigger-function',
+      name,
+      projectId,
+      folderId: null,
+      pinned: false,
+      root: null,
+      data: null,
+    }),
+  );
 };

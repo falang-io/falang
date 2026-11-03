@@ -17,8 +17,10 @@ import {
   type ISandboxIngressPort,
   type ISandboxIngressTarget,
 } from '@falang/workflow-gateway';
+import { TRIGGER_FUNCTION_NAME } from '@falang/workflow-dto';
 import type { ISandboxBotAdapter, IWorkflowIntegration, TWebhookHandler } from '@falang/workflow-integrations-common';
 import type { Repository } from 'typeorm';
+import { Document } from '../projects/documents/document.entity.js';
 import { Project } from '../projects/projects/project.entity.js';
 import { RunJournalService } from '../run-journal/run-journal.service.js';
 import { UsersService } from '../users/users/users.service.js';
@@ -57,6 +59,7 @@ export class SandboxBotsService implements ISandboxIngressPort, OnApplicationBoo
   private readonly settings: SandboxBotSettingsService;
   private readonly bindings: SandboxBindingsService;
   private readonly projects: Repository<Project>;
+  private readonly documents: Repository<Document>;
   private readonly config: ConfigService;
   private readonly users: UsersService;
   private readonly journal: RunJournalService | undefined;
@@ -74,6 +77,7 @@ export class SandboxBotsService implements ISandboxIngressPort, OnApplicationBoo
     @Inject(SandboxBotSettingsService) settings: SandboxBotSettingsService,
     @Inject(SandboxBindingsService) bindings: SandboxBindingsService,
     @InjectRepository(Project) projects: Repository<Project>,
+    @InjectRepository(Document) documents: Repository<Document>,
     @Inject(ConfigService) config: ConfigService,
     @Inject(UsersService) users: UsersService,
     @Optional() @Inject(RunJournalService) journal?: RunJournalService,
@@ -83,6 +87,7 @@ export class SandboxBotsService implements ISandboxIngressPort, OnApplicationBoo
     this.settings = settings;
     this.bindings = bindings;
     this.projects = projects;
+    this.documents = documents;
     this.config = config;
     this.users = users;
     this.journal = journal;
@@ -140,9 +145,53 @@ export class SandboxBotsService implements ISandboxIngressPort, OnApplicationBoo
   subscribe(target: ISandboxIngressTarget, handler: TUpdateHandler): () => void {
     const key = subscriberKey(target);
     this.subscribers.set(key, handler);
+    // The stand just (re)started: make the menus of its connected chats show the project's current commands.
+    this.refreshProjectChatCommands(target).catch(() => undefined);
     return () => {
       if (this.subscribers.get(key) === handler) this.subscribers.delete(key);
     };
+  }
+
+  // --- per-chat command menu ---
+
+  private async refreshProjectChatCommands(target: ISandboxIngressTarget): Promise<void> {
+    if (!this.active.get(target.vendor)?.adapter.chatCommands) return;
+    const live = await this.bindings.listLive(target.projectId, target.credentialId);
+    for (const { binding } of live) {
+      await this.refreshChatCommands(target.vendor, binding.chatId, binding);
+    }
+  }
+
+  /**
+   * Makes the chat's command menu the bound project's commands plus the service command (`bound` = the chat's binding), or
+   * only the service command for a chat without one. Only for adapters that have a per-chat menu; best-effort — a failure
+   * is logged and never reaches routing or the binding.
+   */
+  async refreshChatCommands(
+    vendor: string,
+    chatId: string,
+    bound: { projectId: string; credentialId: string } | null,
+  ): Promise<void> {
+    const bot = this.active.get(vendor);
+    const menu = bot?.adapter.chatCommands;
+    if (!bot || !menu) return;
+    try {
+      const service = { command: bot.commandName, description: this.texts().serviceCommandDescription() };
+      let projectCommands: readonly { command: string; description: string }[] = [];
+      if (bound) {
+        const docs = await this.documents.find({ where: { projectId: bound.projectId, type: TRIGGER_FUNCTION_NAME } });
+        projectCommands = menu.list(
+          docs.map((doc) => ({ id: doc.id, name: doc.name, data: doc.data, root: doc.root })),
+          bound.credentialId,
+        );
+      }
+      const commands = [service, ...projectCommands.filter((entry) => entry.command !== service.command)];
+      await runWithEgressVendor(vendor, () => menu.set(bot.token, chatId, commands));
+    } catch (error) {
+      this.logger.warn(
+        `Could not update the command menu of a ${vendor} chat: ${error instanceof Error ? error.message : error}`,
+      );
+    }
   }
 
   // --- configuration lifecycle ---
@@ -322,7 +371,9 @@ export class SandboxBotsService implements ISandboxIngressPort, OnApplicationBoo
     if (redeemed && !redeemed.ok && redeemed.reason !== 'already-bound-here') return reply(texts.linkInvalid());
     if (redeemed?.ok) {
       const project = await this.projects.findOneBy({ id: redeemed.binding.projectId });
-      return reply(project ? texts.linked(project.name) : texts.linkInvalid());
+      await reply(project ? texts.linked(project.name) : texts.linkInvalid());
+      if (project) await this.refreshChatCommands(vendor, info.chatId, redeemed.binding);
+      return;
     }
     // `redeemed` is null (no link) or the repeat of an already used link from the bound chat: route as a plain message.
 
@@ -337,7 +388,9 @@ export class SandboxBotsService implements ISandboxIngressPort, OnApplicationBoo
         return reply(texts.status(project?.name ?? '', bot.commandName));
       }
       if (binding) await this.bindings.remove(binding);
-      return reply(texts.disconnected());
+      await reply(texts.disconnected());
+      if (binding) await this.refreshChatCommands(vendor, info.chatId, null);
+      return;
     }
 
     const binding = await this.bindings.findBinding(vendor, info.chatId);

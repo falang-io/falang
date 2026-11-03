@@ -2,12 +2,16 @@ import {
   constantTimeEqual,
   type ISandboxBotAdapter,
   type ISandboxBotInfo,
+  type ISandboxChatCommand,
+  type IIntegrationDocumentRecord,
   type ISandboxIngressContext,
   type ISandboxUpdateInfo,
   type TSandboxRelayDecision,
 } from '@falang/workflow-integrations-common';
 import type { ITelegramRawMessage } from './telegram-message-mapper.js';
+import { TELEGRAM_COMMAND_FIELD_NAME, TELEGRAM_ON_COMMAND_TRIGGER_NAME, TELEGRAM_VENDOR } from './constants.js';
 import {
+  getTriggerFunctionBodyData,
   getUpdates,
   POLL_INTERVAL_MS,
   TELEGRAM_API_BASE_URL,
@@ -149,6 +153,44 @@ const getBotInfo = async (token: string): Promise<ISandboxBotInfo> => {
   return { username: payload.result.username, title: payload.result.first_name ?? payload.result.username };
 };
 
+const MENU_COMMAND_PATTERN = /^[a-z0-9_]{1,32}$/;
+const MENU_DESCRIPTION_MAX = 256;
+const MENU_MAX_COMMANDS = 100;
+
+/** The on-command triggers of this credential as menu entries: description = the trigger document's name. */
+const listChatCommands = (
+  documents: readonly IIntegrationDocumentRecord[],
+  credentialId: string,
+): ISandboxChatCommand[] => {
+  const seen = new Set<string>();
+  const commands: ISandboxChatCommand[] = [];
+  for (const doc of documents) {
+    const body = getTriggerFunctionBodyData(doc);
+    if (body?.vendor !== TELEGRAM_VENDOR || body.credentialId !== credentialId) continue;
+    if (body.triggerName !== TELEGRAM_ON_COMMAND_TRIGGER_NAME) continue;
+    const command = (body.triggerConfig?.[TELEGRAM_COMMAND_FIELD_NAME] ?? '').trim().replace(/^\//, '');
+    if (!MENU_COMMAND_PATTERN.test(command) || seen.has(command)) continue;
+    seen.add(command);
+    const description = (doc.name.trim() || command).slice(0, MENU_DESCRIPTION_MAX);
+    commands.push({ command, description });
+    if (commands.length >= MENU_MAX_COMMANDS) break;
+  }
+  return commands;
+};
+
+const setChatCommands = async (
+  token: string,
+  chatId: string,
+  commands: readonly ISandboxChatCommand[],
+): Promise<void> => {
+  const scope = { type: 'chat', chat_id: chatId };
+  const response =
+    commands.length === 0
+      ? await postJson(token, 'deleteMyCommands', { scope })
+      : await postJson(token, 'setMyCommands', { commands, scope });
+  if (!response.ok) throw new Error(`Telegram setMyCommands failed: ${response.status} ${await response.text()}`);
+};
+
 /** Telegram's half of the sandbox bot (ADR 0073 (private)); browser-safe like the rest of this package's barrel. */
 export const telegramSandboxAdapter: ISandboxBotAdapter = {
   tokenField: 'botToken',
@@ -160,6 +202,7 @@ export const telegramSandboxAdapter: ISandboxBotAdapter = {
   },
   getBotInfo,
   buildChatLink: (info, payload) => `https://t.me/${info.username}?start=${encodeURIComponent(payload)}`,
+  chatCommands: { list: listChatCommands, set: setChatCommands },
   relay: {
     inspect,
     upstreamUrl: (token, path, search) => {

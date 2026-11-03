@@ -15,6 +15,8 @@ export interface ISandboxBotTexts {
   notConnected(): string;
   standStopped(projectName: string): string;
   disconnectedFromEditor(): string;
+  /** Description of the service command in the chat's command menu. */
+  serviceCommandDescription(): string;
 }
 
 /** Service texts of the shared test bot, en/ru by the deployment's `DEFAULT_LANGUAGE`; the brand follows `BRAND_NAME`. */
@@ -32,6 +34,7 @@ export const buildSandboxBotTexts = (language: string | undefined): ISandboxBotT
       notConnected: () => 'Чат не подключён к проекту. Откройте ссылку подключения из редактора.',
       standStopped: (name) => `Тестовый стенд проекта «${name}» остановлен — запустите его в редакторе.`,
       disconnectedFromEditor: () => 'Чат отключён от проекта в редакторе.',
+      serviceCommandDescription: () => 'Статус подключения тестового бота',
     };
   }
   return {
@@ -45,5 +48,6 @@ export const buildSandboxBotTexts = (language: string | undefined): ISandboxBotT
     notConnected: () => 'This chat is not connected to a project. Open the connect link from the editor.',
     standStopped: (name) => `The test stand of project «${name}» is stopped — start it in the editor.`,
     disconnectedFromEditor: () => 'The chat was disconnected from the project in the editor.',
+    serviceCommandDescription: () => 'Test bot connection status',
   };
 };

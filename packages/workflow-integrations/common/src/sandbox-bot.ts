@@ -1,4 +1,4 @@
-import type { TWebhookHandler } from './backend-runtime.js';
+import type { IIntegrationDocumentRecord, TWebhookHandler } from './backend-runtime.js';
 
 /**
  * Sandbox messenger bots (ADR 0073 (private)): the platform runs one test bot per messenger; a chat bound to a project
@@ -102,6 +102,26 @@ export interface ISandboxBotInfo {
   readonly title: string;
 }
 
+/** One entry of a chat's command menu (Telegram's `/` button): `command` without the slash, `description` for the menu. */
+export interface ISandboxChatCommand {
+  readonly command: string;
+  readonly description: string;
+}
+
+/**
+ * The per-chat command menu of a messenger that has one (Telegram `setMyCommands` with a chat scope). The host keeps the
+ * menu of a bound chat equal to the project's commands plus its own service command; best-effort, never fatal.
+ */
+export interface ISandboxChatCommands {
+  /**
+   * The commands the bound project's stand answers: from its `trigger-function` documents (as the adapter's vendor binds
+   * them to `credentialId`). Entries the messenger would reject are skipped; the service command is added by the host.
+   */
+  list(documents: readonly IIntegrationDocumentRecord[], credentialId: string): readonly ISandboxChatCommand[];
+  /** Replaces the chat's menu; an empty list removes the chat-specific menu altogether. */
+  set(token: string, chatId: string, commands: readonly ISandboxChatCommand[]): Promise<void>;
+}
+
 /** A vendor's messenger-specific half of the sandbox bot. */
 export interface ISandboxBotAdapter {
   /** The credential field that holds the bot token (`botToken`) — the resolver answers it with the relay for a sandbox dev instance. */
@@ -117,6 +137,8 @@ export interface ISandboxBotAdapter {
   /** The deep link that opens the bot with `payload` (`https://t.me/<username>?start=<payload>`). */
   buildChatLink(info: ISandboxBotInfo, payload: string): string;
   readonly relay: ISandboxRelay;
+  /** Per-chat command menu; absent for messengers that have none (MAX has only a bot-wide menu, VK none). */
+  readonly chatCommands?: ISandboxChatCommands;
 }
 
 /**

@@ -138,6 +138,15 @@ export const createTelegramMockRouter = (): Router => {
     okResult(res, true);
   });
 
+  // Per-chat command menu of the platform test bot (ADR 0073 (private)); recorded like every other call.
+  for (const method of ['setMyCommands', 'deleteMyCommands']) {
+    router.post(`/telegram/:botSegment/${method}`, (req: Request, res: Response) => {
+      const state = getState(tokenFromSegment(req.params.botSegment));
+      state.calls.push({ method, body: req.body });
+      okResult(res, true);
+    });
+  }
+
   // No real long-poll delay — `telegram-backend.ts`'s poll loop already re-invokes ~every second
   // regardless of what `timeout` it requested, so an immediate empty result is enough to drive it.
   router.get('/telegram/:botSegment/getUpdates', (req: Request, res: Response) => {

@@ -65,7 +65,7 @@ const TELEGRAM_WEBHOOK_SECRET_LABEL = 'telegram-webhook';
 const noopDispose = async (): Promise<void> => {};
 
 /** `trigger-function`'s childTuple is `[function-header, trigger-function-body, function-footer]` — see `@falang/workflow-dto`. */
-const getTriggerFunctionBodyData = (doc: IIntegrationDocumentRecord): ITriggerFunctionBodyData | undefined => {
+export const getTriggerFunctionBodyData = (doc: IIntegrationDocumentRecord): ITriggerFunctionBodyData | undefined => {
   const body = doc.root?.children?.[1];
   if (body?.name !== TRIGGER_FUNCTION_BODY_NAME) return;
   return body.data as ITriggerFunctionBodyData;

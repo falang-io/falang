@@ -220,3 +220,57 @@ describe('registerTelegramBackend with a sharedIngress', () => {
     vi.unstubAllGlobals();
   });
 });
+
+describe('telegram sandbox chat commands', () => {
+  const doc = (name: string, triggerName: string, command: string, credentialId = 'c1', vendor = 'telegram') => ({
+    id: name,
+    name,
+    data: null,
+    root: {
+      id: `r-${name}`,
+      name: TRIGGER_FUNCTION_NAME,
+      children: [
+        { id: 'h', name: 'function-header' },
+        {
+          id: 'b',
+          name: 'trigger-function-body',
+          data: { vendor, triggerName, credentialId, triggerConfig: { command } },
+        },
+      ],
+    } as never,
+  });
+  const commands = adapter.chatCommands!;
+
+  it('lists the on-command triggers of the credential with valid menu names only', () => {
+    const docs = [
+      doc('Start flow', 'telegram-on-command-trigger', '/help'),
+      doc('Other cred', 'telegram-on-command-trigger', 'x', 'c2'),
+      doc('On message', 'telegram-trigger', 'ignored'),
+      doc('Upper', 'telegram-on-command-trigger', 'Bad'),
+      doc('Dup', 'telegram-on-command-trigger', 'help'),
+      doc('Other vendor', 'telegram-on-command-trigger', 'y', 'c1', 'max'),
+      doc('L'.repeat(300), 'telegram-on-command-trigger', 'long_one'),
+    ];
+    const list = commands.list(docs, 'c1');
+    expect(list.map((entry) => entry.command)).toEqual(['help', 'long_one']);
+    expect(list[0]!.description).toBe('Start flow');
+    expect(list[1]!.description).toHaveLength(256);
+  });
+
+  it('sets a chat-scoped menu, and deletes it for an empty list', async () => {
+    const fetchMock = vi.fn().mockResolvedValue(ok());
+    vi.stubGlobal('fetch', fetchMock);
+    await commands.set('tok', '42', [{ command: 'help', description: 'Help' }]);
+    expect(String(fetchMock.mock.calls[0]![0])).toContain('/bottok/setMyCommands');
+    expect(JSON.parse(fetchMock.mock.calls[0]![1].body)).toEqual({
+      commands: [{ command: 'help', description: 'Help' }],
+      scope: { type: 'chat', chat_id: '42' },
+    });
+    await commands.set('tok', '42', []);
+    expect(String(fetchMock.mock.calls[1]![0])).toContain('/bottok/deleteMyCommands');
+    expect(JSON.parse(fetchMock.mock.calls[1]![1].body)).toEqual({ scope: { type: 'chat', chat_id: '42' } });
+    vi.stubGlobal('fetch', vi.fn().mockResolvedValue({ ...ok(), ok: false, status: 400 }));
+    await expect(commands.set('tok', '42', [])).rejects.toThrow('400');
+    vi.unstubAllGlobals();
+  });
+});

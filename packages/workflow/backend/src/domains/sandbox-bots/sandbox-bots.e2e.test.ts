@@ -12,6 +12,7 @@ import { RunJournalService } from '../run-journal/run-journal.service.js';
 import { SandboxBotBinding } from './sandbox-bot-binding.entity.js';
 import { SandboxBotsService } from './sandbox-bots.service.js';
 import {
+  addTriggerDocument,
   createFakeMessenger,
   createProjectWithInstance,
   createSandboxApp,
@@ -307,6 +308,72 @@ describe('sandbox bots: settings, link codes, routing', () => {
       await send({ chat: '42', text: '/steps' });
       expect(handler).toHaveBeenCalledTimes(2);
       expect(lastText()).toContain('«Bot project»');
+    });
+
+    describe('chat command menu', () => {
+      const lastMenu = () => fake.menus.at(-1);
+      const names = (menu: (typeof fake.menus)[number] | undefined) => menu?.commands.map((entry) => entry.command);
+
+      it('sets the project commands plus the service command right after the link is redeemed', async () => {
+        const alice = await registerUser(app, 'alice');
+        const projectId = await createProjectWithInstance(app, alice, { id: CRED, devSandbox: true });
+        await addTriggerDocument(app, projectId, 'help');
+        await configureBot();
+        const link = await makeLink(alice, projectId);
+        await send({ chat: '42', payload: codeOf(link.body.url) });
+        expect(lastMenu()).toMatchObject({ token: 'good-token', chatId: '42' });
+        expect(names(lastMenu())).toEqual(['falang', 'help']);
+        expect(lastMenu()?.commands[0]?.description).toBe('Test bot connection status');
+      });
+
+      it('refreshes every live chat of the project when its stand subscribes', async () => {
+        const { projectId } = await bind();
+        await addTriggerDocument(app, projectId, 'later');
+        fake.menus.length = 0;
+        service().subscribe({ vendor: 'fakegram', projectId, credentialId: CRED }, vi.fn());
+        await vi.waitFor(() => expect(fake.menus).toHaveLength(1));
+        expect(names(lastMenu())).toEqual(['falang', 'later']);
+      });
+
+      it('resets the menu to the service command on "/falang off" and on a disconnect from the editor', async () => {
+        const { alice, projectId } = await bind();
+        await send({ chat: '42', text: '/falang off' });
+        expect(names(lastMenu())).toEqual(['falang']);
+
+        const link = await makeLink(alice, projectId);
+        await send({ chat: '43', payload: codeOf(link.body.url) });
+        const bindingId = (
+          await request(server())
+            .get(`/projects/${projectId}/integrations/${CRED}/sandbox-bindings`)
+            .set(auth(alice))
+            .expect(200)
+        ).body[0].id as string;
+        await request(server())
+          .delete(`/projects/${projectId}/integrations/${CRED}/sandbox-bindings/${bindingId}`)
+          .set(auth(alice))
+          .expect(204);
+        expect(lastMenu()).toMatchObject({ chatId: '43' });
+        expect(names(lastMenu())).toEqual(['falang']);
+      });
+
+      it('rebinding a chat to another project shows the other project commands', async () => {
+        const { alice } = await bind();
+        const second = await createProjectWithInstance(app, alice, { id: CRED, devSandbox: true });
+        await addTriggerDocument(app, second, 'other');
+        const link = await makeLink(alice, second);
+        await send({ chat: '42', payload: codeOf(link.body.url) });
+        expect(names(lastMenu())).toEqual(['falang', 'other']);
+      });
+
+      it('a failing menu call never breaks binding or routing', async () => {
+        fake.state.menuFails = true;
+        const { projectId } = await bind();
+        expect(lastText()).toContain('«Bot project»');
+        const handler = vi.fn().mockResolvedValue(undefined);
+        service().subscribe({ vendor: 'fakegram', projectId, credentialId: CRED }, handler);
+        await send({ chat: '42', text: 'hello' });
+        expect(handler).toHaveBeenCalledTimes(1);
+      });
     });
 
     it('delivers updates of a bound chat to the subscriber and refreshes its activity', async () => {

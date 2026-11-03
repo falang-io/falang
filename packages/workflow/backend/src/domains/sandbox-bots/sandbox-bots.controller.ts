@@ -126,5 +126,6 @@ export class SandboxBotsController {
     if (!binding) throw new NotFoundException('Binding not found');
     await this.bindings.remove(binding);
     await this.bots.sendServiceText(binding.vendor, binding.chatId, this.bots.serviceTexts().disconnectedFromEditor());
+    await this.bots.refreshChatCommands(binding.vendor, binding.chatId, null);
   }
 }
