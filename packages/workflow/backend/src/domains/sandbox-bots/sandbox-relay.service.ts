@@ -1,6 +1,7 @@
 // oxlint-disable complexity, init-declarations, no-undefined -- one linear validate-then-forward pipeline; absent values are real.
-import { Inject, Injectable, type OnApplicationBootstrap, type OnModuleDestroy } from '@nestjs/common';
+import { Inject, Injectable, Logger, type OnApplicationBootstrap, type OnModuleDestroy } from '@nestjs/common';
 import { runWithEgressVendor } from '@falang/workflow-egress';
+import type { ISandboxRelay, ISandboxRelayCall } from '@falang/workflow-integrations-common';
 import { ProjectTokenService } from '../internal-auth/project-token.service.js';
 import { SandboxBindingsService } from './sandbox-bindings.service.js';
 import { SandboxBotsService } from './sandbox-bots.service.js';
@@ -10,18 +11,19 @@ const CHAT_BURST = 3;
 const CHAT_REFILL_MS = 1000;
 const PROJECT_LIMIT = 60;
 const PROJECT_WINDOW_MS = 60_000;
-/** Headers that carry the pod's own auth or describe the transport hop — never forwarded upstream. */
-const DROPPED_UPSTREAM_HEADERS = new Set([
+/** Transport-hop headers (and cookies) — never shown to the adapter nor forwarded upstream. */
+const TRANSPORT_HEADERS = new Set([
   'host',
   'content-length',
   'connection',
   'transfer-encoding',
   'keep-alive',
   'upgrade',
-  'authorization',
-  'x-internal-project-token',
   'cookie',
 ]);
+/** The pod's own auth: visible to the adapter (MAX carries the relay token in `Authorization`), never forwarded upstream. */
+const POD_AUTH_HEADERS = new Set(['authorization', 'x-internal-project-token']);
+const MESSAGE_DENIED = "Forbidden: the message does not belong to this project's connected chat";
 
 export interface IRelayRequest {
   readonly method: string;
@@ -65,6 +67,7 @@ interface IBucket {
  */
 @Injectable()
 export class SandboxRelayService implements OnApplicationBootstrap, OnModuleDestroy {
+  private readonly logger = new Logger(SandboxRelayService.name);
   private readonly bots: SandboxBotsService;
   private readonly bindings: SandboxBindingsService;
   private readonly tokens: ProjectTokenService;
@@ -130,15 +133,44 @@ export class SandboxRelayService implements OnApplicationBootstrap, OnModuleDest
     }
   }
 
+  /** Stores the messages a successful call created, for later id-only calls. Never fails the call. */
+  private async recordSentMessages(
+    vendor: string,
+    projectId: string,
+    relay: ISandboxRelay,
+    call: ISandboxRelayCall,
+    recipients: readonly string[],
+    body: Uint8Array,
+  ): Promise<void> {
+    if (!relay.sentMessages) return;
+    try {
+      let parsed: unknown;
+      try {
+        parsed = JSON.parse(Buffer.from(body).toString('utf8'));
+      } catch {
+        return;
+      }
+      const sent = relay.sentMessages(call, parsed).filter((item) => recipients.includes(item.chatId));
+      await this.bindings.recordMessages(vendor, projectId, sent);
+    } catch (error) {
+      this.logger.warn(`Could not record sent sandbox messages: ${error instanceof Error ? error.message : error}`);
+    }
+  }
+
   async relay(vendor: string, projectId: string, req: IRelayRequest): Promise<IRelayResponse> {
     const bot = this.bots.getBot(vendor);
     if (!bot) return errorResponse(412, 'sandbox_not_configured: no test bot is configured for this messenger');
     const { adapter, token } = bot;
 
     const headers = new Headers();
+    const upstreamBase = new Headers();
     for (const [name, value] of Object.entries(req.headers)) {
-      if (!value || DROPPED_UPSTREAM_HEADERS.has(name.toLowerCase())) continue;
-      for (const item of typeof value === 'string' ? [value] : value) headers.append(name.toLowerCase(), item);
+      const lower = name.toLowerCase();
+      if (!value || TRANSPORT_HEADERS.has(lower)) continue;
+      for (const item of typeof value === 'string' ? [value] : value) {
+        headers.append(lower, item);
+        if (!POD_AUTH_HEADERS.has(lower)) upstreamBase.append(lower, item);
+      }
     }
     const contentLength = req.body?.byteLength;
     const request = new Request(`http://relay.invalid${req.path}${req.search}`, {
@@ -158,20 +190,36 @@ export class SandboxRelayService implements OnApplicationBootstrap, OnModuleDest
       return errorResponse(403, 'Forbidden: invalid relay token');
 
     const recipients = [...new Set(decision.recipients)];
-    const live = await this.bindings.findLiveForChats(vendor, recipients);
+    const messageIds = [...new Set(decision.messageIds)];
+    const unaddressed = decision.unaddressed === true;
+    if (unaddressed && (recipients.length > 0 || messageIds.length > 0)) {
+      return errorResponse(400, 'Bad Request: an unaddressed call cannot name chats or messages');
+    }
+    if (!unaddressed && recipients.length === 0 && messageIds.length === 0) {
+      return errorResponse(400, 'Bad Request: the call addresses no chat and no message');
+    }
+
+    const owned = await this.bindings.findOwnedMessages(vendor, projectId, messageIds);
+    if (owned.length !== messageIds.length) return errorResponse(403, MESSAGE_DENIED);
+    const messageChats = [...new Set(owned.map((row) => row.chatId))];
+    const chats = [...new Set([...recipients, ...messageChats])];
+    const live = await this.bindings.findLiveForChats(vendor, chats);
     const allowed = new Set(live.filter((binding) => binding.projectId === projectId).map((binding) => binding.chatId));
     for (const recipient of recipients) {
       if (!allowed.has(recipient)) return errorResponse(403, 'Forbidden: the chat is not connected to the test bot');
     }
+    for (const chat of messageChats) {
+      if (!allowed.has(chat)) return errorResponse(403, MESSAGE_DENIED);
+    }
 
     const projectWait = this.takeProject(projectId);
     if (projectWait > 0) return errorResponse(429, `Too Many Requests: retry after ${projectWait}`, projectWait);
-    for (const recipient of recipients) {
+    for (const recipient of chats) {
       const wait = this.takeChat(`${vendor}:${recipient}`);
       if (wait > 0) return errorResponse(429, `Too Many Requests: retry after ${wait}`, wait);
     }
 
-    const upstreamHeaders = new Headers(headers);
+    const upstreamHeaders = new Headers(upstreamBase);
     for (const [name, value] of Object.entries(adapter.relay.upstreamHeaders?.(token) ?? {})) {
       upstreamHeaders.set(name, value);
     }
@@ -189,7 +237,10 @@ export class SandboxRelayService implements OnApplicationBootstrap, OnModuleDest
       return errorResponse(502, `Bad Gateway: ${error instanceof Error ? error.message : 'upstream unreachable'}`);
     }
     const body = new Uint8Array(await upstream.arrayBuffer());
-    if (upstream.ok) await this.bindings.touch(live.filter((binding) => allowed.has(binding.chatId)).map((b) => b.id));
+    if (upstream.ok) {
+      await this.bindings.touch(live.filter((binding) => allowed.has(binding.chatId)).map((b) => b.id));
+      await this.recordSentMessages(vendor, projectId, adapter.relay, decision, recipients, body);
+    }
     return { status: upstream.status, contentType: upstream.headers.get('content-type') ?? undefined, body };
   }
 }

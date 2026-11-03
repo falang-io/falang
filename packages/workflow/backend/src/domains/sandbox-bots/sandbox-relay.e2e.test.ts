@@ -5,6 +5,10 @@ import request from 'supertest';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { auth, login } from '../../test-utils/e2e-app.js';
 import { ProjectTokenService } from '../internal-auth/project-token.service.js';
+import { getRepositoryToken } from '@nestjs/typeorm';
+import type { Repository } from 'typeorm';
+import { SandboxBindingsService } from './sandbox-bindings.service.js';
+import { SandboxBotMessage } from './sandbox-bot-message.entity.js';
 import { SandboxBotsService } from './sandbox-bots.service.js';
 import { SandboxRelayService } from './sandbox-relay.service.js';
 import {
@@ -249,6 +253,130 @@ describe('sandbox bots: credential resolver and outbound relay', () => {
       expect(fake.upstreamCalls[0]?.headers['content-type']).toMatch(/^multipart\/form-data; boundary=/);
       expect(fake.upstreamCalls[0]?.body).toContain('name="chat_id"');
       expect(fake.upstreamCalls[0]?.body).toContain('filename="f.bin"');
+    });
+  });
+
+  describe('headers, unaddressed calls and message ids', () => {
+    const post = (projectId: string, method: string, body: object, token = projectToken(projectId)) =>
+      request(server())
+        .post(relayPath(projectId, token, method))
+        .send(body);
+    const messages = () => app.get<Repository<SandboxBotMessage>>(getRepositoryToken(SandboxBotMessage));
+
+    it('shows the pod authorization headers to the adapter but never forwards them upstream', async () => {
+      const { alice, projectId } = await setup();
+      await bindChat(alice, projectId, '42');
+      await request(server())
+        .post(relayPath(projectId, projectToken(projectId)))
+        .set('authorization', 'pod-secret')
+        .set('cookie', 'a=b')
+        .send({ chat_id: '42', text: 'hi' })
+        .expect(200);
+      expect(fake.state.inspectHeaders?.get('authorization')).toBe('pod-secret');
+      expect(fake.state.inspectHeaders?.get(INTERNAL)).toBeNull();
+      expect(fake.state.inspectHeaders?.get('cookie')).toBeNull();
+      expect(fake.upstreamCalls[0]?.headers.authorization).toBeUndefined();
+      expect(fake.upstreamCalls[0]?.headers[INTERNAL]).toBeUndefined();
+      expect(fake.upstreamCalls[0]?.headers.cookie).toBeUndefined();
+    });
+
+    it('lets an unaddressed call through (project limit only) and refuses empty or mixed decisions', async () => {
+      const { projectId } = await setup();
+      await post(projectId, 'upload', {}).expect(200);
+      expect(fake.upstreamCalls).toHaveLength(1);
+      const empty = await post(projectId, 'nothing', {});
+      expect(empty.status).toBe(400);
+      expect(empty.body).toMatchObject({ ok: false, error_code: 400 });
+      expect((await post(projectId, 'mixed', { chat_id: '42' })).status).toBe(400);
+      expect(fake.upstreamCalls).toHaveLength(1);
+    });
+
+    it('limits unaddressed calls per project', async () => {
+      const { projectId } = await setup();
+      let status = 200;
+      for (let i = 0; i < 70 && status === 200; i += 1) status = (await post(projectId, 'upload', {})).status;
+      expect(status).toBe(429);
+    });
+
+    it('records a sent message after a 2xx and allows an id-only call for it', async () => {
+      const { alice, projectId } = await setup();
+      await bindChat(alice, projectId, '42');
+      await post(projectId, 'sendMessage', { chat_id: '42', text: 'hi' }).expect(200);
+      const rows = await messages().find();
+      expect(rows).toMatchObject([{ vendor: 'fakegram', messageId: 'm-1', projectId, chatId: '42' }]);
+      await post(projectId, 'editMessage', { message_id: 'm-1' }).expect(200);
+      expect(fake.upstreamCalls).toHaveLength(2);
+    });
+
+    it('does not record messages after an upstream error, nor for a chat the call did not address', async () => {
+      const { alice, projectId } = await setup();
+      await bindChat(alice, projectId, '42');
+      fake.state.upstreamStatus = 500;
+      await post(projectId, 'sendMessage', { chat_id: '42', text: 'hi' }).expect(500);
+      fake.state.upstreamStatus = 400;
+      await post(projectId, 'sendMessage', { chat_id: '42', text: 'hi' }).expect(400);
+      expect(await messages().count()).toBe(0);
+      fake.state.upstreamStatus = 200;
+      fake.state.sentOverride = [{ messageId: 'x-1', chatId: '999' }];
+      await post(projectId, 'sendMessage', { chat_id: '42', text: 'hi' }).expect(200);
+      expect(await messages().count()).toBe(0);
+    });
+
+    it('refuses an unknown message id and another project’s message id', async () => {
+      const { alice, projectId } = await setup();
+      await bindChat(alice, projectId, '42');
+      const other = await createProjectWithInstance(app, alice, { id: CRED, devSandbox: true });
+      await bindChat(alice, other, '77');
+      await post(other, 'sendMessage', { chat_id: '77', text: 'hi' }).expect(200);
+      const foreign = await post(projectId, 'editMessage', { message_id: 'm-1' });
+      expect(foreign.status).toBe(403);
+      expect(foreign.body.description).toContain('does not belong');
+      expect((await post(projectId, 'editMessage', { message_id: 'nope' })).status).toBe(403);
+      expect(fake.upstreamCalls).toHaveLength(1);
+    });
+
+    it('refuses a message whose chat binding expired or moved to another project', async () => {
+      const { alice, projectId } = await setup();
+      await bindChat(alice, projectId, '42');
+      await post(projectId, 'sendMessage', { chat_id: '42', text: 'hi' }).expect(200);
+      // Rebound to another project.
+      const other = await createProjectWithInstance(app, alice, { id: CRED, devSandbox: true });
+      await bindChat(alice, other, '42');
+      expect((await post(projectId, 'editMessage', { message_id: 'm-1' })).status).toBe(403);
+      // Disconnected altogether.
+      await bindChat(alice, projectId, '42');
+      await post(projectId, 'editMessage', { message_id: 'm-1' }).expect(200);
+      const bindings = app.get(SandboxBindingsService);
+      const binding = await bindings.findBinding('fakegram', '42');
+      await bindings.remove(binding as NonNullable<typeof binding>);
+      expect((await post(projectId, 'editMessage', { message_id: 'm-1' })).status).toBe(403);
+    });
+
+    it('refuses a message whose binding expired', async () => {
+      const { alice, projectId } = await setup();
+      await bindChat(alice, projectId, '42');
+      await post(projectId, 'sendMessage', { chat_id: '42', text: 'hi' }).expect(200);
+      app.get(SandboxBindingsService).now = () => new Date(Date.now() + 16 * 60_000);
+      expect((await post(projectId, 'editMessage', { message_id: 'm-1' })).status).toBe(403);
+    });
+
+    it('sweeps messages older than 30 days and those whose chat has no binding after a day, keeping live ones', async () => {
+      const { alice, projectId } = await setup();
+      await bindChat(alice, projectId, '42');
+      const repo = messages();
+      const day = 24 * 60 * 60_000;
+      const row = (messageId: string, chatId: string, ageMs: number) =>
+        repo.save(
+          repo.create({ vendor: 'fakegram', messageId, projectId, chatId, createdAt: new Date(Date.now() - ageMs) }),
+        );
+      await row('live-new', '42', 1000);
+      await row('live-old', '42', 10 * day);
+      await row('too-old', '42', 31 * day);
+      await row('orphan-old', '500', 2 * day);
+      await row('orphan-new', '500', 1000);
+      await app.get(SandboxBindingsService).sweep();
+      const left = (await repo.find()).map((r) => r.messageId).toSorted();
+      expect(left).toEqual(['live-new', 'live-old', 'orphan-new']);
     });
   });
 });

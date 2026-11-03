@@ -12,6 +12,7 @@ import { InternalSandboxRelayController } from './internal-sandbox-relay.control
 import { SandboxBindingsService } from './sandbox-bindings.service.js';
 import { SandboxBotBinding } from './sandbox-bot-binding.entity.js';
 import { SandboxBotLinkCode } from './sandbox-bot-link-code.entity.js';
+import { SandboxBotMessage } from './sandbox-bot-message.entity.js';
 import { SandboxBotSettingsService } from './sandbox-bot-settings.service.js';
 import { SandboxBotsController } from './sandbox-bots.controller.js';
 import { SandboxBotsWebhookController } from './sandbox-bots-public.controller.js';
@@ -25,7 +26,7 @@ import { SandboxRelayService } from './sandbox-relay.service.js';
  */
 @Module({
   imports: [
-    TypeOrmModule.forFeature([SandboxBotBinding, SandboxBotLinkCode, Project, Document]),
+    TypeOrmModule.forFeature([SandboxBotBinding, SandboxBotLinkCode, SandboxBotMessage, Project, Document]),
     AppSettingsModule,
     ProjectsModule,
     ProjectTokenModule,
