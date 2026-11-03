@@ -155,3 +155,47 @@ describe('typeCheckProject — magic node (ADR 0046 (private))', () => {
     expect(typeCheckProject(compiled.workflows, compiled.activities)).toEqual([]);
   });
 });
+
+/** A function document whose body is the given `action` statements, in order. */
+const actionsFunctionDocument = (actions: string[]): IProjectDocument => ({
+  id: 'doc-d',
+  type: 'function',
+  name: 'runDates',
+  root: {
+    id: 'doc-d',
+    name: 'function',
+    children: [
+      { id: 'doc-d-header', name: 'function-header', data: '' },
+      {
+        id: 'doc-d-body',
+        name: 'function-body',
+        data: { parameters: [] },
+        children: actions.map((data, index) => ({ id: `doc-d-a${index}`, name: 'action', data })),
+      },
+      { id: 'doc-d-footer', name: 'function-footer', data: '' },
+    ],
+  },
+});
+
+describe('typeCheckProject — the dayjs global', () => {
+  it('type-checks dayjs with its plugins without an import in user code', () => {
+    const compiled = compileProject({
+      documents: [
+        actionsFunctionDocument([
+          "const moscow: string = dayjs().tz('Europe/Moscow').format('DD.MM.YYYY HH:mm')",
+          "const parsed = dayjs.utc('03.11.2026', 'DD.MM.YYYY')",
+          "const later: boolean = parsed.add(dayjs.duration({ days: 1 })).isSameOrAfter(parsed)",
+          "const ago: string = parsed.locale('ru').fromNow()",
+        ]),
+      ],
+    });
+    expect(typeCheckProject(compiled.workflows, compiled.activities)).toEqual([]);
+  });
+
+  it('still reports a wrong dayjs call against the node', () => {
+    const compiled = compileProject({ documents: [actionsFunctionDocument(['const n: number = dayjs().format()'])] });
+    const errors = typeCheckProject(compiled.workflows, compiled.activities);
+    expect(errors).toHaveLength(1);
+    expect(errors[0]).toMatchObject({ documentId: 'doc-d', nodeId: 'doc-d-a0' });
+  });
+});

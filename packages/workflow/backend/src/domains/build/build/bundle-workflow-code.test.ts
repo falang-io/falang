@@ -1,5 +1,6 @@
 import { mkdirSync, rmSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
+import { buildDayjsRuntimeCode } from '@falang/workflow-compiler';
 import { afterAll, beforeAll, describe, expect, it, vi } from 'vitest';
 import { assertIsolatedModuleCache, bundleWorkflowCode, includeBuildDirInTsRule } from './bundle-workflow-code.js';
 
@@ -58,6 +59,25 @@ describe('bundleWorkflowCode', () => {
     const code = await bundleWorkflowCode(path);
 
     expect(code).toContain('nestedWorkflow');
+  });
+
+  // The compiler's `dayjs` preamble (`@falang/workflow-compiler`'s `dayjs-runtime.ts`) must resolve from the
+  // build directory — `dayjs` is a direct dependency of this package for exactly that.
+  it('bundles the dayjs global with its plugins and locales', async () => {
+    const dir = join(TEST_DIR, 'dayjs');
+    mkdirSync(dir, { recursive: true });
+    const path = join(dir, 'workflows.ts');
+    writeFileSync(
+      path,
+      `${buildDayjsRuntimeCode()}\nexport const datedWorkflow = async (): Promise<string> => dayjs.utc(0).tz('Europe/Moscow').format();\n`,
+      'utf8',
+    );
+
+    const code = await bundleWorkflowCode(path);
+
+    expect(code).toContain('datedWorkflow');
+    expect(code).toContain('Europe/Moscow');
+    expect(code).toMatch(/\$isDayjsObject/);
   });
 
   it("includes webpack's own error output in the thrown error", async () => {

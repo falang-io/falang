@@ -24,6 +24,7 @@ import {
   findTriggerDescriptor,
   type ITriggerFunctionBodyData,
 } from './compile-trigger-function.js';
+import { buildDayjsRuntimeCode, usesDayjs } from './dayjs-runtime.js';
 import { DEBUG_RUNTIME_CODE, DEBUG_RUNTIME_IMPORTS } from './debug-runtime.js';
 import { buildJournalRuntimeCode, JOURNAL_RUNTIME_IMPORTS } from './journal-runtime.js';
 import { buildIntegrationEmitters } from './integration-emitters.js';
@@ -80,7 +81,8 @@ export interface ICompileProjectParams {
  * joins the import set when at least one group actually needs it. `workflowInfo`, unlike those three,
  * *is* conditional (`hasStartDelivery`) — it's only ever read by a `delivery: 'start'` trigger's
  * compiled preamble (see `compile-trigger-function.ts`), which no project need have at all.
- * `sleep` is conditional too (`hasWait`, a `wait` node exists). `CancellationScope`/`isCancellation` are likewise conditional (`hasCloseableQuestion`) — only a
+ * `sleep` is conditional too (`hasWait`, a `wait` node exists), and so is the `dayjs` setup (`hasDayjs`, the
+ * compiled documents mention `dayjs` — see `dayjs-runtime.ts`). `CancellationScope`/`isCancellation` are likewise conditional (`hasCloseableQuestion`) — only a
  * project with at least one `IQuestionDescriptor.closeActivitySignature` node (ADR 0040 (private)
  * §4) needs the cancellation-safe close its `question-emitters.ts` wraps around the wait.
  */
@@ -91,6 +93,7 @@ const buildWorkflowPreamble = (
   hasStartDelivery: boolean,
   hasCloseableQuestion: boolean,
   hasWait: boolean,
+  hasDayjs: boolean,
 ): string => {
   const groups = groupActivityProxyEntries(
     collectActivityProxyEntries(used.integrations, { includeActivepiecesAction: used.usesActivepiecesAction }),
@@ -110,6 +113,7 @@ const buildWorkflowPreamble = (
   if (debug) for (const name of DEBUG_RUNTIME_IMPORTS) imports.add(name);
   return [
     `import { ${[...imports].toSorted().join(', ')} } from '@temporalio/workflow';`,
+    ...(hasDayjs ? [buildDayjsRuntimeCode()] : []),
     '',
     groups.map((group) => buildActivityProxyGroupCode(group)).join('\n\n'),
     ...(trackPosition ? ['', POSITION_RUNTIME_CODE] : []),
@@ -282,7 +286,7 @@ export const compileProject = ({
   // Always assembled, even when `errors` isn't empty — the successfully-compiled blocks still form
   // valid partial output, carried on `ProjectCompileError` below so a caller can show the user their
   // code alongside the errors instead of nothing at all.
-  const workflows = `${buildWorkflowPreamble(used, trackPosition, debug, hasStartDeliveryTrigger, hasCloseableQuestion, hasWait)}\n\n${content}`;
+  const workflows = `${buildWorkflowPreamble(used, trackPosition, debug, hasStartDeliveryTrigger, hasCloseableQuestion, hasWait, usesDayjs(content))}\n\n${content}`;
 
   if (errors.length > 0) {
     throw new ProjectCompileError(errors, workflows, activities);

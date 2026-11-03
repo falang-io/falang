@@ -80,6 +80,17 @@ describe('compileProjectStructure — tenant text cannot smuggle module loads in
     expect(compileProjectStructure([functionDocument('const value = 1 + 2')], [])).toBeDefined();
   });
 
+  it('accepts the dayjs imports the compiler adds for a document using dayjs', () => {
+    expect(compileProjectStructure([functionDocument("const d = dayjs().add(1, 'day')")], []).workflows).toContain(
+      "import dayjs from 'dayjs';",
+    );
+  });
+
+  it('rejects a dayjs subpath outside the shipped plugins and locales', () => {
+    expect(messages("import x from 'dayjs/plugin/../../../etc/hostname';").length).toBeGreaterThan(0);
+    expect(messages("import 'dayjs/locale/de';").length).toBeGreaterThan(0);
+  });
+
   it.each([
     ['closing the function and adding a top-level import', "0;\n}\nimport * as leak from '../../.builds/other/workflows';\nasync function zzz() {\n"],
     ['a dynamic import inside the statement', "await import('../../.builds/other/workflows')"],

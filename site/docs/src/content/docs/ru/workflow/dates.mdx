@@ -1,0 +1,46 @@
+---
+title: Даты и время
+description: Глобальная функция dayjs в выражениях workflow — разбор, форматирование, часовые пояса и интервалы без импорта
+head:
+  - tag: meta
+    attrs:
+      name: keywords
+      content: 'dayjs, дата, время, часовой пояс, формат даты, workflow'
+---
+
+<p>
+  В любом поле с кодом (действие, условие, выражение интеграции и т. д.) доступна функция <code>dayjs</code> из
+  библиотеки
+  <a href="https://day.js.org">Day.js</a> — её не нужно импортировать или устанавливать. Редактор знает её типы:
+  работают подсказки и проверка ошибок, а при сборке проекта она подключается автоматически.
+</p>
+
+#### Что подключено
+
+<p>
+  Плагины: <code>utc</code>, <code>timezone</code>, <code>customParseFormat</code>, <code>duration</code>,
+  <code>relativeTime</code>, <code>isBetween</code>, <code>isSameOrBefore</code>, <code>isSameOrAfter</code>. Кроме
+  встроенной английской загружена русская локаль; по умолчанию используется английская, русская включается вызовом
+  <code>.locale('ru')</code>.
+</p>
+
+#### Примеры
+
+```ts
+const now = dayjs().tz('Europe/Moscow').format('DD.MM.YYYY HH:mm');
+const birthday = dayjs(message.text, 'DD.MM.YYYY', true);
+const valid = birthday.isValid();
+const tomorrow = dayjs().add(1, 'day').locale('ru').format('D MMMM');
+const late = dayjs().isSameOrAfter(dayjs().tz('Europe/Moscow').hour(18).minute(0));
+const minutes = dayjs.duration({ hours: 2 }).asMinutes();
+```
+
+#### Время внутри сценария
+
+<p>
+  Сценарий выполняется в Temporal, и <code>dayjs()</code> (как и <code>Date.now()</code>) возвращает время сценария, а
+  не системные часы: при повторном проигрывании истории результат тот же. Поэтому их можно спокойно использовать в
+  условиях и ветвлениях. Чтобы подождать до нужного момента, используйте узел «Пауза» с количеством миллисекунд,
+  например
+  <code>dayjs().tz('Europe/Moscow').add(1, 'day').hour(9).diff(dayjs())</code>.
+</p>

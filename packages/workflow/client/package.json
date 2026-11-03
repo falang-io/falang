@@ -16,6 +16,7 @@
     "@falang/typescript-scheme": "*",
     "@falang/workflow-client-admin": "*",
     "@falang/workflow-client-common": "*",
+    "@falang/workflow-compiler": "*",
     "@types/node": "^24.12.2",
     "@vitejs/plugin-react": "^6.0.1",
     "globals": "^17.4.0",
@@ -38,6 +39,7 @@
   ],
   "dependencies": {
     "@types/react": "^19.2.14",
-    "@types/react-dom": "^19.2.3"
+    "@types/react-dom": "^19.2.3",
+    "dayjs": "^1.11.23"
   }
 }

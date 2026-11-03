@@ -1,5 +1,10 @@
 import ts from 'typescript';
-import { parseCompiledMarkers, resolveMarkerLocation, type ICompileError } from '@falang/workflow-compiler';
+import {
+  parseCompiledMarkers,
+  resolveMarkerLocation,
+  WORKFLOW_DAYJS_MODULE_SPECIFIERS,
+  type ICompileError,
+} from '@falang/workflow-compiler';
 
 /**
  * Module specifiers the compiler itself emits into generated `workflows.ts`/`activities.ts`
@@ -18,6 +23,8 @@ const ALLOWED_EXACT_SPECIFIERS: ReadonlySet<string> = new Set([
   'pg',
   'mysql2/promise',
   'node:sqlite',
+  // The workflows module's `dayjs` global and its plugins/locales (`dayjs-runtime.ts`).
+  ...WORKFLOW_DAYJS_MODULE_SPECIFIERS,
 ]);
 
 /** Every vendor package the registry ships (`@falang/workflow-integrations-<vendor>`, plus `-common`/`-files`/`-sql-common`). */

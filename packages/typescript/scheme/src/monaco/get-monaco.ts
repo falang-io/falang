@@ -54,6 +54,20 @@ let appliedExtraDeclarations: string | null = null;
 let desiredExtraDeclarations = '';
 let hostExtraLibDisposable: IDisposable | null = null;
 
+/** Extra lib files by path (e.g. a package's `.d.ts` under `file:///node_modules/<pkg>/`), see `setMonacoLibVariant`. */
+export type TMonacoExtraLibFiles = Readonly<Record<string, string>>;
+
+let appliedExtraLibFiles: TMonacoExtraLibFiles | null = null;
+let desiredExtraLibFiles: TMonacoExtraLibFiles = {};
+// Bumped whenever the desired files change, so `getMonacoLibKey` stays short however large the files are.
+let extraLibFilesVersion = 0;
+let extraLibFileDisposables: IDisposable[] = [];
+
+const sameExtraLibFiles = (a: TMonacoExtraLibFiles, b: TMonacoExtraLibFiles): boolean => {
+  const keys = Object.keys(a);
+  return keys.length === Object.keys(b).length && keys.every((key) => b[key] === a[key]);
+};
+
 const applyLibVariant = (monaco: TMonacoApi): void => {
   if (appliedLibVariant !== desiredLibVariant) {
     baseLibDisposable?.dispose();
@@ -70,6 +84,13 @@ const applyLibVariant = (monaco: TMonacoApi): void => {
       : null;
     appliedExtraDeclarations = desiredExtraDeclarations;
   }
+  if (appliedExtraLibFiles !== desiredExtraLibFiles) {
+    for (const disposable of extraLibFileDisposables) disposable.dispose();
+    extraLibFileDisposables = Object.entries(desiredExtraLibFiles).map(([path, content]) =>
+      monaco.typescript.typescriptDefaults.addExtraLib(content, path),
+    );
+    appliedExtraLibFiles = desiredExtraLibFiles;
+  }
 };
 
 /**
@@ -84,19 +105,34 @@ const applyLibVariant = (monaco: TMonacoApi): void => {
  * constructors), not from inside a block/editor component. Safe to call again later (e.g. the user
  * opens a different project of a different type in the same window) — swaps the registered extra libs
  * in place.
+ *
+ * `extraLibFiles` adds whole files at their own paths — for a real package's declarations, which must sit
+ * where module resolution finds them (`file:///node_modules/<pkg>/index.d.ts`, resolved from a declaration
+ * file at `file:///…` such as `declare const x: typeof import('<pkg>')`) and whose plugins augment
+ * `declare module '<pkg>'`. Every extra lib is part of the program, so such augmentations apply. The
+ * workflow client adds `dayjs` this way (`@falang/workflow-client`'s `dayjs-monaco-libs.ts`).
  */
-export const setMonacoLibVariant = (variant: TMonacoLibVariant, extraDeclarations = ''): void => {
+export const setMonacoLibVariant = (
+  variant: TMonacoLibVariant,
+  extraDeclarations = '',
+  extraLibFiles: TMonacoExtraLibFiles = {},
+): void => {
   desiredLibVariant = variant;
   desiredExtraDeclarations = extraDeclarations;
+  if (!sameExtraLibFiles(desiredExtraLibFiles, extraLibFiles)) {
+    desiredExtraLibFiles = extraLibFiles;
+    extraLibFilesVersion += 1;
+  }
   if (initialized && monacoNamespace) applyLibVariant(monacoNamespace);
 };
 
 /**
  * Identifies the lib every `'typescript'` model currently type-checks against (the variant plus the host's extra
- * declarations): a check result is only valid for the key it was computed under. Includes the *desired* state, which
+ * declarations and extra lib files): a check result is only valid for the key it was computed under. Includes the *desired* state, which
  * `getMonaco()` applies before the next worker call.
  */
-export const getMonacoLibKey = (): string => `${desiredLibVariant}\u0000${desiredExtraDeclarations}`;
+export const getMonacoLibKey = (): string =>
+  `${desiredLibVariant}\u0000${desiredExtraDeclarations}\u0000${extraLibFilesVersion}`;
 
 const THEME_CLASSES = ['vs', 'vs-dark', 'hc-black', 'hc-light'];
 

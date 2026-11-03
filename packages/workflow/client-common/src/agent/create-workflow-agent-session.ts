@@ -25,6 +25,7 @@ import { CodeIntegrationTools } from './code/code-integration-tools.js';
 import { CODE_SYSTEM_PROMPT } from './code/code-prompt.js';
 import { CodeFilesContextProvider, CodeToolProvider, describeInstanceForCode } from './code/code-tool-provider.js';
 import { WorkflowJsonFilesHost, type TWorkflowCheckProject } from './workflow-json-files-host.js';
+import { WorkflowRuntimeContextProvider } from './workflow-runtime-context.js';
 
 /** How the agent edits documents: the node tools (the product default) or whole JSON files (ADR 0062). */
 export type TWorkflowAgentInterface = 'nodes' | 'code' | 'json';
@@ -114,18 +115,23 @@ const createJsonFilesSession = (
     nodeKindFilter: shared.nodeKindFilter,
     store: deps.store,
   });
-  return new AgentSession(null, deps.llmClient, [new JsonFilesContextProvider(host)], {
-    ...shared,
-    coreTools: [],
-    onRunFinished: () => deps.onRunFinished?.(getSession()),
-    systemPrompt: JSON_FILES_SYSTEM_PROMPT,
-    // No create_document: a new `functions/`/`types/` file creates the document (two ways to create confused the model).
-    toolProviders: [
-      new JsonFileToolProvider(host),
-      new DocumentToolProvider(deps.store, ['create_trigger_document', 'list_types']),
-      integrationTools,
-    ],
-  });
+  return new AgentSession(
+    null,
+    deps.llmClient,
+    [new JsonFilesContextProvider(host), new WorkflowRuntimeContextProvider()],
+    {
+      ...shared,
+      coreTools: [],
+      onRunFinished: () => deps.onRunFinished?.(getSession()),
+      systemPrompt: JSON_FILES_SYSTEM_PROMPT,
+      // No create_document: a new `functions/`/`types/` file creates the document (two ways to create confused the model).
+      toolProviders: [
+        new JsonFileToolProvider(host),
+        new DocumentToolProvider(deps.store, ['create_trigger_document', 'list_types']),
+        integrationTools,
+      ],
+    },
+  );
 };
 
 /**
@@ -154,11 +160,16 @@ export const createWorkflowAgentSession = (deps: ICreateWorkflowAgentSessionDeps
   const session: AgentSession =
     deps.agentInterface === 'json'
       ? createJsonFilesSession(deps, shared, integrationTools, () => session)
-      : new AgentSession(null, deps.llmClient, [new ScopeVariablesContextProvider(), documentsContext(store)], {
-          ...shared,
-          onOpenDocument: (target) => deps.onOpenDocument?.(target.id),
-          onRunFinished: () => deps.onRunFinished?.(session),
-          toolProviders: [new DocumentToolProvider(store), integrationTools],
-        });
+      : new AgentSession(
+          null,
+          deps.llmClient,
+          [new ScopeVariablesContextProvider(), documentsContext(store), new WorkflowRuntimeContextProvider()],
+          {
+            ...shared,
+            onOpenDocument: (target) => deps.onOpenDocument?.(target.id),
+            onRunFinished: () => deps.onRunFinished?.(session),
+            toolProviders: [new DocumentToolProvider(store), integrationTools],
+          },
+        );
   return session;
 };

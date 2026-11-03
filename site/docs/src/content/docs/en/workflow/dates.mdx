@@ -1,0 +1,43 @@
+---
+title: Dates and time
+description: The global dayjs function in workflow expressions — parsing, formatting, time zones and durations with no import
+head:
+  - tag: meta
+    attrs:
+      name: keywords
+      content: 'dayjs, date, time, time zone, date format, workflow'
+---
+
+<p>
+  Every code field (an action, a condition, an integration expression and so on) can use the <code>dayjs</code> function
+  from <a href="https://day.js.org">Day.js</a> — no import or installation needed. The editor knows its types, so
+  completion and error checking work, and the build adds it automatically.
+</p>
+
+#### What is included
+
+<p>
+  Plugins: <code>utc</code>, <code>timezone</code>, <code>customParseFormat</code>, <code>duration</code>,
+  <code>relativeTime</code>, <code>isBetween</code>, <code>isSameOrBefore</code>, <code>isSameOrAfter</code>. Next to
+  the built-in English locale the Russian one is loaded; English is the default, switch with <code>.locale('ru')</code>.
+</p>
+
+#### Examples
+
+```ts
+const now = dayjs().tz('Europe/Moscow').format('DD.MM.YYYY HH:mm');
+const birthday = dayjs(message.text, 'DD.MM.YYYY', true);
+const valid = birthday.isValid();
+const tomorrow = dayjs().add(1, 'day').format('MMMM D');
+const late = dayjs().isSameOrAfter(dayjs().tz('Europe/Moscow').hour(18).minute(0));
+const minutes = dayjs.duration({ hours: 2 }).asMinutes();
+```
+
+#### Time inside a workflow
+
+<p>
+  A workflow runs on Temporal, and <code>dayjs()</code> (like <code>Date.now()</code>) returns the workflow's time, not
+  the system clock: replaying the history gives the same result, so both are safe in conditions and branches. To wait
+  until a moment, use the Wait node with a number of milliseconds, for example
+  <code>dayjs().tz('Europe/Moscow').add(1, 'day').hour(9).diff(dayjs())</code>.
+</p>

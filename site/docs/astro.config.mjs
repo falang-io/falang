@@ -92,6 +92,7 @@ export default defineConfig({
             'workflow/local-setup',
             'workflow/integrations',
             'workflow/schedule-triggers',
+            'workflow/dates',
             'workflow/instances',
             'workflow/files',
             'workflow/databases',

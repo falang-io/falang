@@ -9,12 +9,14 @@ import {
   ClientExtensionsProvider,
   type IClientExtensions,
 } from '@falang/workflow-client-common';
+import { installWorkflowMonacoLibs } from './dayjs-monaco-libs.js';
 
 /** Mounts the workflow client into `#root` (or the given element) with the given extension slots. */
 export const renderWorkflowApp = (extensions: IClientExtensions = {}, rootElement?: Element | null): void => {
   const root = rootElement ?? document.querySelector('#root');
   if (!root) throw new Error('Root element not found');
   applyDefaultLanguage(extensions.defaultLanguage);
+  installWorkflowMonacoLibs();
   createRoot(root).render(
     <StrictMode>
       <ClientExtensionsProvider extensions={extensions}>
