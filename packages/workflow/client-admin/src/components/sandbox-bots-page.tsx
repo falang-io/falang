@@ -5,7 +5,8 @@ import { action, makeObservable, observable, runInAction } from 'mobx';
 import { getGlobalI18n } from '@falang/scheme';
 import { ApiCodedError } from '@falang/workflow-client-common';
 import { Alert, Button, Card, Form, Input, InputNumber, Popconfirm, Tag, Typography, message } from 'antd';
-import { adminApi, type IAdminSandboxPlatform } from '../admin-api.js';
+import { adminApi, type IAdminSandboxBlock, type IAdminSandboxPlatform } from '../admin-api.js';
+import { SandboxBlocksCard } from './sandbox-blocks-card.js';
 import {
   buildSandboxPlatformPayload,
   isValidCommandName,
@@ -20,6 +21,9 @@ const errorText = (error: unknown, fallback: string): string => (error instanceo
 export class SandboxBotsPageStore {
   @observable.ref platforms: readonly IAdminSandboxPlatform[] = [];
   @observable bindingTtlMinutes = 15;
+  @observable.ref limits: { readonly messagesPerHour: number; readonly unreachablePerHour: number } | null = null;
+  @observable.ref blocks: readonly IAdminSandboxBlock[] = [];
+  @observable busyBlockId: string | null = null;
   @observable isLoading = true;
   @observable isSavingTtl = false;
   @observable busyVendor: string | null = null;
@@ -32,16 +36,35 @@ export class SandboxBotsPageStore {
   @action async load(): Promise<void> {
     this.isLoading = true;
     try {
-      const settings = await adminApi.getSandboxSettings();
+      const [settings, blocks] = await Promise.all([adminApi.getSandboxSettings(), adminApi.listSandboxBlocks()]);
       runInAction(() => {
         this.platforms = settings.platforms;
         this.bindingTtlMinutes = settings.bindingTtlMinutes;
+        this.limits = settings.limits;
+        this.blocks = blocks;
       });
     } catch (error) {
       message.error(errorText(error, getGlobalI18n().t('workflow-client-admin:sandbox-bots-page.load-failed')));
     }
     runInAction(() => {
       this.isLoading = false;
+    });
+  }
+
+  @action async unblock(id: string): Promise<void> {
+    this.busyBlockId = id;
+    const t = getGlobalI18n().t;
+    try {
+      await adminApi.unblockSandbox(id);
+      runInAction(() => {
+        this.blocks = this.blocks.filter((block) => block.id !== id);
+      });
+      message.success(t('workflow-client-admin:sandbox-bots-page.unblocked'));
+    } catch (error) {
+      message.error(errorText(error, t('workflow-client-admin:sandbox-bots-page.unblock-failed')));
+    }
+    runInAction(() => {
+      this.busyBlockId = null;
     });
   }
 
@@ -216,7 +239,7 @@ const PlatformCard: React.FC<IPlatformCardProps> = observer(({ platform, store }
   );
 });
 
-/** Admin page "Test bots": the binding lifetime and one card per messenger platform with a sandbox adapter. */
+/** Admin page "Test bots": the binding lifetime, one card per messenger platform with a sandbox adapter, blocked accounts. */
 export const SandboxBotsPage: React.FC = observer(() => {
   const t = getGlobalI18n().t;
   const [store] = useState(() => new SandboxBotsPageStore());
@@ -258,6 +281,7 @@ export const SandboxBotsPage: React.FC = observer(() => {
       {store.platforms.map((platform) => (
         <PlatformCard key={platform.vendor} platform={platform} store={store} />
       ))}
+      <SandboxBlocksCard store={store} />
     </div>
   );
 });

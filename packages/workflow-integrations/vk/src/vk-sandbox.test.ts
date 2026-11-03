@@ -85,6 +85,7 @@ describe('vk sandbox adapter', () => {
         method: 'messages.send',
         recipients: ['7'],
         relayToken: 'relay-tok',
+        sendsMessage: true,
       });
       expect(await adapter.relay.inspect(post({ peer_ids: '7' }), '/method/messages.send')).toMatchObject({
         recipients: ['7'],
@@ -204,6 +205,19 @@ describe('vk sandbox adapter', () => {
       ).toHaveProperty('error');
       const get = new Request('http://relay.invalid/x', { headers: { authorization: 'Bearer t' } });
       expect(await adapter.relay.inspect(get, '/method/messages.send')).toHaveProperty('error');
+    });
+
+    it('classifies the answers that mean the community cannot write to the user', () => {
+      const send = { method: 'messages.send', recipients: ['7'], relayToken: 't', sendsMessage: true };
+      const unreachable = adapter.relay.isChatUnreachable!;
+      expect(unreachable(send, 200, { error: { error_code: 901, error_msg: 'no permission' } })).toBe(true);
+      expect(unreachable(send, 200, { error: { error_code: 900 } })).toBe(true);
+      expect(unreachable(send, 200, { response: [{ peer_id: 7, error: { code: 902, description: 'privacy' } }] })).toBe(
+        true,
+      );
+      expect(unreachable(send, 200, { response: [{ peer_id: 7, message_id: 1 }] })).toBe(false);
+      expect(unreachable(send, 200, { error: { error_code: 6 } })).toBe(false);
+      expect(unreachable({ ...send, method: 'messages.edit' }, 200, { error: { error_code: 901 } })).toBe(false);
     });
 
     it('builds the upstream URL and headers from the real token', () => {

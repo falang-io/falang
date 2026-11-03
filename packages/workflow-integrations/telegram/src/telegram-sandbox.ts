@@ -5,6 +5,7 @@ import {
   type ISandboxChatCommand,
   type IIntegrationDocumentRecord,
   type ISandboxIngressContext,
+  type ISandboxRelayCall,
   type ISandboxUpdateInfo,
   type TSandboxRelayDecision,
 } from '@falang/workflow-integrations-common';
@@ -35,6 +36,27 @@ export const TELEGRAM_RELAY_METHODS: readonly string[] = [
   'sendDocument',
   'sendChatAction',
 ];
+
+/** The relay methods that create a message (counted against the per-account message limit). */
+const TELEGRAM_SEND_METHODS: ReadonlySet<string> = new Set([
+  'sendMessage',
+  'sendPhoto',
+  'sendVideo',
+  'sendAudio',
+  'sendVoice',
+  'sendDocument',
+]);
+
+/**
+ * The bot cannot write to the chat: any 403 (`bot was blocked by the user`, `bot can't initiate conversation with a
+ * user`, `user is deactivated`) or a 400 `chat not found` (a chat the bot never talked to).
+ */
+const isChatUnreachable = (call: ISandboxRelayCall, status: number, responseBody: unknown): boolean => {
+  if (!TELEGRAM_SEND_METHODS.has(call.method)) return false;
+  if (status === 403) return true;
+  const description = (responseBody as { description?: unknown } | null | undefined)?.description;
+  return status === 400 && typeof description === 'string' && /chat not found|user not found/i.test(description);
+};
 
 const RELAY_PATH_PATTERN = /^\/bot([^/]+)\/([A-Za-z]+)$/;
 const START_PATTERN = /^\/start(?:@\S+)?(?:\s+(\S+))?\s*$/;
@@ -137,7 +159,12 @@ const inspect = async (request: Request, path: string): Promise<TSandboxRelayDec
   const search = new URL(request.url, 'http://relay.invalid').searchParams;
   const chatId = await readChatId(request, search);
   if (!chatId) return { error: 'chat_id is required' };
-  return { method, recipients: [chatId], relayToken };
+  return {
+    method,
+    recipients: [chatId],
+    relayToken,
+    ...(TELEGRAM_SEND_METHODS.has(method) ? { sendsMessage: true } : {}),
+  };
 };
 
 const getBotInfo = async (token: string): Promise<ISandboxBotInfo> => {
@@ -209,5 +236,6 @@ export const telegramSandboxAdapter: ISandboxBotAdapter = {
       const method = RELAY_PATH_PATTERN.exec(path)?.[2] ?? '';
       return `${TELEGRAM_API_BASE_URL}/bot${token}/${method}${search}`;
     },
+    isChatUnreachable,
   },
 };

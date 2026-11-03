@@ -122,7 +122,9 @@ export const createFakeMessenger = async () => {
         const relayToken = match[1] ?? '';
         const method = match[2] ?? '';
         const body = (await req.json()) as { chat_id?: string | number; message_id?: string };
-        if (method === 'sendMessage') return { method, recipients: [String(body.chat_id)], relayToken };
+        if (method === 'sendMessage') {
+          return { method, recipients: [String(body.chat_id)], relayToken, sendsMessage: true };
+        }
         // Id-only edit (MAX `PUT /messages`), an upload (nothing addressed), and two malformed decisions.
         if (method === 'editMessage')
           return { method, recipients: [], messageIds: [String(body.message_id)], relayToken };
@@ -140,6 +142,8 @@ export const createFakeMessenger = async () => {
       },
       upstreamUrl: (token, path, search) => `${upstreamBase}${path.replace(/^\/bot[^/]+/, `/bot${token}`)}${search}`,
       upstreamHeaders: (token) => ({ 'x-real-token': token }),
+      // A 403 on a send is "the bot can't reach the chat", like Telegram's `bot was blocked by the user`.
+      isChatUnreachable: (call, status) => call.method === 'sendMessage' && status === 403,
     },
   };
 

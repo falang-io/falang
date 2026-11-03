@@ -9,7 +9,9 @@ import { RunJournalModule } from '../run-journal/run-journal.module.js';
 import { UsersModule } from '../users/users/users.module.js';
 import { AdminSandboxBotsController } from './admin-sandbox-bots.controller.js';
 import { InternalSandboxRelayController } from './internal-sandbox-relay.controller.js';
+import { SandboxAbuseService } from './sandbox-abuse.service.js';
 import { SandboxBindingsService } from './sandbox-bindings.service.js';
+import { SandboxBotBlock } from './sandbox-bot-block.entity.js';
 import { SandboxBotBinding } from './sandbox-bot-binding.entity.js';
 import { SandboxBotLinkCode } from './sandbox-bot-link-code.entity.js';
 import { SandboxBotMessage } from './sandbox-bot-message.entity.js';
@@ -22,11 +24,18 @@ import { SandboxRelayService } from './sandbox-relay.service.js';
 
 /**
  * Sandbox messenger bots (ADR 0073 (private)): the platform's shared test bots, chat bindings, link codes, the dev-target
- * ingress registry and the outbound relay. `SandboxBotsService` is exported for the credential resolver.
+ * ingress registry, the outbound relay and its abuse protection. `SandboxBotsService` is exported for the credential resolver.
  */
 @Module({
   imports: [
-    TypeOrmModule.forFeature([SandboxBotBinding, SandboxBotLinkCode, SandboxBotMessage, Project, Document]),
+    TypeOrmModule.forFeature([
+      SandboxBotBinding,
+      SandboxBotLinkCode,
+      SandboxBotMessage,
+      SandboxBotBlock,
+      Project,
+      Document,
+    ]),
     AppSettingsModule,
     ProjectsModule,
     ProjectTokenModule,
@@ -43,6 +52,7 @@ import { SandboxRelayService } from './sandbox-relay.service.js';
     { provide: SANDBOX_INTEGRATIONS, useFactory: defaultSandboxIntegrations },
     SandboxBotSettingsService,
     SandboxBindingsService,
+    SandboxAbuseService,
     SandboxBotsService,
     SandboxRelayService,
   ],

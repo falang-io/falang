@@ -3,6 +3,7 @@ import {
   Controller,
   ConflictException,
   Delete,
+  ForbiddenException,
   Get,
   HttpCode,
   HttpStatus,
@@ -15,6 +16,7 @@ import {
 import { CurrentUser } from '../auth/auth/current-user.decorator.js';
 import type { IJwtPayloadUser } from '../auth/auth/jwt.strategy.js';
 import { ProjectsService } from '../projects/projects/projects.service.js';
+import { SandboxAbuseService } from './sandbox-abuse.service.js';
 import { SandboxBindingsService } from './sandbox-bindings.service.js';
 import { SandboxBotSettingsService } from './sandbox-bot-settings.service.js';
 import { SandboxBotsService } from './sandbox-bots.service.js';
@@ -40,17 +42,20 @@ export class SandboxBotsController {
   private readonly bindings: SandboxBindingsService;
   private readonly settings: SandboxBotSettingsService;
   private readonly projects: ProjectsService;
+  private readonly abuse: SandboxAbuseService;
 
   constructor(
     @Inject(SandboxBotsService) bots: SandboxBotsService,
     @Inject(SandboxBindingsService) bindings: SandboxBindingsService,
     @Inject(SandboxBotSettingsService) settings: SandboxBotSettingsService,
     @Inject(ProjectsService) projects: ProjectsService,
+    @Inject(SandboxAbuseService) abuse: SandboxAbuseService,
   ) {
     this.bots = bots;
     this.bindings = bindings;
     this.settings = settings;
     this.projects = projects;
+    this.abuse = abuse;
   }
 
   @Get('sandbox-bots')
@@ -84,6 +89,12 @@ export class SandboxBotsController {
       throw new PreconditionFailedException({
         code: 'sandbox_not_configured',
         message: 'No test bot is configured for this messenger',
+      });
+    }
+    if (await this.abuse.isBlocked(instance.vendor, await this.projects.getOwnerId(projectId))) {
+      throw new ForbiddenException({
+        code: 'sandbox_blocked',
+        message: 'The test bot is blocked for the project owner after too many undeliverable messages',
       });
     }
     const { code, expiresAt } = await this.bindings.createLinkCode({

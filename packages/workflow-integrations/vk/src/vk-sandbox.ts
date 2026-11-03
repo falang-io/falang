@@ -2,6 +2,7 @@ import type {
   ISandboxBotAdapter,
   ISandboxBotInfo,
   ISandboxIngressContext,
+  ISandboxRelayCall,
   ISandboxUpdateInfo,
   TSandboxRelayDecision,
 } from '@falang/workflow-integrations-common';
@@ -202,12 +203,33 @@ const inspect = async (request: Request, path: string): Promise<TSandboxRelayDec
     if (hasPeerId === hasPeerIds) return { error: 'Exactly one of peer_id or peer_ids is required' };
     const peer = singlePeerId(params, hasPeerId ? 'peer_id' : 'peer_ids');
     if (!peer) return { error: 'Exactly one numeric peer is required' };
-    return { method, recipients: [peer], relayToken };
+    return { method, recipients: [peer], relayToken, sendsMessage: true };
   }
   if (!PEER_METHODS.has(method)) return { error: `VK method ${method} is not allowed in the test bot` };
   const peer = singlePeerId(params, 'peer_id');
   if (!peer) return { error: 'peer_id is required' };
   return { method, recipients: [peer], relayToken };
+};
+
+/**
+ * VK error codes meaning the community cannot write to the user: 900 (the user blacklisted the community), 901 (no
+ * permission — the user never wrote or forbade messages), 902 (privacy settings).
+ */
+const VK_UNREACHABLE_CODES: ReadonlySet<number> = new Set([900, 901, 902]);
+
+/**
+ * VK answers HTTP 200 with `{ error: { error_code } }` for `peer_id`, and with `{ response: [{ error: { code } }] }`
+ * per peer for `peer_ids`.
+ */
+const isChatUnreachable = (call: ISandboxRelayCall, _status: number, responseBody: unknown): boolean => {
+  if (call.method !== 'messages.send') return false;
+  const body = responseBody as { error?: { error_code?: unknown }; response?: unknown } | null | undefined;
+  if (typeof body?.error?.error_code === 'number' && VK_UNREACHABLE_CODES.has(body.error.error_code)) return true;
+  if (!Array.isArray(body?.response)) return false;
+  return body.response.some((item: unknown) => {
+    const code = (item as { error?: { code?: unknown } } | null)?.error?.code;
+    return typeof code === 'number' && VK_UNREACHABLE_CODES.has(code);
+  });
 };
 
 const getBotInfo = async (token: string): Promise<ISandboxBotInfo> => {
@@ -244,5 +266,6 @@ export const vkSandboxAdapter: ISandboxBotAdapter = {
     inspect,
     upstreamUrl: (_token, path, search) => `${VK_API_BASE_URL}${path}${search}`,
     upstreamHeaders: (token) => ({ Authorization: `Bearer ${token}` }),
+    isChatUnreachable,
   },
 };

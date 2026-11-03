@@ -24,6 +24,7 @@ import { Document } from '../projects/documents/document.entity.js';
 import { Project } from '../projects/projects/project.entity.js';
 import { RunJournalService } from '../run-journal/run-journal.service.js';
 import { UsersService } from '../users/users/users.service.js';
+import { SandboxAbuseService } from './sandbox-abuse.service.js';
 import { SandboxBindingsService } from './sandbox-bindings.service.js';
 import { buildSandboxBotTexts, type ISandboxBotTexts } from './sandbox-bot-texts.js';
 import { SandboxBotSettingsService } from './sandbox-bot-settings.service.js';
@@ -62,6 +63,7 @@ export class SandboxBotsService implements ISandboxIngressPort, OnApplicationBoo
   private readonly documents: Repository<Document>;
   private readonly config: ConfigService;
   private readonly users: UsersService;
+  private readonly abuse: SandboxAbuseService;
   private readonly journal: RunJournalService | undefined;
   private readonly runtime: IntegrationsRuntimeService | undefined;
 
@@ -80,6 +82,7 @@ export class SandboxBotsService implements ISandboxIngressPort, OnApplicationBoo
     @InjectRepository(Document) documents: Repository<Document>,
     @Inject(ConfigService) config: ConfigService,
     @Inject(UsersService) users: UsersService,
+    @Inject(SandboxAbuseService) abuse: SandboxAbuseService,
     @Optional() @Inject(RunJournalService) journal?: RunJournalService,
     @Optional() @Inject(IntegrationsRuntimeService) runtime?: IntegrationsRuntimeService,
   ) {
@@ -90,6 +93,7 @@ export class SandboxBotsService implements ISandboxIngressPort, OnApplicationBoo
     this.documents = documents;
     this.config = config;
     this.users = users;
+    this.abuse = abuse;
     this.journal = journal;
     this.runtime = runtime;
   }
@@ -396,6 +400,8 @@ export class SandboxBotsService implements ISandboxIngressPort, OnApplicationBoo
     const binding = await this.bindings.findBinding(vendor, info.chatId);
     if (!binding) return reply(texts.notConnected());
     if (!(await this.bindings.isLive(binding))) return reply(texts.expired());
+    const owner = await this.projects.findOneBy({ id: binding.projectId });
+    if (owner && (await this.abuse.isBlocked(vendor, owner.ownerId))) return reply(texts.blocked());
 
     const handler = this.subscribers.get(
       subscriberKey({ vendor, projectId: binding.projectId, credentialId: binding.credentialId }),

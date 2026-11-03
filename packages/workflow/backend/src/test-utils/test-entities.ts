@@ -22,6 +22,7 @@ import { ProjectCommit } from '../domains/projects/versioning/project-commit.ent
 import { SupportMessage } from '../domains/support/support-message.entity.js';
 import { SandboxBotBinding } from '../domains/sandbox-bots/sandbox-bot-binding.entity.js';
 import { SandboxBotLinkCode } from '../domains/sandbox-bots/sandbox-bot-link-code.entity.js';
+import { SandboxBotBlock } from '../domains/sandbox-bots/sandbox-bot-block.entity.js';
 import { SandboxBotMessage } from '../domains/sandbox-bots/sandbox-bot-message.entity.js';
 import { User } from '../domains/users/users/user.entity.js';
 
@@ -51,4 +52,5 @@ export const TEST_ENTITIES = [
   SandboxBotBinding,
   SandboxBotLinkCode,
   SandboxBotMessage,
+  SandboxBotBlock,
 ];

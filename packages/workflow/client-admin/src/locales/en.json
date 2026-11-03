@@ -277,7 +277,19 @@
       "delete-failed": "Couldn't delete",
       "check-ok": "Bot @{{username}} is reachable",
       "check-failed": "Check failed: {{error}}",
-      "no-platforms": "No messenger integration supports test bots yet."
+      "no-platforms": "No messenger integration supports test bots yet.",
+      "blocks-title": "Blocked accounts",
+      "blocks-description": "The test bot is blocked for an account after {{limit}} messages within an hour could not be delivered (the bot was blocked or never started). Each account may also send at most {{messages}} messages per hour.",
+      "blocks-empty": "No blocked accounts",
+      "blocks-user": "Account",
+      "blocks-platform": "Messenger",
+      "blocks-reason": "Reason",
+      "blocks-since": "Blocked at",
+      "blocks-reason-unreachable_chats": "Undeliverable messages",
+      "unblock": "Unblock",
+      "unblock-title": "Lift the block for this account?",
+      "unblocked": "Block lifted",
+      "unblock-failed": "Couldn't lift the block"
     }
   }
 }

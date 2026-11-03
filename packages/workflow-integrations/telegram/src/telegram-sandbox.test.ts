@@ -71,6 +71,7 @@ describe('telegram sandbox adapter', () => {
         method: 'sendMessage',
         recipients: ['42'],
         relayToken: 'tok',
+        sendsMessage: true,
       });
     });
     it('reads chat_id from multipart', async () => {
@@ -82,7 +83,9 @@ describe('telegram sandbox adapter', () => {
     });
     it('reads chat_id from the query', async () => {
       const request = new Request('http://relay/x?chat_id=5', { method: 'POST' });
-      expect(await adapter.relay.inspect(request, '/bottok/sendChatAction')).toMatchObject({ recipients: ['5'] });
+      const decision = await adapter.relay.inspect(request, '/bottok/sendChatAction');
+      expect(decision).toMatchObject({ recipients: ['5'] });
+      expect(decision).not.toHaveProperty('sendsMessage');
     });
     it('refuses a chat_id that differs between the query and the body', async () => {
       const mixed = json('sendMessage', { chat_id: 666, text: 'a' }, '?chat_id=5');
@@ -98,6 +101,16 @@ describe('telegram sandbox adapter', () => {
         'error',
       );
       expect(await adapter.relay.inspect(json('sendMessage', { chat_id: 1 }), '/nope')).toHaveProperty('error');
+    });
+    it('classifies the answers that mean the bot cannot write to the chat', () => {
+      const send = { method: 'sendMessage', recipients: ['1'], relayToken: 't', sendsMessage: true };
+      const unreachable = adapter.relay.isChatUnreachable!;
+      expect(unreachable(send, 403, { ok: false, description: 'Forbidden: bot was blocked by the user' })).toBe(true);
+      expect(unreachable({ ...send, method: 'sendPhoto' }, 403, null)).toBe(true);
+      expect(unreachable(send, 400, { ok: false, description: 'Bad Request: chat not found' })).toBe(true);
+      expect(unreachable(send, 400, { ok: false, description: 'Bad Request: message text is empty' })).toBe(false);
+      expect(unreachable(send, 429, { ok: false })).toBe(false);
+      expect(unreachable({ ...send, method: 'sendChatAction' }, 403, null)).toBe(false);
     });
     it('builds the upstream URL with the real token', () => {
       expect(adapter.relay.upstreamUrl('real', '/bottok/sendMessage', '?a=1')).toMatch(/\/botreal\/sendMessage\?a=1$/);

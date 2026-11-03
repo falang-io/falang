@@ -1,8 +1,10 @@
-// oxlint-disable complexity, init-declarations, no-undefined -- one linear validate-then-forward pipeline; absent values are real.
+// oxlint-disable complexity, init-declarations, no-undefined, max-lines -- one linear validate-then-forward pipeline; absent values are real.
 import { Inject, Injectable, Logger, type OnApplicationBootstrap, type OnModuleDestroy } from '@nestjs/common';
 import { runWithEgressVendor } from '@falang/workflow-egress';
 import type { ISandboxRelay, ISandboxRelayCall } from '@falang/workflow-integrations-common';
 import { ProjectTokenService } from '../internal-auth/project-token.service.js';
+import { ProjectsService } from '../projects/projects/projects.service.js';
+import { SANDBOX_MESSAGES_PER_HOUR, SandboxAbuseService } from './sandbox-abuse.service.js';
 import { SandboxBindingsService } from './sandbox-bindings.service.js';
 import { SandboxBotsService } from './sandbox-bots.service.js';
 
@@ -24,6 +26,8 @@ const TRANSPORT_HEADERS = new Set([
 /** The pod's own auth: visible to the adapter (MAX carries the relay token in `Authorization`), never forwarded upstream. */
 const POD_AUTH_HEADERS = new Set(['authorization', 'x-internal-project-token']);
 const MESSAGE_DENIED = "Forbidden: the message does not belong to this project's connected chat";
+const BLOCKED =
+  'Forbidden: sandbox_blocked: the test bot is blocked for the project owner after too many undeliverable messages; an administrator can lift the block';
 
 export interface IRelayRequest {
   readonly method: string;
@@ -55,6 +59,14 @@ const errorResponse = (status: number, description: string, retryAfter?: number)
   ),
 });
 
+const parseJson = (body: Uint8Array): unknown => {
+  try {
+    return JSON.parse(Buffer.from(body).toString('utf8')) as unknown;
+  } catch {
+    return undefined;
+  }
+};
+
 interface IBucket {
   tokens: number;
   at: number;
@@ -63,7 +75,9 @@ interface IBucket {
 /**
  * The outbound relay (ADR 0073 (private)): a runner pod's sandbox-mode vendor calls land here instead of at the messenger.
  * The adapter inspects the call (allowlist, recipients), the host checks the token and that every recipient is a live chat
- * bound to the calling project, applies rate limits, and only then forwards with the real test-bot token.
+ * bound to the calling project, refuses an owner the test bot is blocked for, applies rate limits (per project, per chat,
+ * and the owner's hourly message limit for sends), and only then forwards with the real test-bot token. A send the
+ * messenger refuses because the bot can't reach the chat counts towards the owner's block (`SandboxAbuseService`).
  */
 @Injectable()
 export class SandboxRelayService implements OnApplicationBootstrap, OnModuleDestroy {
@@ -71,6 +85,8 @@ export class SandboxRelayService implements OnApplicationBootstrap, OnModuleDest
   private readonly bots: SandboxBotsService;
   private readonly bindings: SandboxBindingsService;
   private readonly tokens: ProjectTokenService;
+  private readonly projects: ProjectsService;
+  private readonly abuse: SandboxAbuseService;
   private readonly chatBuckets = new Map<string, IBucket>();
   private readonly projectWindows = new Map<string, { count: number; start: number }>();
   /** Test seam: the upstream HTTP call. */
@@ -81,10 +97,14 @@ export class SandboxRelayService implements OnApplicationBootstrap, OnModuleDest
     @Inject(SandboxBotsService) bots: SandboxBotsService,
     @Inject(SandboxBindingsService) bindings: SandboxBindingsService,
     @Inject(ProjectTokenService) tokens: ProjectTokenService,
+    @Inject(ProjectsService) projects: ProjectsService,
+    @Inject(SandboxAbuseService) abuse: SandboxAbuseService,
   ) {
     this.bots = bots;
     this.bindings = bindings;
     this.tokens = tokens;
+    this.projects = projects;
+    this.abuse = abuse;
   }
 
   private pruneTimer: NodeJS.Timeout | undefined;
@@ -131,6 +151,7 @@ export class SandboxRelayService implements OnApplicationBootstrap, OnModuleDest
     for (const [key, window] of this.projectWindows) {
       if (now - window.start >= PROJECT_WINDOW_MS) this.projectWindows.delete(key);
     }
+    this.abuse.prune();
   }
 
   /** Stores the messages a successful call created, for later id-only calls. Never fails the call. */
@@ -140,20 +161,34 @@ export class SandboxRelayService implements OnApplicationBootstrap, OnModuleDest
     relay: ISandboxRelay,
     call: ISandboxRelayCall,
     recipients: readonly string[],
-    body: Uint8Array,
+    parsed: unknown,
   ): Promise<void> {
-    if (!relay.sentMessages) return;
+    if (!relay.sentMessages || parsed === undefined) return;
     try {
-      let parsed: unknown;
-      try {
-        parsed = JSON.parse(Buffer.from(body).toString('utf8'));
-      } catch {
-        return;
-      }
       const sent = relay.sentMessages(call, parsed).filter((item) => recipients.includes(item.chatId));
       await this.bindings.recordMessages(vendor, projectId, sent);
     } catch (error) {
       this.logger.warn(`Could not record sent sandbox messages: ${error instanceof Error ? error.message : error}`);
+    }
+  }
+
+  /** Feeds a "the bot can't reach the chat" answer into the account's abuse counter. Never fails the call. */
+  private async countUnreachable(
+    vendor: string,
+    ownerId: string,
+    projectId: string,
+    relay: ISandboxRelay,
+    call: ISandboxRelayCall,
+    status: number,
+    parsed: unknown,
+  ): Promise<void> {
+    try {
+      if (!relay.isChatUnreachable?.(call, status, parsed)) return;
+      await this.abuse.recordUnreachable(vendor, ownerId, { projectId, chatId: call.recipients[0] ?? null });
+    } catch (error) {
+      this.logger.warn(
+        `Could not count an undeliverable sandbox message: ${error instanceof Error ? error.message : error}`,
+      );
     }
   }
 
@@ -212,11 +247,29 @@ export class SandboxRelayService implements OnApplicationBootstrap, OnModuleDest
       if (!allowed.has(chat)) return errorResponse(403, MESSAGE_DENIED);
     }
 
+    let ownerId: string;
+    try {
+      ownerId = await this.projects.getOwnerId(projectId);
+    } catch {
+      return errorResponse(404, 'Not Found: the project does not exist');
+    }
+    if (await this.abuse.isBlocked(vendor, ownerId)) return errorResponse(403, BLOCKED);
+
     const projectWait = this.takeProject(projectId);
     if (projectWait > 0) return errorResponse(429, `Too Many Requests: retry after ${projectWait}`, projectWait);
     for (const recipient of chats) {
       const wait = this.takeChat(`${vendor}:${recipient}`);
       if (wait > 0) return errorResponse(429, `Too Many Requests: retry after ${wait}`, wait);
+    }
+    if (decision.sendsMessage === true) {
+      const wait = this.abuse.takeMessage(vendor, ownerId);
+      if (wait > 0) {
+        return errorResponse(
+          429,
+          `Too Many Requests: the test bot sends at most ${SANDBOX_MESSAGES_PER_HOUR} messages per hour per account; retry after ${wait}`,
+          wait,
+        );
+      }
     }
 
     const upstreamHeaders = new Headers(upstreamBase);
@@ -237,10 +290,12 @@ export class SandboxRelayService implements OnApplicationBootstrap, OnModuleDest
       return errorResponse(502, `Bad Gateway: ${error instanceof Error ? error.message : 'upstream unreachable'}`);
     }
     const body = new Uint8Array(await upstream.arrayBuffer());
+    const parsed = parseJson(body);
     if (upstream.ok) {
       await this.bindings.touch(live.filter((binding) => allowed.has(binding.chatId)).map((b) => b.id));
-      await this.recordSentMessages(vendor, projectId, adapter.relay, decision, recipients, body);
+      await this.recordSentMessages(vendor, projectId, adapter.relay, decision, recipients, parsed);
     }
+    await this.countUnreachable(vendor, ownerId, projectId, adapter.relay, decision, upstream.status, parsed);
     return { status: upstream.status, contentType: upstream.headers.get('content-type') ?? undefined, body };
   }
 }

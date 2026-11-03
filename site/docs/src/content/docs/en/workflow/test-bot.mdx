@@ -70,7 +70,14 @@ head:
   </li>
   <li>
     Limits protect the shared bot: only the messages of the connected chat are sent to it, and the number of calls per
-    project and per chat is bounded.
+    project and per chat is bounded. On top of that, all projects of one owner may send at most <b>100 messages per
+    hour</b> through a messenger's test bot.
+  </li>
+  <li>
+    If within an hour <b>15 messages</b> of the owner's projects can't be delivered because the bot can't write to the
+    chat (the user blocked the bot or never started it), the test bot of that messenger is <b>blocked</b> for the owner:
+    sending, new connect links and incoming messages stop for all their projects until an administrator lifts the
+    block.
   </li>
 </ul>
 
@@ -81,7 +88,9 @@ head:
   MAX — on the MAX bot platform, for VK — a community with messages allowed and a community access key with message
   rights) and paste its token: the token is checked and the bot's name is shown. Here you can also set the{' '}
   <b>connection lifetime</b> (minutes since the last activity, 15 by default), rename the service command, check the
-  token again, or delete the test bot (users then no longer see the switch's link and connections stay inert).
+  token again, or delete the test bot (users then no longer see the switch's link and connections stay inert). The{' '}
+  <b>Blocked accounts</b> table at the bottom lists the owners the test bot was blocked for after too many undeliverable
+  messages; <b>Unblock</b> lifts the block and resets their counters.
 </p>
 <p>
   The test bot is served by the backend itself: with <code>GATEWAY_PUBLIC_HOST</code> set it uses a webhook, otherwise

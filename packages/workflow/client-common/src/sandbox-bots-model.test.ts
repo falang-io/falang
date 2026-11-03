@@ -56,6 +56,7 @@ describe('formatRemaining', () => {
 describe('sandboxErrorKey', () => {
   it('maps known codes', () => {
     expect(sandboxErrorKey('sandbox_off')).toBe('sandbox-error-off');
+    expect(sandboxErrorKey('sandbox_blocked')).toBe('sandbox-error-blocked');
     expect(sandboxErrorKey('sandbox_not_configured')).toBe('sandbox-error-not-configured');
     expect(sandboxErrorKey()).toBe('sandbox-error-generic');
   });

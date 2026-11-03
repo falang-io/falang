@@ -1,4 +1,4 @@
-// oxlint-disable typescript-eslint/no-non-null-assertion, init-declarations -- test captures handlers registered through callbacks.
+// oxlint-disable typescript-eslint/no-non-null-assertion, init-declarations, max-lines -- test captures handlers registered through callbacks.
 import { TRIGGER_FUNCTION_NAME } from '@falang/workflow-dto';
 import type { IIntegrationBackendContext, ISandboxIngressContext } from '@falang/workflow-integrations-common';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
@@ -84,6 +84,7 @@ describe('max sandbox adapter', () => {
         method: 'POST messages',
         recipients: ['42'],
         relayToken: 'relay-tok',
+        sendsMessage: true,
       });
     });
 
@@ -144,6 +145,16 @@ describe('max sandbox adapter', () => {
         'https://platform-api2.max.ru/messages?chat_id=42',
       );
       expect(relay.upstreamHeaders!('real')).toEqual({ Authorization: 'real' });
+    });
+
+    it('classifies the answers that mean the bot cannot write to the chat', () => {
+      const send = { method: 'POST messages', recipients: ['42'], relayToken: 't', sendsMessage: true };
+      const unreachable = relay.isChatUnreachable!;
+      expect(unreachable(send, 403, { code: 'chat.denied', message: 'blocked' })).toBe(true);
+      expect(unreachable(send, 404, { code: 'chat.not.found' })).toBe(true);
+      expect(unreachable(send, 404, { code: 'not.found' })).toBe(false);
+      expect(unreachable(send, 400, { code: 'proto.payload' })).toBe(false);
+      expect(unreachable({ ...send, method: 'PUT messages' }, 403, null)).toBe(false);
     });
 
     it('reports the message a POST /messages created', () => {

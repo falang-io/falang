@@ -254,6 +254,7 @@
       "sandbox-disconnect-confirm": "Disconnect this chat?",
       "sandbox-error-off": "Test bot mode is switched off for this integration — enable it and save first",
       "sandbox-error-not-configured": "The test bot for this messenger is not configured by the administrator",
+      "sandbox-error-blocked": "The test bot is blocked for the owner of this project: too many messages within an hour could not be delivered (the bot was blocked or never started). Contact support to lift the block.",
       "sandbox-error-generic": "Something went wrong, try again"
     },
     "project-tree": {

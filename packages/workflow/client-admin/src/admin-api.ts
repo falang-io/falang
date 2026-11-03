@@ -90,6 +90,21 @@ export interface IAdminSandboxPlatform {
 export interface IAdminSandboxSettings {
   readonly bindingTtlMinutes: number;
   readonly platforms: IAdminSandboxPlatform[];
+  /** Fixed abuse limits per account and messenger. */
+  readonly limits: { readonly messagesPerHour: number; readonly unreachablePerHour: number };
+}
+
+/** One row of `GET /admin/settings/sandbox-bots/blocks`: an account the test bot of a messenger is blocked for. */
+export interface IAdminSandboxBlock {
+  readonly id: string;
+  readonly vendor: string;
+  readonly userId: string;
+  readonly username: string | null;
+  readonly email: string | null;
+  /** `unreachable_chats` today. */
+  readonly reason: string;
+  readonly projectId: string | null;
+  readonly createdAt: string;
 }
 
 export type TAdminSandboxCheck =
@@ -270,6 +285,11 @@ export const adminApi = {
     apiRequest<TAdminSandboxCheck>(`/admin/settings/sandbox-bots/${encodeURIComponent(vendor)}/check`, {
       method: 'POST',
     }),
+
+  listSandboxBlocks: () => apiRequest<IAdminSandboxBlock[]>('/admin/settings/sandbox-bots/blocks'),
+
+  unblockSandbox: (id: string) =>
+    apiRequest<null>(`/admin/settings/sandbox-bots/blocks/${encodeURIComponent(id)}`, { method: 'DELETE' }),
 
   listProjectTemplates: () => apiRequest<IAdminProjectTemplate[]>('/admin/project-templates'),
 

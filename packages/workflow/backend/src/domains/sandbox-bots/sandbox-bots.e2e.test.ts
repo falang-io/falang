@@ -60,6 +60,7 @@ describe('sandbox bots: settings, link codes, routing', () => {
       expect(initial.body).toEqual({
         bindingTtlMinutes: 15,
         platforms: [{ vendor: 'fakegram', configured: false, username: null, title: null, commandName: 'falang' }],
+        limits: { messagesPerHour: 100, unreachablePerHour: 15 },
       });
 
       const saved = await configureBot().then((r) => r);

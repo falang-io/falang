@@ -15,6 +15,8 @@ export interface ISandboxBotTexts {
   notConnected(): string;
   standStopped(projectName: string): string;
   disconnectedFromEditor(): string;
+  /** The test bot is blocked for the owner of the bound project (abuse protection). */
+  blocked(): string;
   /** Description of the service command in the chat's command menu. */
   serviceCommandDescription(): string;
 }
@@ -34,6 +36,8 @@ export const buildSandboxBotTexts = (language: string | undefined): ISandboxBotT
       notConnected: () => 'Чат не подключён к проекту. Откройте ссылку подключения из редактора.',
       standStopped: (name) => `Тестовый стенд проекта «${name}» остановлен — запустите его в редакторе.`,
       disconnectedFromEditor: () => 'Чат отключён от проекта в редакторе.',
+      blocked: () =>
+        'Тестовый бот заблокирован для владельца этого проекта: слишком много сообщений не удалось доставить. Обратитесь в поддержку.',
       serviceCommandDescription: () => 'Статус подключения тестового бота',
     };
   }
@@ -48,6 +52,8 @@ export const buildSandboxBotTexts = (language: string | undefined): ISandboxBotT
     notConnected: () => 'This chat is not connected to a project. Open the connect link from the editor.',
     standStopped: (name) => `The test stand of project «${name}» is stopped — start it in the editor.`,
     disconnectedFromEditor: () => 'The chat was disconnected from the project in the editor.',
+    blocked: () =>
+      'The test bot is blocked for the owner of this project: too many messages could not be delivered. Please contact support.',
     serviceCommandDescription: () => 'Test bot connection status',
   };
 };

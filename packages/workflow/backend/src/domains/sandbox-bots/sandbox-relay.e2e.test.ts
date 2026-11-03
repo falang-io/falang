@@ -7,6 +7,11 @@ import { auth, login } from '../../test-utils/e2e-app.js';
 import { ProjectTokenService } from '../internal-auth/project-token.service.js';
 import { getRepositoryToken } from '@nestjs/typeorm';
 import type { Repository } from 'typeorm';
+import {
+  SANDBOX_MESSAGES_PER_HOUR,
+  SANDBOX_UNREACHABLE_PER_HOUR,
+  SandboxAbuseService,
+} from './sandbox-abuse.service.js';
 import { SandboxBindingsService } from './sandbox-bindings.service.js';
 import { SandboxBotMessage } from './sandbox-bot-message.entity.js';
 import { SandboxBotsService } from './sandbox-bots.service.js';
@@ -377,6 +382,135 @@ describe('sandbox bots: credential resolver and outbound relay', () => {
       await app.get(SandboxBindingsService).sweep();
       const left = (await repo.find()).map((r) => r.messageId).toSorted();
       expect(left).toEqual(['live-new', 'live-old', 'orphan-new']);
+    });
+  });
+  describe('abuse protection', () => {
+    const HOUR = 60 * 60_000;
+    /** One clock for the relay's limiters and the abuse windows (bindings keep the real clock, so they stay live). */
+    const clock = () => {
+      const state = { now: 1_000_000 };
+      app.get(SandboxRelayService).now = () => state.now;
+      app.get(SandboxAbuseService).now = () => state.now;
+      return state;
+    };
+    const send = (projectId: string, chat = '42') =>
+      request(server())
+        .post(relayPath(projectId, projectToken(projectId)))
+        .send({ chat_id: chat, text: 'x' });
+    /** Sends `count` messages a little more than a second apart, so the per-chat and per-project limits never bite. */
+    const sendSpaced = async (projectId: string, count: number, time: { now: number }) => {
+      const statuses: number[] = [];
+      for (let i = 0; i < count; i += 1) {
+        time.now += 1100;
+        statuses.push((await send(projectId)).status);
+      }
+      return statuses;
+    };
+
+    it(`lets an account send ${SANDBOX_MESSAGES_PER_HOUR} messages per hour, counting sends only`, async () => {
+      const { alice, projectId } = await setup();
+      await bindChat(alice, projectId, '42');
+      const time = clock();
+      const statuses = await sendSpaced(projectId, SANDBOX_MESSAGES_PER_HOUR, time);
+      expect(statuses.every((status) => status === 200)).toBe(true);
+      // Calls that create no message are not counted.
+      expect(
+        (
+          await request(server())
+            .post(relayPath(projectId, projectToken(projectId), 'upload'))
+            .send({})
+        ).status,
+      ).toBe(200);
+      time.now += 1100;
+      const limited = await send(projectId);
+      expect(limited.status).toBe(429);
+      expect(limited.body.description).toMatch(/per hour/);
+      expect(limited.body.parameters.retry_after).toBeGreaterThan(60);
+      expect(fake.upstreamCalls).toHaveLength(SANDBOX_MESSAGES_PER_HOUR + 1);
+
+      // Another project of the same owner shares the limit.
+      const second = await createProjectWithInstance(app, alice, { id: CRED, devSandbox: true });
+      await bindChat(alice, second, '43');
+      time.now += 1100;
+      expect((await send(second, '43')).status).toBe(429);
+
+      time.now += HOUR;
+      expect((await send(projectId)).status).toBe(200);
+    });
+
+    it(`blocks the test bot for the owner after ${SANDBOX_UNREACHABLE_PER_HOUR} undeliverable messages within an hour`, async () => {
+      const { alice, projectId } = await setup();
+      const second = await createProjectWithInstance(app, alice, { id: CRED, devSandbox: true });
+      const bob = await registerUser(app, 'bob');
+      const bobProject = await createProjectWithInstance(app, bob, { id: CRED, devSandbox: true });
+      await bindChat(alice, projectId, '42');
+      await bindChat(bob, bobProject, '77');
+      const time = clock();
+
+      fake.state.upstreamStatus = 403;
+      const statuses = await sendSpaced(projectId, SANDBOX_UNREACHABLE_PER_HOUR, time);
+      expect(statuses.every((status) => status === 403)).toBe(true);
+      expect(fake.upstreamCalls).toHaveLength(SANDBOX_UNREACHABLE_PER_HOUR);
+      fake.state.upstreamStatus = 200;
+
+      time.now += 1100;
+      const blocked = await send(projectId);
+      expect(blocked.status).toBe(403);
+      expect(blocked.body.description).toMatch(/sandbox_blocked/);
+      expect(fake.upstreamCalls).toHaveLength(SANDBOX_UNREACHABLE_PER_HOUR);
+
+      // Every project of the owner loses new links; incoming messages get the "blocked" reply instead of the stand.
+      const link = await request(server())
+        .post(`/projects/${second}/integrations/${CRED}/sandbox-link`)
+        .set(auth(alice));
+      expect(link.status).toBe(403);
+      expect(link.body.code).toBe('sandbox_blocked');
+      await app.get(SandboxBotsService).handleUpdate('fakegram', { chat: '42', text: 'hello' });
+      expect(fake.sent.at(-1)).toMatchObject({ chatId: '42', text: expect.stringMatching(/blocked/i) });
+
+      // Another account is not affected.
+      time.now += 1100;
+      expect((await send(bobProject, '77')).status).toBe(200);
+
+      const list = await request(server()).get('/admin/settings/sandbox-bots/blocks').set(auth(adminToken));
+      expect(list.status).toBe(200);
+      expect(list.body).toEqual([
+        expect.objectContaining({ vendor: 'fakegram', username: 'alice', reason: 'unreachable_chats', projectId }),
+      ]);
+      await request(server()).get('/admin/settings/sandbox-bots/blocks').set(auth(alice)).expect(403);
+      await request(server())
+        .delete(`/admin/settings/sandbox-bots/blocks/${list.body[0].id as string}`)
+        .set(auth(adminToken))
+        .expect(204);
+      await request(server())
+        .delete(`/admin/settings/sandbox-bots/blocks/${list.body[0].id as string}`)
+        .set(auth(adminToken))
+        .expect(404);
+
+      time.now += 1100;
+      expect((await send(projectId)).status).toBe(200);
+      // The counter starts afresh after the unblock: one more error doesn't block again.
+      fake.state.upstreamStatus = 403;
+      time.now += 1100;
+      await send(projectId);
+      fake.state.upstreamStatus = 200;
+      time.now += 1100;
+      expect((await send(projectId)).status).toBe(200);
+    });
+
+    it('forgets undeliverable messages older than an hour', async () => {
+      const { alice, projectId } = await setup();
+      await bindChat(alice, projectId, '42');
+      const time = clock();
+      fake.state.upstreamStatus = 403;
+      await sendSpaced(projectId, SANDBOX_UNREACHABLE_PER_HOUR - 1, time);
+      time.now += HOUR;
+      await sendSpaced(projectId, SANDBOX_UNREACHABLE_PER_HOUR - 1, time);
+      fake.state.upstreamStatus = 200;
+      time.now += 1100;
+      expect((await send(projectId)).status).toBe(200);
+      const list = await request(server()).get('/admin/settings/sandbox-bots/blocks').set(auth(adminToken));
+      expect(list.body).toEqual([]);
     });
   });
 });

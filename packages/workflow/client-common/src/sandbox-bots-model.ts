@@ -51,5 +51,6 @@ export const isExpired = (expiresAt: string, now: number): boolean => new Date(e
 export const sandboxErrorKey = (code?: string): string => {
   if (code === 'sandbox_off') return 'sandbox-error-off';
   if (code === 'sandbox_not_configured') return 'sandbox-error-not-configured';
+  if (code === 'sandbox_blocked') return 'sandbox-error-blocked';
   return 'sandbox-error-generic';
 };

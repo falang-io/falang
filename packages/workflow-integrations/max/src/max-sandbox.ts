@@ -137,7 +137,7 @@ const inspect = async (request: Request, path: string): Promise<TSandboxRelayDec
     const chatIds = search.getAll('chat_id');
     if (search.has('user_id') || chatIds.length !== 1 || !chatIds[0])
       return { error: 'Exactly one chat_id is required' };
-    return { method: POST_MESSAGES, recipients: [chatIds[0]], relayToken };
+    return { method: POST_MESSAGES, recipients: [chatIds[0]], relayToken, sendsMessage: true };
   }
   if (path === '/messages' && verb === 'PUT') {
     const ids = search.getAll('message_id');
@@ -162,6 +162,17 @@ const sentMessages = (call: ISandboxRelayCall, responseBody: unknown): readonly 
   if (call.method !== POST_MESSAGES || call.recipients.length !== 1) return [];
   const mid = (responseBody as { message?: { body?: { mid?: unknown } } } | null)?.message?.body?.mid;
   return typeof mid === 'string' && mid ? [{ messageId: mid, chatId: call.recipients[0] }] : [];
+};
+
+/**
+ * The bot cannot write to the chat: a 403 on a send (the user blocked the bot or never started it), or a 404 whose
+ * `code` names the chat or the user (`chat.not.found`, a deleted account).
+ */
+const isChatUnreachable = (call: ISandboxRelayCall, status: number, responseBody: unknown): boolean => {
+  if (call.method !== POST_MESSAGES) return false;
+  if (status === 403) return true;
+  const code = (responseBody as { code?: unknown } | null | undefined)?.code;
+  return status === 404 && typeof code === 'string' && /chat|user|dialog/i.test(code);
 };
 
 const getBotInfo = async (token: string): Promise<ISandboxBotInfo> => {
@@ -193,5 +204,6 @@ export const maxSandboxAdapter: ISandboxBotAdapter = {
     upstreamUrl: (_token, path, search) => `${MAX_API_BASE_URL}${path}${search}`,
     upstreamHeaders: (token) => ({ Authorization: token }),
     sentMessages,
+    isChatUnreachable,
   },
 };

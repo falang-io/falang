@@ -11,6 +11,7 @@ import {
   Inject,
   NotFoundException,
   Param,
+  ParseUUIDPipe,
   Post,
   Put,
   UseGuards,
@@ -23,11 +24,19 @@ import {
   COMMAND_NAME_PATTERN,
   type ISandboxPlatformRow,
 } from './sandbox-bot-settings.service.js';
+import {
+  SANDBOX_MESSAGES_PER_HOUR,
+  SANDBOX_UNREACHABLE_PER_HOUR,
+  SandboxAbuseService,
+  type ISandboxBlockRow,
+} from './sandbox-abuse.service.js';
 import { SandboxBotsService } from './sandbox-bots.service.js';
 
 export interface ISandboxSettingsResponse {
   readonly bindingTtlMinutes: number;
   readonly platforms: ISandboxPlatformRow[];
+  /** The fixed abuse limits, per account and messenger, for the page's explanation. */
+  readonly limits: { readonly messagesPerHour: number; readonly unreachablePerHour: number };
 }
 
 /** `/admin/settings/sandbox-bots` — the platform's test bots (ADR 0073 (private)). The token is never returned. */
@@ -36,13 +45,16 @@ export interface ISandboxSettingsResponse {
 export class AdminSandboxBotsController {
   private readonly settings: SandboxBotSettingsService;
   private readonly bots: SandboxBotsService;
+  private readonly abuse: SandboxAbuseService;
 
   constructor(
     @Inject(SandboxBotSettingsService) settings: SandboxBotSettingsService,
     @Inject(SandboxBotsService) bots: SandboxBotsService,
+    @Inject(SandboxAbuseService) abuse: SandboxAbuseService,
   ) {
     this.settings = settings;
     this.bots = bots;
+    this.abuse = abuse;
   }
 
   private requireAdapter(vendor: string) {
@@ -55,12 +67,28 @@ export class AdminSandboxBotsController {
     const platforms = await Promise.all(
       this.bots.listSandboxIntegrations().map((integration) => this.settings.row(integration.vendor)),
     );
-    return { bindingTtlMinutes: await this.settings.getBindingTtlMinutes(), platforms };
+    return {
+      bindingTtlMinutes: await this.settings.getBindingTtlMinutes(),
+      platforms,
+      limits: { messagesPerHour: SANDBOX_MESSAGES_PER_HOUR, unreachablePerHour: SANDBOX_UNREACHABLE_PER_HOUR },
+    };
   }
 
   @Get()
   get(): Promise<ISandboxSettingsResponse> {
     return this.snapshot();
+  }
+
+  /** Accounts the test bot is blocked for (abuse protection), newest first. */
+  @Get('blocks')
+  listBlocks(): Promise<ISandboxBlockRow[]> {
+    return this.abuse.listBlocks();
+  }
+
+  @Delete('blocks/:id')
+  @HttpCode(HttpStatus.NO_CONTENT)
+  async unblock(@Param('id', ParseUUIDPipe) id: string): Promise<void> {
+    if (!(await this.abuse.unblock(id))) throw new NotFoundException('Block not found');
   }
 
   @Put()

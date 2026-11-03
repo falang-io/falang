@@ -61,6 +61,11 @@ export interface ISandboxRelayCall {
    * project rate limit applies. Without this flag a call with no `recipients` and no `messageIds` is refused.
    */
   readonly unaddressed?: boolean;
+  /**
+   * The call creates a message in the chat (Telegram `sendMessage`/`send<Media>`, MAX `POST /messages`, VK
+   * `messages.send`). Such calls count against the hourly per-account message limit; edits, chat actions and uploads don't.
+   */
+  readonly sendsMessage?: boolean;
   /** The relay token the pod presented (the project's internal token); the host verifies it for the project in the URL. */
   readonly relayToken: string;
 }
@@ -93,6 +98,13 @@ export interface ISandboxRelay {
    * alone need it (MAX); Telegram's edits carry `chat_id` and are checked as recipients.
    */
   sentMessages?(call: ISandboxRelayCall, responseBody: unknown): readonly ISandboxSentMessage[];
+  /**
+   * Whether the upstream answer to `call` says the bot cannot write to the chat at all (the user blocked the bot, never
+   * pressed Start, deleted the account, or forbade messages from the community). `responseBody` is the parsed JSON answer
+   * or `undefined`. The host counts these per account and blocks the test bot for an account that collects too many.
+   * Only send calls need to answer `true` — one undeliverable message should count once, not once per helper call.
+   */
+  isChatUnreachable?(call: ISandboxRelayCall, status: number, responseBody: unknown): boolean;
 }
 
 export interface ISandboxBotInfo {
