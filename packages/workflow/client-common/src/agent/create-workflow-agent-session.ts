@@ -25,7 +25,8 @@ import { CodeIntegrationTools } from './code/code-integration-tools.js';
 import { CODE_SYSTEM_PROMPT } from './code/code-prompt.js';
 import { CodeFilesContextProvider, CodeToolProvider, describeInstanceForCode } from './code/code-tool-provider.js';
 import { WorkflowJsonFilesHost, type TWorkflowCheckProject } from './workflow-json-files-host.js';
-import { WorkflowRuntimeContextProvider } from './workflow-runtime-context.js';
+import { sandboxVendorsOf } from './sandbox-vendors.js';
+import { createSandboxContextProvider, WorkflowRuntimeContextProvider } from './workflow-runtime-context.js';
 
 /** How the agent edits documents: the node tools (the product default) or whole JSON files (ADR 0062). */
 export type TWorkflowAgentInterface = 'nodes' | 'code' | 'json';
@@ -57,7 +58,10 @@ const createWorkflowCodeAgentSession = (deps: ICreateWorkflowAgentSessionDeps): 
   const session: AgentSession = new AgentSession(
     null,
     deps.llmClient,
-    [new CodeFilesContextProvider({ integrations, store })],
+    [
+      new CodeFilesContextProvider({ integrations, store }),
+      createSandboxContextProvider(() => sandboxVendorsOf(store)),
+    ],
     {
       coreTools: [],
       focusPauseMs: deps.focusPauseMs,
@@ -118,7 +122,7 @@ const createJsonFilesSession = (
   return new AgentSession(
     null,
     deps.llmClient,
-    [new JsonFilesContextProvider(host), new WorkflowRuntimeContextProvider()],
+    [new JsonFilesContextProvider(host), new WorkflowRuntimeContextProvider(() => sandboxVendorsOf(deps.store))],
     {
       ...shared,
       coreTools: [],
@@ -163,7 +167,11 @@ export const createWorkflowAgentSession = (deps: ICreateWorkflowAgentSessionDeps
       : new AgentSession(
           null,
           deps.llmClient,
-          [new ScopeVariablesContextProvider(), documentsContext(store), new WorkflowRuntimeContextProvider()],
+          [
+            new ScopeVariablesContextProvider(),
+            documentsContext(store),
+            new WorkflowRuntimeContextProvider(() => sandboxVendorsOf(store)),
+          ],
           {
             ...shared,
             onOpenDocument: (target) => deps.onOpenDocument?.(target.id),

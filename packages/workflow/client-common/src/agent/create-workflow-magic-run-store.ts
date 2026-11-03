@@ -1,6 +1,7 @@
 import type { ILlmClient } from '@falang/agent';
 import type { Scheme } from '@falang/scheme';
 import { ScopeVariablesContextProvider } from '@falang/typescript-agent';
+import { sandboxVendorsOf } from './sandbox-vendors.js';
 import { WorkflowRuntimeContextProvider } from './workflow-runtime-context.js';
 import { TRIGGER_FUNCTION_NAME } from '@falang/workflow-dto';
 import { getIntegrationInstances } from '../integration-instances.js';
@@ -42,7 +43,10 @@ export interface ICreateWorkflowMagicRunStoreDeps {
 export const createWorkflowMagicRunStore = (deps: ICreateWorkflowMagicRunStoreDeps): MagicRunStore => {
   const { store } = deps;
   return new MagicRunStore({
-    createContextProviders: () => [new ScopeVariablesContextProvider(), new WorkflowRuntimeContextProvider()],
+    createContextProviders: () => [
+      new ScopeVariablesContextProvider(),
+      new WorkflowRuntimeContextProvider(() => sandboxVendorsOf(store)),
+    ],
     createLlmClient: deps.createLlmClient,
     createToolProviders: () => [new IntegrationToolProvider(store), new DocumentToolProvider(store, ['list_types'])],
     focusPauseMs: deps.focusPauseMs,

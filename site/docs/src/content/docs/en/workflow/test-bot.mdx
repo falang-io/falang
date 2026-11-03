@@ -87,3 +87,8 @@ head:
   The test bot is served by the backend itself: with <code>GATEWAY_PUBLIC_HOST</code> set it uses a webhook, otherwise
   long polling. Run a single backend replica for it — two replicas would compete for the same updates.
 </p>
+<p>
+  The built-in AI agent knows about test bots too: when you ask it to try a messenger bot on the dev stand and you have
+  no token yet, it creates the integration with the test-bot switch on and a blank token, then asks you to press
+  "Connect a chat".
+</p>

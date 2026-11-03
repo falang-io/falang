@@ -38,6 +38,8 @@ export class HeadlessWorkflowStore implements IWorkflowAgentStore {
     getAllowQuestions: () => false,
     store: this,
   });
+  /** Vendors with a (pretend) platform test bot; tests may set it. */
+  sandboxVendors: readonly string[] = [];
   magicClient: ScriptedLlmClient = new ScriptedLlmClient([]);
   private readonly schemes = new Map<string, Scheme>();
   private nextId = 1;
@@ -57,6 +59,10 @@ export class HeadlessWorkflowStore implements IWorkflowAgentStore {
 
   get typesRegistry() {
     return resolveService(TOKEN_TYPESCRIPT_PROJECT_SERVICE, this.container).typesRegistry;
+  }
+
+  getSandboxVendors(): readonly string[] {
+    return this.sandboxVendors;
   }
 
   getDocument(documentId: string): WorkflowDocument | undefined {

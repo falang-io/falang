@@ -4,6 +4,7 @@ import type { IEnvironmentValue, IFieldConfig, IIntegrationInstance } from '@fal
 import { generateUuid } from '../generate-uuid.js';
 import { getIntegrationInstances } from '../integration-instances.js';
 import { getEnabledIntegrations } from '../disabled-vendors.js';
+import { sandboxVendorsOf } from './sandbox-vendors.js';
 import { searchIntegrations } from './integration-catalog.js';
 import type { IWorkflowAgentStore } from './workflow-agent-store.js';
 
@@ -26,6 +27,13 @@ const buildFieldValue = (field: IFieldConfig, provided: unknown): IEnvironmentVa
   }
   return typeof provided === 'string' ? provided : '';
 };
+
+export const DEV_SANDBOX_PROPERTY = {
+  type: 'boolean',
+  description:
+    "Messenger vendors with a platform test bot only: run the dev stand through the platform's bot, so the " +
+    "token's dev value may stay empty (the user links their chat in the integration editor). Prod is unaffected.",
+} as const;
 
 const TOOLS: readonly ILlmToolDefinition[] = [
   {
@@ -66,6 +74,7 @@ const TOOLS: readonly ILlmToolDefinition[] = [
         vendor: { type: 'string' },
         name: { type: 'string' },
         fields: { type: 'object' },
+        devSandbox: DEV_SANDBOX_PROPERTY,
       },
       required: ['vendor', 'name'],
     },
@@ -107,11 +116,11 @@ export class IntegrationToolProvider implements IAgentToolProvider {
   }
 
   private listIntegrationInstances(): TToolExecutionResult {
-    const instances = getIntegrationInstances(this.store.documents).map(({ id, name, vendor }) => ({
-      id,
-      name,
-      vendor,
-    }));
+    const instances = getIntegrationInstances(this.store.documents).map(({ id, name, vendor, devSandbox }) => {
+      const entry: Record<string, unknown> = { id, name, vendor };
+      if (devSandbox) entry.devSandbox = true;
+      return entry;
+    });
     return ok(JSON.stringify(instances));
   }
 
@@ -131,7 +140,30 @@ export class IntegrationToolProvider implements IAgentToolProvider {
       fields[field.name] = buildFieldValue(field, fieldsInput[field.name]);
     }
 
-    const instance: IIntegrationInstance = { fields, id: generateUuid(), name, vendor };
+    if ('devSandbox' in params && typeof params.devSandbox !== 'boolean') {
+      return fail('create_integration_instance: devSandbox must be a boolean');
+    }
+    const devSandbox = params.devSandbox === true;
+    if (devSandbox) {
+      if (!integration.sandbox) {
+        return fail(
+          `create_integration_instance: vendor "${vendor}" has no platform test bot, devSandbox is not allowed`,
+        );
+      }
+      if (!sandboxVendorsOf(this.store).includes(vendor)) {
+        return fail(
+          `create_integration_instance: the platform test bot for "${vendor}" is not configured on this deployment`,
+        );
+      }
+    }
+
+    const instance: IIntegrationInstance = {
+      fields,
+      id: generateUuid(),
+      name,
+      vendor,
+      ...(devSandbox ? { devSandbox } : {}),
+    };
     this.store.saveIntegrationInstance(instance);
     return ok(JSON.stringify({ instanceId: instance.id }));
   }

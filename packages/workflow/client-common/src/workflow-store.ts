@@ -799,6 +799,10 @@ export class WorkflowStore implements IWorkflowAgentStore {
     return findIntegrationsDocument(this.documents);
   }
 
+  getSandboxVendors(): readonly string[] {
+    return this.sandboxBots.platforms.map((platform) => platform.vendor);
+  }
+
   @action saveIntegrationInstance(instance: IIntegrationInstance): void {
     this.assertWritable();
     saveIntegrationInstanceAction(this.documents, this.sync, instance);
