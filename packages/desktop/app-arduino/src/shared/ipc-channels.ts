@@ -95,4 +95,9 @@ export const IPC = {
   driversChanged: 'drivers:changed',
   appFlushBeforeClose: 'app:flush-before-close',
   appFlushBeforeCloseComplete: 'app:flush-before-close-complete',
+  // Board cores (ADR 0074 (private) §4).
+  arduinoCoresStatus: 'arduino-cores:status',
+  arduinoCoresInstall: 'arduino-cores:install',
+  arduinoCoresCancelInstall: 'arduino-cores:cancel-install',
+  arduinoCoresOutput: 'arduino-cores:output',
 } as const;

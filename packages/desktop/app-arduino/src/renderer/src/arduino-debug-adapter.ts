@@ -53,7 +53,7 @@ export class ArduinoDebugAdapter implements IDebugAdapter {
       entry.fqbn,
       entry.port,
     );
-    if (outcome.stage === 'compile-error') {
+    if (outcome.stage === 'compile-error' || outcome.stage === 'core-missing') {
       this.emit({ type: 'terminated', reason: 'failed', message: outcome.message });
       return;
     }

@@ -1,5 +1,6 @@
 import type { IArduinoCliResult } from '@falang/desktop-arduino-cli';
 import type { IDebugMap } from '@falang/debug';
+import type { IArduinoCoreMissingOutcome } from './arduino-core-ipc-types.js';
 
 /**
  * The "Build & Upload (debug)" analogue of `TArduinoBuildOutcome` — the `'cli'` stage also carries the
@@ -9,4 +10,5 @@ import type { IDebugMap } from '@falang/debug';
  */
 export type TArduinoDebugUploadOutcome =
   | { readonly stage: 'compile-error'; readonly message: string }
-  | { readonly stage: 'cli'; readonly result: IArduinoCliResult; readonly debugMap: IDebugMap };
+  | { readonly stage: 'cli'; readonly result: IArduinoCliResult; readonly debugMap: IDebugMap }
+  | IArduinoCoreMissingOutcome;

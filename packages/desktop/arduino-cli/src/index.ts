@@ -16,3 +16,13 @@ export * from './arduino-cli-settings.js';
 export type { IArduinoCliResult } from './run-arduino-cli.js';
 export { execFileAsync } from './exec-file-async.js';
 export type { IExecFileOutcome } from './exec-file-async.js';
+export { spawnArduinoCli } from './spawn-arduino-cli.js';
+export type { ISpawnArduinoCliOptions, ISpawnArduinoCliResult, TArduinoCliStream } from './spawn-arduino-cli.js';
+export { installCore, isCoreInstalled, listInstalledCores } from './cores.js';
+export type {
+  ICoreCommandOptions,
+  IInstallCoreParams,
+  IInstallCoreResult,
+  IInstalledCore,
+  TListInstalledCoresResult,
+} from './cores.js';
