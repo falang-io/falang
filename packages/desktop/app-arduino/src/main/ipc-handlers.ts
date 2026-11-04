@@ -80,6 +80,8 @@ import {
   startDebugSession,
   stopDebugSession,
 } from './debug-session-registry.js';
+import { registerArduinoCliIpcHandlers } from './arduino-cli-ipc.js';
+import { arduinoCliOperations, ArduinoCliBusyError } from './arduino-cli-operations.js';
 import { registerDriverIpcHandlers } from './drivers/driver-ipc.js';
 import { DriverBuildBlockedError } from './drivers/driver-service.js';
 import type { IDriverRuntime } from './drivers/driver-runtime.js';
@@ -98,7 +100,8 @@ const writeAgentFilesBestEffort = (dir: string, projectType: string): void => {
 
 /** A refused driver build reaches the renderer like any other compile error; anything else stays a rejection. */
 const blockedBuildOutcome = (error: unknown): { stage: 'compile-error'; message: string } => {
-  if (error instanceof DriverBuildBlockedError) return { stage: 'compile-error', message: error.message };
+  if (error instanceof DriverBuildBlockedError || error instanceof ArduinoCliBusyError)
+    return { stage: 'compile-error', message: error.message };
   throw error;
 };
 
@@ -111,6 +114,7 @@ export const registerIpcHandlers = (
   drivers: IDriverRuntime,
 ): void => {
   registerDriverIpcHandlers(drivers, getMainWindow);
+  registerArduinoCliIpcHandlers(getMainWindow);
   // The project watcher saw `falang/drivers/` change on disk.
   const reloadDrivers = (): void => {
     drivers.registry.reload().catch((error: unknown) => reportError('Failed to reload drivers', error));
@@ -321,7 +325,9 @@ export const registerIpcHandlers = (
   ipcMain.handle(IPC.arduinoCompile, (_event, dir: string, documents: IProjectDocument[], fqbn: string) =>
     drivers.service
       .prepareBuildDrivers(dir, documents)
-      .then((buildDrivers) => buildAndCompileSketch(dir, documents, fqbn, buildDrivers))
+      .then((buildDrivers) =>
+        arduinoCliOperations.runExclusive('build', () => buildAndCompileSketch(dir, documents, fqbn, buildDrivers)),
+      )
       .catch(blockedBuildOutcome),
   );
   ipcMain.handle(
@@ -338,7 +344,11 @@ export const registerIpcHandlers = (
   ipcMain.handle(IPC.arduinoUpload, (_event, dir: string, documents: IProjectDocument[], fqbn: string, port: string) =>
     drivers.service
       .prepareBuildDrivers(dir, documents)
-      .then((buildDrivers) => buildAndUploadSketch(dir, documents, fqbn, port, buildDrivers))
+      .then((buildDrivers) =>
+        arduinoCliOperations.runExclusive('upload', () =>
+          buildAndUploadSketch(dir, documents, fqbn, port, buildDrivers),
+        ),
+      )
       .catch(blockedBuildOutcome),
   );
   ipcMain.handle(
@@ -346,7 +356,11 @@ export const registerIpcHandlers = (
     (_event, dir: string, documents: IProjectDocument[], fqbn: string, port: string) =>
       drivers.service
         .prepareBuildDrivers(dir, documents)
-        .then((buildDrivers) => buildAndUploadDebugSketch(dir, documents, fqbn, port, buildDrivers))
+        .then((buildDrivers) =>
+          arduinoCliOperations.runExclusive('debug-upload', () =>
+            buildAndUploadDebugSketch(dir, documents, fqbn, port, buildDrivers),
+          ),
+        )
         .catch(blockedBuildOutcome),
   );
 

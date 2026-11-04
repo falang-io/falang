@@ -2,6 +2,7 @@ import { promises as fs } from 'node:fs';
 import * as path from 'node:path';
 import { app } from 'electron';
 import { electronNodeCommand, stageCopy } from '@falang/desktop-worker-process';
+import { ARDUINO_CLI_SETTINGS_ENV } from '@falang/desktop-arduino-cli';
 import { bundledDriversDir, PACKAGED_BUNDLED_DRIVERS_SUBDIR } from './bundled-drivers-dir.js';
 
 export interface IMcpServerCommand {
@@ -11,6 +12,9 @@ export interface IMcpServerCommand {
 }
 
 /** A user's own custom drivers (ADR 0023 (private)'s Phase C) — installed once per app install, not per project. */
+/** The settings file both this process and the MCP server read (which arduino-cli to run, ADR 0074 (private)); the path never changes, so `.mcp.json` needs no rewrite when the user switches source. */
+export const arduinoCliSettingsFile = (): string => path.join(app.getPath('userData'), 'arduino-cli.json');
+
 const userDriversDir = (): string => path.join(app.getPath('userData'), 'drivers');
 
 /**
@@ -68,12 +72,13 @@ export const resolveMcpServerCommand = async (): Promise<IMcpServerCommand> => {
       ['.', '--drivers-dir', driversDir, '--library-drivers-dir', userDriversDir()],
       { persistent: true },
     );
-    return { command, args: [...args], env: { ...env } };
+    return { command, args: [...args], env: { ...env, [ARDUINO_CLI_SETTINGS_ENV]: arduinoCliSettingsFile() } };
   }
   const driverArgs = ['--drivers-dir', bundledDriversDir(), '--library-drivers-dir', userDriversDir()];
   const repoRoot = path.resolve(import.meta.dirname, '../../../../..');
   return {
     args: ['tsx', path.join(repoRoot, 'packages/desktop/mcp/src/main.ts'), '.', ...driverArgs],
     command: 'npx',
+    env: { [ARDUINO_CLI_SETTINGS_ENV]: arduinoCliSettingsFile() },
   };
 };

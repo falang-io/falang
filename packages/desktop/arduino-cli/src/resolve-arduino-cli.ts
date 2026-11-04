@@ -1,6 +1,7 @@
 import { constants, promises as fs } from 'node:fs';
 import * as os from 'node:os';
 import * as path from 'node:path';
+import { getArduinoCliSettingsFile, readArduinoCliSettings } from './arduino-cli-settings.js';
 
 /** Bare command name — what `execFile` falls back to (a `PATH` lookup) when no candidate is found. */
 export const ARDUINO_CLI_COMMAND = 'arduino-cli';
@@ -73,22 +74,68 @@ const isExecutableFile = async (candidate: string): Promise<boolean> => {
   }
 };
 
+export type TArduinoCliResolvedSource = 'env' | 'system' | 'custom' | 'managed';
+export type TArduinoCliProblem = 'not-found' | 'custom-missing' | 'managed-missing';
+
+export interface IArduinoCliResolution {
+  readonly path: string;
+  readonly source: TArduinoCliResolvedSource;
+  readonly problem?: TArduinoCliProblem;
+}
+
+export interface IResolveArduinoCliOptions {
+  /** Defaults to the file set with `setArduinoCliSettingsFile` / `FALANG_ARDUINO_CLI_SETTINGS`. */
+  readonly settingsFile?: string | null;
+  readonly lookup?: IArduinoCliLookup;
+  readonly isExecutable?: (candidate: string) => Promise<boolean>;
+}
+
 /**
- * The `arduino-cli` binary to run: `FALANG_ARDUINO_CLI` when set (an explicit override, used as-is),
- * else the first existing candidate from `arduinoCliCandidates`, else the bare command name (so the
- * resulting `ENOENT` reads as "arduino-cli not found"). Resolved on every call, never cached — a
- * user who installs it while the app is open is picked up on the next build.
+ * The `arduino-cli` binary to run (ADR 0074 (private)): `FALANG_ARDUINO_CLI` when set (an explicit
+ * override, used as-is), else the settings file's `source` — `system` (PATH + well-known dirs),
+ * `custom` or `managed`. A `custom`/`managed` file that is not executable yields a problem and the bare
+ * command name, never a silent fallback to another install. Resolved (and the settings file re-read) on
+ * every call, never cached — a user who installs it while the app is open is picked up on the next build.
  */
-export const resolveArduinoCli = async (
-  lookupOverride?: IArduinoCliLookup,
-  isExecutable: (candidate: string) => Promise<boolean> = isExecutableFile,
-): Promise<string> => {
-  const lookup = lookupOverride ?? { platform: process.platform, env: process.env, homeDir: os.homedir() };
+export const resolveArduinoCliDetailed = async (
+  options: IResolveArduinoCliOptions = {},
+): Promise<IArduinoCliResolution> => {
+  const lookup = options.lookup ?? { platform: process.platform, env: process.env, homeDir: os.homedir() };
+  const isExecutable = options.isExecutable ?? isExecutableFile;
   const override = lookup.env.FALANG_ARDUINO_CLI;
-  if (typeof override === 'string' && override !== '') return override;
+  if (typeof override === 'string' && override !== '') return { path: override, source: 'env' };
+
+  const explicit = options.settingsFile;
+  const file = typeof explicit === 'string' || explicit === null ? explicit : getArduinoCliSettingsFile(lookup.env);
+  const settings = file === null ? { source: 'system' as const } : await readArduinoCliSettings(file);
+
+  if (settings.source === 'custom') {
+    const custom = settings.customPath;
+    if (typeof custom === 'string' && (await isExecutable(custom))) return { path: custom, source: 'custom' };
+    return { path: ARDUINO_CLI_COMMAND, source: 'custom', problem: 'custom-missing' };
+  }
+  if (settings.source === 'managed') {
+    const managed = settings.managed?.path;
+    if (typeof managed === 'string' && (await isExecutable(managed))) return { path: managed, source: 'managed' };
+    return { path: ARDUINO_CLI_COMMAND, source: 'managed', problem: 'managed-missing' };
+  }
   for (const candidate of arduinoCliCandidates(lookup)) {
     // oxlint-disable-next-line no-await-in-loop -- first match wins; probing in order is the point.
-    if (await isExecutable(candidate)) return candidate;
+    if (await isExecutable(candidate)) return { path: candidate, source: 'system' };
   }
-  return ARDUINO_CLI_COMMAND;
+  return { path: ARDUINO_CLI_COMMAND, source: 'system', problem: 'not-found' };
+};
+
+/** Just the path — what every runner calls. */
+export const resolveArduinoCli = async (
+  lookup?: IArduinoCliLookup,
+  isExecutable?: (candidate: string) => Promise<boolean>,
+  settingsFile?: string | null,
+): Promise<string> => {
+  const resolution = await resolveArduinoCliDetailed({
+    ...(lookup ? { lookup } : {}),
+    ...(isExecutable ? { isExecutable } : {}),
+    ...(typeof settingsFile === 'string' || settingsFile === null ? { settingsFile } : {}),
+  });
+  return resolution.path;
 };

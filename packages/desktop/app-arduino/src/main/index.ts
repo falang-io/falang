@@ -3,6 +3,8 @@ import { app, BrowserWindow, shell } from 'electron';
 import { registerIpcHandlers } from './ipc-handlers.js';
 import { buildApplicationMenu } from './menu.js';
 import { reportError } from '../shared/report-error.js';
+import { setArduinoCliSettingsFile } from '@falang/desktop-arduino-cli';
+import { arduinoCliSettingsFile } from './mcp-server-path.js';
 import { bundledDriversDir } from './bundled-drivers-dir.js';
 import { createDriverRuntime } from './drivers/driver-runtime.js';
 import { IPC } from '../shared/ipc-channels.js';
@@ -50,6 +52,8 @@ const createWindow = (): BrowserWindow => {
 };
 
 app.whenReady().then(async () => {
+  // Before anything can run arduino-cli: Build, port listing and the driver validator all resolve it from this file.
+  setArduinoCliSettingsFile(arduinoCliSettingsFile());
   // Loaded and registered *before* `createWindow()` starts loading the renderer bundle — the renderer
   // calls `falang.drivers.list()` before its first render (see `renderer/src/main.tsx`), which would
   // race an unregistered `drivers:list` IPC handler otherwise.

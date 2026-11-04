@@ -7,13 +7,18 @@ import type {
   IProjectTree,
 } from '@falang/desktop-project-fs';
 import type { IProjectDocument, IProjectTreeFolder } from '@falang/dto';
-import type { IArduinoCliStatus, IConnectedBoard } from '@falang/desktop-arduino-cli';
+import type { IArduinoCliSettings, IArduinoCliStatus, IConnectedBoard } from '@falang/desktop-arduino-cli';
 import type { IDebugBreakpoint, TDebugEvent, TDebugResumeMode } from '@falang/debug';
 import type { IAgentSettings, IChatResult, IChatToolDefinition, TChatMessage } from '@falang/desktop-llm-client';
 import type { IChatSession, IChatSessionSummary, IChatTurn } from '@falang/agent';
 import type { ICommitInfo, IProjectSnapshot, TCommitKind } from '@falang/versioning';
 import { IPC } from '../shared/ipc-channels.js';
 import type { IRecentProject } from '../shared/recent-project.js';
+import type {
+  IArduinoCliChangedPayload,
+  IArduinoCliFullStatus,
+  TArduinoCliSetSettingsResult,
+} from '../shared/arduino-cli-ipc-types.js';
 import type { TArduinoBuildOutcome } from '../shared/arduino-build-outcome.js';
 import type { TArduinoGeneratedCode } from '../shared/arduino-sketch-code.js';
 import type { TArduinoDebugUploadOutcome } from '../shared/arduino-debug-outcome.js';
@@ -107,6 +112,16 @@ const falangApi = {
       fqbn: string,
       port: string,
     ): Promise<TArduinoDebugUploadOutcome> => ipcRenderer.invoke(IPC.arduinoUploadDebug, dir, documents, fqbn, port),
+  },
+  // Which arduino-cli runs (ADR 0074 (private)); phases 2-3 add install / update / core calls here.
+  arduinoCli: {
+    getStatus: (): Promise<IArduinoCliFullStatus> => ipcRenderer.invoke(IPC.arduinoCliGetStatus),
+    getSettings: (): Promise<IArduinoCliSettings> => ipcRenderer.invoke(IPC.arduinoCliGetSettings),
+    setSettings: (settings: IArduinoCliSettings): Promise<TArduinoCliSetSettingsResult> =>
+      ipcRenderer.invoke(IPC.arduinoCliSetSettings, settings),
+    onChanged: subscribe(IPC.arduinoCliChanged) as (
+      listener: (payload: IArduinoCliChangedPayload) => void,
+    ) => () => void,
   },
   debug: {
     start: (params: IStartDebugSessionParams): Promise<void> => ipcRenderer.invoke(IPC.debugStart, params),

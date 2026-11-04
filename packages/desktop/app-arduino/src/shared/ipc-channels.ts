@@ -66,6 +66,11 @@ export const IPC = {
   arduinoUpload: 'arduino:upload',
   arduinoUploadDebug: 'arduino:upload-debug',
   arduinoListBoards: 'arduino:list-boards',
+  // Which arduino-cli runs, and the exclusive-operation gate (ADR 0074 (private)).
+  arduinoCliGetStatus: 'arduino-cli:get-status',
+  arduinoCliGetSettings: 'arduino-cli:get-settings',
+  arduinoCliSetSettings: 'arduino-cli:set-settings',
+  arduinoCliChanged: 'arduino-cli:changed',
   debugStart: 'debug:start',
   debugSetBreakpoints: 'debug:set-breakpoints',
   debugResume: 'debug:resume',
