@@ -102,7 +102,8 @@ export const dumpUpdateInfo = (info: IUpdateInfo): string => yaml.dump(info, { l
 
 /** Downloads the update-info files directly in a directory on the host into a local directory. */
 export const pullUpdateInfo = (dir: string, into: string): Map<string, IUpdateInfo> => {
-  rsync(['-t', '--include=*.yml', '--exclude=*', `${remote(dir)}/`, `${into}/`], { allowMissing: true });
+  // -r: without it rsync skips the source directory itself and copies nothing; `--exclude=*` keeps it one level deep.
+  rsync(['-rt', '--include=*.yml', '--exclude=*', `${remote(dir)}/`, `${into}/`], { allowMissing: true });
   const result = new Map<string, IUpdateInfo>();
   for (const name of existsSync(into) ? readdirSync(into) : []) {
     if (UPDATE_INFO_PATTERN.test(name)) result.set(name, readUpdateInfo(path.join(into, name)));
