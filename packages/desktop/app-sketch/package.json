@@ -19,6 +19,7 @@
     "build:linux": "electron-vite build && electron-builder --linux",
     "prebuild:mac": "npm run build -w @falang/desktop-mcp && npm run build:export-worker",
     "build:mac": "electron-vite build && electron-builder --mac",
+    "build:mac-remote": "tsx ../../../scripts/release/build-mac-remote.ts",
     "prebuild:win": "npm run build -w @falang/desktop-mcp && npm run build:export-worker",
     "build:win": "electron-vite build && electron-builder --win",
     "prebuild:wine": "npm run build -w @falang/desktop-mcp && npm run build:export-worker",

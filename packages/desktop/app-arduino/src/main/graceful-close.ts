@@ -1,4 +1,4 @@
-import { ipcMain, type BrowserWindow } from 'electron';
+import { app, ipcMain, type BrowserWindow } from 'electron';
 import { IPC } from '../shared/ipc-channels.js';
 
 /**
@@ -15,10 +15,19 @@ const FLUSH_TIMEOUT_MS = 3000;
  * lost, with no error shown anywhere (found live: a user edited a document and it never reached
  * disk). This intercepts the first close attempt, asks the renderer to flush every pending save and
  * await it (`ArduinoProjectStore.flushPendingSaves`), then lets the *next* close attempt through.
+ *
+ * Cancelling that first close also cancels an `app.quit()` in progress (Cmd+Q, File → Quit): Electron aborts a quit
+ * whose window refuses to close. On Linux/Windows `window-all-closed` quits anyway once the window is gone, but on
+ * macOS it doesn't (the app stays in the Dock by convention), so Cmd+Q left a running app with no window. A quit seen
+ * before the flush is therefore resumed after it.
  */
 export const installGracefulClose = (window: BrowserWindow): void => {
   let readyToClose = false;
   let timeoutHandle: ReturnType<typeof setTimeout> | null = null;
+  let quitRequested = false;
+  const onBeforeQuit = (): void => {
+    quitRequested = true;
+  };
 
   const proceedToClose = (): void => {
     if (readyToClose) return;
@@ -26,9 +35,11 @@ export const installGracefulClose = (window: BrowserWindow): void => {
     timeoutHandle = null;
     readyToClose = true;
     window.close();
+    if (quitRequested) app.quit();
   };
 
   ipcMain.on(IPC.appFlushBeforeCloseComplete, proceedToClose);
+  app.on('before-quit', onBeforeQuit);
 
   window.on('close', (event) => {
     if (readyToClose) return;
@@ -37,5 +48,8 @@ export const installGracefulClose = (window: BrowserWindow): void => {
     timeoutHandle = setTimeout(proceedToClose, FLUSH_TIMEOUT_MS);
   });
 
-  window.on('closed', () => ipcMain.off(IPC.appFlushBeforeCloseComplete, proceedToClose));
+  window.on('closed', () => {
+    ipcMain.off(IPC.appFlushBeforeCloseComplete, proceedToClose);
+    app.off('before-quit', onBeforeQuit);
+  });
 };

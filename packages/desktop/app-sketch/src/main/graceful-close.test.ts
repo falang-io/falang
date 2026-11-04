@@ -3,12 +3,15 @@ import { EventEmitter } from 'node:events';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { IPC } from '../shared/ipc-channels.js';
 
-const { ipc } = vi.hoisted(() => {
+const { ipc, electronApp } = vi.hoisted(() => {
   // eslint-disable-next-line @typescript-eslint/no-require-imports
   const { EventEmitter: Emitter } = require('node:events') as typeof import('node:events');
-  return { ipc: new Emitter() };
+  /** An `app` stand-in: `quit()` emits `before-quit`, like Electron's. */
+  const fakeApp = Object.assign(new Emitter(), { quit: vi.fn() });
+  fakeApp.quit.mockImplementation(() => fakeApp.emit('before-quit'));
+  return { ipc: new Emitter(), electronApp: fakeApp };
 });
-vi.mock('electron', () => ({ ipcMain: ipc }));
+vi.mock('electron', () => ({ ipcMain: ipc, app: electronApp }));
 
 import { installGracefulClose } from './graceful-close.js';
 
@@ -36,6 +39,8 @@ describe('installGracefulClose (ADR 0029 (private), "edits lost on window close"
   beforeEach(() => {
     vi.useFakeTimers();
     ipc.removeAllListeners();
+    electronApp.removeAllListeners();
+    electronApp.quit.mockClear();
   });
   afterEach(() => vi.useRealTimers());
 
@@ -80,10 +85,29 @@ describe('installGracefulClose (ADR 0029 (private), "edits lost on window close"
     expect(win.closedForReal).toBe(2);
   });
 
-  it('closed removes the ack listener', () => {
+  it('closed removes the ack and before-quit listeners', () => {
     const win = setup();
     expect(ipc.listenerCount(IPC.appFlushBeforeCloseComplete)).toBe(1);
+    expect(electronApp.listenerCount('before-quit')).toBe(1);
     win.emit('closed');
     expect(ipc.listenerCount(IPC.appFlushBeforeCloseComplete)).toBe(0);
+    expect(electronApp.listenerCount('before-quit')).toBe(0);
+  });
+
+  it('a quit cancelled by the flush is resumed after the ack (macOS keeps a windowless app alive otherwise)', () => {
+    const win = setup();
+    electronApp.quit();
+    win.close();
+    expect(win.closedForReal).toBe(0);
+    ipc.emit(IPC.appFlushBeforeCloseComplete);
+    expect(win.closedForReal).toBe(1);
+    expect(electronApp.quit).toHaveBeenCalledTimes(2);
+  });
+
+  it('a plain window close does not quit the app', () => {
+    const win = setup();
+    win.close();
+    ipc.emit(IPC.appFlushBeforeCloseComplete);
+    expect(electronApp.quit).not.toHaveBeenCalled();
   });
 });

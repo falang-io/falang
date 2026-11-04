@@ -15,6 +15,7 @@
     "build:linux": "electron-vite build && electron-builder --linux",
     "prebuild:mac": "tsx scripts/build-client.ts && tsx ../../../scripts/release/build-flow-backend-dist.ts --platform darwin",
     "build:mac": "electron-vite build && electron-builder --mac",
+    "build:mac-remote": "tsx ../../../scripts/release/build-mac-remote.ts",
     "prebuild:win": "tsx scripts/build-client.ts && tsx ../../../scripts/release/build-flow-backend-dist.ts --platform win32",
     "build:win": "electron-vite build && electron-builder --win",
     "prebuild:wine": "tsx scripts/build-client.ts && tsx ../../../scripts/release/build-flow-backend-dist.ts --platform win32 --arch x64",
