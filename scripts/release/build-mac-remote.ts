@@ -17,7 +17,8 @@
  *
  * Usage (from an app directory): `npx tsx ../../../scripts/release/build-mac-remote.ts [--no-smoke]`.
  * Environment: `FALANG_MAC_HOST` (SSH host, default `mac`), `FALANG_MAC_DIR` (checkout directory on the Mac, relative
- * to its home, default `falang-build`).
+ * to its home, default `falang-build.noindex` — the suffix keeps Spotlight from indexing the synced tree and its
+ * node_modules, which on an 8 GB Mac starved the build of memory).
  */
 import { execFileSync, spawnSync } from 'node:child_process';
 import { createHash } from 'node:crypto';
@@ -25,7 +26,7 @@ import { mkdirSync, readFileSync } from 'node:fs';
 import * as path from 'node:path';
 
 const host = process.env.FALANG_MAC_HOST ?? 'mac';
-const remoteDir = process.env.FALANG_MAC_DIR ?? 'falang-build';
+const remoteDir = process.env.FALANG_MAC_DIR ?? 'falang-build.noindex';
 const smoke = !process.argv.includes('--no-smoke');
 
 const REMOTE_PATH = '/opt/local/bin:/opt/local/sbin:/opt/homebrew/bin:/usr/local/bin:$PATH';
