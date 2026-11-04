@@ -16,7 +16,11 @@ import { IPC } from '../shared/ipc-channels.js';
 import type { IRecentProject } from '../shared/recent-project.js';
 import type {
   IArduinoCliChangedPayload,
+  IArduinoCliCheckUpdatesResult,
   IArduinoCliFullStatus,
+  IArduinoCliProgress,
+  IArduinoCliSettingsInput,
+  TArduinoCliInstallResult,
   TArduinoCliSetSettingsResult,
 } from '../shared/arduino-cli-ipc-types.js';
 import type { TArduinoBuildOutcome } from '../shared/arduino-build-outcome.js';
@@ -117,8 +121,14 @@ const falangApi = {
   arduinoCli: {
     getStatus: (): Promise<IArduinoCliFullStatus> => ipcRenderer.invoke(IPC.arduinoCliGetStatus),
     getSettings: (): Promise<IArduinoCliSettings> => ipcRenderer.invoke(IPC.arduinoCliGetSettings),
-    setSettings: (settings: IArduinoCliSettings): Promise<TArduinoCliSetSettingsResult> =>
+    setSettings: (settings: IArduinoCliSettingsInput): Promise<TArduinoCliSetSettingsResult> =>
       ipcRenderer.invoke(IPC.arduinoCliSetSettings, settings),
+    install: (version?: string): Promise<TArduinoCliInstallResult> =>
+      ipcRenderer.invoke(IPC.arduinoCliInstall, version ? { version } : {}),
+    cancelInstall: (): Promise<void> => ipcRenderer.invoke(IPC.arduinoCliCancelInstall),
+    checkUpdates: (force?: boolean): Promise<IArduinoCliCheckUpdatesResult> =>
+      ipcRenderer.invoke(IPC.arduinoCliCheckUpdates, { force: force === true }),
+    onProgress: subscribe(IPC.arduinoCliProgress) as (listener: (progress: IArduinoCliProgress) => void) => () => void,
     onChanged: subscribe(IPC.arduinoCliChanged) as (
       listener: (payload: IArduinoCliChangedPayload) => void,
     ) => () => void,

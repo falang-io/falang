@@ -38,6 +38,8 @@ vi.mock('electron', () => ({
     off: vi.fn(),
   },
 }));
+// The Electron-bound arduino-cli handlers (net.fetch, settings file, startup update check) have their own tests.
+vi.mock('./arduino-cli-ipc.js', () => ({ registerArduinoCliIpcHandlers: vi.fn() }));
 vi.mock('./arduino-build.js', () => h.build);
 vi.mock('./debug-session-registry.js', () => h.debug);
 // A real fs watcher per test would exhaust the host's inotify limit when the suite runs next to others;

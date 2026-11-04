@@ -71,6 +71,11 @@ export const IPC = {
   arduinoCliGetSettings: 'arduino-cli:get-settings',
   arduinoCliSetSettings: 'arduino-cli:set-settings',
   arduinoCliChanged: 'arduino-cli:changed',
+  // Managed (downloaded) arduino-cli: install / update (ADR 0074 (private) phase 2).
+  arduinoCliInstall: 'arduino-cli:install',
+  arduinoCliCancelInstall: 'arduino-cli:cancel-install',
+  arduinoCliCheckUpdates: 'arduino-cli:check-updates',
+  arduinoCliProgress: 'arduino-cli:progress',
   debugStart: 'debug:start',
   debugSetBreakpoints: 'debug:set-breakpoints',
   debugResume: 'debug:resume',
