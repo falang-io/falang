@@ -1,4 +1,5 @@
 import type { IArduinoCliResult } from '@falang/desktop-arduino-cli';
+import type { IArduinoCoreMissingOutcome } from './arduino-core-ipc-types.js';
 import type { IArduinoCliDiagnostic, IArduinoCompileProblem, IArduinoSketchFile } from './arduino-sketch-code.js';
 
 /**
@@ -25,4 +26,5 @@ export type TArduinoBuildOutcome =
       readonly result: IArduinoCliResult;
       readonly files: readonly IArduinoSketchFile[];
       readonly diagnostics: readonly IArduinoCliDiagnostic[];
-    };
+    }
+  | IArduinoCoreMissingOutcome;

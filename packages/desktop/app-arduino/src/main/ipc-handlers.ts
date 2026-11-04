@@ -81,6 +81,8 @@ import {
   stopDebugSession,
 } from './debug-session-registry.js';
 import { registerArduinoCliIpcHandlers } from './arduino-cli-ipc.js';
+import { registerArduinoCoreIpcHandlers } from './arduino-core-ipc.js';
+import { checkCoreGate } from './core-gate.js';
 import { arduinoCliOperations, ArduinoCliBusyError } from './arduino-cli-operations.js';
 import { registerDriverIpcHandlers } from './drivers/driver-ipc.js';
 import { DriverBuildBlockedError } from './drivers/driver-service.js';
@@ -115,6 +117,7 @@ export const registerIpcHandlers = (
 ): void => {
   registerDriverIpcHandlers(drivers, getMainWindow);
   registerArduinoCliIpcHandlers(getMainWindow);
+  registerArduinoCoreIpcHandlers(getMainWindow);
   // The project watcher saw `falang/drivers/` change on disk.
   const reloadDrivers = (): void => {
     drivers.registry.reload().catch((error: unknown) => reportError('Failed to reload drivers', error));
@@ -326,7 +329,10 @@ export const registerIpcHandlers = (
     drivers.service
       .prepareBuildDrivers(dir, documents)
       .then((buildDrivers) =>
-        arduinoCliOperations.runExclusive('build', () => buildAndCompileSketch(dir, documents, fqbn, buildDrivers)),
+        arduinoCliOperations.runExclusive('build', async () => {
+          const gate = await checkCoreGate(fqbn);
+          return gate ?? buildAndCompileSketch(dir, documents, fqbn, buildDrivers);
+        }),
       )
       .catch(blockedBuildOutcome),
   );
@@ -345,9 +351,10 @@ export const registerIpcHandlers = (
     drivers.service
       .prepareBuildDrivers(dir, documents)
       .then((buildDrivers) =>
-        arduinoCliOperations.runExclusive('upload', () =>
-          buildAndUploadSketch(dir, documents, fqbn, port, buildDrivers),
-        ),
+        arduinoCliOperations.runExclusive('upload', async () => {
+          const gate = await checkCoreGate(fqbn);
+          return gate ?? buildAndUploadSketch(dir, documents, fqbn, port, buildDrivers);
+        }),
       )
       .catch(blockedBuildOutcome),
   );
@@ -357,9 +364,10 @@ export const registerIpcHandlers = (
       drivers.service
         .prepareBuildDrivers(dir, documents)
         .then((buildDrivers) =>
-          arduinoCliOperations.runExclusive('debug-upload', () =>
-            buildAndUploadDebugSketch(dir, documents, fqbn, port, buildDrivers),
-          ),
+          arduinoCliOperations.runExclusive('debug-upload', async () => {
+            const gate = await checkCoreGate(fqbn);
+            return gate ?? buildAndUploadDebugSketch(dir, documents, fqbn, port, buildDrivers);
+          }),
         )
         .catch(blockedBuildOutcome),
   );

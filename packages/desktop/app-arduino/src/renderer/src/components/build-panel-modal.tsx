@@ -23,10 +23,12 @@ const refreshBoards = (setBoards: (boards: readonly IConnectedBoard[]) => void):
 const stripAnsi = (text: string): string => text.replaceAll(/\u001B\[[0-9;]*m/g, '');
 
 /** What the problems list and "show in code" need from a finished build. */
-const toBuildResult = (outcome: TArduinoBuildOutcome): ISketchBuildResultForView =>
-  outcome.stage === 'compile-error'
+const toBuildResult = (outcome: TArduinoBuildOutcome): ISketchBuildResultForView => {
+  if (outcome.stage === 'core-missing') return { files: [], problems: [] };
+  return outcome.stage === 'compile-error'
     ? { files: outcome.files ?? [], problems: outcome.problems ?? [] }
     : { files: outcome.files, diagnostics: outcome.diagnostics };
+};
 
 const ARDUINO_CLI_INSTALL_URL = 'https://arduino.github.io/arduino-cli/latest/installation/';
 
@@ -80,6 +82,10 @@ export const BuildPanelModal: React.FC<Props> = observer(({ store, open, onClose
             ? t('desktop-app-arduino:build-panel.compile-failed', { count: outcome.problems.length })
             : outcome.message,
         );
+        return;
+      }
+      if (outcome.stage === 'core-missing') {
+        setError(outcome.message);
         return;
       }
       setOutput(stripAnsi(outcome.result.output));

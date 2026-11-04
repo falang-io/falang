@@ -15,6 +15,11 @@ import type { ICommitInfo, IProjectSnapshot, TCommitKind } from '@falang/version
 import { IPC } from '../shared/ipc-channels.js';
 import type { IRecentProject } from '../shared/recent-project.js';
 import type {
+  IArduinoCoreInstallResult,
+  IArduinoCoreOutputLine,
+  IArduinoCoreStatus,
+} from '../shared/arduino-core-ipc-types.js';
+import type {
   IArduinoCliChangedPayload,
   IArduinoCliCheckUpdatesResult,
   IArduinoCliFullStatus,
@@ -132,6 +137,14 @@ const falangApi = {
     onChanged: subscribe(IPC.arduinoCliChanged) as (
       listener: (payload: IArduinoCliChangedPayload) => void,
     ) => () => void,
+  },
+  // Board cores (ADR 0074 (private) §4).
+  arduinoCores: {
+    getStatus: (fqbn: string): Promise<IArduinoCoreStatus> => ipcRenderer.invoke(IPC.arduinoCoresStatus, { fqbn }),
+    install: (fqbn: string): Promise<IArduinoCoreInstallResult> =>
+      ipcRenderer.invoke(IPC.arduinoCoresInstall, { fqbn }),
+    cancelInstall: (): Promise<void> => ipcRenderer.invoke(IPC.arduinoCoresCancelInstall),
+    onOutput: subscribe(IPC.arduinoCoresOutput) as (listener: (line: IArduinoCoreOutputLine) => void) => () => void,
   },
   debug: {
     start: (params: IStartDebugSessionParams): Promise<void> => ipcRenderer.invoke(IPC.debugStart, params),

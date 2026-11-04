@@ -23,3 +23,13 @@ export * from './managed/extract-zip-entry.js';
 export * from './managed/install-managed-arduino-cli.js';
 export * from './managed/cleanup-managed-versions.js';
 export * from './managed/check-for-arduino-cli-update.js';
+export { spawnArduinoCli } from './spawn-arduino-cli.js';
+export type { ISpawnArduinoCliOptions, ISpawnArduinoCliResult, TArduinoCliStream } from './spawn-arduino-cli.js';
+export { installCore, isCoreInstalled, listInstalledCores } from './cores.js';
+export type {
+  ICoreCommandOptions,
+  IInstallCoreParams,
+  IInstallCoreResult,
+  IInstalledCore,
+  TListInstalledCoresResult,
+} from './cores.js';
