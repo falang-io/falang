@@ -17,7 +17,11 @@
  *
  * Size trimming: `@temporalio/core-bridge` ships a prebuilt native module for every platform (about 150 MB); only the
  * one matching `--platform <linux|darwin|win32> --arch <x64|arm64>` (default: this machine) is kept. The other native
- * modules (`bcrypt`, `@esbuild`, `@swc`) are installed by npm for the building OS only, so the dist is only valid for it.
+ * modules (`bcrypt`, `@esbuild`, `@swc`) follow the same target: for this machine npm installs them as usual; for
+ * another platform/arch (a cross build, e.g. app-flow's `build:wine` on Linux) `npm install` gets `--os`/`--cpu` (so
+ * the optional `@esbuild/<target>`/`@swc/core-<target>` packages are the target's) and `--ignore-scripts` (the
+ * postinstalls of `esbuild`/`@swc/core` only check or fetch a binary for the HOST; `bcrypt` ships prebuilds for every
+ * platform and loads the right one at run time).
  *
  * Usage (from the community root): `npx tsx scripts/release/build-flow-backend-dist.ts [--out <dir>] [--keep-tarballs]
  * [--platform <p>] [--arch <a>]`
@@ -141,7 +145,11 @@ const tsconfig = {
 };
 fs.writeFileSync(path.join(out, 'tsconfig.json'), `${JSON.stringify(tsconfig, null, 2)}\n`);
 
-run('npm', ['install', '--omit=dev', '--no-audit', '--no-fund', '--no-package-lock'], out);
+const crossBuild = targetPlatform !== process.platform || targetArch !== process.arch;
+const crossArgs = crossBuild ? [`--os=${targetPlatform}`, `--cpu=${targetArch}`, '--ignore-scripts'] : [];
+if (crossBuild)
+  console.log(`cross build: installing for ${targetPlatform}-${targetArch} on ${process.platform}-${process.arch}`);
+run('npm', ['install', '--omit=dev', '--no-audit', '--no-fund', '--no-package-lock', ...crossArgs], out);
 if (!keepTarballs) fs.rmSync(tarballDir, { recursive: true, force: true });
 
 // Keep exactly the core-bridge prebuild `core-bridge/common.js` would pick for the target (same mapping as there).

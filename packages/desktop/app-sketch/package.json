@@ -20,7 +20,9 @@
     "prebuild:mac": "npm run build -w @falang/desktop-mcp && npm run build:export-worker",
     "build:mac": "electron-vite build && electron-builder --mac",
     "prebuild:win": "npm run build -w @falang/desktop-mcp && npm run build:export-worker",
-    "build:win": "electron-vite build && electron-builder --win"
+    "build:win": "electron-vite build && electron-builder --win",
+    "prebuild:wine": "npm run build -w @falang/desktop-mcp && npm run build:export-worker",
+    "build:wine": "electron-vite build && tsx ../../../scripts/release/electron-builder-wine.ts"
   },
   "dependencies": {
     "@ant-design/icons": "^6.2.3",

@@ -17,6 +17,8 @@
     "build:mac": "electron-vite build && electron-builder --mac",
     "prebuild:win": "tsx scripts/build-client.ts && tsx ../../../scripts/release/build-flow-backend-dist.ts --platform win32",
     "build:win": "electron-vite build && electron-builder --win",
+    "prebuild:wine": "tsx scripts/build-client.ts && tsx ../../../scripts/release/build-flow-backend-dist.ts --platform win32 --arch x64",
+    "build:wine": "electron-vite build && tsx ../../../scripts/release/electron-builder-wine.ts",
     "check": "tsc --noEmit -p tsconfig.node.json && tsc --noEmit -p tsconfig.web.json",
     "test": "vitest run -c ../../../vitest.config.ts",
     "coverage": "vitest run --coverage -c ../../../vitest.config.ts"

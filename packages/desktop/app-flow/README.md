@@ -24,11 +24,13 @@ npm run prebuild:linux -w @falang/desktop-app-flow   # client + backend-dist (`:
 npm run build -w @falang/desktop-app-flow            # electron-vite
 cd packages/desktop/app-flow && npx electron-builder --linux AppImage --x64 --publish never   # (--linux deb for the .deb)
 xvfb-run -a npx tsx scripts/release/smoke-desktop-app.ts flow --screenshot flow.png           # from the repo root
+npm run build:wine -w @falang/desktop-app-flow       # Windows installer on Linux through Wine (prebuild included)
 ```
 
 - `backend-dist/` (git-ignored) is assembled by `scripts/release/build-flow-backend-dist.ts`: 42 `@falang/*` source packages
-  plus `tsx`/`typescript` in a real `node_modules` tree (about 450 MB; the native modules `bcrypt`/`@esbuild`/`@swc` are the
-  building OS's, so build per OS and architecture). `--platform`/`--arch` keep only the matching `@temporalio/core-bridge`
+  plus `tsx`/`typescript` in a real `node_modules` tree (about 450 MB). The native modules `bcrypt`/`@esbuild`/`@swc` follow
+  `--platform`/`--arch`: for another target than the host (`build:wine`: win32 x64 on Linux) npm installs with
+  `--os`/`--cpu --ignore-scripts`, so the dist holds the target's `@esbuild/<target>`/`@swc/core-<target>`. `--platform`/`--arch` keep only the matching `@temporalio/core-bridge`
   prebuild (538 MB -> 446 MB on Linux x64). `scripts/after-pack.cjs` copies it into the app's `resources/backend-dist`
   (electron-builder's `extraResources` always drops a top-level `node_modules`); the client lands in `resources/client`.
 - The install location is read-only (AppImage mount, `/Applications`, `Program Files`) but the backend writes inside its own
