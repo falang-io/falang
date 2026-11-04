@@ -8,10 +8,17 @@ export interface ICliArgs {
   temporalUi: boolean;
   skipClient: boolean;
   statusFile?: string;
+  singleUser: boolean;
 }
 
 export const parseLocalCliArgs = (argv: readonly string[], defaultDataDir: string): ICliArgs => {
-  const args: ICliArgs = { dataDir: defaultDataDir, openBrowser: true, temporalUi: true, skipClient: false };
+  const args: ICliArgs = {
+    dataDir: defaultDataDir,
+    openBrowser: true,
+    temporalUi: true,
+    skipClient: false,
+    singleUser: false,
+  };
   for (let i = 0; i < argv.length; i += 1) {
     const flag = argv[i];
     const value = (): string => {
@@ -47,6 +54,9 @@ export const parseLocalCliArgs = (argv: readonly string[], defaultDataDir: strin
         break;
       case '--status-file':
         args.statusFile = value();
+        break;
+      case '--single-user':
+        args.singleUser = true;
         break;
       case '--skip-client':
         args.skipClient = true;

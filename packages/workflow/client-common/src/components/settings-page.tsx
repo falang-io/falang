@@ -11,7 +11,10 @@ const styles: Record<string, React.CSSProperties> = {
   title: { color: '#cdd6f4', marginTop: 0 },
 };
 
-/** The user menu's "Settings" page (`#/settings`): the login, "Change password" and the interface language. */
+/**
+ * The user menu's "Settings" page (`#/settings`): the login, "Change password" (not in a single-user deployment, whose one
+ * user signs in without a password) and the interface language.
+ */
 export const SettingsPage: React.FC = observer(() => {
   const t = getGlobalI18n().t;
   const user = authStore.currentUser;
@@ -29,15 +32,17 @@ export const SettingsPage: React.FC = observer(() => {
           {user.email && user.email !== user.username && (
             <Descriptions.Item label={t('client:settings-page.email')}>{user.email}</Descriptions.Item>
           )}
-          <Descriptions.Item label={t('client:settings-page.password')}>
-            <Button
-              icon={<LockOutlined />}
-              data-testid="settings-change-password"
-              onClick={() => authStore.setChangePasswordOpen(true)}
-            >
-              {t('client:settings-page.change-password')}
-            </Button>
-          </Descriptions.Item>
+          {!authStore.isSingleUser && (
+            <Descriptions.Item label={t('client:settings-page.password')}>
+              <Button
+                icon={<LockOutlined />}
+                data-testid="settings-change-password"
+                onClick={() => authStore.setChangePasswordOpen(true)}
+              >
+                {t('client:settings-page.change-password')}
+              </Button>
+            </Descriptions.Item>
+          )}
           <Descriptions.Item label={t('client:settings-page.language')}>
             <LanguageSwitcher width={160} />
           </Descriptions.Item>

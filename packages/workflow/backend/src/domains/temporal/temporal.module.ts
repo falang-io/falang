@@ -8,6 +8,7 @@ import { Project } from '../projects/projects/project.entity.js';
 import { JwksController } from './jwks.controller.js';
 import { TEMPORAL_CONFIG, resolveTemporalConfig, type ITemporalConfig } from './temporal-config.js';
 import { TemporalLifecycleService } from './temporal-lifecycle.service.js';
+import { TEMPORAL_SERVER_CONTROL, type ITemporalServerControl } from './temporal-server-control.js';
 import { TemporalTenancyService } from './temporal-tenancy.service.js';
 import { TemporalTokenController } from './temporal-token.controller.js';
 import { TemporalTokenService } from './temporal-token.service.js';
@@ -52,9 +53,13 @@ const ENV_KEYS = [
     },
     {
       provide: TemporalTenancyService,
-      inject: [TEMPORAL_CONFIG, TemporalTokenService],
-      useFactory: (config: ITemporalConfig, tokens: TemporalTokenService | null) =>
-        new TemporalTenancyService(config, tokens),
+      // `TEMPORAL_SERVER_CONTROL` comes from an overlay module (local mode's on-demand dev server), absent otherwise.
+      inject: [TEMPORAL_CONFIG, TemporalTokenService, { token: TEMPORAL_SERVER_CONTROL, optional: true }],
+      useFactory: (
+        config: ITemporalConfig,
+        tokens: TemporalTokenService | null,
+        server: ITemporalServerControl | undefined,
+      ) => new TemporalTenancyService(config, tokens, { server: server ?? null }),
     },
     { provide: TEMPORAL_TENANCY, useExisting: TemporalTenancyService },
     TemporalLifecycleService,

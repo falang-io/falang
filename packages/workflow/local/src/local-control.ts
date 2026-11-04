@@ -1,5 +1,6 @@
 import { Controller, ForbiddenException, Headers, HttpCode, Inject, NotFoundException, Post } from '@nestjs/common';
-import { AuthService, Public, UsersService } from '@falang/workflow-backend';
+import { AuthService, Public, TEMPORAL_SERVER_CONTROL, UsersService } from '@falang/workflow-backend';
+import type { ITemporalServerControl } from '@falang/workflow-backend';
 import { timingSafeEqual } from 'node:crypto';
 
 export const LOCAL_CONTROL_OPTIONS = Symbol('LOCAL_CONTROL_OPTIONS');
@@ -37,15 +38,18 @@ export class LocalControlController {
   private readonly options: ILocalControlOptions;
   private readonly authService: AuthService;
   private readonly usersService: UsersService;
+  private readonly temporalServer: ITemporalServerControl;
 
   constructor(
     @Inject(LOCAL_CONTROL_OPTIONS) options: ILocalControlOptions,
     @Inject(AuthService) authService: AuthService,
     @Inject(UsersService) usersService: UsersService,
+    @Inject(TEMPORAL_SERVER_CONTROL) temporalServer: ITemporalServerControl,
   ) {
     this.options = options;
     this.authService = authService;
     this.usersService = usersService;
+    this.temporalServer = temporalServer;
   }
 
   /** An access token for the seeded `admin` user — the shell signs the window in with it. */
@@ -57,6 +61,15 @@ export class LocalControlController {
     if (!admin) throw new NotFoundException('The seeded admin user does not exist');
     const { accessToken } = await this.authService.login(admin);
     return { accessToken };
+  }
+
+  /** Starts the on-demand Temporal dev server (the shell's "Open Temporal UI"); answers once it is up. */
+  @Post('temporal/start')
+  @HttpCode(200)
+  async startTemporal(@Headers('x-local-control-token') provided?: string): Promise<{ ok: true }> {
+    assertAllowed(this.options.token, provided);
+    await this.temporalServer.ensureStarted();
+    return { ok: true };
   }
 
   /** The cross-platform way to quit: a signal would be an immediate TerminateProcess on Windows and orphan the children. */

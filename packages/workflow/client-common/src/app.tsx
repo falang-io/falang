@@ -82,10 +82,11 @@ export const App: React.FC = observer(() => {
       <AppShell>{page()}</AppShell>
     );
     // The support chat and the password dialog are the same everywhere a user is signed in, project included.
+    // A single-user deployment (the desktop app) has nobody to chat with.
     return (
       <>
         {main}
-        <SupportWidget />
+        {!authStore.isSingleUser && <SupportWidget />}
         <ChangePasswordModal />
       </>
     );

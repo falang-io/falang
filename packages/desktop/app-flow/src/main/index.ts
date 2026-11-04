@@ -97,7 +97,7 @@ const startBackend = async (): Promise<void> => {
       app.quit();
     },
   });
-  setSplash({ kind: 'starting', text: 'Starting Temporal and the backend…' });
+  setSplash({ kind: 'starting', text: 'Starting the backend…' });
   status = await backend.start();
   await buildApplicationMenu(status, dataDir);
   setSplash({ kind: 'starting', text: 'Opening…' });

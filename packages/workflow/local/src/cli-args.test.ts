@@ -9,6 +9,7 @@ describe('parseLocalCliArgs', () => {
       openBrowser: true,
       temporalUi: true,
       skipClient: false,
+      singleUser: false,
     });
   });
 
@@ -28,6 +29,7 @@ describe('parseLocalCliArgs', () => {
         '--no-ui',
         '--status-file',
         '/s.json',
+        '--single-user',
       ],
       '/d',
     );
@@ -40,6 +42,7 @@ describe('parseLocalCliArgs', () => {
       openBrowser: false,
       temporalUi: false,
       statusFile: '/s.json',
+      singleUser: true,
     });
   });
 

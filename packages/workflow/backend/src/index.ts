@@ -66,6 +66,7 @@ export { MailService, type ISendMailInput } from './domains/mail/mail.service.js
 // ADR 0072 (private) local-mode seams: an overlay `@Global()` module may provide these tokens.
 export { RUNNER_DEPLOYMENTS_CLIENT, type IK8sDeploymentsClient } from './domains/build/build/k8s-deployments-client.js';
 export type { V1Deployment } from '@kubernetes/client-node';
+export { TEMPORAL_SERVER_CONTROL, type ITemporalServerControl } from './domains/temporal/temporal-server-control.js';
 export {
   FILE_STORAGE_OVERRIDE,
   type IFileStorage,

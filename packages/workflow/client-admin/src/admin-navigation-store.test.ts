@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { AdminNavigationStore } from './admin-navigation-store.js';
+import { AdminNavigationStore, isAdminPageAvailable } from './admin-navigation-store.js';
 
 describe('AdminNavigationStore', () => {
   it('defaults to the users page', () => {
@@ -29,5 +29,19 @@ describe('AdminNavigationStore', () => {
     const store = new AdminNavigationStore();
     store.setPage('agent-settings');
     expect(store.page).toBe('agent-settings');
+  });
+});
+
+describe('isAdminPageAvailable', () => {
+  it('offers every page in a multi-user deployment', () => {
+    expect(isAdminPageAvailable('users', false)).toBe(true);
+    expect(isAdminPageAvailable('support', false)).toBe(true);
+  });
+
+  it('drops users and support in a single-user deployment', () => {
+    expect(isAdminPageAvailable('users', true)).toBe(false);
+    expect(isAdminPageAvailable('support', true)).toBe(false);
+    expect(isAdminPageAvailable('agent-settings', true)).toBe(true);
+    expect(isAdminPageAvailable('oauth-credentials', true)).toBe(true);
   });
 });

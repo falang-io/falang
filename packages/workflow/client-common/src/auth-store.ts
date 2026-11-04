@@ -144,6 +144,11 @@ export class AuthStore {
     if (screen !== 'signin') this.notice = null;
   }
 
+  /** `IApiUser.singleUser` of the signed-in user: a single-user deployment (the desktop app). */
+  get isSingleUser(): boolean {
+    return this.currentUser?.singleUser === true;
+  }
+
   get signupMode(): TSignupMode {
     const config = this.authConfig;
     if (!config) return 'off';

@@ -213,7 +213,9 @@ export const createTemporalScheduleClient = (
 
     async listForProject(projectId) {
       try {
-        const client = await tenancy.getClientForNamespace(tenancy.namespaceFor(projectId));
+        // Polled by the editor and the schedule guard: never the reason an on-demand server starts (nothing fires while
+        // it is down anyway; a schedule trigger's own reconcile starts it through `getClient`).
+        const client = await tenancy.getClientForNamespace(tenancy.namespaceFor(projectId), { wakeServer: false });
         return await listStates<IScheduleStateWithTarget>(
           client,
           (memo, state) => ({
@@ -249,7 +251,8 @@ export const createTemporalScheduleClient = (
       const all: IScheduleStateWithTarget[] = [];
       for (const namespace of await tenancy.listTenantNamespaces()) {
         try {
-          const client = await tenancy.getClientForNamespace(namespace);
+          // The wake sweep runs every minute: it must not start an on-demand server either.
+          const client = await tenancy.getClientForNamespace(namespace, { wakeServer: false });
           all.push(
             ...(await listStates<IScheduleStateWithTarget>(
               client,

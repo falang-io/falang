@@ -48,6 +48,7 @@ const main = async (): Promise<void> => {
     clientDir,
     openBrowser: args.openBrowser,
     temporalUi: args.temporalUi,
+    singleUser: args.singleUser,
     ...(args.statusFile === undefined ? {} : { statusFile: args.statusFile }),
     onShutdownRequested: () => shutdown(),
     onTemporalExit: (error) => {
@@ -57,7 +58,8 @@ const main = async (): Promise<void> => {
   });
   stopLocal = () => local.stop();
   console.log(`\nFalang Flow is running: ${local.url}`);
-  if (local.temporalUiUrl) console.log(`Temporal UI: ${local.temporalUiUrl}`);
+  if (local.temporalUiUrl)
+    console.log(`Temporal UI: ${local.temporalUiUrl} (Temporal starts with the first workflow run)`);
   console.log(`Data directory: ${path.resolve(args.dataDir)}`);
   console.log(
     local.firstRun

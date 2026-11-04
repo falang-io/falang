@@ -2,6 +2,7 @@
   "workflow-client-admin": {
     "shell": {
       "title": "Админ",
+      "settings-title": "Настройки",
       "users-menu": "Пользователи",
       "oauth-credentials-menu": "OAuth-учётные данные",
       "agent-settings-menu": "ИИ-агент",

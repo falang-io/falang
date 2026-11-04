@@ -1,7 +1,8 @@
 # @falang/workflow-local
 
 Runs the workflow product locally without Docker, kind or Postgres (ADR 0072, private): one Node process plus the
-[`temporal` CLI](https://docs.temporal.io/cli) dev server.
+[`temporal` CLI](https://docs.temporal.io/cli) dev server, which starts only when something needs it (see "Temporal on
+demand").
 
 ```sh
 npm install                 # repo root
@@ -16,7 +17,9 @@ user `admin` / `admin` (change the password in Settings). Then it opens the brow
 
 `--data-dir <dir>` (default `~/.falang-flow`, or `FALANG_LOCAL_DATA_DIR`), `--port` (4000), `--internal-port` (3001,
 used by runner processes only), `--client-dir <dir>`, `--skip-client` (API only), `--no-browser`, `--no-ui` (no
-Temporal Web UI), `--status-file <path>` (see below). Every environment variable the entry point sets (`JWT_SECRET`, `SIGNUP_MODE=off`,
+Temporal Web UI), `--status-file <path>` (see below), `--single-user` (`SINGLE_USER_MODE=true`: the one user is signed in
+by the shell without a password, so the client hides the default-password warning, the Users and Support admin pages, the
+support chat, "Change password" and Logout; the desktop app passes it). Every environment variable the entry point sets (`JWT_SECRET`, `SIGNUP_MODE=off`,
 `EGRESS_ALLOW_PRIVATE=true`, `TEMPORAL_ADDRESS`, …) is applied only if you have not set it already, so any of them can be
 overridden from the shell.
 
@@ -27,12 +30,22 @@ temporalUiUrl, pid, firstRun, controlToken }` to that file once everything is up
 stop. `controlToken` is a fresh random 32-byte hex string per run and enables two routes:
 
 - `POST /internal/local/auto-login` -> `{ accessToken }` for the seeded `admin` (same token as `POST /auth/login`);
+- `POST /internal/local/temporal/start` -> 200 once the Temporal dev server is up (the shell's "Open Temporal UI");
 - `POST /internal/local/shutdown` -> 202, then a graceful stop and exit (the cross-platform way to quit: on Windows a signal
   is an immediate TerminateProcess that would orphan Temporal and the runners).
 
-Both need the header `x-local-control-token: <controlToken>` (403 otherwise; 404 when no token is configured). Threat
+All of them need the header `x-local-control-token: <controlToken>` (403 otherwise; 404 when no token is configured). Threat
 model: the routes live under `/internal/`, so the backend serves them only on the internal port, which listens on loopback;
 on top of that the token sits in a 0600 file, so only the same OS user can read it. `--port 0` / `--internal-port 0` pick free ports.
+
+## Temporal on demand
+
+The `temporal` CLI is looked up (or downloaded) in the background at start, but the dev server itself is started only by
+the first runner process (a test stand or production start, a woken trigger, a schedule's reconcile) and by reads of runs
+or tasks once `temporal/temporal.db` exists. Background sweeps (schedule wake, the editor's schedule list) never start it:
+while it is down nothing fires anyway. Its ports are picked at start, so `TEMPORAL_ADDRESS` and the UI URL in the status
+file are known before the server exists (the UI answers only once it has started). The backend side is the optional
+`TEMPORAL_SERVER_CONTROL` token of `@falang/workflow-backend` (`OnDemandTemporalServer` provides it).
 
 ## Data directory
 

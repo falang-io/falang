@@ -3,6 +3,7 @@ import { generateKeyPairSync } from 'node:crypto';
 import type { Connection, ConnectionOptions } from '@temporalio/client';
 import { describe, expect, it, vi } from 'vitest';
 import type { ITemporalConfig } from './temporal-config.js';
+import type { ITemporalServerControl } from './temporal-server-control.js';
 import { TemporalTenancyService } from './temporal-tenancy.service.js';
 import { TemporalTokenService } from './temporal-token.service.js';
 
@@ -64,7 +65,7 @@ const fakeConnection = (): IFakeConnection => {
   };
 };
 
-const setup = (config: ITemporalConfig, fake = fakeConnection()) => {
+const setup = (config: ITemporalConfig, fake = fakeConnection(), server: ITemporalServerControl | null = null) => {
   let clock = 1_000_000;
   const createdWith: ConnectionOptions[] = [];
   const sleeps: number[] = [];
@@ -82,6 +83,7 @@ const setup = (config: ITemporalConfig, fake = fakeConnection()) => {
         return Promise.resolve();
       },
       now: () => clock,
+      server,
     },
   );
   return { tenancy, fake, createdWith, sleeps, advance: (ms: number) => (clock += ms) };
@@ -330,6 +332,58 @@ describe('TemporalTenancyService', () => {
       await expect(tenancy.deleteNamespace('default')).rejects.toThrow(/not a falang-\* tenant namespace/);
       await expect(setup(sharedConfig).tenancy.deleteNamespace('falang-x')).rejects.toThrow(/shared namespace/);
       expect(fake.operatorService.deleteNamespace).not.toHaveBeenCalled();
+    });
+  });
+
+  describe('on-demand server', () => {
+    const fakeServer = (stored: boolean) => {
+      let running = false;
+      const ensureStarted = vi.fn(() => {
+        running = true;
+        return Promise.resolve();
+      });
+      const server: ITemporalServerControl = {
+        isRunning: () => running,
+        hasStoredState: () => stored,
+        ensureStarted,
+      };
+      return { server, ensureStarted };
+    };
+
+    it('getClient starts the server first', async () => {
+      const { server, ensureStarted } = fakeServer(false);
+      const { tenancy } = setup(sharedConfig, fakeConnection(), server);
+
+      await tenancy.getClient('a');
+
+      expect(ensureStarted).toHaveBeenCalledTimes(1);
+      expect(server.isRunning()).toBe(true);
+    });
+
+    it('a read of a server that never stored anything finds no namespace and starts nothing', async () => {
+      const { server, ensureStarted } = fakeServer(false);
+      const { tenancy } = setup(sharedConfig, fakeConnection(), server);
+
+      await expect(tenancy.getClientForNamespace('default')).rejects.toMatchObject({ name: 'NamespaceNotFoundError' });
+      expect(ensureStarted).not.toHaveBeenCalled();
+    });
+
+    it('a read of a server with stored state starts it, unless the caller passes wakeServer: false', async () => {
+      const { server, ensureStarted } = fakeServer(true);
+      const { tenancy } = setup(sharedConfig, fakeConnection(), server);
+
+      await expect(tenancy.getClientForNamespace('default', { wakeServer: false })).rejects.toMatchObject({
+        name: 'NamespaceNotFoundError',
+      });
+      expect(ensureStarted).not.toHaveBeenCalled();
+
+      const client = await tenancy.getClientForNamespace('default');
+      expect(client.options.namespace).toBe('default');
+      expect(ensureStarted).toHaveBeenCalledTimes(1);
+
+      // Running now: background reads go through as well.
+      await tenancy.getClientForNamespace('default', { wakeServer: false });
+      expect(ensureStarted).toHaveBeenCalledTimes(1);
     });
   });
 });

@@ -53,14 +53,14 @@ export const smokeFlow = async (app: { readonly binary: string }, screenshot: st
   });
   try {
     const window = await electronApp.firstWindow({ timeout: 60_000 });
-    console.log('1/4 first start (staging the backend, starting Temporal, PGlite, the backend)');
+    console.log('1/4 first start (staging the backend, PGlite, the backend; Temporal starts with the first run)');
     await window.waitForURL(/^http:\/\/localhost:\d+\/(?!health)/, { timeout: 300_000 });
     console.log(`  product url ${window.url()} after ${Math.round((Date.now() - started) / 1000)} s`);
-    // Signed in as the seeded admin: the default-password banner only exists for a signed-in `admin`.
-    await window
-      .getByText(/default admin password/i)
-      .first()
-      .waitFor({ timeout: 60_000 });
+    // Signed in as the seeded admin (single-user mode): the header's "Settings" item exists only for a signed-in admin.
+    await window.getByTestId('nav-admin').waitFor({ timeout: 60_000 });
+    if ((await window.getByText(/default admin password/i).count()) > 0) {
+      throw new Error('the default-password banner is shown in the single-user app');
+    }
     console.log(`  signed in as admin; title "${await window.title()}"`);
     if (screenshot) await window.screenshot({ path: screenshot });
 

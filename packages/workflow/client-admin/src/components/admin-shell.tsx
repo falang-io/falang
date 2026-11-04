@@ -16,13 +16,12 @@ import {
   authStore,
   ChangePasswordModal,
   DefaultPasswordBanner,
-  LanguageSwitcher,
   TopBar,
   useClientBrand,
 } from '@falang/workflow-client-common';
 import { findAdminExtensionPage, toAdminExtensionPage, useAdminExtensions } from '../admin-extensions.js';
 import { adminSupportStore } from '../admin-support-store.js';
-import { adminNavigationStore, type TAdminPage } from '../admin-navigation-store.js';
+import { adminNavigationStore, isAdminPageAvailable, type TAdminPage } from '../admin-navigation-store.js';
 import { AgentSettingsPage } from './agent-settings-page.js';
 import { ProxySettingsPage } from './proxy-settings-page.js';
 import { SandboxBotsPage } from './sandbox-bots-page.js';
@@ -59,18 +58,32 @@ const MENU_LABEL_KEYS: Record<TAdminPage, string> = {
   support: 'shell.support-menu',
 };
 
-/** The admin app's shell — `Sider` menu (users / OAuth credentials) plus a header, no router, see ADR 0030 (private). */
+/**
+ * The admin app's shell — `Sider` menu (users / OAuth credentials) plus a header, no router, see ADR 0030 (private). The
+ * interface language is chosen in the main app's Settings, not here. In a single-user deployment (the desktop app) it is
+ * the app's "Settings": no Users or Support page, no "Change password" and no Logout.
+ */
 export const AdminShell: React.FC = observer(() => {
   const t = getGlobalI18n().t;
   const extensions = useAdminExtensions();
   const brand = useClientBrand();
+  const singleUser = authStore.isSingleUser;
   const extensionPage = findAdminExtensionPage(extensions, adminNavigationStore.page);
 
   // The unread badge on the "Support" menu entry: polled every 15s for as long as the shell is mounted.
   useEffect(() => {
+    if (singleUser) return;
     adminSupportStore.startUnreadPolling();
     return () => adminSupportStore.stopUnreadPolling();
-  }, []);
+  }, [singleUser]);
+
+  // The default page ("Users") may not exist here: fall back to the first one that does.
+  useEffect(() => {
+    const current = adminNavigationStore.page;
+    if (findAdminExtensionPage(extensions, current) || isAdminPageAvailable(current as TAdminPage, singleUser)) return;
+    const first = PAGES.find(({ key }) => isAdminPageAvailable(key, singleUser));
+    if (first) adminNavigationStore.setPage(first.key);
+  }, [extensions, singleUser]);
 
   return (
     <Layout style={styles.root}>
@@ -78,21 +91,25 @@ export const AdminShell: React.FC = observer(() => {
         title={
           <span style={styles.brand}>
             <img src={brand.logoUrl} alt="" style={styles.logo} />
-            {brand.name} · {t('workflow-client-admin:shell.title')}
+            {brand.name} ·{' '}
+            {t(singleUser ? 'workflow-client-admin:shell.settings-title' : 'workflow-client-admin:shell.title')}
           </span>
         }
       >
         <Typography.Text style={styles.username}>{authStore.currentUser?.username}</Typography.Text>
-        <LanguageSwitcher />
         <Button type="text" href="/">
           {t('workflow-client-admin:shell.back-to-app')}
         </Button>
-        <Button type="text" onClick={() => authStore.setChangePasswordOpen(true)}>
-          {t('workflow-client-admin:shell.change-password')}
-        </Button>
-        <Button type="text" onClick={() => authStore.logout()}>
-          {t('workflow-client-admin:shell.logout')}
-        </Button>
+        {!singleUser && (
+          <Button type="text" onClick={() => authStore.setChangePasswordOpen(true)}>
+            {t('workflow-client-admin:shell.change-password')}
+          </Button>
+        )}
+        {!singleUser && (
+          <Button type="text" onClick={() => authStore.logout()}>
+            {t('workflow-client-admin:shell.logout')}
+          </Button>
+        )}
       </TopBar>
       <Layout>
         <Layout.Sider theme="dark" width={220}>
@@ -102,7 +119,7 @@ export const AdminShell: React.FC = observer(() => {
             selectedKeys={[adminNavigationStore.page]}
             onSelect={({ key }) => adminNavigationStore.setPage(key as TAdminPage)}
             items={[
-              ...PAGES.map(({ key, icon }) => ({
+              ...PAGES.filter(({ key }) => isAdminPageAvailable(key, singleUser)).map(({ key, icon }) => ({
                 key,
                 icon,
                 label:
@@ -124,13 +141,13 @@ export const AdminShell: React.FC = observer(() => {
         </Layout.Sider>
         <Layout.Content style={styles.content}>
           <DefaultPasswordBanner />
-          {adminNavigationStore.page === 'users' ? <UsersPage /> : null}
+          {adminNavigationStore.page === 'users' && !singleUser ? <UsersPage /> : null}
           {adminNavigationStore.page === 'oauth-credentials' ? <OAuthCredentialsPage /> : null}
           {adminNavigationStore.page === 'agent-settings' ? <AgentSettingsPage /> : null}
           {adminNavigationStore.page === 'proxy' ? <ProxySettingsPage /> : null}
           {adminNavigationStore.page === 'sandbox-bots' ? <SandboxBotsPage /> : null}
           {adminNavigationStore.page === 'project-templates' ? <ProjectTemplatesPage /> : null}
-          {adminNavigationStore.page === 'support' ? <SupportPage /> : null}
+          {adminNavigationStore.page === 'support' && !singleUser ? <SupportPage /> : null}
           {extensionPage?.render()}
         </Layout.Content>
       </Layout>

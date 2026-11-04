@@ -40,6 +40,8 @@ export const resolveBackendCommand = (params: IBackendCommandParams): IBackendCo
     '--internal-port',
     '0',
     '--no-browser',
+    // One user, signed in by the shell: no default-password warning, no user management, no support chat.
+    '--single-user',
     '--status-file',
     params.statusFile,
   ];

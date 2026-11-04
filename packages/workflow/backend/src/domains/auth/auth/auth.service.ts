@@ -11,6 +11,7 @@ import * as bcrypt from 'bcrypt';
 import { UsersService } from '../../users/users/users.service.js';
 import { PersonalAccessTokensService } from '../personal-access-tokens/personal-access-tokens.service.js';
 import type { User } from '../../users/users/user.entity.js';
+import { isSingleUserMode } from './single-user-mode.js';
 
 export interface ILoginResult {
   accessToken: string;
@@ -27,8 +28,10 @@ export interface IAuthUser {
   /** ISO timestamp; `null` for an application that is not activated yet. */
   activatedAt: string | null;
   companyName: string | null;
-  /** `true` only for the seeded `admin` account while its password is still `admin`. */
+  /** `true` only for the seeded `admin` account while its password is still `admin` (never in single-user mode). */
   defaultPasswordInUse: boolean;
+  /** Deployment flag `SINGLE_USER_MODE` (see `single-user-mode.ts`): one user, no password sign-in. */
+  singleUser: boolean;
 }
 
 /** Compared against for an unknown login so the response time doesn't tell whether the account exists. */
@@ -71,10 +74,14 @@ export class AuthService {
   }
 
   async toAuthUser(user: User): Promise<IAuthUser> {
+    const singleUser = isSingleUserMode();
     // Only the seeded username is ever compared against the well-known password, so this costs one
-    // extra bcrypt round for that one account and nothing for anybody else.
+    // extra bcrypt round for that one account and nothing for anybody else. A single-user deployment signs
+    // its one user in without a password, so the well-known one is no warning there.
     const defaultPasswordInUse =
-      user.username === SEEDED_ADMIN_USERNAME && (await bcrypt.compare(SEEDED_ADMIN_PASSWORD, user.password));
+      !singleUser &&
+      user.username === SEEDED_ADMIN_USERNAME &&
+      (await bcrypt.compare(SEEDED_ADMIN_PASSWORD, user.password));
     return {
       id: user.id,
       username: user.username,
@@ -85,6 +92,7 @@ export class AuthService {
       activatedAt: user.activatedAt ? user.activatedAt.toISOString() : null,
       companyName: user.companyName,
       defaultPasswordInUse,
+      singleUser,
     };
   }
 

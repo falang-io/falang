@@ -1,7 +1,9 @@
 // oxlint-disable unicorn/prefer-module, no-undefined, unicorn/no-await-expression-member, init-declarations, no-promise-executor-return -- CommonJS package; a plain HTTP test client.
 import { spawn, spawnSync, type ChildProcess } from 'node:child_process';
 import { createRequire } from 'node:module';
+import { existsSync } from 'node:fs';
 import { mkdtemp, readFile, rm } from 'node:fs/promises';
+import net from 'node:net';
 import os from 'node:os';
 import path from 'node:path';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
@@ -26,11 +28,27 @@ const sleep = (ms: number): Promise<void> =>
     setTimeout(resolve, ms);
   });
 
+/** Whether something accepts TCP connections at `host:port`. */
+const isListening = (address: string): Promise<boolean> =>
+  new Promise((resolve) => {
+    const [host, port] = address.split(':');
+    const socket = net.connect({ host, port: Number(port) });
+    socket.once('connect', () => {
+      socket.destroy();
+      resolve(true);
+    });
+    socket.once('error', () => {
+      socket.destroy();
+      resolve(false);
+    });
+  });
+
 describe.skipIf(!canRun)('local mode (no Docker)', () => {
   let dataDir = '';
   let cli: ChildProcess;
   let local = { url: '' };
   let token = '';
+  let temporalAddress = '';
 
   const call = (
     method: string,
@@ -104,8 +122,17 @@ describe.skipIf(!canRun)('local mode (no Docker)', () => {
       internalUrl: string;
       controlToken: string;
       pid: number;
+      temporalAddress: string;
     };
     expect(status.url).toBe(local.url);
+    // Temporal starts with the first workflow run, not with the app: nothing listens yet, and runs read as empty.
+    temporalAddress = status.temporalAddress;
+    expect(temporalAddress).toMatch(/^127\.0\.0\.1:\d+$/);
+    expect(await isListening(temporalAddress)).toBe(false);
+    expect(existsSync(path.join(dataDir, 'temporal', 'temporal.db'))).toBe(false);
+    const runs = await call('GET', '/workflow-runs');
+    expect(runs.status).toBe(200);
+    expect(await isListening(temporalAddress)).toBe(false);
     expect(status.controlToken).toMatch(/^[0-9a-f]{64}$/);
     // oxlint-disable-next-line unicorn/consistent-function-scoping -- local helper of this one test.
     const control = (base: string, route: string, tokenValue?: string): Promise<Response> =>
@@ -136,6 +163,8 @@ describe.skipIf(!canRun)('local mode (no Docker)', () => {
       ((await (await call('GET', `/projects/${projectId}/build/status`)).json()) as { running: boolean }).running ===
       running;
     await waitFor(() => isRunning(true), 90_000);
+    // The dev stand's runner started Temporal first.
+    expect(await isListening(temporalAddress)).toBe(true);
     const run = await call('POST', `/projects/${projectId}/run`, { functionName: 'greet', target: 'dev', args: [] });
     expect(run.status).toBe(201);
     expect(((await run.json()) as { status: string }).status).toBe('completed');

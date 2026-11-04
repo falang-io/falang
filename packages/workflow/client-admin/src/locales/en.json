@@ -2,6 +2,7 @@
   "workflow-client-admin": {
     "shell": {
       "title": "Admin",
+      "settings-title": "Settings",
       "users-menu": "Users",
       "oauth-credentials-menu": "OAuth credentials",
       "agent-settings-menu": "AI agent",

@@ -6,6 +6,15 @@ import { NamespaceNotFoundError, type Client } from '@temporalio/client';
  */
 export const TEMPORAL_TENANCY = Symbol('TEMPORAL_TENANCY');
 
+export interface IGetClientForNamespaceOptions {
+  /**
+   * `false`: a background sweep that must never start an on-demand Temporal server (local mode, ADR 0072 private) — a
+   * server that isn't running answers `NamespaceNotFoundError` instead. Default: a read may start it when it has stored
+   * state. Irrelevant for an always-running server.
+   */
+  readonly wakeServer?: boolean;
+}
+
 /**
  * The one place that decides which Temporal namespace a project lives in and hands out a (pooled,
  * authenticated) client for it — an interface here so `@falang/workflow-gateway` never depends on
@@ -22,7 +31,7 @@ export interface ITemporalTenancy {
   /** A client bound to `projectId`'s namespace over the shared backend connection; ensures the namespace exists first. Callers must never close its connection. */
   getClient(projectId: string): Promise<Client>;
   /** Like `getClient`, but for an already-known namespace and without registering it — for read-only sweeps (a missing namespace surfaces as `NamespaceNotFoundError`). */
-  getClientForNamespace(namespace: string): Promise<Client>;
+  getClientForNamespace(namespace: string, options?: IGetClientForNamespaceOptions): Promise<Client>;
   /** Every namespace a cross-project sweep (e.g. schedule `listAll`) has to visit: the one shared namespace, or every existing `falang-*` one. */
   listTenantNamespaces(): Promise<readonly string[]>;
 }

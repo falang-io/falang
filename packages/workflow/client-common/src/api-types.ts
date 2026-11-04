@@ -20,6 +20,11 @@ export interface IApiUser {
   readonly emailVerified?: boolean;
   readonly activatedAt?: string | null;
   readonly companyName?: string | null;
+  /**
+   * Deployment flag `SINGLE_USER_MODE` (the desktop FalangFlow app): the one user is signed in without a password, so
+   * the client shows no support chat, no password change, and "Settings" instead of "Admin" in the header.
+   */
+  readonly singleUser?: boolean;
 }
 
 /** `GET /auth/config` (public) — what the login page needs before anyone is signed in. */

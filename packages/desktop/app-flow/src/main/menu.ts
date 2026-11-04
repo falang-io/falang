@@ -2,6 +2,7 @@
 import { app, Menu, shell, type MenuItemConstructorOptions } from 'electron';
 import { getLanguage } from './settings.js';
 import { MENU_LABELS, resolveMenuLanguage } from './menu-labels.js';
+import { requestTemporalStart } from './auto-login.js';
 import type { ILocalStatus } from './status-file.js';
 
 export const DOCUMENTATION_URL = 'https://docs.falang.io';
@@ -22,8 +23,11 @@ export const buildApplicationMenu = async (status: ILocalStatus | null, dataDir:
         {
           label: l.openTemporalUi,
           enabled: Boolean(status?.temporalUiUrl),
+          // Temporal starts with the first workflow run; opening its UI starts it too.
           click: () => {
-            if (status?.temporalUiUrl) void shell.openExternal(status.temporalUiUrl);
+            const uiUrl = status?.temporalUiUrl;
+            if (!status || !uiUrl) return;
+            void requestTemporalStart(status).then(() => shell.openExternal(uiUrl));
           },
         },
         { label: l.showDataFolder, click: () => void shell.openPath(dataDir) },

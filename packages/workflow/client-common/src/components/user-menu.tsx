@@ -11,7 +11,10 @@ export interface IUserMenuProps {
   readonly style?: React.CSSProperties;
 }
 
-/** The signed-in user's login with a dropdown: Settings, Access tokens, Logout. The rightmost item of every top bar. */
+/**
+ * The signed-in user's login with a dropdown: Settings, Access tokens, Logout. The rightmost item of every top bar. A
+ * single-user deployment (the desktop app) has no Logout: its one user is signed in by the shell, never by a form.
+ */
 export const UserMenu: React.FC<IUserMenuProps> = observer(({ style }) => {
   const t = getGlobalI18n().t;
   const user = authStore.currentUser;
@@ -29,13 +32,17 @@ export const UserMenu: React.FC<IUserMenuProps> = observer(({ style }) => {
       label: t('client:user-menu.tokens'),
       onClick: () => navigationStore.goToTokens(),
     },
-    { type: 'divider' },
-    {
-      key: 'logout',
-      icon: <LogoutOutlined />,
-      label: t('client:user-menu.logout'),
-      onClick: () => authStore.logout(),
-    },
+    ...(authStore.isSingleUser
+      ? []
+      : [
+          { type: 'divider' as const },
+          {
+            key: 'logout',
+            icon: <LogoutOutlined />,
+            label: t('client:user-menu.logout'),
+            onClick: () => authStore.logout(),
+          },
+        ]),
   ];
   return (
     <Dropdown menu={{ items }} trigger={['click']} placement="bottomRight">

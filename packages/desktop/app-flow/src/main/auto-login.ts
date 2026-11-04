@@ -15,6 +15,19 @@ export const requestAutoLoginToken = async (status: ILocalStatus): Promise<strin
   }
 };
 
+/** Starts the on-demand Temporal dev server (for "Open Temporal UI"); `false` when the backend refused or is gone. */
+export const requestTemporalStart = async (status: ILocalStatus): Promise<boolean> => {
+  try {
+    const response = await fetch(`${status.internalUrl}/internal/local/temporal/start`, {
+      method: 'POST',
+      headers: { 'x-local-control-token': status.controlToken },
+    });
+    return response.ok;
+  } catch {
+    return false;
+  }
+};
+
 /** The script that stores the token where the client reads it on start. */
 export const buildSetTokenScript = (token: string): string =>
   `localStorage.setItem(${JSON.stringify(AUTH_TOKEN_STORAGE_KEY)}, ${JSON.stringify(token)});`;

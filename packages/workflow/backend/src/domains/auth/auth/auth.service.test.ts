@@ -99,6 +99,7 @@ describe('AuthService', () => {
         activatedAt: user.activatedAt?.toISOString(),
         companyName: null,
         defaultPasswordInUse: false,
+        singleUser: false,
       },
     });
   });
@@ -110,6 +111,17 @@ describe('AuthService', () => {
     const changedResult = await authService.toAuthUser(changed);
     expect(defaultResult.defaultPasswordInUse).toBe(true);
     expect(changedResult.defaultPasswordInUse).toBe(false);
+  });
+
+  it('never flags the default password in single-user mode and reports the mode', async () => {
+    vi.stubEnv('SINGLE_USER_MODE', 'true');
+    try {
+      const result = await authService.toAuthUser(await makeUser('admin', 'admin'));
+      expect(result.defaultPasswordInUse).toBe(false);
+      expect(result.singleUser).toBe(true);
+    } finally {
+      vi.unstubAllEnvs();
+    }
   });
 
   it('registers a new user and logs them in', async () => {

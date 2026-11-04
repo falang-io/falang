@@ -13,13 +13,8 @@ import { LocalModeModule } from './local-mode.module.js';
 import { createProcessDeploymentsClient } from './runner/process-deployments-client.js';
 import { loadOrCreateSecrets } from './secrets.js';
 import { createClientMiddleware } from './serve-client.js';
-import {
-  downloadTemporalCli,
-  findFreePort,
-  resolveTemporalCli,
-  startTemporalDevServer,
-  type ITemporalDevServer,
-} from './temporal/index.js';
+import { downloadTemporalCli, findFreePort, OnDemandTemporalServer, resolveTemporalCli } from './temporal/index.js';
+import type { IProcessDeploymentsClient } from './runner/process-deployments-client.js';
 
 const requireFromHere = createRequire(__filename);
 
@@ -34,8 +29,14 @@ export interface IStartLocalModeOptions {
   readonly clientDir?: string | null;
   /** Open the default browser on start. The CLI passes `true`. Default false. */
   readonly openBrowser?: boolean;
-  /** Start the Temporal Web UI (default true); false = headless. */
+  /** Start the Temporal Web UI with the server (default true); false = headless. */
   readonly temporalUi?: boolean;
+  /**
+   * One user signed in without a password (`SINGLE_USER_MODE=true`): the desktop app. The client then hides the
+   * default-password warning, other users, the support chat and password changes. Default false (the CLI keeps the
+   * normal `admin` sign-in).
+   */
+  readonly singleUser?: boolean;
   /**
    * Write `{ url, internalUrl, temporalAddress, temporalUiUrl, pid, firstRun, controlToken }` here (atomically, mode 0600)
    * once everything is up, remove it on stop, and enable the `/internal/local/*` control routes protected by that token.
@@ -46,7 +47,7 @@ export interface IStartLocalModeOptions {
   /** Called after `POST /internal/local/shutdown` was accepted (the CLI stops and exits). */
   readonly onShutdownRequested?: () => void;
   readonly log?: (line: string) => void;
-  /** Called when the Temporal child dies on its own (after the app was started). */
+  /** Called when the Temporal child dies on its own (after it was started on demand). */
   readonly onTemporalExit?: (error: Error) => void;
 }
 
@@ -92,6 +93,18 @@ const resolvePort = (explicit: number | undefined, envName: string, fallback: nu
   return Promise.resolve(Number.isInteger(fromEnv) && fromEnv > 0 ? fromEnv : fallback);
 };
 
+/** Runner processes connect to Temporal right away, so the on-demand server is started before the first one. */
+const startTemporalBeforeRunners = (
+  client: IProcessDeploymentsClient,
+  temporal: OnDemandTemporalServer,
+): IProcessDeploymentsClient => ({
+  ...client,
+  apply: async (namespace, deployment) => {
+    await temporal.ensureStarted();
+    await client.apply(namespace, deployment);
+  },
+});
+
 /** Default data directory of the CLI. */
 export const defaultDataDir = (): string =>
   process.env.FALANG_LOCAL_DATA_DIR ?? path.join(os.homedir(), '.falang-flow');
@@ -110,9 +123,10 @@ export const openInBrowser = (url: string): void => {
 };
 
 /**
- * Starts the whole workflow product in this one process plus the `temporal` CLI dev server: PGlite database, disk file
- * storage, runners as child processes (ADR 0072, private). Environment defaults are applied with `??=`, so any of them
- * can be overridden from the shell.
+ * Starts the whole workflow product in this one process: PGlite database, disk file storage, runners as child processes
+ * (ADR 0072, private). The `temporal` CLI dev server starts only when something needs it — the first runner process or a
+ * read of runs it already stored (`OnDemandTemporalServer`); its ports are picked here so the addresses are known.
+ * Environment defaults are applied with `??=`, so any of them can be overridden from the shell.
  */
 export const startLocalMode = async (options: IStartLocalModeOptions): Promise<ILocalMode> => {
   // oxlint-disable-next-line no-console -- default sink of the CLI.
@@ -128,16 +142,44 @@ export const startLocalMode = async (options: IStartLocalModeOptions): Promise<I
   const publicUrl = `http://localhost:${port}`;
   const internalUrl = `http://127.0.0.1:${internalPort}`;
 
-  let cliPath = await resolveTemporalCli({ env: process.env, dataDir });
-  if (!cliPath) {
-    log('[local] temporal CLI not found, downloading it');
-    cliPath = await downloadTemporalCli({ dataDir });
+  // The CLI is looked up (and, if missing, downloaded) in the background right away; the server itself starts only
+  // when something needs it (`OnDemandTemporalServer`). A failed lookup is retried by the next start attempt.
+  let cliLookup: Promise<string> | null = null;
+  const resolveCli = (): Promise<string> => {
+    cliLookup ??= (async () => {
+      const found = await resolveTemporalCli({ env: process.env, dataDir });
+      if (found) return found;
+      log('[local] temporal CLI not found, downloading it');
+      return downloadTemporalCli({ dataDir });
+    })();
+    const current = cliLookup;
+    current.catch(() => {
+      if (cliLookup === current) cliLookup = null;
+    });
+    return current;
+  };
+  resolveCli().catch((error: unknown) =>
+    log(`[local] temporal CLI lookup failed (retried on start): ${String(error)}`),
+  );
+  let stopping: Promise<void> | null = null;
+  const temporalIp = '127.0.0.1';
+  const temporalPort = await findFreePort(temporalIp);
+  let temporalUiPort: number | null = null;
+  // Picked now, bound only when the server starts: two lookups in a row may hand out the same free port.
+  while (options.temporalUi !== false && (temporalUiPort === null || temporalUiPort === temporalPort)) {
+    // oxlint-disable-next-line no-await-in-loop -- retried only on a collision
+    temporalUiPort = await findFreePort(temporalIp);
   }
-  const temporal: ITemporalDevServer = await startTemporalDevServer({
-    cliPath,
+  const temporal = new OnDemandTemporalServer({
+    resolveCli,
     dbFile: path.join(dataDir, 'temporal', 'temporal.db'),
-    headless: options.temporalUi === false,
+    ip: temporalIp,
+    port: temporalPort,
+    uiPort: temporalUiPort,
     log,
+    onUnexpectedExit: (error) => {
+      if (!stopping) options.onTemporalExit?.(error);
+    },
   });
 
   Object.entries(secrets).forEach(([key, value]) => setDefault(key, value));
@@ -156,6 +198,7 @@ export const startLocalMode = async (options: IStartLocalModeOptions): Promise<I
     CLIENT_PUBLIC_URL: publicUrl,
     BACKEND_INTERNAL_URL: internalUrl,
     CORS_ORIGINS: publicUrl,
+    ...(options.singleUser ? { SINGLE_USER_MODE: 'true' } : {}),
   };
   Object.entries(env).forEach(([key, value]) => setDefault(key, value));
 
@@ -169,11 +212,14 @@ export const startLocalMode = async (options: IStartLocalModeOptions): Promise<I
   // (~60 MB) per runner. A file URL, since `--import` takes a URL or a bare specifier, not a Windows path.
   const tsxLoader = pathToFileURL(requireFromHere.resolve('tsx')).href;
   const runnerMain = requireFromHere.resolve('@falang/workflow-runner/src/main.ts');
-  const deploymentsClient = createProcessDeploymentsClient({
-    command: { file: process.execPath, args: ['--import', tsxLoader, runnerMain] },
-    baseEnv: runnerEnv,
-    log,
-  });
+  const deploymentsClient = startTemporalBeforeRunners(
+    createProcessDeploymentsClient({
+      command: { file: process.execPath, args: ['--import', tsxLoader, runnerMain] },
+      baseEnv: runnerEnv,
+      log,
+    }),
+    temporal,
+  );
   const fileStorage = new DiskFileStorage(path.join(dataDir, 'files'));
   const controlToken = options.controlToken ?? (options.statusFile ? randomBytes(32).toString('hex') : null);
   const statusFile = options.statusFile ? path.resolve(options.statusFile) : null;
@@ -187,6 +233,7 @@ export const startLocalMode = async (options: IStartLocalModeOptions): Promise<I
       LocalModeModule.forRoot({
         deploymentsClient,
         fileStorage,
+        temporalServer: temporal,
         control: { token: controlToken, onShutdownRequested: () => options.onShutdownRequested?.() },
       }),
     ],
@@ -199,7 +246,6 @@ export const startLocalMode = async (options: IStartLocalModeOptions): Promise<I
     throw error;
   });
 
-  let stopping: Promise<void> | null = null;
   const stop = (): Promise<void> => {
     stopping ??= (async () => {
       if (statusFile) await rm(statusFile, { force: true });
@@ -209,16 +255,6 @@ export const startLocalMode = async (options: IStartLocalModeOptions): Promise<I
     })();
     return stopping;
   };
-
-  temporal.exited.then(
-    ({ code, signal }) => {
-      if (stopping) return;
-      options.onTemporalExit?.(
-        new Error(`The Temporal dev server exited unexpectedly (code ${code}, signal ${signal})`),
-      );
-    },
-    () => null,
-  );
 
   if (statusFile && controlToken) {
     const status: ILocalStatus = {

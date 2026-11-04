@@ -3,6 +3,9 @@
 "FalangFlow": the workflow product as a desktop app (ADR 0072, private). The Electron main process starts
 `@falang/workflow-local` (PGlite database, `temporal` CLI dev server, process runners, the built client served from one
 port) as a child process, signs the window in as the seeded `admin` and shows the product. No Docker, no Postgres.
+The backend runs with `--single-user`: one user signed in without a password, so the client shows no default-password
+warning, no support chat, no "Change password" and no Logout, the header's "Admin" item reads "Settings", and the admin pages Users
+and Support are hidden. Temporal starts only with the first workflow run (or `File -> Open Temporal UI`), not at launch.
 
 ```sh
 npm install                              # repo root

@@ -3,7 +3,13 @@ import { useEffect, useState } from 'react';
 import { observer } from 'mobx-react-lite';
 import { getGlobalI18n } from '@falang/scheme';
 import { Badge, Button, Tooltip } from 'antd';
-import { CarryOutOutlined, FolderOpenOutlined, PlayCircleOutlined, SafetyOutlined } from '@ant-design/icons';
+import {
+  CarryOutOutlined,
+  FolderOpenOutlined,
+  PlayCircleOutlined,
+  SafetyOutlined,
+  SettingOutlined,
+} from '@ant-design/icons';
 import { authStore } from '../auth-store.js';
 import { navigationStore } from '../navigation-store.js';
 import {
@@ -106,7 +112,7 @@ const NavButton: React.FC<INavButtonProps> = ({ active, icon, testId, onClick, h
 
 /**
  * The top menu of every page outside a project: the brand on the left; on the right, left to right — Projects,
- * Admin (admins only), Runs, Tasks, the host's extension items (cloud: the balance) and the user menu. The current
+ * Admin (admins only; "Settings" in a single-user deployment, where the admin app is the app's settings), Runs, Tasks, the host's extension items (cloud: the balance) and the user menu. The current
  * section is highlighted.
  */
 export const AppHeader: React.FC = observer(() => {
@@ -135,8 +141,13 @@ export const AppHeader: React.FC = observer(() => {
           {t('client:app-header.projects')}
         </NavButton>
         {user?.role === 'admin' && (
-          <NavButton active={false} icon={<SafetyOutlined />} testId="nav-admin" href="/admin">
-            {t('client:app-header.admin')}
+          <NavButton
+            active={false}
+            icon={authStore.isSingleUser ? <SettingOutlined /> : <SafetyOutlined />}
+            testId="nav-admin"
+            href="/admin"
+          >
+            {t(authStore.isSingleUser ? 'client:app-header.settings' : 'client:app-header.admin')}
           </NavButton>
         )}
         <NavButton

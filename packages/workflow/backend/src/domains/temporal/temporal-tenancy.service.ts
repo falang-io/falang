@@ -1,7 +1,7 @@
 import { Injectable, Logger, type OnModuleDestroy } from '@nestjs/common';
-import { Client, Connection, type ConnectionOptions } from '@temporalio/client';
+import { Client, Connection, NamespaceNotFoundError, type ConnectionOptions } from '@temporalio/client';
 import { msNumberToTs } from '@temporalio/common/lib/time';
-import type { ITemporalTenancy } from '@falang/workflow-gateway';
+import type { IGetClientForNamespaceOptions, ITemporalTenancy } from '@falang/workflow-gateway';
 import { TEMPORAL_NAMESPACE_PREFIX, type ITemporalConfig } from './temporal-config.js';
 import {
   GRPC_ALREADY_EXISTS,
@@ -11,6 +11,7 @@ import {
   reportIfPermissionDenied,
 } from './temporal-errors.js';
 import { temporalNamespaceFor } from './temporal-namespace.js';
+import type { ITemporalServerControl } from './temporal-server-control.js';
 import type { TemporalTokenService } from './temporal-token.service.js';
 
 const SECONDS_PER_DAY = 86_400;
@@ -26,6 +27,8 @@ export interface ITemporalTenancyDeps {
   readonly createConnection?: (options: ConnectionOptions) => Connection;
   readonly sleep?: (ms: number) => Promise<void>;
   readonly now?: () => number;
+  /** An on-demand server (local mode): started before the first write, see `getClient`/`getClientForNamespace`. */
+  readonly server?: ITemporalServerControl | null;
 }
 
 const defaultSleep = (ms: number): Promise<void> =>
@@ -48,6 +51,7 @@ export class TemporalTenancyService implements ITemporalTenancy, OnModuleDestroy
   private readonly createConnection: (options: ConnectionOptions) => Connection;
   private readonly sleep: (ms: number) => Promise<void>;
   private readonly now: () => number;
+  private readonly server: ITemporalServerControl | null;
   private connection: Connection | null = null;
   private readonly clients = new Map<string, Client>();
   private readonly knownNamespaces = new Set<string>();
@@ -63,6 +67,7 @@ export class TemporalTenancyService implements ITemporalTenancy, OnModuleDestroy
     this.createConnection = deps.createConnection ?? ((options) => Connection.lazy(options));
     this.sleep = deps.sleep ?? defaultSleep;
     this.now = deps.now ?? Date.now;
+    this.server = deps.server ?? null;
   }
 
   get mode(): 'shared' | 'per-project' {
@@ -79,17 +84,31 @@ export class TemporalTenancyService implements ITemporalTenancy, OnModuleDestroy
   }
 
   async getClient(projectId: string): Promise<Client> {
+    await this.server?.ensureStarted();
     await this.ensureNamespace(projectId);
-    return this.getClientForNamespace(this.namespaceFor(projectId));
+    return this.clientFor(this.namespaceFor(projectId));
   }
 
-  getClientForNamespace(namespace: string): Promise<Client> {
+  /**
+   * With an on-demand server that isn't running, a read either starts it (it has stored something worth reading, and
+   * the caller didn't pass `wakeServer: false`) or answers `NamespaceNotFoundError` — what every read already treats as
+   * "nothing there yet".
+   */
+  async getClientForNamespace(namespace: string, options: IGetClientForNamespaceOptions = {}): Promise<Client> {
+    if (this.server && !this.server.isRunning()) {
+      if (options.wakeServer === false || !this.server.hasStoredState()) throw new NamespaceNotFoundError(namespace);
+      await this.server.ensureStarted();
+    }
+    return this.clientFor(namespace);
+  }
+
+  private clientFor(namespace: string): Client {
     let client = this.clients.get(namespace);
     if (!client) {
       client = new Client({ connection: this.getConnection(), namespace });
       this.clients.set(namespace, client);
     }
-    return Promise.resolve(client);
+    return client;
   }
 
   async listTenantNamespaces(): Promise<readonly string[]> {

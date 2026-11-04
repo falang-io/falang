@@ -23,6 +23,7 @@ describe('resolveBackendCommand', () => {
     ]);
     expect(result.args).not.toContain('--client-dir');
     expect(result.args).toContain('--status-file');
+    expect(result.args).toContain('--single-user');
   });
 
   it('packaged: the bundled copy under resources and the bundled client', () => {

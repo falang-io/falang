@@ -462,7 +462,7 @@ describe('createTemporalScheduleClient', () => {
         'project-1/sched-a',
         'project-2/sched-b',
       ]);
-      expect(getClientForNamespace).toHaveBeenCalledWith('falang-gone');
+      expect(getClientForNamespace).toHaveBeenCalledWith('falang-gone', { wakeServer: false });
     });
 
     it("listForProject reads only that project's namespace and only its own schedules", async () => {
@@ -482,7 +482,7 @@ describe('createTemporalScheduleClient', () => {
 
       const states = await createTemporalScheduleClient(tenancy).listForProject('project-1');
 
-      expect(getClientForNamespace).toHaveBeenCalledExactlyOnceWith('falang-project-1');
+      expect(getClientForNamespace).toHaveBeenCalledExactlyOnceWith('falang-project-1', { wakeServer: false });
       expect(states.map((state) => state.scheduleId)).toEqual([UPSERT_PARAMS.scheduleId]);
     });
 
