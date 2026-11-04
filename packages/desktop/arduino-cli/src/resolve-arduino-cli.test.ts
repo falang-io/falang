@@ -112,7 +112,7 @@ describe('resolveArduinoCliDetailed', () => {
     // the system copy exists, but must not be used
     expect(
       await resolveArduinoCliDetailed({ lookup, settingsFile: file, isExecutable: only('/usr/bin/arduino-cli') }),
-    ).toEqual({ path: ARDUINO_CLI_COMMAND, source: 'custom', problem: 'custom-missing' });
+    ).toEqual({ path: ARDUINO_CLI_COMMAND, source: 'custom', problem: 'custom-missing', missingPath: '/my/cli' });
   });
 
   it('managed: uses the installed path, else managed-missing without falling back', async () => {
@@ -128,7 +128,12 @@ describe('resolveArduinoCliDetailed', () => {
     });
     expect(
       await resolveArduinoCliDetailed({ lookup, settingsFile: file, isExecutable: only('/usr/bin/arduino-cli') }),
-    ).toEqual({ path: ARDUINO_CLI_COMMAND, source: 'managed', problem: 'managed-missing' });
+    ).toEqual({
+      path: ARDUINO_CLI_COMMAND,
+      source: 'managed',
+      problem: 'managed-missing',
+      missingPath: '/m/arduino-cli',
+    });
     await writeArduinoCliSettings(file, { source: 'managed' });
     expect(
       (await resolveArduinoCliDetailed({ lookup, settingsFile: file, isExecutable: () => Promise.resolve(true) }))

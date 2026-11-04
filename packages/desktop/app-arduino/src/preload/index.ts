@@ -61,6 +61,7 @@ const falangApi = {
     openProjectFolder: (): Promise<string | null> => ipcRenderer.invoke(IPC.dialogOpenProjectFolder),
     newProjectFolder: (defaultPath?: string): Promise<string | null> =>
       ipcRenderer.invoke(IPC.dialogNewProjectFolder, defaultPath),
+    openFile: (): Promise<string | null> => ipcRenderer.invoke(IPC.dialogOpenFile),
   },
   project: {
     create: (dir: string, params: ICreateArduinoProjectParams): Promise<IProjectManifest> =>
@@ -249,6 +250,7 @@ const falangApi = {
     onOpenSettings: subscribe(IPC.menuOpenSettings),
     onOpenVersioningSettings: subscribe(IPC.menuOpenVersioningSettings),
     onOpenLanguageSettings: subscribe(IPC.menuOpenLanguageSettings),
+    onOpenArduinoCliSettings: subscribe(IPC.menuOpenArduinoCliSettings),
     onToggleVersionHistory: subscribe(IPC.menuToggleVersionHistory),
     onToggleAgent: subscribe(IPC.menuToggleAgent),
     onExportPdf: subscribe(IPC.menuExportPdf),

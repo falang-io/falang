@@ -1,15 +1,18 @@
 import type React from 'react';
 import { useEffect, useState } from 'react';
 import { observer } from 'mobx-react-lite';
-import { Alert, Button, Input, Modal, Select, Tooltip, Typography } from 'antd';
+import { Alert, Button, Input, Modal, Select, Tooltip } from 'antd';
 import { getGlobalI18n } from '@falang/scheme';
-import type { IArduinoCliStatus, IConnectedBoard } from '@falang/desktop-arduino-cli';
+import type { IConnectedBoard } from '@falang/desktop-arduino-cli';
 import type { ArduinoProjectStore } from '../arduino-project-store.js';
 import { boardLabel } from '../../../shared/board.js';
 import { reportError } from '../../../shared/report-error.js';
 import type { TArduinoBuildOutcome } from '../../../shared/arduino-build-outcome.js';
 import type { ISketchBuildResultForView, ISketchCodeFocus } from '../sketch-code-viewer-store.js';
 import { SketchProblemsList } from './sketch-problems-list.js';
+import { ArduinoCliNotices, ArduinoCoreNotice } from './arduino-cli-notices.js';
+import { arduinoCliStatusStore as cli } from '../arduino-cli-status-store.js';
+import { arduinoCoresStore as cores } from '../arduino-cores-store.js';
 
 const refreshBoards = (setBoards: (boards: readonly IConnectedBoard[]) => void): void => {
   globalThis.falang.arduino
@@ -30,8 +33,6 @@ const toBuildResult = (outcome: TArduinoBuildOutcome): ISketchBuildResultForView
     : { files: outcome.files, diagnostics: outcome.diagnostics };
 };
 
-const ARDUINO_CLI_INSTALL_URL = 'https://arduino.github.io/arduino-cli/latest/installation/';
-
 interface Props {
   store: ArduinoProjectStore;
   open: boolean;
@@ -46,7 +47,6 @@ export const BuildPanelModal: React.FC<Props> = observer(({ store, open, onClose
   const fqbn = store.board;
   const [port, setPort] = useState<string>();
   const [boards, setBoards] = useState<readonly IConnectedBoard[]>([]);
-  const [cliStatus, setCliStatus] = useState<IArduinoCliStatus | null>(null);
   const [output, setOutput] = useState('');
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
@@ -54,14 +54,22 @@ export const BuildPanelModal: React.FC<Props> = observer(({ store, open, onClose
 
   useEffect(() => {
     if (!open) return;
-    globalThis.falang.arduino
-      .checkCli()
-      .then(setCliStatus)
-      .catch((checkError: unknown) => reportError('Failed to check arduino-cli', checkError));
     refreshBoards(setBoards);
+    return cli.start();
   }, [open]);
 
-  const debugUnsupported = cliStatus?.serialMonitorSupported === false;
+  const cliAvailable = cli.status?.available === true;
+  useEffect(() => {
+    if (!open) return;
+    if (!cliAvailable) {
+      cores.reset();
+      return;
+    }
+    cores.refresh(fqbn).catch((coreError: unknown) => reportError('Failed to check the board core', coreError));
+  }, [open, cliAvailable, fqbn]);
+
+  const debugUnsupported = cli.status?.serialMonitorSupported === false;
+  const cliBusy = cli.busy !== null;
 
   const runBuild = async (upload: boolean): Promise<void> => {
     setError(null);
@@ -85,6 +93,7 @@ export const BuildPanelModal: React.FC<Props> = observer(({ store, open, onClose
         return;
       }
       if (outcome.stage === 'core-missing') {
+        await cores.refresh(fqbn);
         setError(outcome.message);
         return;
       }
@@ -142,27 +151,8 @@ export const BuildPanelModal: React.FC<Props> = observer(({ store, open, onClose
       ]}
     >
       <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
-        {cliStatus?.available === false && (
-          <Alert
-            type="warning"
-            message="arduino-cli was not found"
-            description={
-              <>
-                Install it to compile or upload (
-                <Typography.Link href={ARDUINO_CLI_INSTALL_URL} target="_blank">
-                  installation guide
-                </Typography.Link>
-                ), or install Arduino IDE 2, which includes it. If it is installed somewhere unusual, start the app with
-                the <code>FALANG_ARDUINO_CLI</code> environment variable set to its full path.
-              </>
-            }
-          />
-        )}
-        {cliStatus?.available && cliStatus.path && (
-          <Typography.Text type="secondary" style={{ fontSize: 12 }}>
-            arduino-cli: {cliStatus.path}
-          </Typography.Text>
-        )}
+        <ArduinoCliNotices />
+        <ArduinoCoreNotice fqbn={fqbn} />
         <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
           <span>Board:</span>
           <span>{boardLabel(fqbn)}</span>
@@ -183,10 +173,10 @@ export const BuildPanelModal: React.FC<Props> = observer(({ store, open, onClose
           <Button onClick={() => refreshBoards(setBoards)}>Refresh</Button>
         </div>
         <div style={{ display: 'flex', gap: 8 }}>
-          <Button type="primary" loading={busy} onClick={() => runBuild(false)}>
+          <Button type="primary" loading={busy} disabled={cliBusy && !busy} onClick={() => runBuild(false)}>
             Compile
           </Button>
-          <Button loading={busy} disabled={!port} onClick={() => runBuild(true)}>
+          <Button loading={busy} disabled={!port || cliBusy} onClick={() => runBuild(true)}>
             Upload
           </Button>
           <Tooltip
@@ -198,7 +188,7 @@ export const BuildPanelModal: React.FC<Props> = observer(({ store, open, onClose
           >
             <Button
               loading={busy}
-              disabled={!port || debugUnsupported}
+              disabled={!port || debugUnsupported || cliBusy}
               onClick={() => {
                 onClose();
                 runDebugUpload().catch((debugError: unknown) =>

@@ -34,8 +34,8 @@ export const parseArduinoCliVersion = (output: string): string => {
 export const checkArduinoCli = async (): Promise<IArduinoCliStatus> => {
   const serialMonitorSupported = await isSerialMonitorSupported();
   const resolution = await resolveArduinoCliDetailed();
-  const result = await runArduinoCli(['version', '--json']);
-  if (!result.ok) {
+  const result = 'problem' in resolution ? null : await runArduinoCli(['version', '--json']);
+  if (result === null || !result.ok) {
     return {
       available: false,
       source: resolution.source,

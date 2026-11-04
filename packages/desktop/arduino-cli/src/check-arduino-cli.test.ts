@@ -44,3 +44,19 @@ describe('checkArduinoCli', () => {
     expect(parseArduinoCliVersion('{"x":1}')).toBe('{"x":1}');
   });
 });
+
+describe('checkArduinoCli with a configured-but-missing file', () => {
+  it('is unavailable without running anything (no silent fallback to the PATH copy)', async () => {
+    const { resolveArduinoCliDetailed } = await import('./resolve-arduino-cli.js');
+    vi.mocked(resolveArduinoCliDetailed).mockResolvedValueOnce({
+      path: 'arduino-cli',
+      source: 'custom',
+      problem: 'custom-missing',
+      missingPath: '/nope',
+    });
+    mockedRunArduinoCli.mockClear();
+    const status = await checkArduinoCli();
+    expect(status).toEqual({ available: false, source: 'custom', problem: 'custom-missing', serialMonitorSupported });
+    expect(mockedRunArduinoCli).not.toHaveBeenCalled();
+  });
+});

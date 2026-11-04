@@ -212,6 +212,8 @@ describe('app-arduino ipc-handlers', () => {
     );
     h.showOpenDialog.mockResolvedValueOnce({ canceled: true, filePaths: [] });
     expect(await call(IPC.dialogNewProjectFolder)).toBeNull();
+    h.showOpenDialog.mockResolvedValueOnce({ canceled: false, filePaths: ['/bin/arduino-cli'] });
+    expect(await call(IPC.dialogOpenFile)).toBe('/bin/arduino-cli');
   });
 
   it('printToPdf: cancel → canceled, else writes the PDF bytes', async () => {

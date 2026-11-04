@@ -81,6 +81,8 @@ export interface IArduinoCliResolution {
   readonly path: string;
   readonly source: TArduinoCliResolvedSource;
   readonly problem?: TArduinoCliProblem;
+  /** For `custom-missing`/`managed-missing`: the configured file that is not there (never fall back to another install). */
+  readonly missingPath?: string;
 }
 
 export interface IResolveArduinoCliOptions {
@@ -112,12 +114,22 @@ export const resolveArduinoCliDetailed = async (
   if (settings.source === 'custom') {
     const custom = settings.customPath;
     if (typeof custom === 'string' && (await isExecutable(custom))) return { path: custom, source: 'custom' };
-    return { path: ARDUINO_CLI_COMMAND, source: 'custom', problem: 'custom-missing' };
+    return {
+      path: ARDUINO_CLI_COMMAND,
+      source: 'custom',
+      problem: 'custom-missing',
+      ...(typeof custom === 'string' ? { missingPath: custom } : {}),
+    };
   }
   if (settings.source === 'managed') {
     const managed = settings.managed?.path;
     if (typeof managed === 'string' && (await isExecutable(managed))) return { path: managed, source: 'managed' };
-    return { path: ARDUINO_CLI_COMMAND, source: 'managed', problem: 'managed-missing' };
+    return {
+      path: ARDUINO_CLI_COMMAND,
+      source: 'managed',
+      problem: 'managed-missing',
+      ...(typeof managed === 'string' ? { missingPath: managed } : {}),
+    };
   }
   for (const candidate of arduinoCliCandidates(lookup)) {
     // oxlint-disable-next-line no-await-in-loop -- first match wins; probing in order is the point.
@@ -137,5 +149,6 @@ export const resolveArduinoCli = async (
     ...(isExecutable ? { isExecutable } : {}),
     ...(typeof settingsFile === 'string' || settingsFile === null ? { settingsFile } : {}),
   });
-  return resolution.path;
+  // A configured-but-missing file must fail, not silently run whichever arduino-cli is on the PATH.
+  return resolution.missingPath ?? resolution.path;
 };

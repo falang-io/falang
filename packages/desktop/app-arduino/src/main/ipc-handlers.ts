@@ -148,6 +148,13 @@ export const registerIpcHandlers = (
     return result.canceled ? null : (result.filePaths[0] ?? null);
   });
 
+  ipcMain.handle(IPC.dialogOpenFile, async () => {
+    const window = getMainWindow();
+    if (!window) return null;
+    const result = await dialog.showOpenDialog(window, { properties: ['openFile'] });
+    return result.canceled ? null : (result.filePaths[0] ?? null);
+  });
+
   ipcMain.handle(IPC.dialogNewProjectFolder, async (_event, defaultPath?: string) => {
     const window = getMainWindow();
     if (!window) return null;

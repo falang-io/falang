@@ -28,6 +28,7 @@ interface IMenuLabels {
   agent: string;
   versioning: string;
   language: string;
+  arduinoCli: string;
   help: string;
   view: string;
   toggleDevTools: string;
@@ -62,6 +63,7 @@ const EN: IMenuLabels = {
   agent: 'Agent…',
   versioning: 'Versioning…',
   language: 'Language…',
+  arduinoCli: 'arduino-cli…',
   help: 'Help',
   view: 'View',
   toggleDevTools: 'Toggle Developer Tools',
@@ -96,6 +98,7 @@ const RU: IMenuLabels = {
   agent: 'Агент…',
   versioning: 'Версионирование…',
   language: 'Язык…',
+  arduinoCli: 'arduino-cli…',
   help: 'Справка',
   view: 'Вид',
   toggleDevTools: 'Инструменты разработчика',

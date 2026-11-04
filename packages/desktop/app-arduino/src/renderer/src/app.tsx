@@ -17,6 +17,8 @@ import { driversModalStore } from './drivers-modal-store.js';
 import { NewProjectDialog } from './components/new-project-dialog.js';
 import { settingsModalStore } from './settings-modal-store.js';
 import { versioningSettingsModalStore } from './versioning-settings-modal-store.js';
+import { arduinoCliSettingsModalStore } from './arduino-cli-settings-store.js';
+import { ArduinoCliSettingsModal } from './components/arduino-cli-settings-modal.js';
 import { languageSettingsModalStore } from './language-settings-modal-store.js';
 import { newProjectDialogStore } from './new-project-dialog-store.js';
 import { getActiveProjectStore } from './active-project-store.js';
@@ -35,9 +37,13 @@ export const App: React.FC = observer(() => {
     const unsubscribeLanguageSettings = globalThis.falang.menu.onOpenLanguageSettings(() =>
       languageSettingsModalStore.open(),
     );
+    const unsubscribeCliSettings = globalThis.falang.menu.onOpenArduinoCliSettings(() =>
+      arduinoCliSettingsModalStore.open(),
+    );
     const unsubscribeDrivers = globalThis.falang.menu.onOpenDrivers(() => driversModalStore.open());
     return () => {
       unsubscribeDrivers();
+      unsubscribeCliSettings();
       unsubscribeNew();
       unsubscribeOpen();
       unsubscribeSettings();
@@ -104,6 +110,7 @@ export const App: React.FC = observer(() => {
       <AgentSettingsModal />
       <VersioningSettingsModal />
       <LanguageSettingsModal />
+      <ArduinoCliSettingsModal />
       <DriversModal />
       <NewProjectDialog />
     </ConfigProvider>

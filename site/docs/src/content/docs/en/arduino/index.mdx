@@ -21,15 +21,21 @@ head:
     <a href="https://arduino.github.io/arduino-cli/" target="_blank">
       arduino-cli
     </a>{' '}
-    installed — the app uses it to compile and upload, it is not bundled. The app looks for it on <code>PATH</code>, in
-    the usual install locations (Homebrew on macOS, <code>Program Files\Arduino CLI</code> on Windows,{' '}
-    <code>~/.local/bin</code> on Linux) and inside an installed Arduino IDE 2, which ships its own copy. To use a copy
-    somewhere else, start the app with the <code>FALANG_ARDUINO_CLI</code> environment variable set to its full path. If
-    it can't be found, the <b>Build &amp; Upload</b> dialog says so.
+    — the app uses it to compile and upload. It is not bundled, but the app can download it for you: open{' '}
+    <b>Settings → arduino-cli…</b> (or press <b>Download arduino-cli</b> in the <b>Build &amp; Upload</b> dialog when it
+    is missing) and pick where it comes from — <b>Find in the system</b> (<code>PATH</code>, the usual install
+    locations such as Homebrew, <code>Program Files\Arduino CLI</code> or <code>~/.local/bin</code>, and the copy inside
+    Arduino IDE 2), <b>Use a file</b> (a path of your own, checked when you save), or <b>Downloaded by FalangDuino</b>{' '}
+    (about 40 MB, checksum-verified, kept in the app's data folder; <b>Check for updates</b> and an automatic daily check
+    tell you when a newer version is out, and you choose when to update). The environment variable{' '}
+    <code>FALANG_ARDUINO_CLI</code> still overrides everything. If the chosen copy is missing, the app says so and never
+    quietly runs another one.
   </li>
   <li>
-    The core for your board, installed once with arduino-cli: <code>arduino-cli core install arduino:avr</code> for Uno,
-    Nano and Mega, <code>esp32:esp32</code> for ESP32.
+    The core for your board: when it is not installed, <b>Build &amp; Upload</b> shows an <b>Install</b> button (the
+    install output is shown live and can be cancelled). The same works from a terminal:{' '}
+    <code>arduino-cli core install arduino:avr</code> for Uno, Nano and Mega, <code>esp32:esp32</code> for ESP32. A core
+    can be hundreds of megabytes.
   </li>
   <li>
     For the RGB strip driver only: <code>arduino-cli lib install "Adafruit NeoPixel"</code>. The other bundled drivers

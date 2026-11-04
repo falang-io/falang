@@ -112,6 +112,10 @@ export const buildApplicationMenu = async (mainWindow: BrowserWindow): Promise<v
         click: () => mainWindow.webContents.send(IPC.menuOpenVersioningSettings),
       },
       {
+        label: l.arduinoCli,
+        click: () => mainWindow.webContents.send(IPC.menuOpenArduinoCliSettings),
+      },
+      {
         label: l.language,
         click: () => mainWindow.webContents.send(IPC.menuOpenLanguageSettings),
       },

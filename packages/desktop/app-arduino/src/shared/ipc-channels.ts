@@ -1,6 +1,8 @@
 export const IPC = {
   dialogOpenProjectFolder: 'dialog:open-project-folder',
   dialogNewProjectFolder: 'dialog:new-project-folder',
+  /** A native "pick a file" dialog (the arduino-cli settings' "Browse…"). */
+  dialogOpenFile: 'dialog:open-file',
   projectCreate: 'project:create',
   projectOpen: 'project:open',
   projectListTree: 'project:list-tree',
@@ -52,6 +54,7 @@ export const IPC = {
   menuOpenSettings: 'menu:open-settings',
   menuOpenVersioningSettings: 'menu:open-versioning-settings',
   menuOpenLanguageSettings: 'menu:open-language-settings',
+  menuOpenArduinoCliSettings: 'menu:open-arduino-cli-settings',
   menuToggleVersionHistory: 'menu:toggle-version-history',
   menuToggleAgent: 'menu:toggle-agent',
   // Print / export to PDF (ADR 0048 (private)).
