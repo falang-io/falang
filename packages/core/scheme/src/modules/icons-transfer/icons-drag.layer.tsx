@@ -10,7 +10,7 @@ const GhostShape: React.FC<{ shape: IGhostShape }> = observer(({ shape }) => {
   const { icon, x, y } = shape;
   const blockPosition = icon.blockPosition;
   if (blockPosition.width === 0) return null;
-  const ShapeView = icon.config.shape.view;
+  const ShapeView = icon.config.shape.ghostView ?? icon.config.shape.view;
   return (
     <div style={{ position: 'absolute', left: x, top: y }}>
       <BlockShapeContainer theme={scheme.theme.value}>

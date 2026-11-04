@@ -41,10 +41,13 @@ const context: IConvertContext = {
   convertLeftSide,
   conditionText: textLeaf,
   foreachData: textLeaf,
-  // No structured "returnValue" convention in the text domain (no create-var/assign-var statement
-  // kind to piggyback on, same reasoning as the code domain) — best-effort, no real sample uses an
-  // explicit `out{type:'return'}` node in a text project.
-  finalizeReturn: (children, out) => ({ children, data: out.block?.text ?? '' }),
+  // The text domain's `return` is a system block with no text, like `break`/`continue`. An old return's
+  // text (if any — no real sample has one) is kept as a plain action right before it.
+  finalizeReturn: (children, out) => {
+    const text = out.block?.text ?? '';
+    if (!text) return { children };
+    return { children: [...children, { id: nanoid(), name: 'action', data: text }] };
+  },
   convertLeaf,
 };
 

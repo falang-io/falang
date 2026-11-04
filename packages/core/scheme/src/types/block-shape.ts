@@ -56,10 +56,13 @@ export interface IBlockShapeConfig {
   paddings?: IBlockShapePaddings;
   minHeight?: number;
   view: React.FC<IBlockShapeViewProps>;
+  /** What the drag ghost draws instead of `view` — for shapes that draw nothing themselves (`emptyShape`). */
+  ghostView?: React.FC<IBlockShapeViewProps>;
 }
 
 export interface IBlockShapeFinalConfig {
   paddings: Required<IBlockShapePaddings>;
   view: React.FC<IBlockShapeViewProps>;
+  ghostView?: React.FC<IBlockShapeViewProps>;
   minHeight?: number;
 }

@@ -37,7 +37,8 @@ export const getTextGroup = () => {
     getOutConfigSimple('break', 'break'),
     getOutConfigSimple('continue', 'continue'),
     getOutConfigWithData('throw', 'throw', stringDataType),
-    getOutConfigWithData('return', 'return', stringDataType),
+    // No text, like break/continue; a stored `data` of an older document is dropped on parse.
+    getOutConfigSimple('return', 'return'),
     cycle('foreach', stringDataType, { mods: TIMER_MODS }),
     cycle('while', stringDataType, { mods: TIMER_MODS }),
     ...switchCfg({

@@ -114,10 +114,11 @@ const getTestInfrastructure = () => {
       icon: outIconConfig,
       shape: rectangleShape,
     },
+    // A system block like break/continue: the text domain's return carries no text (`getOutConfigSimple`).
     return: {
-      block,
+      block: getPseudoBlockConfig('icon:return', CELL_SIZE_4),
       icon: outIconConfig,
-      shape: rectangleShape,
+      shape: emptyShape,
     },
     continue: {
       block: getPseudoBlockConfig('icon:continue', CELL_SIZE_4),

@@ -32,7 +32,7 @@ export class PseudoCycleIconStore extends CycleIconStore {
     return this.y + (this.isEditing ? CELL_HALF : 0);
   }
 
-  /** The right edge of the "pseudo-cycle" block (not a fixed `CELL_SIZE * 3`: the block is `CELL_SIZE_4` wide). */
+  /** The right edge of the "pseudo-cycle" block (not a fixed `CELL_SIZE * 3`: the block is wider than that). */
   protected getContinueLineLastX(): number {
     return this.x + (this.isEditing ? Math.round(this.blockWidth / 2) : 0);
   }

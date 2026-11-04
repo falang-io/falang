@@ -15,7 +15,7 @@
     "parallel": "Parallel",
     "parallel-thread": "Thread",
     "timer": "Timer",
-    "pseudo-cycle": "Cycle"
+    "pseudo-cycle": "Pseudo-cycle"
   },
   "base": {
     "true": "True",

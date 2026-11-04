@@ -19,9 +19,9 @@ export interface IConvertContext {
    * `out{type:'return'}`'s final statements + expression. Takes the wrapper's already-converted
    * sibling statements so a domain can merge a trailing one into the return expression itself (see
    * `convert-logic-project.ts`'s `returnValue` convention) instead of reading `out.block` directly.
-   * Text/code (no such convention) just read `out.block`'s leaf text and pass `children` through.
+   * Code just reads `out.block`'s leaf text and passes `children` through; text omits `data` (it is not written to disk).
    */
-  finalizeReturn(children: INode[], out: IOldOut): { children: INode[]; data: string };
+  finalizeReturn(children: INode[], out: IOldOut): { children: INode[]; data?: string };
   /**
    * Fallback for every alias not handled generically here (`action`, `create_var`, `link`,
    * logic's `from_to_cycle`, ...) — takes `ctx` too so a domain-specific statement kind with its own

@@ -10,6 +10,8 @@ const PseudoBlockContainer = styled.div<{ theme: ITheme }>`
   border-width: 1px;
   line-height: 14px;
   white-space: nowrap;
+  cursor: default;
+  user-select: none;
   border-color: ${({ theme }) => theme.iconBorderColor};
   background-color: ${({ theme }) => theme.iconBackground};
 `;

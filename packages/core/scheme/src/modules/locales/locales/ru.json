@@ -15,7 +15,7 @@
     "parallel": "Параллельно",
     "parallel-thread": "Поток",
     "timer": "Таймер",
-    "pseudo-cycle": "Цикл"
+    "pseudo-cycle": "Псевдоцикл"
   },
   "base": {
     "true": "Истина",
