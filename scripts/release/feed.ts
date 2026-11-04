@@ -27,7 +27,7 @@
  *
  * The feed directory and the artifact prefix come from the app's `electron-builder.yml` (`publish.url`,
  * `deb.packageName`). Server access is rsync over SSH as the server's root: `FALANG_DOWNLOAD_TARGET` (SSH host,
- * default `vds` from ~/.ssh/config), `FALANG_DOWNLOAD_ROOT` (default `/projects/download.falang.io`),
+ * default `falang-io` from ~/.ssh/config), `FALANG_DOWNLOAD_ROOT` (default `/projects/download.falang.io`),
  * `FALANG_DOWNLOAD_SSH_KEY` (optional identity file), `FALANG_DOWNLOAD_RSH` (the whole remote shell command).
  */
 import { existsSync, promises as fs, readFileSync, readdirSync, statSync } from 'node:fs';

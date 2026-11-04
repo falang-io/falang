@@ -58,7 +58,7 @@ export const loadApp = (name: string | null): IFeedApp => {
 };
 
 /** The SSH host (an alias from ~/.ssh/config works) and the site root on it; the files there are root's. */
-const target = process.env.FALANG_DOWNLOAD_TARGET ?? 'vds';
+const target = process.env.FALANG_DOWNLOAD_TARGET ?? 'falang-io';
 const siteRoot = (process.env.FALANG_DOWNLOAD_ROOT ?? '/projects/download.falang.io').replace(/\/+$/, '');
 
 /** rsync's remote shell: `FALANG_DOWNLOAD_RSH` verbatim, else ssh (with `FALANG_DOWNLOAD_SSH_KEY` when set). */
