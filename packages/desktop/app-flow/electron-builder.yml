@@ -3,6 +3,7 @@ productName: Falang Flow
 executableName: falang-flow
 directories:
   output: dist
+  buildResources: resources
 files:
   - out/**/*
   - package.json
