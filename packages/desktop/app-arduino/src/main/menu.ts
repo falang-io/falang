@@ -122,7 +122,7 @@ export const buildApplicationMenu = async (mainWindow: BrowserWindow): Promise<v
     label: l.help,
     submenu: [
       {
-        label: `Falang Arduino v${app.getVersion()}`,
+        label: `FalangDuino v${app.getVersion()}`,
         enabled: false,
       },
     ],

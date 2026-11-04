@@ -43,7 +43,7 @@ const EN: IMenuLabels = {
   toggleDevTools: 'Toggle Developer Tools',
   help: 'Help',
   documentation: 'Documentation',
-  about: 'About Falang Flow',
+  about: 'About FalangFlow',
 };
 
 const RU: IMenuLabels = {
@@ -66,7 +66,7 @@ const RU: IMenuLabels = {
   toggleDevTools: 'Инструменты разработчика',
   help: 'Справка',
   documentation: 'Документация',
-  about: 'О программе Falang Flow',
+  about: 'О программе FalangFlow',
 };
 
 export const MENU_LABELS: Record<TMenuLanguage, IMenuLabels> = { en: EN, ru: RU };

@@ -61,7 +61,7 @@ const functionDocument = (id: string, name: string, body: unknown[]): unknown =>
 const APPS: Record<TAppKind, IAppSpec> = {
   sketch: {
     appDir: 'packages/desktop/app-sketch',
-    linuxExecutable: 'falang',
+    linuxExecutable: 'falang-sketch',
     worker: 'export-worker',
     // A real logic export of a document whose expression must be type-checked: a bundled worker that cannot find
     // TypeScript's `lib.*.d.ts` files fails here with "Cannot find global type 'Array'".
@@ -81,7 +81,7 @@ const APPS: Record<TAppKind, IAppSpec> = {
   },
   arduino: {
     appDir: 'packages/desktop/app-arduino',
-    linuxExecutable: 'falang-arduino',
+    linuxExecutable: 'falang-duino',
     worker: 'compile-worker',
     // A real compile of a non-empty `setup`/`loop`: every action expression goes through the TypeScript checker.
     workerJob: () => ({

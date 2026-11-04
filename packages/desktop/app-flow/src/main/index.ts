@@ -93,7 +93,7 @@ const startBackend = async (): Promise<void> => {
     },
     onUnexpectedExit: (message) => {
       if (quitting) return;
-      dialog.showErrorBox('Falang Flow', `${message}\n\n${backend?.logTail.split('\n').slice(-15).join('\n') ?? ''}`);
+      dialog.showErrorBox('FalangFlow', `${message}\n\n${backend?.logTail.split('\n').slice(-15).join('\n') ?? ''}`);
       app.quit();
     },
   });

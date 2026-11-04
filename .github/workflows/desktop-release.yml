@@ -1,6 +1,6 @@
 name: Desktop release
 
-# Builds the desktop apps (sketch, arduino, flow = Falang Flow) natively on Linux, Windows and macOS runners and smoke-tests each packaged
+# Builds the desktop apps (sketch = FalangSketch, arduino = FalangDuino, flow = FalangFlow) natively on Linux, Windows and macOS runners and smoke-tests each packaged
 # build on its own OS (scripts/release/smoke-desktop-app.ts). Phase 1: manual runs only, artifacts
 # kept on the run — uploading to the update feed and tag triggers come next.
 on:

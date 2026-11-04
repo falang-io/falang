@@ -1,5 +1,5 @@
-appId: com.falang.flow
-productName: Falang Flow
+appId: io.falang.flow
+productName: FalangFlow
 executableName: falang-flow
 directories:
   output: dist
@@ -18,6 +18,13 @@ extraResources:
     to: client
 npmRebuild: false
 artifactName: falang-flow-${version}-${arch}.${ext}
+# The static update feed (ADR 0050 (private)): with a `generic` provider every build writes its update-info files
+# (`latest*.yml`, plus `beta*`/`alpha*` for all channels) next to the artifacts; `scripts/release/feed.ts` uploads
+# them to this directory on download.falang.io (a fork builds with its own URL).
+publish:
+  provider: generic
+  url: https://download.falang.io/flow
+generateUpdatesFilesForAllChannels: true
 linux:
   target: [AppImage, deb]
   category: Development

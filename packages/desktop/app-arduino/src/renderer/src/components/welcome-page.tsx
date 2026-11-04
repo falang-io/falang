@@ -48,7 +48,7 @@ export const WelcomePage: React.FC = observer(() => {
 
   return (
     <div style={styles.root}>
-      <div style={styles.title}>Falang Arduino</div>
+      <div style={styles.title}>FalangDuino</div>
       <div style={styles.actions}>
         <Button type="primary" onClick={() => newProjectDialogStore.open()}>
           {t('desktop-app-arduino:welcome-page.new-project')}

@@ -1,6 +1,6 @@
-appId: com.falang.desktop
-productName: Falang
-executableName: falang
+appId: io.falang.sketch
+productName: FalangSketch
+executableName: falang-sketch
 directories:
   output: dist
   buildResources: resources
@@ -24,21 +24,28 @@ extraResources:
   - from: worker-dist
     to: export-worker/index.js
 # File names without spaces: they become URLs in the update feed (ADR 0050 (private)).
-artifactName: falang-${version}-${arch}.${ext}
+artifactName: falang-sketch-${version}-${arch}.${ext}
 # Targets per ADR 0050 (private): AppImage updates itself, .deb is a manual download; on macOS the .dmg
 # is the download and the .zip is what electron-updater installs (only once the app is signed).
+# The static update feed (ADR 0050 (private)): with a `generic` provider every build writes its update-info files
+# (`latest*.yml`, plus `beta*`/`alpha*` for all channels) next to the artifacts; `scripts/release/feed.ts` uploads
+# them to this directory on download.falang.io (a fork builds with its own URL).
+publish:
+  provider: generic
+  url: https://download.falang.io/sketch
+generateUpdatesFilesForAllChannels: true
 linux:
   target: [AppImage, deb]
   category: Development
   # Required by the .deb format (the package's Maintainer field).
   maintainer: Falang <noreply@falang.io>
 deb:
-  packageName: falang
-  artifactName: falang_${version}_${arch}.${ext}
+  packageName: falang-sketch
+  artifactName: falang-sketch_${version}_${arch}.${ext}
 mac:
   target: [dmg, zip]
   category: public.app-category.developer-tools
 win:
   target: nsis
 nsis:
-  artifactName: falang-setup-${version}.${ext}
+  artifactName: falang-sketch-setup-${version}.${ext}

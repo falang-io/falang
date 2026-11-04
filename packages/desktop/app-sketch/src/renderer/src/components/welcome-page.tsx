@@ -54,7 +54,7 @@ export const WelcomePage: React.FC = observer(() => {
       <div style={styles.languageSwitcher}>
         <LanguageSwitcher />
       </div>
-      <div style={styles.title}>Falang</div>
+      <div style={styles.title}>FalangSketch</div>
       <div style={styles.actions}>
         <Button type="primary" onClick={() => newProjectDialogStore.open()}>
           {t('desktop-app-sketch:welcome-page.new-project')}

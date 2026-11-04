@@ -1,6 +1,6 @@
 # @falang/desktop-app-flow
 
-"Falang Flow": the workflow product as a desktop app (ADR 0072, private). The Electron main process starts
+"FalangFlow": the workflow product as a desktop app (ADR 0072, private). The Electron main process starts
 `@falang/workflow-local` (PGlite database, `temporal` CLI dev server, process runners, the built client served from one
 port) as a child process, signs the window in as the seeded `admin` and shows the product. No Docker, no Postgres.
 

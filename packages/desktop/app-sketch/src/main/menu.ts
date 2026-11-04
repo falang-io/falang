@@ -134,7 +134,7 @@ export const buildApplicationMenu = async (mainWindow: BrowserWindow): Promise<v
     label: l.help,
     submenu: [
       {
-        label: `Falang v${app.getVersion()}`,
+        label: `FalangSketch v${app.getVersion()}`,
         enabled: false,
       },
     ],
