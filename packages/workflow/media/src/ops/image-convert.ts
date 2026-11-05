@@ -17,8 +17,10 @@ export const imageConvertOp: IMediaOpDefinition = {
   maxInputs: 1,
   inputKinds: ['image'],
   resultKind: 'file',
-  outputExt: (rawParams: Record<string, unknown>): string => IMAGE_FORMAT_EXT[(rawParams as IImageConvertParams).format],
-  outputMime: (rawParams: Record<string, unknown>): string => IMAGE_FORMAT_MIME[(rawParams as IImageConvertParams).format],
+  outputExt: (rawParams: Record<string, unknown>): string =>
+    IMAGE_FORMAT_EXT[(rawParams as IImageConvertParams).format],
+  outputMime: (rawParams: Record<string, unknown>): string =>
+    IMAGE_FORMAT_MIME[(rawParams as IImageConvertParams).format],
   buildArgv: (ctx: IMediaOpBuildContext): TMediaOpArgvResult => {
     const params = ctx.params as IImageConvertParams;
     return [

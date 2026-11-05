@@ -49,4 +49,6 @@ export interface IMediaOpDefinition {
 export const normalizeArgvResult = (
   result: TMediaOpArgvResult,
 ): { readonly argv: readonly string[]; readonly extraFiles?: Readonly<Record<string, string>> } =>
-  Array.isArray(result) ? { argv: result } : (result as { argv: readonly string[]; extraFiles?: Record<string, string> });
+  Array.isArray(result)
+    ? { argv: result }
+    : (result as { argv: readonly string[]; extraFiles?: Record<string, string> });

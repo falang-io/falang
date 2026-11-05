@@ -57,7 +57,8 @@ const describeData = (cfg: INodeConfig, stack: NodesStack): string => {
   if (!cfg.data) return 'no data';
   const schema = describeNodeKind(cfg.name, stack).dataSchema ?? {};
   const templates = new Set(templateFieldsOf(cfg.name, stack));
-  if (schema.type === 'string') return templateFieldsOfKind(cfg.name, stack).whole ? 'data: string (template)' : 'data: string';
+  if (schema.type === 'string')
+    return templateFieldsOfKind(cfg.name, stack).whole ? 'data: string (template)' : 'data: string';
   if (schema.type === 'boolean' || schema.type === 'number') return `data: ${String(schema.type)}`;
   const properties = schema.properties as Record<string, unknown> | undefined;
   if (schema.type === 'object' && properties) {

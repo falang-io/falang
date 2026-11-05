@@ -56,7 +56,9 @@ describe('maxIntegration', () => {
 
   it('activity code names every helper after `max` so it never collides with another vendor', () => {
     const shared = maxIntegration.sharedActivityCode ?? '';
-    expect(shared).toContain("const MAX_API_BASE_URL = process.env.MAX_API_BASE_URL ?? 'https://platform-api2.max.ru';");
+    expect(shared).toContain(
+      "const MAX_API_BASE_URL = process.env.MAX_API_BASE_URL ?? 'https://platform-api2.max.ru';",
+    );
     expect(shared).toContain('readFileBytes as maxReadFileBytes');
     expect(shared).toContain("vendor: 'max', field: 'botToken'");
     const declared = [...shared.matchAll(/^const (\w+)/gm)].map((match) => match[1]);

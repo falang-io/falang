@@ -45,7 +45,12 @@ class AgentSettingsPageStore {
     }
   }
 
-  @action async save(input: { baseUrl: string; model: string; apiKey?: string; interface: 'json' | 'nodes' }): Promise<boolean> {
+  @action async save(input: {
+    baseUrl: string;
+    model: string;
+    apiKey?: string;
+    interface: 'json' | 'nodes';
+  }): Promise<boolean> {
     this.isSaving = true;
     try {
       const settings = await adminApi.upsertAgentSettings(input);
@@ -101,7 +106,12 @@ export const AgentSettingsPage: React.FC = observer(() => {
   // after a reset). The API key is deliberately never round-tripped back into the field.
   useEffect(() => {
     if (settings) {
-      form.setFieldsValue({ baseUrl: settings.baseUrl ?? '', model: settings.model ?? '', apiKey: '', interface: settings.interface });
+      form.setFieldsValue({
+        baseUrl: settings.baseUrl ?? '',
+        model: settings.model ?? '',
+        apiKey: '',
+        interface: settings.interface,
+      });
     }
     // oxlint-disable-next-line exhaustive-deps -- `form` is a stable antd form instance.
   }, [settings]);
@@ -139,7 +149,12 @@ export const AgentSettingsPage: React.FC = observer(() => {
         form={form}
         layout="vertical"
         disabled={store.isLoading}
-        initialValues={{ baseUrl: settings?.baseUrl ?? '', model: settings?.model ?? '', apiKey: '', interface: settings?.interface ?? 'json' }}
+        initialValues={{
+          baseUrl: settings?.baseUrl ?? '',
+          model: settings?.model ?? '',
+          apiKey: '',
+          interface: settings?.interface ?? 'json',
+        }}
       >
         <Form.Item
           name="baseUrl"

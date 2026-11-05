@@ -19,7 +19,13 @@ import { DbAgentUsageSink } from './db-agent-usage-sink.js';
  */
 @Module({
   controllers: [AgentChatController, AgentSettingsStatusController, AgentUsageController, AgentCheckProjectController],
-  imports: [ProjectsModule, DocumentsModule, IntegrationsModule, AppSettingsModule, TypeOrmModule.forFeature([AgentUsage])],
+  imports: [
+    ProjectsModule,
+    DocumentsModule,
+    IntegrationsModule,
+    AppSettingsModule,
+    TypeOrmModule.forFeature([AgentUsage]),
+  ],
   providers: [AgentChatService, DbAgentUsageSink],
 })
 export class AgentChatModule {}

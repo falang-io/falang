@@ -43,7 +43,10 @@ describe('agent check-project', { timeout: 120_000 }, () => {
   const BAD = "total = 'oops'";
 
   const check = (body: unknown, userToken = token, id = projectId) =>
-    request(app.getHttpServer()).post(`/projects/${id}/agent/check-project`).set(auth(userToken)).send(body as object);
+    request(app.getHttpServer())
+      .post(`/projects/${id}/agent/check-project`)
+      .set(auth(userToken))
+      .send(body as object);
 
   beforeEach(async () => {
     app = await createTestApp();
@@ -84,9 +87,7 @@ describe('agent check-project', { timeout: 120_000 }, () => {
 
   it('uses the overlay over the stored tree, in both directions', async () => {
     const broken = await check({ documents: [{ id: documentId, root: functionTree(documentId, BAD) }] });
-    expect(broken.body.diagnostics).toEqual([
-      expect.objectContaining({ documentId, nodeId: `${documentId}-act` }),
-    ]);
+    expect(broken.body.diagnostics).toEqual([expect.objectContaining({ documentId, nodeId: `${documentId}-act` })]);
 
     await request(app.getHttpServer())
       .patch(`/projects/${projectId}/documents/${documentId}`)

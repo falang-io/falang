@@ -166,9 +166,7 @@ const CodeLines: React.FC<ICodeLinesProps> = ({ path, content, language, marks, 
 
   useEffect(() => {
     if (focusLine === null) return;
-    containerRef.current
-      ?.querySelector(`[data-line="${String(focusLine)}"]`)
-      ?.scrollIntoView({ block: 'center' });
+    containerRef.current?.querySelector(`[data-line="${String(focusLine)}"]`)?.scrollIntoView({ block: 'center' });
   }, [focusLine, content]);
 
   return (
@@ -201,7 +199,13 @@ const CodeLines: React.FC<ICodeLinesProps> = ({ path, content, language, marks, 
  * `doc-start`/`icon-start` markers the compilers write (`@falang/debug`'s `parseCompiledMarkers`); `marks` tint the
  * lines a compiler complained about. Shared by the workflow client's code viewer and the Arduino IDE's.
  */
-export const GeneratedCodeView: React.FC<Props> = ({ files, language = 'typescript', onLineClick, marks = [], focus }) => {
+export const GeneratedCodeView: React.FC<Props> = ({
+  files,
+  language = 'typescript',
+  onLineClick,
+  marks = [],
+  focus,
+}) => {
   const [activePath, setActivePath] = useState<string | undefined>(focus?.path ?? files[0]?.path);
 
   useEffect(() => {

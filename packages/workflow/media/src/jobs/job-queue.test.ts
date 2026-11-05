@@ -26,7 +26,11 @@ describe('JobQueue concurrency pool', () => {
         }),
     };
     const queue = new JobQueue(store, runner, 2);
-    const jobs = [store.createJob(baseRequest(), 't'), store.createJob(baseRequest(), 't'), store.createJob(baseRequest(), 't')];
+    const jobs = [
+      store.createJob(baseRequest(), 't'),
+      store.createJob(baseRequest(), 't'),
+      store.createJob(baseRequest(), 't'),
+    ];
     for (const job of jobs) queue.enqueue(job);
 
     expect(jobs[0].status).toBe('running');

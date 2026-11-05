@@ -23,7 +23,8 @@ export class JobStore {
       cancelRequested: false,
     };
     this.jobs.set(job.jobId, job);
-    if (typeof request.jobKey === 'string') this.byRequestKey.set(jobKeyOf(request.projectId, request.jobKey), job.jobId);
+    if (typeof request.jobKey === 'string')
+      this.byRequestKey.set(jobKeyOf(request.projectId, request.jobKey), job.jobId);
     return job;
   }
 

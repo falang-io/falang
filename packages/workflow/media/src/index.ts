@@ -13,4 +13,12 @@ export { JobStore } from './jobs/job-store.js';
 export type { IJob, IJobRequest } from './jobs/job-types.js';
 export { MEDIA_OPS, OP_SUFFIX, isMediaOp } from './ops/catalog.js';
 export type { IMediaOpBuildContext, IMediaOpDefinition, IProbeInfo, TMediaOpArgvResult } from './ops/types.js';
-export type { IFileRef, IMediaInfo, IMediaJobStatus, TJobStatus, TMediaJobResult, TMediaOp, TWorkflowEnv } from './types.js';
+export type {
+  IFileRef,
+  IMediaInfo,
+  IMediaJobStatus,
+  TJobStatus,
+  TMediaJobResult,
+  TMediaOp,
+  TWorkflowEnv,
+} from './types.js';

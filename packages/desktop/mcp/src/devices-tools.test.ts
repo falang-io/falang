@@ -6,13 +6,7 @@ import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import { Client } from '@modelcontextprotocol/sdk/client/index.js';
 import { InMemoryTransport } from '@modelcontextprotocol/sdk/inMemory.js';
 import type { CallToolResult } from '@modelcontextprotocol/sdk/types.js';
-import {
-  createDocument,
-  createProject,
-  readDocument,
-  readLocks,
-  writeLocks,
-} from '@falang/desktop-project-fs';
+import { createDocument, createProject, readDocument, readLocks, writeLocks } from '@falang/desktop-project-fs';
 import { DEVICES_DOCUMENT_TYPE } from '@falang/desktop-arduino-dto';
 import { buildMcpServer } from './server.js';
 

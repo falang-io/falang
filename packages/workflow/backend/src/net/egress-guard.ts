@@ -212,7 +212,11 @@ export const createBackendEgress = (options: ICreateEgressOptions = {}): IBacken
         });
       }
       // Redirects are never followed: the target of a redirect would bypass the pre-connect checks of the first hop's intent.
-      const response = await undiciFetch(url, { ...(init as object), ...(proxied ? {} : { dispatcher }), redirect: 'manual' });
+      const response = await undiciFetch(url, {
+        ...(init as object),
+        ...(proxied ? {} : { dispatcher }),
+        redirect: 'manual',
+      });
       if (response.status >= 300 && response.status < 400) {
         throw new EgressBlockedError(`Redirects are not followed (got ${response.status} from ${parsed.host})`);
       }

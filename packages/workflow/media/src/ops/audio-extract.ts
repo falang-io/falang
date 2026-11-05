@@ -12,8 +12,10 @@ export const audioExtractOp: IMediaOpDefinition = {
   maxInputs: 1,
   inputKinds: ['video', 'audio'],
   resultKind: 'file',
-  outputExt: (rawParams: Record<string, unknown>): string => AUDIO_FORMAT_EXT[(rawParams as IAudioExtractParams).format],
-  outputMime: (rawParams: Record<string, unknown>): string => AUDIO_FORMAT_MIME[(rawParams as IAudioExtractParams).format],
+  outputExt: (rawParams: Record<string, unknown>): string =>
+    AUDIO_FORMAT_EXT[(rawParams as IAudioExtractParams).format],
+  outputMime: (rawParams: Record<string, unknown>): string =>
+    AUDIO_FORMAT_MIME[(rawParams as IAudioExtractParams).format],
   buildArgv: (ctx: IMediaOpBuildContext): TMediaOpArgvResult => {
     const params = ctx.params as IAudioExtractParams;
     return ['-i', ctx.inputs[0], '-vn', '-c:a', AUDIO_FORMAT_CODEC[params.format]];

@@ -8,82 +8,82 @@ A driver is one JSON document (`*.falang-driver.json`, the shape `validate_drive
 
 ### bundle
 
-| Field | Type | Required | Constraints |
-| --- | --- | --- | --- |
-| `formatVersion` | `1` | yes |  |
-| `config` | object | yes |  |
-| `files` | map of string → string | yes |  |
+| Field           | Type                   | Required | Constraints |
+| --------------- | ---------------------- | -------- | ----------- |
+| `formatVersion` | `1`                    | yes      |             |
+| `config`        | object                 | yes      |             |
+| `files`         | map of string → string | yes      |             |
 
 ### bundle.config
 
-| Field | Type | Required | Constraints |
-| --- | --- | --- | --- |
-| `id` | string | yes | pattern `^[a-z][a-z0-9-]*$` |
-| `label` | string | yes |  |
-| `version` | string | no |  |
-| `includes` | array of string | yes | each item matches `^[\w.-]+$` |
-| `sourceFiles` | array of string | yes | at least 1 item(s); each item matches `^[\w.-]+$` |
-| `declarations` | array of string | yes | each item matches `^declare (function\|const) [A-Za-z_]\w*\b` |
-| `actions` | array of object | yes | at least 1 item(s) |
-| `device` | object | no |  |
-| `notes` | string | no |  |
-| `locales` | map of string → object | no |  |
+| Field          | Type                   | Required | Constraints                                                   |
+| -------------- | ---------------------- | -------- | ------------------------------------------------------------- |
+| `id`           | string                 | yes      | pattern `^[a-z][a-z0-9-]*$`                                   |
+| `label`        | string                 | yes      |                                                               |
+| `version`      | string                 | no       |                                                               |
+| `includes`     | array of string        | yes      | each item matches `^[\w.-]+$`                                 |
+| `sourceFiles`  | array of string        | yes      | at least 1 item(s); each item matches `^[\w.-]+$`             |
+| `declarations` | array of string        | yes      | each item matches `^declare (function\|const) [A-Za-z_]\w*\b` |
+| `actions`      | array of object        | yes      | at least 1 item(s)                                            |
+| `device`       | object                 | no       |                                                               |
+| `notes`        | string                 | no       |                                                               |
+| `locales`      | map of string → object | no       |                                                               |
 
 ### bundle.config.actions[]
 
-| Field | Type | Required | Constraints |
-| --- | --- | --- | --- |
-| `id` | string | yes | pattern `^[a-z][a-z0-9-]*$` |
-| `label` | string | yes |  |
-| `fields` | array of object | yes |  |
-| `codeTemplate` | string | yes |  |
-| `resultType` | `"int"` \| `"float"` \| `"bool"` \| `"string"` | no |  |
-| `notes` | string | no |  |
+| Field          | Type                                           | Required | Constraints                 |
+| -------------- | ---------------------------------------------- | -------- | --------------------------- |
+| `id`           | string                                         | yes      | pattern `^[a-z][a-z0-9-]*$` |
+| `label`        | string                                         | yes      |                             |
+| `fields`       | array of object                                | yes      |                             |
+| `codeTemplate` | string                                         | yes      |                             |
+| `resultType`   | `"int"` \| `"float"` \| `"bool"` \| `"string"` | no       |                             |
+| `notes`        | string                                         | no       |                             |
 
 ### bundle.config.actions[].fields[]
 
-| Field | Type | Required | Constraints |
-| --- | --- | --- | --- |
-| `name` | string | yes | pattern `^[a-zA-Z_]\w*$` |
-| `label` | string | yes |  |
-| `kind` | `"pin"` \| `"number"` \| `"number-expression"` \| `"string"` \| `"boolean"` \| `"select"` \| `"new-variable"` | yes |  |
-| `default` | string | no |  |
-| `min` | number | no |  |
-| `max` | number | no |  |
-| `options` | array of object | no |  |
+| Field     | Type                                                                                                          | Required | Constraints              |
+| --------- | ------------------------------------------------------------------------------------------------------------- | -------- | ------------------------ |
+| `name`    | string                                                                                                        | yes      | pattern `^[a-zA-Z_]\w*$` |
+| `label`   | string                                                                                                        | yes      |                          |
+| `kind`    | `"pin"` \| `"number"` \| `"number-expression"` \| `"string"` \| `"boolean"` \| `"select"` \| `"new-variable"` | yes      |                          |
+| `default` | string                                                                                                        | no       |                          |
+| `min`     | number                                                                                                        | no       |                          |
+| `max`     | number                                                                                                        | no       |                          |
+| `options` | array of object                                                                                               | no       |                          |
 
 ### bundle.config.actions[].fields[].options[]
 
-| Field | Type | Required | Constraints |
-| --- | --- | --- | --- |
-| `value` | string | yes | pattern `^-?\d+$` |
-| `label` | string | yes |  |
+| Field   | Type   | Required | Constraints       |
+| ------- | ------ | -------- | ----------------- |
+| `value` | string | yes      | pattern `^-?\d+$` |
+| `label` | string | yes      |                   |
 
 ### bundle.config.device
 
-| Field | Type | Required | Constraints |
-| --- | --- | --- | --- |
-| `fields` | array of object | yes |  |
-| `setupTemplate` | string | yes |  |
+| Field           | Type            | Required | Constraints |
+| --------------- | --------------- | -------- | ----------- |
+| `fields`        | array of object | yes      |             |
+| `setupTemplate` | string          | yes      |             |
 
 ### bundle.config.device.fields[]
 
-| Field | Type | Required | Constraints |
-| --- | --- | --- | --- |
-| `name` | string | yes | pattern `^[a-zA-Z_]\w*$` |
-| `label` | string | yes |  |
-| `kind` | `"pin"` \| `"number"` \| `"number-expression"` \| `"string"` \| `"boolean"` \| `"select"` \| `"new-variable"` | yes |  |
-| `default` | string | no |  |
-| `min` | number | no |  |
-| `max` | number | no |  |
-| `options` | array of object | no |  |
+| Field     | Type                                                                                                          | Required | Constraints              |
+| --------- | ------------------------------------------------------------------------------------------------------------- | -------- | ------------------------ |
+| `name`    | string                                                                                                        | yes      | pattern `^[a-zA-Z_]\w*$` |
+| `label`   | string                                                                                                        | yes      |                          |
+| `kind`    | `"pin"` \| `"number"` \| `"number-expression"` \| `"string"` \| `"boolean"` \| `"select"` \| `"new-variable"` | yes      |                          |
+| `default` | string                                                                                                        | no       |                          |
+| `min`     | number                                                                                                        | no       |                          |
+| `max`     | number                                                                                                        | no       |                          |
+| `options` | array of object                                                                                               | no       |                          |
 
 ### bundle.config.device.fields[].options[]
 
-| Field | Type | Required | Constraints |
-| --- | --- | --- | --- |
-| `value` | string | yes | pattern `^-?\d+$` |
-| `label` | string | yes |  |
+| Field   | Type   | Required | Constraints       |
+| ------- | ------ | -------- | ----------------- |
+| `value` | string | yes      | pattern `^-?\d+$` |
+| `label` | string | yes      |                   |
 
 ## Rules the schema alone does not show
 
@@ -175,15 +175,7 @@ A driver is one JSON document (`*.falang-driver.json`, the shape `validate_drive
                     },
                     "kind": {
                       "type": "string",
-                      "enum": [
-                        "pin",
-                        "number",
-                        "number-expression",
-                        "string",
-                        "boolean",
-                        "select",
-                        "new-variable"
-                      ]
+                      "enum": ["pin", "number", "number-expression", "string", "boolean", "select", "new-variable"]
                     },
                     "default": {
                       "type": "string"
@@ -208,19 +200,12 @@ A driver is one JSON document (`*.falang-driver.json`, the shape `validate_drive
                             "minLength": 1
                           }
                         },
-                        "required": [
-                          "value",
-                          "label"
-                        ],
+                        "required": ["value", "label"],
                         "additionalProperties": false
                       }
                     }
                   },
-                  "required": [
-                    "name",
-                    "label",
-                    "kind"
-                  ],
+                  "required": ["name", "label", "kind"],
                   "additionalProperties": false
                 }
               },
@@ -230,24 +215,14 @@ A driver is one JSON document (`*.falang-driver.json`, the shape `validate_drive
               },
               "resultType": {
                 "type": "string",
-                "enum": [
-                  "int",
-                  "float",
-                  "bool",
-                  "string"
-                ]
+                "enum": ["int", "float", "bool", "string"]
               },
               "notes": {
                 "type": "string",
                 "minLength": 1
               }
             },
-            "required": [
-              "id",
-              "label",
-              "fields",
-              "codeTemplate"
-            ],
+            "required": ["id", "label", "fields", "codeTemplate"],
             "additionalProperties": false
           }
         },
@@ -270,15 +245,7 @@ A driver is one JSON document (`*.falang-driver.json`, the shape `validate_drive
                   },
                   "kind": {
                     "type": "string",
-                    "enum": [
-                      "pin",
-                      "number",
-                      "number-expression",
-                      "string",
-                      "boolean",
-                      "select",
-                      "new-variable"
-                    ]
+                    "enum": ["pin", "number", "number-expression", "string", "boolean", "select", "new-variable"]
                   },
                   "default": {
                     "type": "string"
@@ -303,19 +270,12 @@ A driver is one JSON document (`*.falang-driver.json`, the shape `validate_drive
                           "minLength": 1
                         }
                       },
-                      "required": [
-                        "value",
-                        "label"
-                      ],
+                      "required": ["value", "label"],
                       "additionalProperties": false
                     }
                   }
                 },
-                "required": [
-                  "name",
-                  "label",
-                  "kind"
-                ],
+                "required": ["name", "label", "kind"],
                 "additionalProperties": false
               }
             },
@@ -324,10 +284,7 @@ A driver is one JSON document (`*.falang-driver.json`, the shape `validate_drive
               "minLength": 1
             }
           },
-          "required": [
-            "fields",
-            "setupTemplate"
-          ],
+          "required": ["fields", "setupTemplate"],
           "additionalProperties": false
         },
         "notes": {
@@ -426,14 +383,7 @@ A driver is one JSON document (`*.falang-driver.json`, the shape `validate_drive
           }
         }
       },
-      "required": [
-        "id",
-        "label",
-        "includes",
-        "sourceFiles",
-        "declarations",
-        "actions"
-      ],
+      "required": ["id", "label", "includes", "sourceFiles", "declarations", "actions"],
       "additionalProperties": false
     },
     "files": {
@@ -446,11 +396,7 @@ A driver is one JSON document (`*.falang-driver.json`, the shape `validate_drive
       }
     }
   },
-  "required": [
-    "formatVersion",
-    "config",
-    "files"
-  ],
+  "required": ["formatVersion", "config", "files"],
   "additionalProperties": false
 }
 ```

@@ -12,7 +12,9 @@ const probe = (overrides: Partial<IProbeInfo>): IProbeInfo => ({
 
 describe('isProbeAllowed', () => {
   it('allows a real mp4/h264/aac container', () => {
-    expect(isProbeAllowed(probe({ formatName: 'mov,mp4,m4a,3gp,3g2,mj2', videoCodec: 'h264', audioCodec: 'aac' }))).toBe(true);
+    expect(
+      isProbeAllowed(probe({ formatName: 'mov,mp4,m4a,3gp,3g2,mj2', videoCodec: 'h264', audioCodec: 'aac' })),
+    ).toBe(true);
   });
 
   it('allows a png piped through ffprobe as png_pipe/png', () => {

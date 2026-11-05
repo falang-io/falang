@@ -5,3 +5,11 @@ coverage
 .vscode
 .stryker-tmp
 package-lock.json
+# Astro's generated types/data (site/docs/.gitignore is not read by Prettier)
+.astro
+# Prettier's MDX parser is MDX 1: it breaks Starlight pages (e.g. reflows <pre><code> blocks, whose whitespace is significant)
+*.mdx
+# Agent instructions: long hand-written paragraphs with dense inline code that Prettier's Markdown printer corrupts
+CLAUDE.md
+# Verbatim projects saved by the old (pre-monorepo) desktop app, kept as the converter's input data
+packages/desktop/project-converter/test-fixtures

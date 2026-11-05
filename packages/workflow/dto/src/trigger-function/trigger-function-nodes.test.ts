@@ -67,7 +67,7 @@ describe('triggerFunctionBodyDataType', () => {
     expect(() => triggerFunctionBodyDataType.type.parse({})).toThrow();
   });
 
-  it('accepts an optional triggerConfig record, e.g. an on-command trigger\'s configured command name', () => {
+  it("accepts an optional triggerConfig record, e.g. an on-command trigger's configured command name", () => {
     expect(
       triggerFunctionBodyDataType.type.parse({
         vendor: 'telegram',

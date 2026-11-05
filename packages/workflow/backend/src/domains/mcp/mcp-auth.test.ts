@@ -34,13 +34,11 @@ describe('resolveMcpAuth', () => {
 
   it('resolves a valid PAT into an auth context with the "pat:<tokenId>" owner string', async () => {
     const tokensService = makeTokensService(
-      vi
-        .fn()
-        .mockResolvedValue({
-          user: { id: 'user-1', username: 'admin', role: 'user' as const },
-          projectScope: null,
-          tokenId: 'pat-1',
-        }),
+      vi.fn().mockResolvedValue({
+        user: { id: 'user-1', username: 'admin', role: 'user' as const },
+        projectScope: null,
+        tokenId: 'pat-1',
+      }),
     );
     const auth = await resolveMcpAuth('Bearer flg_pat_good', tokensService);
     expect(auth).toEqual({
@@ -52,13 +50,11 @@ describe('resolveMcpAuth', () => {
 
   it('carries a project scope through', async () => {
     const tokensService = makeTokensService(
-      vi
-        .fn()
-        .mockResolvedValue({
-          user: { id: 'user-1', username: 'admin', role: 'user' as const },
-          projectScope: 'project-1',
-          tokenId: 'pat-2',
-        }),
+      vi.fn().mockResolvedValue({
+        user: { id: 'user-1', username: 'admin', role: 'user' as const },
+        projectScope: 'project-1',
+        tokenId: 'pat-2',
+      }),
     );
     const auth = await resolveMcpAuth('Bearer flg_pat_scoped', tokensService);
     expect(auth?.projectScope).toBe('project-1');

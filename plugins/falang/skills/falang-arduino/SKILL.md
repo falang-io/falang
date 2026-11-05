@@ -108,8 +108,8 @@ This compiles through the `logic`-constructor's cpp target, restricted for Ardui
   `void`. **No strings, arrays, or struct types** in variable declarations/expressions — a driver
   action's `text` field is raw template substitution into generated C++, not a typed string
   variable, so it's fine as a field value but you still can't declare a `string`-typed `create-var`.
-- **Number types**: a number type must say its kind — `{ "type": "number", "numberType": { "type": "integer",
-  "integerType": "int32" } }` (also `int8`/`int16`/`int64`, and `uint8`/`uint16`/`uint32`/`uint64` when the editor
+- **Number types**: a number type must say its kind —
+  `{ "type": "number", "numberType": { "type": "integer", "integerType": "int32" } }` (also `int8`/`int16`/`int64`, and `uint8`/`uint16`/`uint32`/`uint64` when the editor
   offers them), `{ "type": "number", "numberType": { "type": "float", "floatType": "float32" } }` (`float32` is the
   natural choice on AVR) or `{ "type": "number", "numberType": { "type": "decimal", "digits": 10, "decimals": 2 } }`.
   **Never** `"numberType": { "type": "any" }`, the general `any` or `enum` — the editor marks such a variable with an

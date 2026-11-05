@@ -7,7 +7,7 @@ const files = [
   { path: 'drv.cpp', content: '' },
 ];
 
-const deferred = <T,>() => {
+const deferred = <T>() => {
   const handle: { resolve: ((value: T) => void) | null } = { resolve: null };
   const promise = new Promise<T>((done) => {
     handle.resolve = done;

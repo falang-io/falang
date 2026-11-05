@@ -2,9 +2,11 @@
  * Generates `plugins/falang/skills/falang-arduino/references/driver-format.md` from the driver bundle's zod schema
  * (`DRIVER_BUNDLE_JSON_SCHEMA`, ADR 0054 (private)), so the skill's format reference cannot drift from what
  * `validate_driver`/`set_driver` accept. Run: `npm run generate:driver-format` (`--check` fails when the file is stale).
+ * The output goes through Prettier with the repository's config, so `npm run format:check` stays clean.
  */
 import { promises as fs } from 'node:fs';
 import * as path from 'node:path';
+import * as prettier from 'prettier';
 // The workspace packages are CommonJS TypeScript — a default import is the only interop tsx's ESM loader offers.
 import dto from '@falang/desktop-arduino-dto';
 
@@ -104,7 +106,8 @@ const build = (): string => {
 
 const main = async (): Promise<void> => {
   const target = path.resolve(import.meta.dirname, '../skills/falang-arduino/references/driver-format.md');
-  const next = build();
+  const options = await prettier.resolveConfig(target);
+  const next = await prettier.format(build(), { ...options, filepath: target });
   if (process.argv.includes('--check')) {
     const current = await fs.readFile(target, 'utf8').catch(() => '');
     if (current !== next) {

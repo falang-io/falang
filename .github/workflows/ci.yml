@@ -25,6 +25,8 @@ jobs:
         run: "! git grep -n 'docs/decisions\\|docs/plans' -- . ':!CLAUDE.md' ':!.github/workflows/ci.yml'"
       - name: Lint
         run: npx oxlint
+      - name: Format
+        run: npm run format:check
       - name: Type-check
         run: npm run check
       - name: Unit tests

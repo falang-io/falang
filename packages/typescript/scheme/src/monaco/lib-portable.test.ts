@@ -54,9 +54,7 @@ describe('libPortable', () => {
       const f = x.length > 0 ? 1 : 2;
       const g = p.x + p.y;
     `);
-    expect(diagnostics.map((diagnostic) => ts.flattenDiagnosticMessageText(diagnostic.messageText, '\n'))).toEqual(
-      [],
-    );
+    expect(diagnostics.map((diagnostic) => ts.flattenDiagnosticMessageText(diagnostic.messageText, '\n'))).toEqual([]);
   });
 
   it('rejects array/string methods no adapter supports (structural DSL node kinds instead, never raw expression syntax)', () => {

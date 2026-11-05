@@ -33,7 +33,20 @@ const SCALE_FILTER_BY_PRESET: Readonly<Record<IVideoTranscodeParams['preset'], s
 
 const buildCodecArgs = (params: IVideoTranscodeParams): readonly string[] => {
   if (params.format === 'webm') return ['-c:v', 'libvpx-vp9', '-b:v', '0', '-crf', '30', '-c:a', 'libopus'];
-  return ['-c:v', 'libx264', '-preset', 'veryfast', '-crf', '23', '-c:a', 'aac', '-b:a', '128k', '-movflags', '+faststart'];
+  return [
+    '-c:v',
+    'libx264',
+    '-preset',
+    'veryfast',
+    '-crf',
+    '23',
+    '-c:a',
+    'aac',
+    '-b:a',
+    '128k',
+    '-movflags',
+    '+faststart',
+  ];
 };
 
 export const videoTranscodeOp: IMediaOpDefinition = {
@@ -42,8 +55,10 @@ export const videoTranscodeOp: IMediaOpDefinition = {
   maxInputs: 1,
   inputKinds: ['video'],
   resultKind: 'file',
-  outputExt: (rawParams: Record<string, unknown>): string => FORMAT_EXT_MIME[(rawParams as IVideoTranscodeParams).format][0],
-  outputMime: (rawParams: Record<string, unknown>): string => FORMAT_EXT_MIME[(rawParams as IVideoTranscodeParams).format][1],
+  outputExt: (rawParams: Record<string, unknown>): string =>
+    FORMAT_EXT_MIME[(rawParams as IVideoTranscodeParams).format][0],
+  outputMime: (rawParams: Record<string, unknown>): string =>
+    FORMAT_EXT_MIME[(rawParams as IVideoTranscodeParams).format][1],
   buildArgv: (ctx: IMediaOpBuildContext): TMediaOpArgvResult => {
     const params = ctx.params as IVideoTranscodeParams;
     const vf = SCALE_FILTER_BY_PRESET[params.preset];

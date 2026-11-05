@@ -105,7 +105,10 @@ describe.skipIf(!ffmpegAvailable)('real ffmpeg pipeline (probe → resize → th
       ]);
 
       const spawner = new NodeProcessSpawner();
-      const filesClient = new LocalFileFilesClient({ 'image-fixture': imagePath, 'video-fixture': videoPath }, uploadDir);
+      const filesClient = new LocalFileFilesClient(
+        { 'image-fixture': imagePath, 'video-fixture': videoPath },
+        uploadDir,
+      );
       const config = loadConfig({ MEDIA_WORK_DIR: workDir, MEDIA_JOB_TIMEOUT_MS: '60000' });
       const runner = createJobRunner({ filesClient, spawner, config });
       const store = new JobStore();
@@ -116,7 +119,13 @@ describe.skipIf(!ffmpegAvailable)('real ffmpeg pipeline (probe → resize → th
       );
       await runner.run(probeJob);
       expect(probeJob.status).toBe('done');
-      const mediaInfo = probeJob.result as { duration: number; width: number; height: number; videoCodec: string; audioCodec: string };
+      const mediaInfo = probeJob.result as {
+        duration: number;
+        width: number;
+        height: number;
+        videoCodec: string;
+        audioCodec: string;
+      };
       expect(mediaInfo.width).toBe(128);
       expect(mediaInfo.height).toBe(128);
       expect(mediaInfo.videoCodec).toBe('h264');

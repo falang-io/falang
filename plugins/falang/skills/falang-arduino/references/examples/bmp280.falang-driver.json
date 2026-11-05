@@ -5,13 +5,8 @@
     "label": "BMP280 (I2C temperature/pressure)",
     "version": "1.0.0",
     "notes": "Bosch BMP280 barometric pressure and temperature sensor on I2C. Add it as a device in the Devices document (it initialises the sensor at the chosen address in setup), then read values with the actions.",
-    "includes": [
-      "bmp280-driver.h"
-    ],
-    "sourceFiles": [
-      "bmp280-driver.h",
-      "bmp280-driver.cpp"
-    ],
+    "includes": ["bmp280-driver.h"],
+    "sourceFiles": ["bmp280-driver.h", "bmp280-driver.cpp"],
     "declarations": [
       "declare function bmp280_init(address: number): void;",
       "declare function bmp280_read_temperature(address: number): number;",

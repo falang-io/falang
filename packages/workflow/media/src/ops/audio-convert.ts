@@ -21,8 +21,10 @@ export const audioConvertOp: IMediaOpDefinition = {
   maxInputs: 1,
   inputKinds: ['audio'],
   resultKind: 'file',
-  outputExt: (rawParams: Record<string, unknown>): string => AUDIO_FORMAT_EXT[(rawParams as IAudioConvertParams).format],
-  outputMime: (rawParams: Record<string, unknown>): string => AUDIO_FORMAT_MIME[(rawParams as IAudioConvertParams).format],
+  outputExt: (rawParams: Record<string, unknown>): string =>
+    AUDIO_FORMAT_EXT[(rawParams as IAudioConvertParams).format],
+  outputMime: (rawParams: Record<string, unknown>): string =>
+    AUDIO_FORMAT_MIME[(rawParams as IAudioConvertParams).format],
   buildArgv: (ctx: IMediaOpBuildContext): TMediaOpArgvResult => {
     const params = ctx.params as IAudioConvertParams;
     const argv: string[] = ['-i', ctx.inputs[0], '-c:a', AUDIO_FORMAT_CODEC[params.format]];
