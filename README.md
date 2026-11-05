@@ -5,7 +5,7 @@
 Falang is a visual programming environment: programs are drawn as flowcharts in a diagram language
 inherited from [DRAKON](https://drakon.su/) (skewers, branches, loops, icons) instead of being typed as
 text. Expression fields inside the diagram are real TypeScript, edited in Monaco. This monorepo contains
-three products built on one editor runtime:
+these products built on one editor runtime:
 
 - **Workflow** (`packages/workflow`) - an n8n-like workflow engine. Diagrams compile to
   [Temporal](https://temporal.io) workflows that run in isolated Kubernetes pods. It has integrations
@@ -15,6 +15,8 @@ three products built on one editor runtime:
   simple-code projects. Logic projects compile to C++, Go, Rust, C# and TypeScript.
 - **app-arduino** (`packages/desktop/app-arduino`) - an Arduino sketch IDE (Electron): pin and device driver
   icons, compilation to a `.ino` sketch, upload and a visual debugger via `arduino-cli`.
+- **app-flow** (`packages/desktop/app-flow`) - the workflow product as a single-user desktop app (Electron) on
+  top of the local mode below: no Docker, kind or Postgres.
 
 Documentation: <https://docs.falang.io> (English), <https://docs.falang.ru> (Russian).
 
@@ -48,15 +50,20 @@ npm run start-local          # builds the client on first run, opens the browser
 ```
 
 Data lives in `~/.falang-flow` (`--data-dir`). ActivePieces and media are off, inbound webhooks need a tunnel.
-See [`packages/workflow/local/README.md`](packages/workflow/local/README.md).
+See [`packages/workflow/local/README.md`](packages/workflow/local/README.md). The same mode packaged as a desktop
+app is `app-flow` (see below).
 
 ## Desktop apps
 
 ```sh
 npm ci
 npm run dev -w @falang/desktop-app-sketch
-npm run dev -w @falang/desktop-app-arduino     # needs arduino-cli installed on the host
+npm run dev -w @falang/desktop-app-arduino     # uses arduino-cli from the host or downloads it (Settings -> arduino-cli...)
+npm run dev -w @falang/desktop-app-flow        # workflow product, signed in as admin; the first start builds the client
 ```
+
+If your shell exports `ELECTRON_RUN_AS_NODE`, unset it first. FalangFlow's data folder, packaging and smoke test are
+described in [`packages/desktop/app-flow/README.md`](packages/desktop/app-flow/README.md).
 
 ## Development
 
