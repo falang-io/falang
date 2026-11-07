@@ -101,6 +101,8 @@ interface ICall {
   readonly method: string;
 }
 
+const withEvent = (update: Record<string, unknown>, eventId: string) => ({ ...update, event_id: eventId });
+
 describe('registerVkBackend', () => {
   // oxlint-disable-next-line init-declarations
   let fetchMock: ReturnType<typeof vi.fn>;
@@ -351,6 +353,236 @@ describe('registerVkBackend', () => {
       await ctx.webhook?.(callbackRequest(messageNew(rawMessage('a'))));
       const args = signalCall(ctx).signalArgs?.[0] as Record<string, unknown>;
       expect(args.from).toBeUndefined();
+    });
+  });
+
+  describe('community routing (ADR 0076)', () => {
+    const GROUP_PEER = 2_000_000_005;
+    const messageIn = (peerId: number, extra: Record<string, unknown> = {}) =>
+      rawMessage('hello', { peer_id: peerId, from_id: 42, ...extra });
+
+    const setup = async (documents: readonly IIntegrationDocumentRecord[]) => {
+      handlers['groups.getCallbackConfirmationCode'] = () => ok({ code: 'c' });
+      handlers['groups.getCallbackServers'] = () => ok({ items: [] });
+      handlers['groups.addCallbackServer'] = () => ok({ server_id: 1 });
+      const ctx = buildCtx({ webhookUrl: WEBHOOK_URL, getDocumentsByType: vi.fn().mockResolvedValue(documents) });
+      await registerVkBackend(ctx);
+      return ctx;
+    };
+
+    it('switches group_join / group_leave on for the callback server and for long poll', async () => {
+      await setup([]);
+      expect(Object.fromEntries(callsOf('groups.setCallbackSettings')[0].params)).toMatchObject({
+        message_new: '1',
+        message_event: '1',
+        group_join: '1',
+        group_leave: '1',
+      });
+      fetchMock.mockClear();
+      handlers['groups.getLongPollServer'] = () => ok({ server: 'https://lp.test/path', key: 'k', ts: '1' });
+      await registerVkBackend(buildCtx());
+      expect(Object.fromEntries(callsOf('groups.setLongPollSettings')[0].params)).toMatchObject({
+        group_join: '1',
+        group_leave: '1',
+      });
+    });
+
+    it('the chatType filter picks the document by peer_id: private below / group above 2000000000', async () => {
+      const ctx = await setup([
+        triggerFunctionDoc('doc-priv', 'vk-trigger', { chatType: 'private' }),
+        triggerFunctionDoc('doc-group', 'vk-trigger', { chatType: 'group' }),
+      ]);
+      await ctx.webhook?.(callbackRequest(messageNew(messageIn(42))));
+      await ctx.webhook?.(callbackRequest(messageNew(messageIn(GROUP_PEER))));
+      expect(signalCall(ctx, 0).workflowId).toBe('vk-doc-priv-42');
+      expect(signalCall(ctx, 1).workflowId).toBe(`vk-doc-group-${GROUP_PEER}`);
+    });
+
+    it('a command document is subject to the filter too, and a plain "any" document is the fallback', async () => {
+      const ctx = await setup([
+        triggerFunctionDoc('doc-start-group', 'vk-on-command-trigger', { command: 'start', chatType: 'group' }),
+        triggerFunctionDoc('doc-any', 'vk-trigger'),
+      ]);
+      await ctx.webhook?.(callbackRequest(messageNew(messageIn(42, { text: '/start' }))));
+      await ctx.webhook?.(callbackRequest(messageNew(messageIn(GROUP_PEER, { text: '/start' }))));
+      expect(signalCall(ctx, 0).workflowId).toBe('vk-doc-any-42');
+      expect(signalCall(ctx, 1).workflowId).toBe(`vk-doc-start-group-${GROUP_PEER}`);
+    });
+
+    it('journals a message when no document admits the chat type', async () => {
+      const ctx = await setup([triggerFunctionDoc('doc-priv', 'vk-trigger', { chatType: 'private' })]);
+      await ctx.webhook?.(callbackRequest(messageNew(messageIn(GROUP_PEER))));
+      expect(ctx.signalWorkflow).not.toHaveBeenCalled();
+      expect(ctx.reportJournalProblem).toHaveBeenCalledWith(expect.objectContaining({ level: 'info' }));
+    });
+
+    it('the conversation mode builds the workflow id from from_id and event_id (both transports carry event_id)', async () => {
+      const ctx = await setup([
+        triggerFunctionDoc('doc-user', 'vk-trigger', { chatType: 'private', conversation: 'per-user' }),
+        triggerFunctionDoc('doc-event', 'vk-trigger', { chatType: 'group', conversation: 'per-event' }),
+      ]);
+      await ctx.webhook?.(callbackRequest(withEvent(messageNew(messageIn(42)), 'ev-1')));
+      await ctx.webhook?.(callbackRequest(withEvent(messageNew(messageIn(GROUP_PEER, { from_id: 9 })), 'ev-2')));
+      expect(signalCall(ctx, 0).workflowId).toBe('vk-doc-user-42-42');
+      expect(signalCall(ctx, 1).workflowId).toBe(`vk-doc-event-${GROUP_PEER}-ev-2`);
+    });
+
+    it('long poll items keep their event_id for a per-event conversation', async () => {
+      handlers['groups.getLongPollServer'] = () => ok({ server: 'https://lp.test/path', key: 'k', ts: '1' });
+      fetchMock.mockImplementation((url: URL | string, init?: RequestInit) => {
+        const parsed = new URL(String(url));
+        if (parsed.hostname === 'lp.test') {
+          return Promise.resolve(
+            Response.json({ ts: '2', updates: [withEvent(messageNew(messageIn(GROUP_PEER)), 'c68dfb98')] }),
+          );
+        }
+        const name = parsed.pathname.replace('/method/', '');
+        if (name === 'groups.getById') return Promise.resolve(ok({ groups: [{ id: 77 }] }));
+        if (name === 'users.get') return Promise.resolve(ok([{ id: 42 }]));
+        return Promise.resolve(handlers[name]?.(new URLSearchParams(String(init?.body ?? ''))) as Response);
+      });
+      const ctx = buildCtx({
+        getDocumentsByType: vi
+          .fn()
+          .mockResolvedValue([triggerFunctionDoc('doc-event', 'vk-trigger', { conversation: 'per-event' })]),
+      });
+      await registerVkBackend(ctx);
+      await ctx.interval?.();
+      expect(signalCall(ctx).workflowId).toBe(`vk-doc-event-${GROUP_PEER}-c68dfb98`);
+    });
+
+    it('a button press goes to the full workflow id remembered for a private per-user conversation', async () => {
+      const ctx = await setup([triggerFunctionDoc('doc-user', 'vk-trigger', { conversation: 'per-user' })]);
+      await ctx.webhook?.(callbackRequest(messageNew(messageIn(42))));
+      await ctx.webhook?.(
+        callbackRequest({
+          type: 'message_event',
+          secret: SECRET,
+          object: { user_id: 42, peer_id: 42, event_id: 'e', payload: { falang: 'Yes' }, conversation_message_id: 8 },
+        }),
+      );
+      expect(signalCall(ctx, 1)).toMatchObject({
+        workflowId: 'vk-doc-user-42-42',
+        signalName: 'vkQuestionAnswer',
+      });
+    });
+
+    it('after a restart a private per-user press falls back to the id the document mode builds', async () => {
+      const ctx = await setup([triggerFunctionDoc('doc-user', 'vk-trigger', { conversation: 'per-user' })]);
+      await ctx.webhook?.(
+        callbackRequest({
+          type: 'message_event',
+          secret: SECRET,
+          object: { user_id: 42, peer_id: 42, event_id: 'e', payload: { falang: 'Yes' }, conversation_message_id: 8 },
+        }),
+      );
+      expect(signalCall(ctx).workflowId).toBe('vk-doc-user-42-42');
+    });
+
+    it('a button pressed in a conversation of a per-user / per-event document is journaled, not signalled', async () => {
+      const ctx = await setup([triggerFunctionDoc('doc-event', 'vk-trigger', { conversation: 'per-event' })]);
+      await ctx.webhook?.(callbackRequest(withEvent(messageNew(messageIn(GROUP_PEER)), 'ev-1')));
+      vi.mocked(ctx.signalWorkflow).mockClear();
+      await ctx.webhook?.(
+        callbackRequest({
+          type: 'message_event',
+          secret: SECRET,
+          object: {
+            user_id: 9,
+            peer_id: GROUP_PEER,
+            event_id: 'btn',
+            payload: { falang: 'Yes' },
+            conversation_message_id: 8,
+          },
+        }),
+      );
+      expect(ctx.signalWorkflow).not.toHaveBeenCalled();
+      expect(ctx.reportJournalProblem).toHaveBeenCalledWith(
+        expect.objectContaining({
+          level: 'warn',
+          data: expect.objectContaining({ errorType: 'UnroutableGroupAnswer' }),
+        }),
+      );
+      // The press is still acknowledged to VK.
+      expect(callsOf('messages.sendMessageEventAnswer')).toHaveLength(1);
+    });
+
+    it('a button pressed in a conversation of a per-chat document is still signalled', async () => {
+      const ctx = await setup([triggerFunctionDoc('doc-chat', 'vk-trigger')]);
+      await ctx.webhook?.(
+        callbackRequest({
+          type: 'message_event',
+          secret: SECRET,
+          object: {
+            user_id: 9,
+            peer_id: GROUP_PEER,
+            event_id: 'btn',
+            payload: { falang: 'No' },
+            conversation_message_id: 8,
+          },
+        }),
+      );
+      expect(signalCall(ctx).workflowId).toBe(`vk-doc-chat-${GROUP_PEER}`);
+    });
+
+    it('a service message with an action never reaches the on-message trigger', async () => {
+      const ctx = await setup([
+        triggerFunctionDoc('doc-chat', 'vk-trigger'),
+        triggerFunctionDoc('doc-join', 'vk-chat-member-joined'),
+      ]);
+      await ctx.webhook?.(
+        callbackRequest(
+          withEvent(
+            messageNew(messageIn(GROUP_PEER, { text: '', action: { type: 'chat_invite_user', member_id: 5 } })),
+            'ev-3',
+          ),
+        ),
+      );
+      await ctx.webhook?.(
+        callbackRequest(messageNew(messageIn(GROUP_PEER, { text: '', action: { type: 'chat_title_update' } }))),
+      );
+      expect(ctx.signalWorkflow).toHaveBeenCalledTimes(1);
+      expect(signalCall(ctx)).toMatchObject({
+        workflowId: `vk-doc-join-${GROUP_PEER}-5-ev-3`,
+        signalName: 'vkChatMemberJoined',
+      });
+    });
+
+    it('group_join / group_leave reach the member triggers through the callback API', async () => {
+      const ctx = await setup([triggerFunctionDoc('doc-in', 'vk-group-member-joined')]);
+      await ctx.webhook?.(
+        callbackRequest({
+          type: 'group_join',
+          event_id: 'g1',
+          group_id: 77,
+          secret: SECRET,
+          object: { user_id: 5, join_type: 'join' },
+        }),
+      );
+      expect(signalCall(ctx)).toMatchObject({ workflowId: 'vk-doc-in-g77-5-g1', signalName: 'vkGroupMemberJoined' });
+    });
+
+    it('sandbox mode ignores group_join / group_leave and member service messages without errors', async () => {
+      const subscribers: ((update: unknown) => Promise<void>)[] = [];
+      const ctx = buildCtx({
+        sharedIngress: {
+          subscribe: (h) => {
+            subscribers.push(h);
+          },
+        },
+        getDocumentsByType: vi
+          .fn()
+          .mockResolvedValue([
+            triggerFunctionDoc('doc-in', 'vk-group-member-joined'),
+            triggerFunctionDoc('doc-join', 'vk-chat-member-joined'),
+          ]),
+      });
+      await registerVkBackend(ctx);
+      await subscribers[0]?.({ type: 'group_join', event_id: 'a', group_id: 1, object: { user_id: 5 } });
+      await subscribers[0]?.({ type: 'group_leave', event_id: 'b', group_id: 1, object: { user_id: 5 } });
+      await subscribers[0]?.(messageNew(messageIn(GROUP_PEER, { action: { type: 'chat_invite_user', member_id: 5 } })));
+      expect(ctx.signalWorkflow).not.toHaveBeenCalled();
+      expect(ctx.reportJournalProblem).not.toHaveBeenCalled();
     });
   });
 

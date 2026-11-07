@@ -20,3 +20,23 @@ export const VK_API_VERSION = '5.199';
 export const VK_USER_TYPE_ID = 'vk/User';
 export const VK_CHAT_TYPE_ID = 'vk/Chat';
 export const VK_MESSAGE_TYPE_ID = 'vk/Message';
+
+export const VK_GROUP_MEMBER_JOINED_TRIGGER_NAME = 'vk-group-member-joined';
+export const VK_GROUP_MEMBER_LEFT_TRIGGER_NAME = 'vk-group-member-left';
+export const VK_JOIN_REQUEST_TRIGGER_NAME = 'vk-join-request';
+export const VK_CHAT_MEMBER_JOINED_TRIGGER_NAME = 'vk-chat-member-joined';
+export const VK_CHAT_MEMBER_LEFT_TRIGGER_NAME = 'vk-chat-member-left';
+export const VK_GROUP_MEMBER_JOINED_SIGNAL_NAME = 'vkGroupMemberJoined';
+export const VK_GROUP_MEMBER_LEFT_SIGNAL_NAME = 'vkGroupMemberLeft';
+export const VK_JOIN_REQUEST_SIGNAL_NAME = 'vkJoinRequest';
+export const VK_CHAT_MEMBER_JOINED_SIGNAL_NAME = 'vkChatMemberJoined';
+export const VK_CHAT_MEMBER_LEFT_SIGNAL_NAME = 'vkChatMemberLeft';
+/** The identifier a compiled member-event trigger-function binds its payload to. */
+export const VK_EVENT_SCOPE_VARIABLE_NAME = 'event';
+/** The identifier of `vk-join-request`. */
+export const VK_REQUEST_SCOPE_VARIABLE_NAME = 'request';
+export const VK_KICK_FROM_CHAT_NAME = 'vk-kick-from-chat';
+export const VK_DELETE_MESSAGE_NAME = 'vk-delete-message';
+
+export const VK_GROUP_MEMBER_EVENT_TYPE_ID = 'vk/GroupMemberEvent';
+export const VK_CHAT_MEMBER_EVENT_TYPE_ID = 'vk/ChatMemberEvent';

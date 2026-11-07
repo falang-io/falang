@@ -6,7 +6,12 @@
     },
     "trigger": {
       "onMessage": "On message",
-      "onCommand": "On command"
+      "onCommand": "On command",
+      "groupMemberJoined": "Subscriber joined the community",
+      "groupMemberLeft": "Subscriber left the community",
+      "joinRequest": "Join request to the community",
+      "chatMemberJoined": "Member joined a conversation",
+      "chatMemberLeft": "Member left a conversation"
     },
     "field": {
       "command": "Command",
@@ -17,11 +22,17 @@
       "timeout": "Timeout (e.g. 10m, 48h) — leave empty for no timeout",
       "file": "File",
       "sendFileAs": "Send as",
-      "caption": "Caption"
+      "caption": "Caption",
+      "userId": "User ID",
+      "conversationMessageId": "Message ID in the conversation (conversationMessageId)",
+      "chatType": "Chats",
+      "conversation": "Conversation"
     },
     "action": {
       "sendMessage": "Send message",
-      "sendFile": "Send file"
+      "sendFile": "Send file",
+      "kickFromChat": "Remove member from conversation",
+      "deleteMessage": "Delete message"
     },
     "question": {
       "askQuestion": "Ask question"
@@ -30,6 +41,16 @@
       "auto": "Auto (by file type)",
       "photo": "Image",
       "document": "Document"
+    },
+    "chatType": {
+      "any": "Any chat",
+      "private": "Private dialogs only",
+      "group": "Conversations (groups) only"
+    },
+    "conversation": {
+      "perChat": "One per chat (a dialog)",
+      "perUser": "One per user in the chat",
+      "perEvent": "One per message (stateless)"
     }
   }
 }

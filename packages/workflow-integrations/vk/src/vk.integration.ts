@@ -1,5 +1,9 @@
 import type { TVariableInfo } from '@falang/typescript-dto';
-import type { IWorkflowIntegration } from '@falang/workflow-integrations-common';
+import {
+  buildChatTypeContextField,
+  buildConversationContextField,
+  type IWorkflowIntegration,
+} from '@falang/workflow-integrations-common';
 import {
   VK_COMMAND_FIELD_NAME,
   VK_MESSAGE_TYPE_ID,
@@ -13,6 +17,8 @@ import {
   VK_VENDOR,
 } from './constants.js';
 import { registerVkBackend } from './vk-backend.js';
+import { vkMemberTriggers } from './vk-member-triggers.js';
+import { vkDeleteMessageAction, vkKickFromChatAction } from './vk-moderation-actions.js';
 import { vkSandboxAdapter } from './vk-sandbox.js';
 import { vkSendFileAction } from './vk-send-file-action.js';
 import { VK_SHARED_ACTIVITY_CODE } from './vk-shared-activity-code.js';
@@ -25,6 +31,31 @@ export { vkStructTypes } from './vk-struct-types.js';
 const VK_JOURNAL_MESSAGE = "${message.text || '[no text]'}";
 
 const VK_WEBHOOK_PATH = '/webhooks/vk/:projectId/:credentialId/:env';
+
+/** The two routing knobs of the on-message triggers (ADR 0076 (private) §2); labels are i18n keys in `locales/`. */
+const vkChatTypeField = buildChatTypeContextField({
+  label: 'vk:field.chatType',
+  any: 'vk:chatType.any',
+  private: 'vk:chatType.private',
+  group: 'vk:chatType.group',
+});
+const vkConversationField = buildConversationContextField({
+  label: 'vk:field.conversation',
+  perChat: 'vk:conversation.perChat',
+  perUser: 'vk:conversation.perUser',
+  perEvent: 'vk:conversation.perEvent',
+});
+
+const VK_ROUTING_NOTES = [
+  'Two optional settings route the messages: contextFields.chatType ("any" default, "private" = one-to-one dialogs,',
+  '"group" = conversations, peer_id above 2000000000) picks which chats the trigger listens to, so a private-chat',
+  'handler and a conversation handler can be separate documents; contextFields.conversation says which execution a',
+  'message belongs to: "per-chat" (default, one dialog per chat — the bot as a conversation partner), "per-user" (a',
+  'separate dialog with every member of a conversation) or "per-event" (a fresh stateless execution for every single',
+  'message — community moderation: chatType "group" + conversation "per-event", then vk-delete-message /',
+  'vk-kick-from-chat). In a conversation with "per-user" or "per-event" a vk-question button is NOT routed back to',
+  'the run that asked (not yet supported) — ask questions in private chats or with "per-chat".',
+].join(' ');
 
 const anyNumber: TVariableInfo = { type: 'number', numberType: { type: 'any' } };
 
@@ -44,7 +75,7 @@ export const vkIntegration: IWorkflowIntegration = {
   vendor: VK_VENDOR,
   label: 'vk:label',
   notes:
-    'VKontakte (VK / ВКонтакте) community bots: receive incoming messages and /commands sent to a community, send text messages and files, and ask questions with inline callback buttons (yes/no, multiple choice) that pause the workflow until the user taps one. Works like the Telegram integration; reply to `message.chat.id` (VK peer_id). Pressing "Начать" arrives as the text "/start".',
+    'VKontakte (VK / ВКонтакте) community bots: receive incoming messages and /commands sent to a community, send text messages and files, and ask questions with inline callback buttons (yes/no, multiple choice) that pause the workflow until the user taps one. Works like the Telegram integration; reply to `message.chat.id` (VK peer_id). Pressing "Начать" arrives as the text "/start". Community moderation, group and conversation management: member triggers (a subscriber joined or left the community, a join request, a member joined or left a conversation/chat) and the actions vk-kick-from-chat (remove a member from a conversation) and vk-delete-message; the community must be an administrator of the conversation (right to delete messages and remove members). There is no community-level ban and no approving of join requests with a community key. vk-question buttons pressed in a conversation are not routed to the run that asked when the trigger uses conversation "per-user" or "per-event".',
   locales: {
     en: () => import('./locales/en.json'),
     ru: () => import('./locales/ru.json'),
@@ -59,6 +90,7 @@ export const vkIntegration: IWorkflowIntegration = {
       scopeVariableName: VK_SCOPE_VARIABLE_NAME,
       signalName: VK_SIGNAL_NAME,
       webhookPath: VK_WEBHOOK_PATH,
+      contextFields: [vkChatTypeField, vkConversationField],
       journalMessage: VK_JOURNAL_MESSAGE,
       notes: [
         'Fires for every incoming message to this VK community, commands included — there is no way to filter which',
@@ -70,6 +102,7 @@ export const vkIntegration: IWorkflowIntegration = {
         '`message.date` is Unix time in seconds; `message.from` may be absent.',
         '`message.photo`/`.document`/`.voice` are `File`s (see the `files` vendor), already resolved —',
         '`null`, not absent, when VK had media but it could not be fetched; always check for `null` first.',
+        `Several on-message documents may coexist when their chatType filters differ. ${VK_ROUTING_NOTES}`,
       ].join(' '),
     },
     {
@@ -79,7 +112,11 @@ export const vkIntegration: IWorkflowIntegration = {
       scopeVariableName: VK_SCOPE_VARIABLE_NAME,
       signalName: VK_SIGNAL_NAME,
       webhookPath: VK_WEBHOOK_PATH,
-      contextFields: [{ name: VK_COMMAND_FIELD_NAME, label: 'vk:field.command', kind: 'text' }],
+      contextFields: [
+        { name: VK_COMMAND_FIELD_NAME, label: 'vk:field.command', kind: 'text' },
+        vkChatTypeField,
+        vkConversationField,
+      ],
       journalMessage: VK_JOURNAL_MESSAGE,
       notes: [
         'The correct, ONLY way to handle a VK bot command (e.g. /start, /help, /cancel) — do not reimplement',
@@ -89,8 +126,10 @@ export const vkIntegration: IWorkflowIntegration = {
         '"start" command also fires when the user presses "Начать" in a new dialog with the community. A matching',
         'command wins over the onMessage trigger, which is then not signalled for that message. The payload is the same',
         '`message` shape as onMessage.',
+        VK_ROUTING_NOTES,
       ].join(' '),
     },
+    ...vkMemberTriggers,
   ],
   actions: [
     {
@@ -112,6 +151,8 @@ export const vkIntegration: IWorkflowIntegration = {
       ].join('\n'),
     },
     vkSendFileAction,
+    vkKickFromChatAction,
+    vkDeleteMessageAction,
   ],
   questions: [
     {
