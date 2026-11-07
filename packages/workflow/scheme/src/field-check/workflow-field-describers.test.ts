@@ -69,6 +69,15 @@ const acme: IWorkflowIntegration = {
         { name: 'result', label: 'Result', kind: 'new-variable', defaultValue: '' },
       ],
     },
+    {
+      name: 'acme-table',
+      label: 'Pick',
+      ...noop,
+      fields: [
+        { name: 'table', label: 'Table', kind: 'document-ref', documentType: 'table' },
+        { name: 'pickOptional', label: 'Optional', kind: 'document-ref', documentType: 'table', defaultValue: '' },
+      ],
+    },
   ],
   questions: [
     {
@@ -229,6 +238,16 @@ describe('workflow field describers — the editor and the background check buil
       (f) => f.field === 'chatId',
     ) as any;
     expect(isCodeFieldSkipped(chat)).toBe(false);
+  });
+
+  it('document-ref: an empty required pick is an error, a chosen or optional one is not checked', async () => {
+    const h = build();
+    scheme = h.scheme;
+    const ctx = await resolveCtx(h);
+    const empty = describeCheckedFields(h.add('p1', 'acme-table', { table: '' }), ctx);
+    expect(empty.map((f) => f.field)).toEqual(['table']);
+    expect(getCodeFieldText(empty[0] as any)).toContain('declare var _value: string;');
+    expect(describeCheckedFields(h.add('p2', 'acme-table', { table: 'some-id' }), ctx)).toEqual([]);
   });
 
   it('question header: contextFields and questionFields', async () => {

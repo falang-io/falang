@@ -791,6 +791,7 @@ export const workflowApi = {
     }).then((response) => response.json() as Promise<ITableFileRef>),
 
   /** Mints a capability URL for a file cell on click. */
-  getTableFileLink: (projectId: string, tableId: string, fileId: string) =>
-    request<{ url: string }>(`/projects/${projectId}/tables/${tableId}/files/${fileId}/link`),
+  /** Fetches a file cell's file with the auth header (nothing is published) as a `Blob`. */
+  downloadTableFile: (projectId: string, tableId: string, fileId: string) =>
+    requestRaw(`/projects/${projectId}/tables/${tableId}/files/${fileId}`).then((response) => response.blob()),
 };

@@ -47,6 +47,14 @@ export class TableRecordChange {
   @Column({ name: 'workflow_id', type: 'varchar', nullable: true })
   workflowId!: string | null;
 
+  /** The record's version after the change (for `deleted`: the deleted record's version); null on old rows. */
+  @Column({ name: 'record_version', type: 'integer', nullable: true })
+  recordVersion!: number | null;
+
+  /** The record's creation time; null on old rows. */
+  @Column({ name: 'record_created_at', type: Date, nullable: true })
+  recordCreatedAt!: Date | null;
+
   @Column({ name: 'created_at', type: Date, default: () => 'CURRENT_TIMESTAMP' })
   createdAt!: Date;
 

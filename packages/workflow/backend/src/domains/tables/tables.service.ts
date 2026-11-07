@@ -242,6 +242,8 @@ export class TablesService {
     op: IChangeRow['op'],
     before: TRecordData | null,
     after: TRecordData | null,
+    recordVersion: number,
+    recordCreatedAt: string,
   ): IChangeRow {
     let changedFields: string[] | null = null;
     if (op === 'updated') changedFields = changedKeys(before ?? {}, after ?? {});
@@ -259,6 +261,8 @@ export class TablesService {
       source: meta.source,
       runId: meta.runId ?? null,
       workflowId: meta.workflowId ?? null,
+      recordVersion,
+      recordCreatedAt,
     };
   }
 
@@ -297,7 +301,11 @@ export class TablesService {
         if (existing) return { record: mapRecord(existing), created: false };
       }
       const record = mapRecord(inserted[0]);
-      await insertChanges(em, [this.change(ctx, meta, id, 'created', null, record.data)], now);
+      await insertChanges(
+        em,
+        [this.change(ctx, meta, id, 'created', null, record.data, record.version, record.createdAt)],
+        now,
+      );
       return { record, created: true };
     });
   }
@@ -329,8 +337,9 @@ export class TablesService {
       `UPDATE table_records SET data = $1::jsonb, version = version + 1, updated_at = $2::timestamp WHERE id = $3 RETURNING version, to_char(updated_at, ${ISO_FORMAT}) AS updated_at`,
       [JSON.stringify(next), now, current.id],
     );
-    changes.push(this.change(ctx, meta, current.id, 'updated', current.data, next));
-    return { ...current, data: next, version: Number(updated[0].version), updatedAt: updated[0].updated_at };
+    const version = Number(updated[0].version);
+    changes.push(this.change(ctx, meta, current.id, 'updated', current.data, next, version, current.createdAt));
+    return { ...current, data: next, version, updatedAt: updated[0].updated_at };
   }
 
   private mergePatch(old: TRecordData, patch: { data: TRecordData; unset: string[] }): TRecordData {
@@ -406,7 +415,18 @@ export class TablesService {
       await em.query('DELETE FROM table_records WHERE id = $1', [id]);
       await insertChanges(
         em,
-        [this.change(ctx, meta, id, 'deleted', mapRecord(row).data, null)],
+        [
+          this.change(
+            ctx,
+            meta,
+            id,
+            'deleted',
+            mapRecord(row).data,
+            null,
+            Number(row.version),
+            mapRecord(row).createdAt,
+          ),
+        ],
         new Date().toISOString(),
       );
     });
@@ -425,9 +445,14 @@ export class TablesService {
     const whereSql = compileTableWhere(where, ctx.fields, params);
     if (!whereSql) throw new TablesError('where_required', 'A non-empty "where" is required');
     return this.transaction(async (em) => {
-      const rows = await query<{ id: string; data: TRecordData | string }>(
+      const rows = await query<{
+        id: string;
+        data: TRecordData | string;
+        version: number | string;
+        created_at: string;
+      }>(
         em,
-        `DELETE FROM table_records AS r WHERE r.id IN (SELECT r.id FROM table_records r WHERE r.table_id = $1 AND r.env = $2 AND (${whereSql}) ORDER BY r.created_at, r.id LIMIT ${MAX_WRITE_BATCH}) RETURNING r.id, r.data`,
+        `DELETE FROM table_records AS r WHERE r.id IN (SELECT r.id FROM table_records r WHERE r.table_id = $1 AND r.env = $2 AND (${whereSql}) ORDER BY r.created_at, r.id LIMIT ${MAX_WRITE_BATCH}) RETURNING r.id, r.data, r.version, to_char(r.created_at, ${ISO_FORMAT}) AS created_at`,
         params,
       );
       await insertChanges(
@@ -438,8 +463,10 @@ export class TablesService {
             meta,
             row.id,
             'deleted',
-            mapRecord({ ...row, version: 0, created_at: '', updated_at: '' }).data,
+            mapRecord({ ...row, updated_at: '' }).data,
             null,
+            Number(row.version),
+            row.created_at,
           ),
         ),
         new Date().toISOString(),
@@ -450,9 +477,9 @@ export class TablesService {
 
   /** Deletes every record of the env inside `em`, writing one `deleted` change row each. Returns the count. */
   async deleteAllIn(em: EntityManager, ctx: ITableContext, meta: IWriteMeta, now: string): Promise<number> {
-    const rows = await query<{ id: string; data: TRecordData | string }>(
+    const rows = await query<{ id: string; data: TRecordData | string; version: number | string; created_at: string }>(
       em,
-      'DELETE FROM table_records WHERE table_id = $1 AND env = $2 RETURNING id, data',
+      `DELETE FROM table_records WHERE table_id = $1 AND env = $2 RETURNING id, data, version, to_char(created_at, ${ISO_FORMAT}) AS created_at`,
       [ctx.tableId, ctx.env],
     );
     await insertChanges(
@@ -463,8 +490,10 @@ export class TablesService {
           meta,
           row.id,
           'deleted',
-          mapRecord({ ...row, version: 0, created_at: '', updated_at: '' }).data,
+          mapRecord({ ...row, updated_at: '' }).data,
           null,
+          Number(row.version),
+          row.created_at,
         ),
       ),
       now,
@@ -494,7 +523,7 @@ export class TablesService {
       await insertRecords(em, { projectId, tableId, env: 'prod' }, copies, now);
       await insertChanges(
         em,
-        copies.map((copy) => this.change(prod, { source: 'copy' }, copy.id, 'created', null, copy.data)),
+        copies.map((copy) => this.change(prod, { source: 'copy' }, copy.id, 'created', null, copy.data, 1, now)),
         now,
       );
       return copies.length;
@@ -573,7 +602,7 @@ export class TablesService {
         `INSERT INTO table_records AS r (id, project_id, table_id, env, data, version, created_at, updated_at) VALUES ($1, $2, $3, $4, $5::jsonb, 1, $6::timestamp, $6::timestamp) RETURNING ${RECORD_COLUMNS}`,
         [recordId, projectId, tableId, env, JSON.stringify(data), now],
       );
-      await insertChanges(em, [this.change(ctx, meta, recordId, 'created', null, data)], now);
+      await insertChanges(em, [this.change(ctx, meta, recordId, 'created', null, data, 1, now)], now);
       return mapRecord(inserted[0]);
     });
   }

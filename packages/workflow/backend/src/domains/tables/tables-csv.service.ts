@@ -193,6 +193,8 @@ export class TablesCsvService {
           source: 'import' as const,
           runId: null,
           workflowId: null,
+          recordVersion: 1,
+          recordCreatedAt: now,
         })),
         now,
       );

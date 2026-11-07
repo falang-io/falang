@@ -19,7 +19,7 @@ import type { TableStore } from './table-store.js';
 /** File-cell services the host supplies; absent in read-only mode (no uploads, no downloads). */
 export interface ITableFileActions {
   upload(file: File): Promise<unknown>;
-  open(fileId: string): void;
+  open(fileId: string, name: string): void;
 }
 
 interface IGridProps {
@@ -87,6 +87,8 @@ const Cell: React.FC<{
   if (!editing || readOnly) {
     return (
       <div
+        data-testid="table-cell"
+        data-field-id={field.id}
         style={{ minHeight: 22, cursor: readOnly ? 'default' : 'text' }}
         onClick={() => {
           if (readOnly) return;
@@ -98,7 +100,11 @@ const Cell: React.FC<{
       </div>
     );
   }
-  return <TableCellInput autoFocus field={field} value={draft} onChange={setDraft} onCommit={commit} />;
+  return (
+    <div data-testid="table-cell-editor" data-field-id={field.id}>
+      <TableCellInput autoFocus field={field} value={draft} onChange={setDraft} onCommit={commit} />
+    </div>
+  );
 };
 
 const NewRecordModal: React.FC<{
@@ -152,12 +158,14 @@ const NewRecordModal: React.FC<{
       <Form layout="vertical">
         {fields.map((field) => (
           <Form.Item key={field.id} label={field.name} required={field.required} extra={field.description}>
-            <TableCellInput
-              field={field}
-              value={draft[field.id]}
-              onChange={(value) => setDraft((prev) => ({ ...prev, [field.id]: value }))}
-              uploadFile={files?.upload}
-            />
+            <div data-testid="table-new-cell" data-field-name={field.name}>
+              <TableCellInput
+                field={field}
+                value={draft[field.id]}
+                onChange={(value) => setDraft((prev) => ({ ...prev, [field.id]: value }))}
+                uploadFile={files?.upload}
+              />
+            </div>
           </Form.Item>
         ))}
       </Form>
