@@ -10,18 +10,21 @@ import {
 import { ConfigService } from '@nestjs/config';
 import { InjectRepository } from '@nestjs/typeorm';
 import type { IProjectDocument, IProjectTreeDocument } from '@falang/dto';
+import { normalizeTableDocumentData, TABLE_DOCUMENT_TYPE, type ITableDocumentData } from '@falang/workflow-dto';
 import {
   INTEGRATIONS_DOCUMENT_TYPE,
   type IIntegrationsDocumentData,
   type IWorkflowIntegration,
 } from '@falang/workflow-integrations-common';
 import { MoreThan, type Repository } from 'typeorm';
+import { UserLimitsService } from '../../admin/user-limits/user-limits.service.js';
 import { ActivepiecesCatalogService } from '../../integrations/activepieces-catalog.service.js';
 import { assertCredentialIdsNotOwnedByOtherProject } from '../../integrations/credential-id-ownership.js';
 import { encodeIntegrationsDataForWrite, maskIntegrationsDataForRead } from '../../integrations/credentials-codec.js';
 import { requireEncryptionKey } from '../../integrations/credentials-crypto.js';
 import { REGISTERED_INTEGRATIONS } from '../../integrations/registered-integrations.js';
 import { IntegrationVendorDataService } from '../../integrations/vendor-data/integration-vendor-data.service.js';
+import { TableDefinitionsService } from '../../tables/table-definitions.service.js';
 import { Folder } from '../folders/folder.entity.js';
 import { resolveDocumentFolder } from '../layout/project-layout.js';
 import { ProjectsService, type TProjectAccess } from '../projects/projects.service.js';
@@ -101,6 +104,8 @@ export class DocumentsService {
   private readonly config: ConfigService;
   private readonly activepiecesCatalog: ActivepiecesCatalogService;
   private readonly vendorData: IntegrationVendorDataService;
+  private readonly userLimits: UserLimitsService;
+  private readonly tableDefinitions: TableDefinitionsService;
 
   constructor(
     @InjectRepository(Document) documents: Repository<Document>,
@@ -109,6 +114,8 @@ export class DocumentsService {
     @Inject(ConfigService) config: ConfigService,
     @Inject(ActivepiecesCatalogService) activepiecesCatalog: ActivepiecesCatalogService,
     @Inject(IntegrationVendorDataService) vendorData: IntegrationVendorDataService,
+    @Inject(UserLimitsService) userLimits: UserLimitsService,
+    @Inject(TableDefinitionsService) tableDefinitions: TableDefinitionsService,
   ) {
     this.folders = folders;
     this.documents = documents;
@@ -116,6 +123,8 @@ export class DocumentsService {
     this.config = config;
     this.activepiecesCatalog = activepiecesCatalog;
     this.vendorData = vendorData;
+    this.userLimits = userLimits;
+    this.tableDefinitions = tableDefinitions;
   }
 
   async listFull(projectId: string, ownerId: string, access: TProjectAccess = 'edit'): Promise<IProjectDocument[]> {
@@ -140,17 +149,15 @@ export class DocumentsService {
     assertValidFunctionName(input.type, input.name);
     await assertUniqueDocumentName(this.documents, projectId, input.name, null);
     const folderId = await resolveDocumentFolder(this.folders, projectId, input.type, input.folderId ?? null);
-    const data =
-      input.type === INTEGRATIONS_DOCUMENT_TYPE
-        ? await this.encodeIncomingData(projectId, input.data, null)
-        : (input.data ?? null);
+    const data = await this.prepareIncomingData(projectId, input);
     const document = this.documents.create({
       id: input.id,
       type: input.type,
       name: input.name,
       folderId,
       projectId,
-      root: input.root ?? null,
+      // A `table` document has no scheme tree, only `data`.
+      root: input.type === TABLE_DOCUMENT_TYPE ? null : (input.root ?? null),
       data,
     });
     await this.assertFolderInProject(projectId, document.folderId);
@@ -166,6 +173,37 @@ export class DocumentsService {
     }
     const integrations = await this.getIntegrationsList();
     return toProjectDocument(document, integrations, this.readKey());
+  }
+
+  private prepareIncomingData(projectId: string, input: CreateDocumentDto): Promise<unknown> {
+    if (input.type === INTEGRATIONS_DOCUMENT_TYPE) return this.encodeIncomingData(projectId, input.data, null);
+    if (input.type === TABLE_DOCUMENT_TYPE) return this.prepareNewTableData(projectId, input.data);
+    return Promise.resolve(input.data ?? null);
+  }
+
+  /** Validates a new `table` document's data (400 on failure) and enforces `maxTablesPerProject` / `maxTableFields` (409). */
+  private async prepareNewTableData(projectId: string, incoming: unknown): Promise<ITableDocumentData> {
+    const normalized = normalizeTableDocumentData(null, incoming);
+    if (!normalized.ok) throw new BadRequestException(normalized.error);
+    const limits = await this.userLimits.getLimits(await this.projectsService.getOwnerId(projectId));
+    const existing = await this.documents.countBy({ projectId, type: TABLE_DOCUMENT_TYPE });
+    if (existing >= limits.maxTablesPerProject) {
+      throw new ConflictException({
+        code: 'table_limit',
+        message: `A project may have at most ${limits.maxTablesPerProject} tables`,
+      });
+    }
+    this.assertTableFieldLimit(normalized.data, limits.maxTableFields);
+    return normalized.data;
+  }
+
+  private assertTableFieldLimit(data: ITableDocumentData, maxFields: number): void {
+    if (data.fields.length > maxFields) {
+      throw new ConflictException({
+        code: 'table_field_limit',
+        message: `A table may have at most ${maxFields} fields`,
+      });
+    }
   }
 
   /** A folder id from the client must name a folder of the very same project. */
@@ -208,7 +246,7 @@ export class DocumentsService {
       document.folderId = await resolveDocumentFolder(this.folders, projectId, document.type, requestedFolderId);
       await this.assertFolderInProject(projectId, document.folderId);
     }
-    if (isObjectOrNull(input.root)) document.root = input.root ?? null;
+    if (isObjectOrNull(input.root) && document.type !== TABLE_DOCUMENT_TYPE) document.root = input.root ?? null;
     let removedInstanceIds: readonly string[] = [];
     if (isObjectOrNull(input.data)) {
       if (document.type === INTEGRATIONS_DOCUMENT_TYPE) {
@@ -220,6 +258,8 @@ export class DocumentsService {
         );
         const newInstanceIds = integrationInstanceIds(document.data as IIntegrationsDocumentData | null);
         removedInstanceIds = [...previousInstanceIds].filter((id) => !newInstanceIds.has(id));
+      } else if (document.type === TABLE_DOCUMENT_TYPE) {
+        document.data = await this.prepareUpdatedTableData(projectId, document, input.data);
       } else {
         document.data = input.data;
       }
@@ -229,7 +269,22 @@ export class DocumentsService {
     // `integrations` document leaves no orphaned `integration_vendor_data` rows behind (see
     // ADR 0039 (private) §4).
     await Promise.all(removedInstanceIds.map((instanceId) => this.vendorData.removeForInstance(projectId, instanceId)));
+    if (saved.type === TABLE_DOCUMENT_TYPE) this.tableDefinitions.invalidate(saved.id);
     return toProjectDocument(saved, integrations, this.readKey());
+  }
+
+  /** `normalizeTableDocumentData` against the stored definition (400 on failure; `null` data resets to empty) plus the field cap (409). */
+  private async prepareUpdatedTableData(
+    projectId: string,
+    document: Document,
+    incoming: unknown,
+  ): Promise<ITableDocumentData> {
+    const previous = normalizeTableDocumentData(null, document.data);
+    const normalized = normalizeTableDocumentData(previous.ok ? previous.data : null, incoming);
+    if (!normalized.ok) throw new BadRequestException(normalized.error);
+    const limits = await this.userLimits.getLimits(await this.projectsService.getOwnerId(projectId));
+    this.assertTableFieldLimit(normalized.data, limits.maxTableFields);
+    return normalized.data;
   }
 
   async delete(projectId: string, ownerId: string, documentId: string): Promise<void> {
@@ -244,6 +299,7 @@ export class DocumentsService {
         ? integrationInstanceIds(document.data as IIntegrationsDocumentData | null)
         : new Set<string>();
     await this.documents.remove(document);
+    if (document.type === TABLE_DOCUMENT_TYPE) this.tableDefinitions.invalidate(documentId);
     await Promise.all([...instanceIds].map((instanceId) => this.vendorData.removeForInstance(projectId, instanceId)));
   }
 

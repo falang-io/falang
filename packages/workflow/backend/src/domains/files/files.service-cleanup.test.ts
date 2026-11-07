@@ -22,6 +22,10 @@ const LIMITS: IUserLimits = {
   maxStoredVersions: 50,
   maxOwnerFilesBytes: 5000,
   maxSchedules: 20,
+  maxTablesPerProject: 20,
+  maxTableFields: 100,
+  maxTableRecords: 10_000,
+  maxTableRecordBytes: 65_536,
 };
 
 const makeProjectRepo = (): Pick<Repository<Project>, 'findOneBy'> => ({

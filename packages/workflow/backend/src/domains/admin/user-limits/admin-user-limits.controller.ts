@@ -19,6 +19,10 @@ const OVERRIDE_KEYS = [
   'maxStoredVersions',
   'maxOwnerFilesBytes',
   'maxSchedules',
+  'maxTablesPerProject',
+  'maxTableFields',
+  'maxTableRecords',
+  'maxTableRecordBytes',
 ] as const;
 
 /**

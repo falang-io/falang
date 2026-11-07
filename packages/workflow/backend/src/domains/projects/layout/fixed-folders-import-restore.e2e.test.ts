@@ -76,7 +76,7 @@ describe('fixed workflow folders: import, restore, migration (e2e)', () => {
         });
       expect(response.status).toBe(201);
       const tree = await getTree(response.body.id);
-      expect(tree.folders.filter((f) => f.fixedKind)).toHaveLength(3);
+      expect(tree.folders.filter((f) => f.fixedKind)).toHaveLength(4);
       expect(tree.folders.find((f) => f.name === 'Empty')).toBeUndefined();
       const telegram = tree.folders.filter((f) => f.name === 'Telegram');
       expect(telegram).toHaveLength(2);
@@ -92,17 +92,17 @@ describe('fixed workflow folders: import, restore, migration (e2e)', () => {
       expect(tree.documents.find((d) => d.type === 'integrations')?.folderId).toBeNull();
     });
 
-    it('maps exported section folders onto the seeded ones (round trip keeps three sections)', async () => {
+    it('maps exported section folders onto the seeded ones (round trip keeps four sections)', async () => {
       const projectId = await createProject();
       const { folders } = await getTree(projectId);
       const sub = await createFolder(projectId, 'Sub', sectionId(folders, 'types'));
       await createDoc(projectId, 'objects-structure', 'Order', sub.body.id);
       const exported = await http().get(`/projects/${projectId}/export`).set(auth(token));
-      expect(exported.body.folders.filter((f: ITreeFolder) => f.fixedKind)).toHaveLength(3);
+      expect(exported.body.folders.filter((f: ITreeFolder) => f.fixedKind)).toHaveLength(4);
       const imported = await http().post('/projects/import').set(auth(token)).send(exported.body);
       expect(imported.status).toBe(201);
       const tree = await getTree(imported.body.id);
-      expect(tree.folders).toHaveLength(4);
+      expect(tree.folders).toHaveLength(5);
       const order = tree.documents.find((d) => d.name === 'Order');
       const subFolder = tree.folders.find((f) => f.name === 'Sub');
       expect(order?.folderId).toBe(subFolder?.id);
@@ -179,7 +179,7 @@ describe('fixed workflow folders: import, restore, migration (e2e)', () => {
 
       await normalizeStoredProjectLayout(folders.manager, projectId);
       const first = await getTree(projectId);
-      expect(first.folders.filter((f) => f.fixedKind)).toHaveLength(3);
+      expect(first.folders.filter((f) => f.fixedKind)).toHaveLength(4);
       expect(first.documents.find((d) => d.id === rootId)?.folderId).toBe(sectionId(first.folders, 'functions'));
       expect(first.folders.filter((f) => f.name === 'Mixed')).toHaveLength(2);
 

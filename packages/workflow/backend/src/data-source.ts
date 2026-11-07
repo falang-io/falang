@@ -18,6 +18,8 @@ import { RunJournalEntry } from './domains/run-journal/run-journal-entry.entity.
 import { Task } from './domains/tasks/task.entity.js';
 import { OAuth2PendingStateRow } from './domains/integrations/oauth2-pending-state.entity.js';
 import { ProjectMember } from './domains/projects/members/project-member.entity.js';
+import { TableRecordChange } from './domains/tables/table-record-change.entity.js';
+import { TableRecord } from './domains/tables/table-record.entity.js';
 import { User } from './domains/users/users/user.entity.js';
 
 /**
@@ -53,6 +55,8 @@ const AppDataSource = new DataSource({
     ProjectMember,
     AgentUsage,
     RunJournalEntry,
+    TableRecord,
+    TableRecordChange,
   ],
   migrations: [path.join(__dirname, 'migrations', '*.ts')],
 });

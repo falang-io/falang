@@ -65,4 +65,24 @@ export class UpdateUserLimitsDto {
   @IsInt()
   @Min(1)
   maxSchedules?: number | null;
+
+  @IsOptional()
+  @IsInt()
+  @Min(1)
+  maxTablesPerProject?: number | null;
+
+  @IsOptional()
+  @IsInt()
+  @Min(1)
+  maxTableFields?: number | null;
+
+  @IsOptional()
+  @IsInt()
+  @Min(1)
+  maxTableRecords?: number | null;
+
+  @IsOptional()
+  @IsInt()
+  @Min(1)
+  maxTableRecordBytes?: number | null;
 }

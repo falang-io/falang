@@ -29,6 +29,7 @@ import { IntegrationsModule } from './domains/integrations/integrations.module.j
 import { REGISTERED_INTEGRATIONS } from './domains/integrations/registered-integrations.js';
 import { ProjectTokenModule } from './domains/internal-auth/project-token.module.js';
 import { ProjectTokenService } from './domains/internal-auth/project-token.service.js';
+import { TablesModule } from './domains/tables/tables.module.js';
 import { SandboxBotsModule } from './domains/sandbox-bots/sandbox-bots.module.js';
 import { SupportModule } from './domains/support/support.module.js';
 import { McpModule } from './domains/mcp/mcp.module.js';
@@ -127,6 +128,7 @@ const buildBuiltInImports = (
   EgressProxyModule,
   EgressRoutingModule,
   SandboxBotsModule,
+  TablesModule,
   IntegrationsModule,
   HealthModule,
   MetricsModule,

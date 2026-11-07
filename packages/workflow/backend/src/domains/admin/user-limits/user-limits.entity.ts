@@ -60,6 +60,18 @@ export class UserLimits {
   @Column({ name: 'max_schedules', type: 'int', nullable: true })
   maxSchedules!: number | null;
 
+  @Column({ name: 'max_tables_per_project', type: 'int', nullable: true })
+  maxTablesPerProject!: number | null;
+
+  @Column({ name: 'max_table_fields', type: 'int', nullable: true })
+  maxTableFields!: number | null;
+
+  @Column({ name: 'max_table_records', type: 'int', nullable: true })
+  maxTableRecords!: number | null;
+
+  @Column({ name: 'max_table_record_bytes', type: 'int', nullable: true })
+  maxTableRecordBytes!: number | null;
+
   @UpdateDateColumn({ name: 'updated_at', type: Date })
   updatedAt!: Date;
 }

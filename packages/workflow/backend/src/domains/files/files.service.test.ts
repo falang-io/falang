@@ -1,3 +1,4 @@
+// oxlint-disable max-lines -- the full IUserLimits fixture grows with every new limit.
 import { Readable } from 'node:stream';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { PayloadTooLargeException } from '@nestjs/common';
@@ -24,6 +25,10 @@ const LIMITS: IUserLimits = {
   maxStoredVersions: 50,
   maxOwnerFilesBytes: 5000,
   maxSchedules: 20,
+  maxTablesPerProject: 20,
+  maxTableFields: 100,
+  maxTableRecords: 10_000,
+  maxTableRecordBytes: 65_536,
 };
 
 interface MockFileRepo {

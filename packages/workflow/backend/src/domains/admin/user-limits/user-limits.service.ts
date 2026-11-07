@@ -18,6 +18,10 @@ const OVERRIDE_KEYS = [
   'maxStoredVersions',
   'maxOwnerFilesBytes',
   'maxSchedules',
+  'maxTablesPerProject',
+  'maxTableFields',
+  'maxTableRecords',
+  'maxTableRecordBytes',
 ] as const;
 
 /**
@@ -52,6 +56,10 @@ export class UserLimitsService {
       maxStoredVersions: config.get<number>('MAX_STORED_VERSIONS', 50),
       maxOwnerFilesBytes: config.get<number>('MAX_OWNER_FILES_BYTES', 10_737_418_240),
       maxSchedules: config.get<number>('MAX_SCHEDULES', 20),
+      maxTablesPerProject: config.get<number>('MAX_TABLES_PER_PROJECT', 20),
+      maxTableFields: config.get<number>('MAX_TABLE_FIELDS', 100),
+      maxTableRecords: config.get<number>('MAX_TABLE_RECORDS', 10_000),
+      maxTableRecordBytes: config.get<number>('MAX_TABLE_RECORD_BYTES', 65_536),
     };
   }
 

@@ -31,6 +31,10 @@ const makeRow = (overrides: Partial<UserLimits> = {}): UserLimits =>
     maxStoredVersions: null,
     maxOwnerFilesBytes: null,
     maxSchedules: null,
+    maxTablesPerProject: null,
+    maxTableFields: null,
+    maxTableRecords: null,
+    maxTableRecordBytes: null,
     updatedAt: new Date(),
     ...overrides,
   }) as UserLimits;
@@ -65,6 +69,10 @@ describe('UserLimitsService', () => {
         maxStoredVersions: 50,
         maxOwnerFilesBytes: 10_737_418_240,
         maxSchedules: 20,
+        maxTablesPerProject: 20,
+        maxTableFields: 100,
+        maxTableRecords: 10_000,
+        maxTableRecordBytes: 65_536,
       });
     });
 
@@ -120,6 +128,10 @@ describe('UserLimitsService', () => {
           maxStoredVersions: null,
           maxOwnerFilesBytes: null,
           maxSchedules: null,
+          maxTablesPerProject: null,
+          maxTableFields: null,
+          maxTableRecords: null,
+          maxTableRecordBytes: null,
         }),
       );
     });

@@ -149,6 +149,10 @@ export interface IUserLimits {
   readonly maxStoredVersions: number;
   readonly maxOwnerFilesBytes: number;
   readonly maxSchedules: number;
+  readonly maxTablesPerProject: number;
+  readonly maxTableFields: number;
+  readonly maxTableRecords: number;
+  readonly maxTableRecordBytes: number;
 }
 
 /** A field set to `null` clears that override (falls back to the env default); an omitted field leaves it untouched. */
