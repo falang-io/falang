@@ -96,6 +96,7 @@ export default defineConfig({
             'workflow/instances',
             'workflow/files',
             'workflow/databases',
+            'workflow/tables',
             'workflow/human-tasks',
             'workflow/project-users',
             'workflow/test-bot',

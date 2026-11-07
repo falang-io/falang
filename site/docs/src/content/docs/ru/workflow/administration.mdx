@@ -246,7 +246,7 @@ head:
   <code>MAX_CONCURRENT_PROD_VERSIONS</code>), а также максимальное число проектов, dev-серверов, хранимых версий,
   суммарный размер файлов всех проектов владельца и число расписаний (по умолчанию <code>MAX_PROJECTS</code>,
   <code>MAX_DEV_PODS</code>, <code>MAX_STORED_VERSIONS</code>, <code>MAX_OWNER_FILES_BYTES</code>,
-  <code>MAX_SCHEDULES</code>). Пустое поле означает «использовать значение по умолчанию»; заполненное
+  <code>MAX_SCHEDULES</code>), а для <a href="../tables/">таблиц</a> — число таблиц в проекте, полей в таблице, записей на таблицу и окружение и размер одной записи (по умолчанию <code>MAX_TABLES_PER_PROJECT</code> 20, <code>MAX_TABLE_FIELDS</code> 100, <code>MAX_TABLE_RECORDS</code> 10 000, <code>MAX_TABLE_RECORD_BYTES</code> 65 536). Пустое поле означает «использовать значение по умолчанию»; заполненное
   переопределяет его только для проектов этого аккаунта.
 </p>
 
