@@ -30,6 +30,7 @@ COPY packages/typescript/scheme/package.json packages/typescript/scheme/
 COPY packages/workflow-integrations/activepieces/package.json packages/workflow-integrations/activepieces/
 COPY packages/workflow-integrations/common/package.json packages/workflow-integrations/common/
 COPY packages/workflow-integrations/files/package.json packages/workflow-integrations/files/
+COPY packages/workflow-integrations/tables/package.json packages/workflow-integrations/tables/
 COPY packages/workflow-integrations/media/package.json packages/workflow-integrations/media/
 COPY packages/workflow-integrations/mysql/package.json packages/workflow-integrations/mysql/
 COPY packages/workflow-integrations/openai/package.json packages/workflow-integrations/openai/
