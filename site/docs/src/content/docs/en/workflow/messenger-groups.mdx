@@ -1,0 +1,125 @@
+---
+title: Groups and moderation in messenger bots
+description: Member triggers and moderation actions for Telegram, MAX and VK bots — greeting newcomers, deleting spam, banning, and the chatType / conversation settings of the message triggers
+head:
+  - tag: meta
+    attrs:
+      name: keywords
+      content: 'telegram group bot, moderation, ban, delete message, member joined, join request, chatType, conversation, max, vk, workflow'
+---
+
+import { Aside } from '@astrojs/starlight/components';
+
+The Telegram, MAX and VK bots can do more than chat in private: they can watch a group, a channel or a community, react to
+people joining and leaving, and moderate (delete messages, remove or ban members).
+
+## Routing settings of the message triggers
+
+The **On message** and **On command** triggers of all three messengers have two extra settings:
+
+- **Chats** (`chatType`) — `Any chat` (default), `Private chats only` or `Groups and channels only`. A trigger only
+  listens to the chats it admits, so a private-chat document and a group document can live in one project (the first
+  document whose filter admits the chat wins).
+- **Conversation** (`conversation`) — which execution a message belongs to:
+  - `One execution per chat` (default) — one long-lived run per chat, as before;
+  - `One execution per user in a chat` — a separate dialog with every member of the group;
+  - `A new execution per message (stateless)` — every message starts its own short run; use it for spam filters and
+    other moderation.
+
+The execution (workflow) id is `<prefix>-<document>-<chatId>`, plus `-<userId>` for per-user and `-<eventKey>` for
+per-event.
+
+Typical recipes:
+
+- **Greet a newcomer** — a _Member joined_ trigger + _Send message_.
+- **Anti-spam** — _On message_ with `Chats: Groups and channels only` and `Conversation: A new execution per message`;
+  inside, check the text and call _Delete message_ / _Ban member_.
+- **A dialog with every member of a group** — _On message_ with `Conversation: One execution per user`.
+
+<Aside type="caution">
+  A question's inline buttons pressed in a **group** are not routed back to the waiting run when the trigger uses `per-user`
+  or `per-event` (the press is written to the run journal as a warning, `UnroutableGroupAnswer`). Ask questions in private
+  chats or keep `One execution per chat`. Proper routing is planned.
+</Aside>
+
+Member triggers are always one execution per event (`<prefix>-<document>-<chatId>-<userId>-<eventKey>`).
+
+<Aside>
+  The platform test bot ([Testing a bot with the platform test bot](../test-bot/)) never delivers member
+  events — to try the triggers below, use your own bot token.
+</Aside>
+
+## Telegram
+
+**Bot rights.** Add the bot to the group as an **administrator**. Member events (`chat_member`) are delivered only to an
+admin bot; without admin rights the bot still sees service messages "joined / left", but in a group it receives only
+commands and replies to its own messages (privacy mode). Moderation needs the matching rights: _Ban users_
+(`can_restrict_members`), _Delete messages_ (`can_delete_messages`), _Invite users_ (`can_invite_users`, for join
+requests). The bot asks Telegram for `message`, `callback_query`, `chat_member`, `my_chat_member` and `chat_join_request`
+updates explicitly. When the bot is added to or removed from a chat, a note appears in the run journal.
+
+**Triggers**
+
+| Trigger | When | Payload (`event` / `request`) |
+| --- | --- | --- |
+| Member joined | someone joined the group | `chat`, `user`, `by?`, `date`, `inviteLink?`, `viaJoinRequest` |
+| Member left | someone left or was removed | the same, `kicked` tells a removal from leaving |
+| Join request | someone applied to a group with approval | `chat`, `user`, `userChatId`, `date`, `bio?`, `inviteLink?` |
+
+A join is detected both from `chat_member` and from the service message; the two are deduplicated within 10 seconds.
+
+**Actions**
+
+- **Ban member** — `chatId`, `userId`, `untilDate` (Unix seconds, `0` = forever), `revokeMessages` (delete all their
+  messages).
+- **Unban member** — `chatId`, `userId` (only if currently banned, so a regular member is not kicked).
+- **Delete message** — `chatId`, `messageId`.
+- **Approve / Decline join request** — `chatId`, `userId`.
+- **Get member** — `chatId`, `userId` → a variable with `status`, `user`, `isAdmin`.
+
+All actions are idempotent: an already deleted message or an already handled request is not an error.
+
+## MAX
+
+**Bot rights.** The bot must be an **administrator** of the chat with the _read all messages_ (`read_all_messages`)
+right to get member events; removing members needs _add and remove members_ (`add_remove_members`), deleting messages
+the right to delete. The subscription includes `user_added`, `user_removed`, `bot_added`, `bot_removed` (the last two
+are only written to the run journal).
+
+**Triggers** — _Member joined_ and _Member left_, payload `event`: `chat` (`id`, `isChannel`), `user`, `byId?` (the
+inviter, or the admin who removed the user; absent for a join by link or a voluntary leave), `date` (ms).
+
+**Actions**
+
+- **Remove member** — `chatId`, `userId`, `block` (on by default — a ban; works only in chats that have an invite link).
+- **Delete message** — `messageId` (the message `mid`). MAX allows about two deletions per second per chat.
+
+A member who is already gone or a message that is not found is treated as success.
+
+## VK
+
+**Bot rights.** The community key needs access to messages; for a **conversation** the community must be its
+administrator to remove members. The Long Poll / Callback API subscription includes `group_join` and `group_leave`.
+
+**Triggers**
+
+| Trigger | When | Payload |
+| --- | --- | --- |
+| Community member joined / left | a subscriber joined or left the community | `event`: `groupId`, `userId`, `joinType?`, `self` |
+| Join request | an application to a closed community | `request` (notification only) |
+| Conversation member joined / left | a user was added to / removed from or left a conversation | `event`: `chat`, `userId`, `byId`, `viaLink`, `date` |
+
+Community events use the id `vk-<document>-g<groupId>-<userId>-<event_id>`.
+
+**Actions**
+
+- **Kick from conversation** — `chatId` (the conversation `peer_id`), `userId`.
+- **Delete message** — `chatId` (`peer_id`), `messageId` (the message `conversationMessageId`); deleted for everybody.
+
+## Limitations
+
+- There is **no community ban in VK** — it needs a user token, which a community key cannot replace. Likewise a VK join
+  request can only be reported: approving or declining is done in VK itself.
+- MAX `block` works only in chats with an invite link.
+- Buttons of questions in groups with `per-user` / `per-event` are not routed yet (see above).
+- The platform test bot sends no member events.

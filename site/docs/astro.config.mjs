@@ -99,6 +99,7 @@ export default defineConfig({
             'workflow/human-tasks',
             'workflow/project-users',
             'workflow/test-bot',
+            'workflow/messenger-groups',
             'workflow/media',
             'workflow/ai-agent',
             'workflow/magic-node',
