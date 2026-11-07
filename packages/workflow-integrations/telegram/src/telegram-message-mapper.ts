@@ -47,6 +47,19 @@ export interface ITelegramRawVideo {
   readonly file_size?: number;
 }
 
+export interface ITelegramRawMessageEntity {
+  readonly type: string;
+  readonly offset: number;
+  readonly length: number;
+  readonly url?: string;
+}
+
+export interface ITelegramRawChat {
+  readonly id: number;
+  readonly type: string;
+  readonly title?: string;
+}
+
 export interface ITelegramRawUser {
   readonly id: number;
   readonly is_bot: boolean;
@@ -64,8 +77,12 @@ export interface ITelegramRawMessage {
   readonly date: number;
   readonly text?: string;
   readonly caption?: string;
-  readonly chat: { readonly id: number; readonly type: string };
+  readonly entities?: readonly ITelegramRawMessageEntity[];
+  readonly chat: ITelegramRawChat;
   readonly from?: ITelegramRawUser;
+  /** Service messages (ADR 0076 (private)): users who joined / the user who left or was removed. */
+  readonly new_chat_members?: readonly ITelegramRawUser[];
+  readonly left_chat_member?: ITelegramRawUser;
   readonly photo?: readonly ITelegramRawPhotoSize[];
   readonly document?: ITelegramRawDocument;
   readonly voice?: ITelegramRawVoice;
@@ -98,12 +115,38 @@ export interface ITelegramMessage {
   readonly date: number;
   readonly text?: string;
   readonly caption?: string;
-  readonly chat: { readonly id: number; readonly type: string };
+  readonly entities?: readonly ITelegramMessageEntity[];
+  readonly chat: ITelegramChat;
   readonly from?: ITelegramUser;
 }
 
-const toTelegramUser = (raw: ITelegramRawUser | undefined): ITelegramUser | undefined =>
+export interface ITelegramChat {
+  readonly id: number;
+  readonly type: string;
+  readonly title?: string;
+}
+
+export interface ITelegramMessageEntity {
+  readonly type: string;
+  readonly offset: number;
+  readonly length: number;
+  readonly url?: string;
+}
+
+export const toTelegramUser = (raw: ITelegramRawUser | undefined): ITelegramUser | undefined =>
   raw && { id: raw.id, isBot: raw.is_bot, firstName: raw.first_name, username: raw.username };
+
+export const toTelegramChat = (raw: ITelegramRawChat): ITelegramChat => ({
+  id: raw.id,
+  type: raw.type,
+  title: raw.title,
+});
+
+/** Only `entities` (message text), not `caption_entities`. */
+const toTelegramEntities = (
+  raw: readonly ITelegramRawMessageEntity[] | undefined,
+): ITelegramMessageEntity[] | undefined =>
+  raw?.map((entity) => ({ type: entity.type, offset: entity.offset, length: entity.length, url: entity.url }));
 
 /** snake_case Bot API `Message` -> camelCase `telegram/Message` — see `ITelegramMessage`'s doc comment. */
 export const toTelegramMessage = (raw: ITelegramRawMessage): ITelegramMessage => ({
@@ -111,6 +154,7 @@ export const toTelegramMessage = (raw: ITelegramRawMessage): ITelegramMessage =>
   date: raw.date,
   text: raw.text,
   caption: raw.caption,
-  chat: raw.chat,
+  entities: toTelegramEntities(raw.entities),
+  chat: toTelegramChat(raw.chat),
   from: toTelegramUser(raw.from),
 });

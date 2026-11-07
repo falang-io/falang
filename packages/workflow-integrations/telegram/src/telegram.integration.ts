@@ -14,6 +14,12 @@ import {
   TELEGRAM_VENDOR,
 } from './constants.js';
 import { registerTelegramBackend } from './telegram-backend.js';
+import { telegramCommunityActions, TELEGRAM_MODERATION_SHARED_CODE } from './telegram-community-actions.js';
+import {
+  telegramCommunityTriggers,
+  telegramRoutingContextFields,
+  TELEGRAM_ROUTING_NOTES,
+} from './telegram-community-triggers.js';
 import { telegramSandboxAdapter } from './telegram-sandbox.js';
 import { telegramSendFileAction } from './telegram-send-file-action.js';
 import { telegramStructTypes } from './telegram-struct-types.js';
@@ -40,7 +46,7 @@ export const telegramIntegration: IWorkflowIntegration = {
   vendor: TELEGRAM_VENDOR,
   label: 'telegram:label',
   notes:
-    'Telegram messenger bots (chat bot): receive incoming messages and /commands, send text messages, and ask questions with inline-keyboard buttons (yes/no, multiple choice) that pause the workflow until the user taps one.',
+    'Telegram messenger bots (chat bot): receive incoming messages and /commands, send text messages, and ask questions with inline-keyboard buttons (yes/no, multiple choice) that pause the workflow until the user taps one. Also community management for groups and channels (moderation): triggers for a member joining or leaving and for a join request, and actions to ban (kick) or unban a member, delete a message, approve or decline a join request and look up a member (admin or not).',
   locales: {
     en: () => import('./locales/en.json'),
     ru: () => import('./locales/ru.json'),
@@ -71,7 +77,11 @@ export const telegramIntegration: IWorkflowIntegration = {
         'bot itself asked). `message.photo`/`.document`/`.voice`/`.audio`/`.video` are `File`s (see the',
         '`files` vendor), already resolved — `null`, not absent, when Telegram had media but it could not',
         'be fetched (over 20 MB, or a download error); always check for `null` before using one.',
+        '`message.entities` lists links/mentions (type "url", "text_link" with `url`, "mention", …) — use it',
+        'to detect links instead of a regex.',
+        TELEGRAM_ROUTING_NOTES,
       ].join(' '),
+      contextFields: telegramRoutingContextFields(),
     },
     /**
      * Fires only for messages whose text is the configured `/command` (leading slash optional when
@@ -89,7 +99,10 @@ export const telegramIntegration: IWorkflowIntegration = {
       scopeVariableName: TELEGRAM_SCOPE_VARIABLE_NAME,
       signalName: TELEGRAM_SIGNAL_NAME,
       webhookPath: '/webhooks/telegram/:projectId/:credentialId/:env',
-      contextFields: [{ name: TELEGRAM_COMMAND_FIELD_NAME, label: 'telegram:field.command', kind: 'text' }],
+      contextFields: [
+        { name: TELEGRAM_COMMAND_FIELD_NAME, label: 'telegram:field.command', kind: 'text' },
+        ...telegramRoutingContextFields(),
+      ],
       journalMessage: TELEGRAM_JOURNAL_MESSAGE,
       notes: [
         'The correct, ONLY way to handle a Telegram bot command (e.g. /start, /help, /cancel) — do not',
@@ -103,8 +116,10 @@ export const telegramIntegration: IWorkflowIntegration = {
         'for the same bot, a matching command always wins and the onMessage trigger is not signalled for',
         'that message. The compiled function body receives the same `message` payload shape as onMessage',
         '(chat/from/text/…) — this is only a routing distinction, not a different payload.',
+        TELEGRAM_ROUTING_NOTES,
       ].join(' '),
     },
+    ...telegramCommunityTriggers,
   ],
   actions: [
     {
@@ -136,6 +151,7 @@ export const telegramIntegration: IWorkflowIntegration = {
       ].join('\n'),
     },
     telegramSendFileAction,
+    ...telegramCommunityActions,
   ],
   questions: [
     {
@@ -301,6 +317,8 @@ export const telegramIntegration: IWorkflowIntegration = {
     '  const data = (await response.json()) as { value: string; apiBaseUrl?: string };',
     '  return { token: data.value, apiBaseUrl: data.apiBaseUrl ?? TELEGRAM_API_BASE_URL };',
     '};',
+    '',
+    TELEGRAM_MODERATION_SHARED_CODE,
   ].join('\n'),
   registerBackend: registerTelegramBackend,
   sandbox: telegramSandboxAdapter,

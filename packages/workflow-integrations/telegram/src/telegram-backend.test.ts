@@ -114,6 +114,7 @@ describe('registerTelegramBackend', () => {
           body: JSON.stringify({
             url: 'https://bots.example.com/webhooks/telegram/p/cred-1/prod',
             secret_token: TEST_WEBHOOK_SECRET,
+            allowed_updates: ['message', 'callback_query', 'chat_member', 'my_chat_member', 'chat_join_request'],
           }),
         }),
       );

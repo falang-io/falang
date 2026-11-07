@@ -19,6 +19,12 @@ interface ITelegramTokenState {
   readonly calls: ITelegramMockCall[];
   nextMessageId: number;
   nextUpdateId: number;
+  /** `chat_id:user_id` -> `ChatMember.status` once a moderation call changed it (default `member`). */
+  readonly memberStatuses: Map<string, string>;
+  /** `chat_id:message_id` of messages removed through `deleteMessage`. */
+  readonly deletedMessages: Set<string>;
+  /** The last `allowed_updates` recorded for `getUpdates`, so a one-second poll loop adds one entry per change, not per poll. */
+  lastPolledAllowedUpdates?: string;
   /** Keyed by `file_id` (for `getFile`) and by `file_path` (for the actual download route) — both point at the same seeded bytes. */
   readonly filesById: Map<string, ITelegramMockFile>;
   readonly filesByPath: Map<string, ITelegramMockFile>;
@@ -39,6 +45,8 @@ const getState = (token: string): ITelegramTokenState => {
       calls: [],
       nextMessageId: 1,
       nextUpdateId: 1,
+      memberStatuses: new Map(),
+      deletedMessages: new Set(),
       filesById: new Map(),
       filesByPath: new Map(),
     };
@@ -80,6 +88,68 @@ const recordFileSend = (req: Request, res: Response, state: ITelegramTokenState,
   const messageId = state.nextMessageId;
   state.nextMessageId += 1;
   okResult(res, { message_id: messageId });
+};
+
+const MOCK_USER = (id: number): { id: number; is_bot: boolean; first_name: string } => ({
+  id,
+  is_bot: false,
+  first_name: `User ${id}`,
+});
+
+const memberKey = (body: { chat_id: unknown; user_id: unknown }): string =>
+  `${String(body.chat_id)}:${String(body.user_id)}`;
+
+const badRequest = (res: Response, description: string): void => {
+  res.status(400).json({ ok: false, error_code: 400, description });
+};
+
+/** Group moderation methods (ADR 0076 (private)): ban/unban/delete/approve/decline/getChatMember, state per bot token. */
+const registerModerationRoutes = (router: Router): void => {
+  const record = (req: Request, method: string): ITelegramTokenState => {
+    const state = getState(tokenFromSegment(req.params.botSegment));
+    state.calls.push({ method, body: req.body });
+    return state;
+  };
+
+  router.post('/telegram/:botSegment/banChatMember', (req: Request, res: Response) => {
+    const state = record(req, 'banChatMember');
+    state.memberStatuses.set(memberKey(req.body), 'kicked');
+    okResult(res, true);
+  });
+
+  router.post('/telegram/:botSegment/unbanChatMember', (req: Request, res: Response) => {
+    const state = record(req, 'unbanChatMember');
+    const key = memberKey(req.body);
+    // Like the real API: only_if_banned leaves a current member alone; otherwise the user ends up outside the chat.
+    if (!req.body.only_if_banned || state.memberStatuses.get(key) === 'kicked') state.memberStatuses.set(key, 'left');
+    okResult(res, true);
+  });
+
+  router.post('/telegram/:botSegment/deleteMessage', (req: Request, res: Response) => {
+    const state = record(req, 'deleteMessage');
+    const key = `${String(req.body.chat_id)}:${String(req.body.message_id)}`;
+    if (state.deletedMessages.has(key)) {
+      badRequest(res, 'Bad Request: message to delete not found');
+      return;
+    }
+    state.deletedMessages.add(key);
+    okResult(res, true);
+  });
+
+  for (const method of ['approveChatJoinRequest', 'declineChatJoinRequest']) {
+    router.post(`/telegram/:botSegment/${method}`, (req: Request, res: Response) => {
+      const state = record(req, method);
+      const key = memberKey(req.body);
+      if (method === 'approveChatJoinRequest') state.memberStatuses.set(key, 'member');
+      okResult(res, true);
+    });
+  }
+
+  router.post('/telegram/:botSegment/getChatMember', (req: Request, res: Response) => {
+    const state = record(req, 'getChatMember');
+    const status = state.memberStatuses.get(memberKey(req.body)) ?? 'member';
+    okResult(res, { status, user: MOCK_USER(Number(req.body.user_id)) });
+  });
 };
 
 /**
@@ -152,8 +222,19 @@ export const createTelegramMockRouter = (): Router => {
   router.get('/telegram/:botSegment/getUpdates', (req: Request, res: Response) => {
     const state = getState(tokenFromSegment(req.params.botSegment));
     const updates = state.pendingUpdates.splice(0);
+    // `allowed_updates` (a JSON array in the query) is what makes Telegram deliver `chat_member` at all — recorded when it changes.
+    const allowedUpdates = typeof req.query.allowed_updates === 'string' ? req.query.allowed_updates : undefined;
+    if (allowedUpdates !== state.lastPolledAllowedUpdates) {
+      state.lastPolledAllowedUpdates = allowedUpdates;
+      state.calls.push({
+        method: 'getUpdates',
+        body: { allowed_updates: allowedUpdates ? (JSON.parse(allowedUpdates) as unknown) : undefined },
+      });
+    }
     okResult(res, updates);
   });
+
+  registerModerationRoutes(router);
 
   // `telegram-media.ts`'s `resolveIncomingMedia` calls this to resolve a `file_id` (from an update's
   // `photo`/`document`/… ref) into a `file_path` it then downloads — see ADR 0038 (private) §5.

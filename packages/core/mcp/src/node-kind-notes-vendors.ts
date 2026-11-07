@@ -20,7 +20,14 @@ export const VENDOR_NODE_KIND_NOTES: Record<string, string> = {
     'plain trigger has no way to correlate a later free-text message back to this particular question',
     'anyway. Each option child runs when its button is tapped; give it an `out` the same way a',
     "`switch-option`'s branch would, to control a surrounding loop or end the function — see",
-    "`telegram-question-option`'s notes for which out to pick.",
+    "`telegram-question-option`'s notes for which out to pick. In a GROUP chat the buttons are only",
+    'routed back to the asking run when the trigger is "per-chat"; with conversation "per-user"/"per-event"',
+    'a pressed button is not delivered (private chats are fine) — ask in a private chat instead.',
+  ].join(' '),
+  'telegram-get-member': [
+    'Looks up one user in a chat and declares a variable `{ status, user, isAdmin }`. `status` is one of',
+    '"creator", "administrator", "member", "restricted", "left", "kicked"; `isAdmin` is true for the first two.',
+    'Use it to skip admins in a moderation flow. Reliable only when the bot is an administrator of the chat.',
   ].join(' '),
   'telegram-question-option': [
     "One button of the enclosing `telegram-question`'s inline keyboard, in the order its siblings",

@@ -1,12 +1,19 @@
 // oxlint-disable max-lines -- over the default cap by the run-journal reports for unroutable input (ADR 0059 (private) §2c).
 import { TRIGGER_FUNCTION_BODY_NAME, TRIGGER_FUNCTION_NAME } from '@falang/workflow-dto';
 import {
+  buildConversationWorkflowId,
+  chatTypeAdmits,
   constantTimeEqual,
+  resolveChatTypeFilter,
+  resolveConversationMode,
   type IIntegrationBackendContext,
   type IIntegrationDocumentRecord,
+  type TChatKind,
+  type TConversationMode,
   type TRegisterIntegrationBackend,
 } from '@falang/workflow-integrations-common';
 import {
+  TELEGRAM_ALLOWED_UPDATES,
   TELEGRAM_COMMAND_FIELD_NAME,
   TELEGRAM_ON_COMMAND_TRIGGER_NAME,
   TELEGRAM_QUESTION_ANSWER_SIGNAL_NAME,
@@ -14,6 +21,19 @@ import {
   TELEGRAM_TRIGGER_NAME,
 } from './constants.js';
 import { resolveIncomingMedia } from './telegram-media.js';
+import {
+  classifyChatMemberUpdate,
+  classifyServiceMessage,
+  deliverJoinRequest,
+  deliverMemberEvents,
+  isServiceMemberMessage,
+  MemberEventDeduplicator,
+  reportBotMembershipChange,
+  type IMemberEventContext,
+  type ITelegramRawChatJoinRequest,
+  type ITelegramRawChatMemberUpdated,
+  type ITelegramRawMyChatMemberUpdated,
+} from './telegram-member-events.js';
 import { toTelegramMessage, type ITelegramRawMessage } from './telegram-message-mapper.js';
 
 /** Telegram's own long-poll timeout (seconds) — `getUpdates` blocks server-side for roughly this long when idle. */
@@ -42,6 +62,9 @@ export interface ITelegramUpdate {
   readonly update_id: number;
   readonly message?: ITelegramRawMessage;
   readonly callback_query?: ITelegramCallbackQuery;
+  readonly chat_member?: ITelegramRawChatMemberUpdated;
+  readonly my_chat_member?: ITelegramRawMyChatMemberUpdated;
+  readonly chat_join_request?: ITelegramRawChatJoinRequest;
 }
 
 /**
@@ -89,28 +112,41 @@ const extractCommand = (text: string): string | undefined => COMMAND_PATTERN.exe
 /** Tolerates the command being configured with or without its leading slash. */
 const normalizeCommandName = (value: string): string => value.trim().replace(/^\//, '');
 
+/** Telegram `chat.type` -> the vendor-neutral kind `chatType` filters on: `private` stays, group/supergroup/channel are `group`. */
+const chatKindOf = (chatType: string): TChatKind => (chatType === 'private' ? 'private' : 'group');
+
+/** The trigger document's `chatType` filter admits this chat (a missing/unknown value means `any`). */
+const admitsChat = (doc: IIntegrationDocumentRecord, kind: TChatKind): boolean =>
+  chatTypeAdmits(resolveChatTypeFilter(getTriggerFunctionBodyData(doc)?.triggerConfig), kind);
+
 /**
  * At most one `trigger-function` is signalled per incoming message: a bound on-command trigger whose
  * configured command matches the message's leading `/command` wins over the catch-all on-message
  * trigger (if both are bound to the same credential) — mirrors the common bot-framework convention
- * that a specific command handler takes priority over a generic message handler.
+ * that a specific command handler takes priority over a generic message handler. Both kinds respect their
+ * `chatType` filter (ADR 0076 (private) §2), so e.g. one on-message document for private chats and another for
+ * groups can coexist: the first one whose filter admits the chat wins.
  */
 const selectTriggerFunctionForMessage = (
   documents: readonly IIntegrationDocumentRecord[],
   message: ITelegramRawMessage,
 ): IIntegrationDocumentRecord | undefined => {
+  const kind = chatKindOf(message.chat.type);
   const command = extractCommand(message.text ?? '');
   if (command) {
     const commandMatch = documents.find((doc) => {
       const body = getTriggerFunctionBodyData(doc);
       return (
         body?.triggerName === TELEGRAM_ON_COMMAND_TRIGGER_NAME &&
-        normalizeCommandName(body.triggerConfig?.[TELEGRAM_COMMAND_FIELD_NAME] ?? '') === command
+        normalizeCommandName(body.triggerConfig?.[TELEGRAM_COMMAND_FIELD_NAME] ?? '') === command &&
+        admitsChat(doc, kind)
       );
     });
     if (commandMatch) return commandMatch;
   }
-  return documents.find((doc) => getTriggerFunctionBodyData(doc)?.triggerName === TELEGRAM_TRIGGER_NAME);
+  return documents.find(
+    (doc) => getTriggerFunctionBodyData(doc)?.triggerName === TELEGRAM_TRIGGER_NAME && admitsChat(doc, kind),
+  );
 };
 
 /**
@@ -124,27 +160,35 @@ const selectPrimaryTriggerFunction = (
 ): IIntegrationDocumentRecord | undefined =>
   documents.find((doc) => getTriggerFunctionBodyData(doc)?.triggerName === TELEGRAM_TRIGGER_NAME) ?? documents[0];
 
+/** What a chat's conversation was last started with: the document, its full workflow id and conversation mode. */
+interface IChatConversation {
+  readonly documentId: string;
+  readonly workflowId: string;
+  readonly mode: TConversationMode;
+}
+
 /**
- * Chat id -> the `trigger-function` document id whose workflow is actually running that chat's
- * conversation, remembered from the most recent inbound message. A button press carries no
- * information about which bound trigger-function started it, and `ctx.signalWorkflow` is a
+ * Chat id -> the conversation that is actually running in that chat, remembered from the most recent inbound message.
+ * A button press carries no information about which bound trigger-function started it, and `ctx.signalWorkflow` is a
  * `signalWithStart` (see `@falang/workflow-gateway`'s `gateway.module.ts`) — guessing wrong doesn't
  * just fail to deliver the answer, it silently starts a *new*, unrelated workflow execution while the
- * real one sits blocked on `condition()` forever. Closure-scoped, per target/process — same tolerance
+ * real one sits blocked on `condition()` forever. It stores the full workflow id (not only the document), so a
+ * `per-user` private conversation is reached too. Closure-scoped, per target/process — same tolerance
  * as the poll-mode `offset` below: lost on restart, falls back to `selectPrimaryTriggerFunction`'s
  * heuristic (correct again once exactly one trigger-function is bound, wrong when several are).
  */
-type TChatTriggerMap = Map<number, string>;
+type TChatTriggerMap = Map<number, IChatConversation>;
 
-const selectTriggerFunctionForCallback = (
-  documents: readonly IIntegrationDocumentRecord[],
-  chatId: number,
-  chatTriggerFunctions: TChatTriggerMap,
-): IIntegrationDocumentRecord | undefined => {
-  const rememberedId = chatTriggerFunctions.get(chatId);
-  const remembered = rememberedId && documents.find((doc) => doc.id === rememberedId);
-  return remembered || selectPrimaryTriggerFunction(documents);
-};
+/** Per-target state of the ingress. */
+interface ITelegramIngressState {
+  readonly chatTriggerFunctions: TChatTriggerMap;
+  readonly memberDedup: MemberEventDeduplicator;
+}
+
+const createIngressState = (): ITelegramIngressState => ({
+  chatTriggerFunctions: new Map(),
+  memberDedup: new MemberEventDeduplicator(),
+});
 
 /**
  * Input that matches no bound trigger function has no workflow to belong to, but a journal entry needs a workflow id —
@@ -155,6 +199,7 @@ const unboundWorkflowId = (chatId: number): string => `tg-unbound-${chatId}`;
 const handleMessage = async (
   ctx: IIntegrationBackendContext,
   message: ITelegramRawMessage,
+  updateId: number,
   chatTriggerFunctions: TChatTriggerMap,
 ): Promise<void> => {
   const chatId = message.chat.id;
@@ -172,7 +217,17 @@ const handleMessage = async (
     });
     return;
   }
-  chatTriggerFunctions.set(chatId, triggerFunction.id);
+  const mode = resolveConversationMode(getTriggerFunctionBodyData(triggerFunction)?.triggerConfig);
+  const workflowId = buildConversationWorkflowId({
+    vendorPrefix: 'tg',
+    documentId: triggerFunction.id,
+    chatId,
+    // A message with no sender (channel posts) cannot key a `per-user` conversation: fall back to the chat.
+    userId: message.from?.id ?? chatId,
+    eventKey: updateId,
+    mode,
+  });
+  chatTriggerFunctions.set(chatId, { documentId: triggerFunction.id, workflowId, mode });
 
   // Resolved eagerly, before signalling, so the compiled workflow just reads `message.photo`/etc. and
   // gets a ready-to-use `files/File` — see `telegram-media.ts`'s `resolveIncomingMedia` and
@@ -184,7 +239,7 @@ const handleMessage = async (
   });
 
   await ctx.signalWorkflow({
-    workflowId: `tg-${triggerFunction.id}-${chatId}`,
+    workflowId,
     workflowType: triggerFunction.name,
     signalName: TELEGRAM_SIGNAL_NAME,
     signalArgs: [{ ...toTelegramMessage(message), ...media }],
@@ -224,44 +279,119 @@ const handleCallbackQuery = async (
   if (!chatId || !callbackQuery.data) return;
 
   const triggerFunctionDocuments = await findBoundTriggerFunctions(ctx);
-  const triggerFunction = selectTriggerFunctionForCallback(triggerFunctionDocuments, chatId, chatTriggerFunctions);
+  const payload = { messageId: String(callbackQuery.message?.message_id), value: callbackQuery.data };
+  const remembered = chatTriggerFunctions.get(chatId);
+  const rememberedDoc = remembered && triggerFunctionDocuments.find((doc) => doc.id === remembered.documentId);
+  const triggerFunction = rememberedDoc || selectPrimaryTriggerFunction(triggerFunctionDocuments);
   if (!triggerFunction) {
     await ctx.reportJournalProblem?.({
       workflowId: unboundWorkflowId(chatId),
       level: 'warn',
       message: 'Ignored a button press: no trigger function is bound to this bot to receive it',
-      data: {
-        errorType: 'NoBoundTrigger',
-        signal: TELEGRAM_QUESTION_ANSWER_SIGNAL_NAME,
-        payload: { messageId: String(callbackQuery.message?.message_id), value: callbackQuery.data },
-      },
+      data: { errorType: 'NoBoundTrigger', signal: TELEGRAM_QUESTION_ANSWER_SIGNAL_NAME, payload },
     });
     return;
   }
 
+  const mode =
+    rememberedDoc && remembered
+      ? remembered.mode
+      : resolveConversationMode(getTriggerFunctionBodyData(triggerFunction)?.triggerConfig);
+  const isGroup = chatKindOf(callbackQuery.message?.chat.type ?? 'private') === 'group';
+  // ADR 0076 (private) §2: until the pending-question registry (phase 2) a question's answer can only be routed by chat,
+  // which is impossible once a group has a workflow per member or per message.
+  if (isGroup && mode !== 'per-chat') {
+    await ctx.reportJournalProblem?.({
+      workflowId: unboundWorkflowId(chatId),
+      level: 'warn',
+      message:
+        'Ignored a button press: a button pressed in a group cannot be routed to its conversation before pending-question routing (phase 2)',
+      data: { errorType: 'UnroutableGroupAnswer', signal: TELEGRAM_QUESTION_ANSWER_SIGNAL_NAME, payload, mode },
+    });
+    return;
+  }
+  let workflowId = rememberedDoc && remembered ? remembered.workflowId : undefined;
+  if (!workflowId) {
+    // After a restart: rebuild the id from the document's mode. A private chat is its own user; a `per-event` run
+    // cannot be guessed.
+    if (mode === 'per-event') {
+      await ctx.reportJournalProblem?.({
+        workflowId: unboundWorkflowId(chatId),
+        level: 'warn',
+        message: 'Ignored a button press: the per-event conversation it belongs to is not known after a restart',
+        data: { errorType: 'UnroutableAnswer', signal: TELEGRAM_QUESTION_ANSWER_SIGNAL_NAME, payload, mode },
+      });
+      return;
+    }
+    workflowId = buildConversationWorkflowId({
+      vendorPrefix: 'tg',
+      documentId: triggerFunction.id,
+      chatId,
+      userId: callbackQuery.from?.id ?? chatId,
+      mode,
+    });
+  }
+
   await ctx.signalWorkflow({
-    workflowId: `tg-${triggerFunction.id}-${chatId}`,
+    workflowId,
     workflowType: triggerFunction.name,
     signalName: TELEGRAM_QUESTION_ANSWER_SIGNAL_NAME,
-    signalArgs: [{ messageId: String(callbackQuery.message?.message_id), value: callbackQuery.data }],
+    signalArgs: [payload],
   });
 };
 
+/** Resolves the bound documents once per member update and hands them to the member-event delivery. */
+const memberEventContext = async (
+  ctx: IIntegrationBackendContext,
+  state: ITelegramIngressState,
+): Promise<IMemberEventContext> => ({
+  ctx,
+  documents: await findBoundTriggerFunctions(ctx),
+  triggerNameOf: (doc) => getTriggerFunctionBodyData(doc)?.triggerName,
+  dedup: state.memberDedup,
+});
+
+/**
+ * Order matters (ADR 0076 (private) §4): a button press, then member changes, then join requests, the bot's own
+ * membership, a member service message — which is consumed here and never reaches an on-message trigger — and last the
+ * plain message.
+ */
 const handleUpdate = async (
   ctx: IIntegrationBackendContext,
   update: ITelegramUpdate,
-  chatTriggerFunctions: TChatTriggerMap,
+  state: ITelegramIngressState,
 ): Promise<void> => {
   if (update.callback_query) {
-    await handleCallbackQuery(ctx, update.callback_query, chatTriggerFunctions);
+    await handleCallbackQuery(ctx, update.callback_query, state.chatTriggerFunctions);
     return;
   }
-  if (update.message) await handleMessage(ctx, update.message, chatTriggerFunctions);
+  if (update.chat_member) {
+    const event = classifyChatMemberUpdate(update.chat_member);
+    if (event) await deliverMemberEvents(await memberEventContext(ctx, state), update.update_id, [event]);
+    return;
+  }
+  if (update.chat_join_request) {
+    await deliverJoinRequest(await memberEventContext(ctx, state), update.update_id, update.chat_join_request);
+    return;
+  }
+  if (update.my_chat_member) {
+    await reportBotMembershipChange(ctx, update.my_chat_member);
+    return;
+  }
+  const message = update.message;
+  if (!message) return;
+  if (isServiceMemberMessage(message)) {
+    await deliverMemberEvents(await memberEventContext(ctx, state), update.update_id, classifyServiceMessage(message));
+    return;
+  }
+  await handleMessage(ctx, message, update.update_id, state.chatTriggerFunctions);
 };
 
 export const getUpdates = async (botToken: string, offset: number): Promise<readonly ITelegramUpdate[]> => {
   const url = new URL(telegramApiUrl(botToken, 'getUpdates'));
   url.searchParams.set('timeout', String(TELEGRAM_POLL_TIMEOUT_SECONDS));
+  // Explicit on every poll: `chat_member` is not delivered by default, and an omitted list keeps the previous setting.
+  url.searchParams.set('allowed_updates', JSON.stringify(TELEGRAM_ALLOWED_UPDATES));
   // Telegram update ids are always positive, so a falsy `offset` unambiguously means "no offset stored yet".
   if (offset) url.searchParams.set('offset', String(offset));
   const response = await fetch(url);
@@ -283,12 +413,12 @@ export const registerTelegramBackend: TRegisterIntegrationBackend = async (ctx) 
   const botToken = ctx.fields.botToken;
   if (!botToken) return noopDispose;
 
-  const chatTriggerFunctions: TChatTriggerMap = new Map();
+  const state = createIngressState();
 
   // Sandbox mode (ADR 0073 (private)): the host owns the test bot's only consumer and feeds this target the updates of
   // its bound chats — no webhook, no polling here.
   if (ctx.sharedIngress) {
-    ctx.sharedIngress.subscribe((update) => handleUpdate(ctx, update as ITelegramUpdate, chatTriggerFunctions));
+    ctx.sharedIngress.subscribe((update) => handleUpdate(ctx, update as ITelegramUpdate, state));
     return noopDispose;
   }
 
@@ -304,13 +434,13 @@ export const registerTelegramBackend: TRegisterIntegrationBackend = async (ctx) 
         return new Response(null, { status: 401 });
       }
       const update = (await request.json()) as ITelegramUpdate;
-      await handleUpdate(ctx, update, chatTriggerFunctions);
+      await handleUpdate(ctx, update, state);
       return new Response(null, { status: 200 });
     });
     const response = await fetch(telegramApiUrl(botToken, 'setWebhook'), {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ url: webhookUrl, secret_token: secretToken }),
+      body: JSON.stringify({ url: webhookUrl, secret_token: secretToken, allowed_updates: TELEGRAM_ALLOWED_UPDATES }),
     });
     if (!response.ok) {
       throw new Error(`Telegram setWebhook failed: ${response.status} ${await response.text()}`);
@@ -330,7 +460,7 @@ export const registerTelegramBackend: TRegisterIntegrationBackend = async (ctx) 
     for (const update of updates) {
       offset = update.update_id + 1;
       // oxlint-disable-next-line no-await-in-loop -- updates must be signalled in order, one at a time, to keep `offset` correct if a later one throws.
-      await handleUpdate(ctx, update, chatTriggerFunctions);
+      await handleUpdate(ctx, update, state);
     }
   }, POLL_INTERVAL_MS);
   // Nothing to unregister remotely in poll mode — the host clears the interval itself on stop.

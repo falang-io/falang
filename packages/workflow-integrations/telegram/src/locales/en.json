@@ -6,7 +6,10 @@
     },
     "trigger": {
       "onMessage": "On message",
-      "onCommand": "On command"
+      "onCommand": "On command",
+      "memberJoined": "Member joined",
+      "memberLeft": "Member left",
+      "joinRequest": "Join request"
     },
     "field": {
       "command": "Command",
@@ -17,11 +20,24 @@
       "timeout": "Timeout (e.g. 10m, 48h) — leave empty for no timeout",
       "file": "File",
       "sendFileAs": "Send as",
-      "caption": "Caption"
+      "caption": "Caption",
+      "chatType": "Chats",
+      "conversation": "Conversation",
+      "userId": "User ID",
+      "messageId": "Message ID",
+      "untilDate": "Ban until (Unix time, seconds; 0 = forever)",
+      "revokeMessages": "Delete all their messages",
+      "resultVariable": "Result variable"
     },
     "action": {
       "sendMessage": "Send message",
-      "sendFile": "Send file"
+      "sendFile": "Send file",
+      "banMember": "Ban member",
+      "unbanMember": "Unban member",
+      "deleteMessage": "Delete message",
+      "approveJoinRequest": "Approve join request",
+      "declineJoinRequest": "Decline join request",
+      "getMember": "Get member"
     },
     "question": {
       "askQuestion": "Ask question"
@@ -33,6 +49,16 @@
       "video": "Video",
       "audio": "Audio",
       "voice": "Voice message"
+    },
+    "chatType": {
+      "any": "Any chat",
+      "private": "Private chats only",
+      "group": "Groups and channels only"
+    },
+    "conversation": {
+      "perChat": "One execution per chat",
+      "perUser": "One execution per user in a chat",
+      "perEvent": "A new execution per message (stateless)"
     }
   }
 }
