@@ -57,6 +57,28 @@ describe('createClientMiddleware', () => {
     expect(await res.text()).toBe('api-fallthrough');
   });
 
+  it('serves the client from a directory whose path has a dot segment (an AppImage mount, a .cache folder)', async () => {
+    const dir = path.join(await mkdtemp(path.join(os.tmpdir(), 'falang-client-')), '.mount_x', 'client');
+    await mkdir(path.join(dir, 'assets'), { recursive: true });
+    await writeFile(path.join(dir, 'index.html'), '<main>dotted index</main>');
+    await writeFile(path.join(dir, 'admin.html'), '<main>dotted admin</main>');
+    await writeFile(path.join(dir, 'assets', 'y.js'), 'console.log(2)');
+    const app = express();
+    app.use(...createClientMiddleware(dir));
+    const dotted = app.listen(0);
+    try {
+      const url = `http://127.0.0.1:${(dotted.address() as AddressInfo).port}`;
+      const page = await fetch(`${url}/`, { headers: { accept: 'text/html' } });
+      expect(await page.text()).toContain('dotted index');
+      const admin = await fetch(`${url}/admin`, { headers: { accept: 'text/html' } });
+      expect(await admin.text()).toContain('dotted admin');
+      const asset = await fetch(`${url}/assets/y.js`);
+      expect(await asset.text()).toBe('console.log(2)');
+    } finally {
+      await new Promise<void>((resolve) => dotted.close(() => resolve()));
+    }
+  });
+
   it('ADMIN_ROUTE_PATTERN matches only /admin and sub-paths without dots', () => {
     expect(ADMIN_ROUTE_PATTERN.test('/admin')).toBe(true);
     expect(ADMIN_ROUTE_PATTERN.test('/admin/a/b')).toBe(true);

@@ -7,6 +7,7 @@ import {
   openIntegrationsViaUI,
   openProjectViaUI,
 } from './fixtures.js';
+import { e2eHas } from './e2e-capabilities.js';
 import { uniqueSuffix } from './integration-test-helpers.js';
 
 const ACTIVEPIECES_MOCK_OAUTH2_VENDOR = 'activepieces-mockOAuth2';
@@ -27,6 +28,7 @@ const ACTIVEPIECES_MOCK_OAUTH2_VENDOR = 'activepieces-mockOAuth2';
  * test and removes it again afterwards, independent of `admin.spec.ts`'s own enable/disable cycle.
  */
 test.describe('integrations (mock service): ActivePieces OAuth2', () => {
+  test.skip(!e2eHas('activepieces'), 'needs the ActivePieces adapter service');
   test('Connect button opens a popup, and the editor shows "Connected" once it completes', async ({ page }) => {
     test.setTimeout(60_000);
     await loginAndReachProjectList(page);

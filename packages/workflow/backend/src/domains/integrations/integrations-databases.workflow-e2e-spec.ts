@@ -2,7 +2,7 @@ import { mysqlIntegration } from '@falang/workflow-integrations-mysql';
 import { postgresIntegration } from '@falang/workflow-integrations-postgres';
 import { createConnection } from 'mysql2/promise';
 import { Client as PgClient } from 'pg';
-import { beforeAll, describe, expect, it } from 'vitest';
+import { beforeAll, expect, it } from 'vitest';
 import type { IProjectExportPayload } from '../projects/export/project-export.service.js';
 import {
   WORKFLOW_E2E_MYSQL_USER_DB_URL,
@@ -23,6 +23,9 @@ import {
   buildSqlSelectNode,
   buildSqlUpdateNode,
 } from '../../test-utils/workflow-e2e-fixtures-db.js';
+import { describeIfStackHas } from '../../test-utils/workflow-e2e-capabilities.js';
+
+const describeWhenAvailable = describeIfStackHas('user-databases');
 
 /**
  * Workflow-tier spec for ADR 0039 (private)'s "Consequences" e2e bullet —
@@ -47,7 +50,7 @@ import {
  * below (`(inserted as any).id`) casts for that reason, same as any hand-written expression field
  * referencing one of these results would have to.
  */
-describe('integrations (workflow tier): Databases (Postgres, MySQL)', () => {
+describeWhenAvailable('integrations (workflow tier): Databases (Postgres, MySQL)', () => {
   let token = '';
 
   beforeAll(async () => {

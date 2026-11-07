@@ -1,5 +1,6 @@
-import { describe, expect, it } from 'vitest';
+import { expect, it } from 'vitest';
 import { workflowE2eApi, workflowE2eWaitForValue } from '../../../test-utils/workflow-e2e-client.js';
+import { describeIfStackHas } from '../../../test-utils/workflow-e2e-capabilities.js';
 
 /** Mailpit's HTTP API — the e2e stack's `mailpit` service (`docker-compose.workflow-e2e.yml`, host port 8026). */
 const MAILPIT_URL = process.env.MAILPIT_URL ?? 'http://localhost:8026';
@@ -38,12 +39,14 @@ const waitForToken = (
     return '';
   }, 30_000);
 
+const describeWhenAvailable = describeIfStackHas('mail');
+
 /**
  * Workflow-tier spec for the e-mail flows (open signup mode — what the e2e stack runs): register with
  * an address, confirm it from the mailed link, then reset the password from a second mailed link.
  * The closed-beta `application` mode needs a different `SIGNUP_MODE` and is not covered here.
  */
-describe('auth e-mail flows (workflow tier, open mode)', () => {
+describeWhenAvailable('auth e-mail flows (workflow tier, open mode)', () => {
   it('registers with an e-mail, verifies it, resets the password and signs in with the new one', async () => {
     const suffix = Date.now().toString(36);
     const username = `mailuser${suffix}`;

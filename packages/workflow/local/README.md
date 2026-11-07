@@ -70,3 +70,8 @@ to the public port; Telegram in polling mode works. Signup is off - create more 
 - `src/serve-client.ts` - static client with its own CSP; `src/secrets.ts` - `secrets.json`.
 
 `npm run test-e2e:local` (repo root) starts the CLI in a child process and drives build, run, stop and file upload over HTTP.
+
+`npm run test-e2e:fast` (repo root, `scripts/test-e2e-fast.ts`) runs the regular e2e suites — the workflow tier and the
+Playwright browser tier — against this CLI plus `@falang/workflow-mocks`, both as child processes on free ports. Specs
+that need a service the local mode does not start (ActivePieces, media, mail, user databases, the egress proxy,
+per-project Temporal isolation) are skipped via `FALANG_E2E_MISSING`; `npm run test-e2e` on kind still covers them.

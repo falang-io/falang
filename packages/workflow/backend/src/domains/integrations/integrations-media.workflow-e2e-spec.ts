@@ -2,7 +2,7 @@ import { randomUUID } from 'node:crypto';
 import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import type { INode } from '@falang/dto';
-import { beforeAll, describe, expect, it } from 'vitest';
+import { beforeAll, expect, it } from 'vitest';
 import {
   WORKFLOW_E2E_MEDIA_URL,
   workflowE2eApi,
@@ -19,6 +19,7 @@ import {
   buildMediaProbeNode,
   buildMediaVideoThumbnailNode,
 } from '../../test-utils/workflow-e2e-fixtures-media.js';
+import { describeIfStackHas } from '../../test-utils/workflow-e2e-capabilities.js';
 
 // oxlint-disable-next-line unicorn/prefer-module -- this package is CommonJS (package.json "type"); __dirname is the correct tool here, not ESM's import.meta.
 const FIXTURES_DIR = join(__dirname, '..', '..', '..', 'test-fixtures', 'media');
@@ -40,6 +41,8 @@ interface IFileRefResult {
   readonly mime: string;
 }
 
+const describeWhenAvailable = describeIfStackHas('media');
+
 /**
  * Workflow-tier spec for ADR 0041 (private) §5's e2e bullet — the `media`
  * vendor's real ffmpeg-backed ops (`media-probe`/`media-image-resize`/`media-video-thumbnail`/
@@ -56,7 +59,7 @@ interface IFileRefResult {
  * uploads both fixtures, builds the function's root node tree with the real ids already spliced in,
  * and creates the document directly (`POST /projects/:id/documents`) rather than importing it.
  */
-describe('integrations (workflow tier): Media — probe/resize/thumbnail/audio-extract', () => {
+describeWhenAvailable('integrations (workflow tier): Media — probe/resize/thumbnail/audio-extract', () => {
   let token = '';
 
   beforeAll(async () => {

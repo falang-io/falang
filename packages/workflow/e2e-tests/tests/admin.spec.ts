@@ -8,6 +8,7 @@ import {
   openIntegrationsViaUI,
   openProjectViaUI,
 } from './fixtures.js';
+import { e2eHas } from './e2e-capabilities.js';
 import { uniqueSuffix } from './integration-test-helpers.js';
 
 const MOCK_OAUTH2_VENDOR = 'activepieces-mockOAuth2';
@@ -52,6 +53,7 @@ test.describe('admin app', () => {
   });
 
   test('configuring the mock OAuth2 piece enables it for projects; deleting it disables it again', async ({ page }) => {
+    test.skip(!e2eHas('activepieces'), 'needs the ActivePieces adapter service');
     test.setTimeout(90_000);
     const api = await createApiContext();
     try {

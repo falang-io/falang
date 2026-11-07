@@ -1,4 +1,4 @@
-import { afterAll, beforeAll, describe, expect, it } from 'vitest';
+import { afterAll, beforeAll, expect, it } from 'vitest';
 import type { IProjectExportPayload } from '../projects/export/project-export.service.js';
 import {
   WORKFLOW_E2E_ACTIVEPIECES_URL,
@@ -12,6 +12,7 @@ import {
   workflowE2eWaitForValue,
 } from '../../test-utils/workflow-e2e-client.js';
 import { buildActivepiecesActionNode, buildFunctionNode } from '../../test-utils/workflow-e2e-fixtures.js';
+import { describeIfStackHas } from '../../test-utils/workflow-e2e-capabilities.js';
 
 const ACTIVEPIECES_MOCK_OAUTH2_VENDOR = 'activepieces-mockOAuth2';
 
@@ -30,6 +31,8 @@ const findImportedInstanceId = async (token: string, projectId: string): Promise
   if (!id) throw new Error(`No integration instance in project ${projectId}`);
   return id;
 };
+
+const describeWhenAvailable = describeIfStackHas('activepieces');
 
 /**
  * Workflow-tier port of the *runtime* half of `@falang/workflow-e2e-tests`'
@@ -56,7 +59,7 @@ const findImportedInstanceId = async (token: string, projectId: string): Promise
  * `oauth_credentials` row itself (`PUT /admin/oauth-credentials/:vendor`) before running and deletes
  * it again in `afterAll`, rather than relying on any other spec's own setup.
  */
-describe('integrations (workflow tier, mock service): ActivePieces OAuth2', () => {
+describeWhenAvailable('integrations (workflow tier, mock service): ActivePieces OAuth2', () => {
   let token = '';
 
   beforeAll(async () => {

@@ -8,6 +8,7 @@ import { WORKFLOW_E2E_TEMPORAL_ADDRESS } from '../../test-utils/workflow-e2e-cli
 import type { ITemporalJwtConfig } from './temporal-config.js';
 import { temporalNamespaceFor } from './temporal-namespace.js';
 import { TemporalTokenService } from './temporal-token.service.js';
+import { describeIfStackHas } from '../../test-utils/workflow-e2e-capabilities.js';
 
 /**
  * Temporal tenant isolation — phase 0 "red" test of ADR 0057 (private): one namespace per project
@@ -120,7 +121,9 @@ const connectWhenKeysLoaded = async (token: string, timeoutMs = 30_000): Promise
 const CommandType = temporal.api.enums.v1.CommandType;
 type TCommand = temporal.api.command.v1.ICommand;
 
-describe('temporal tenant isolation (workflow tier)', () => {
+const describeWhenAvailable = describeIfStackHas('temporal-isolation');
+
+describeWhenAvailable('temporal tenant isolation (workflow tier)', () => {
   const projectA = randomUUID();
   const projectB = randomUUID();
   const nsA = namespaceFor(projectA);

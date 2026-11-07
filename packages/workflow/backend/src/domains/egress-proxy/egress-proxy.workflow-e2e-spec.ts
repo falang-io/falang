@@ -1,7 +1,7 @@
 import http from 'node:http';
 import { telegramIntegration } from '@falang/workflow-integrations-telegram';
 import { getTelegramCalls, pushTelegramUpdate } from '@falang/workflow-mocks';
-import { afterAll, beforeAll, describe, expect, it } from 'vitest';
+import { afterAll, beforeAll, expect, it } from 'vitest';
 import type { IProjectExportPayload } from '../projects/export/project-export.service.js';
 import {
   WORKFLOW_E2E_MOCKS_URL,
@@ -15,6 +15,7 @@ import {
   workflowE2eWaitForValue,
 } from '../../test-utils/workflow-e2e-client.js';
 import { buildTelegramSendMessageNode, buildTriggerFunctionRootNode } from '../../test-utils/workflow-e2e-fixtures.js';
+import { describeIfStackHas } from '../../test-utils/workflow-e2e-capabilities.js';
 
 /**
  * ADR 0056 (private): the egress proxy really carries the traffic of a selected vendor. Telegram is selected
@@ -60,7 +61,9 @@ const delay = (ms: number): Promise<void> =>
     setTimeout(resolve, ms);
   });
 
-describe('egress proxy (workflow tier)', () => {
+const describeWhenAvailable = describeIfStackHas('egress-proxy');
+
+describeWhenAvailable('egress proxy (workflow tier)', () => {
   let token = '';
 
   beforeAll(async () => {

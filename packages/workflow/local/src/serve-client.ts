@@ -29,8 +29,10 @@ export const createClientMiddleware = (clientDir: string): express.RequestHandle
     if (readable && (isPage || isAsset)) res.setHeader('Content-Security-Policy', CLIENT_CSP);
     if (req.method !== 'GET' && req.method !== 'HEAD') return next();
     if (!(req.headers.accept ?? '').includes('text/html')) return next();
-    if (req.path === '/') return res.sendFile(path.join(root, 'index.html'));
-    if (ADMIN_ROUTE_PATTERN.test(req.path)) return res.sendFile(path.join(root, 'admin.html'));
+    // `root` makes `send` check only the file name for dot segments; with an absolute path it checks the whole path and
+    // answers 404 for a client under `/tmp/.mount_*` (an AppImage) or `node_modules/.cache`.
+    if (req.path === '/') return res.sendFile('index.html', { root });
+    if (ADMIN_ROUTE_PATTERN.test(req.path)) return res.sendFile('admin.html', { root });
     return next();
   };
   return [pages, express.static(root, { index: false, fallthrough: true })];

@@ -1,4 +1,4 @@
-import { beforeAll, describe, expect, it } from 'vitest';
+import { beforeAll, expect, it } from 'vitest';
 import type { IProjectExportPayload } from '../projects/export/project-export.service.js';
 import {
   workflowE2eApi,
@@ -9,8 +9,11 @@ import {
   workflowE2eWaitFor,
 } from '../../test-utils/workflow-e2e-client.js';
 import { buildActivepiecesActionNode, buildFunctionNode } from '../../test-utils/workflow-e2e-fixtures.js';
+import { describeIfStackHas } from '../../test-utils/workflow-e2e-capabilities.js';
 
 const ACTIVEPIECES_MOCK_VENDOR = 'activepieces-mock';
+
+const describeWhenAvailable = describeIfStackHas('activepieces');
 
 /**
  * Workflow-tier port of `@falang/workflow-e2e-tests`' `integrations-activepieces-mock.spec.ts` — see
@@ -25,7 +28,7 @@ const ACTIVEPIECES_MOCK_VENDOR = 'activepieces-mock';
  * Needs the real `docker-compose.workflow-e2e.yml` stack up with `activepieces` included
  * (`docker compose -f docker-compose.workflow-e2e.yml up -d --build backend activepieces`).
  */
-describe('integrations (workflow tier, mock service): ActivePieces mock piece', () => {
+describeWhenAvailable('integrations (workflow tier, mock service): ActivePieces mock piece', () => {
   let token = '';
 
   beforeAll(async () => {

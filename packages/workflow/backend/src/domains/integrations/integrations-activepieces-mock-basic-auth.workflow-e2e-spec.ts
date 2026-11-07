@@ -1,4 +1,4 @@
-import { beforeAll, describe, expect, it } from 'vitest';
+import { beforeAll, expect, it } from 'vitest';
 import type { IProjectExportPayload } from '../projects/export/project-export.service.js';
 import {
   workflowE2eApi,
@@ -9,8 +9,11 @@ import {
   workflowE2eWaitFor,
 } from '../../test-utils/workflow-e2e-client.js';
 import { buildActivepiecesActionNode, buildFunctionNode } from '../../test-utils/workflow-e2e-fixtures.js';
+import { describeIfStackHas } from '../../test-utils/workflow-e2e-capabilities.js';
 
 const ACTIVEPIECES_MOCK_BASIC_AUTH_VENDOR = 'activepieces-mockBasicAuth';
+
+const describeWhenAvailable = describeIfStackHas('activepieces');
 
 /**
  * Workflow-tier port of `@falang/workflow-e2e-tests`' `integrations-activepieces-mock-basic-auth.spec.ts`
@@ -20,7 +23,7 @@ const ACTIVEPIECES_MOCK_BASIC_AUTH_VENDOR = 'activepieces-mockBasicAuth';
  * `resolveAuthValue` -> the action's real `context.auth`, from inside a real runner pod. Needs the
  * real `docker-compose.workflow-e2e.yml` stack up with `activepieces` included.
  */
-describe('integrations (workflow tier, mock service): ActivePieces BasicAuth', () => {
+describeWhenAvailable('integrations (workflow tier, mock service): ActivePieces BasicAuth', () => {
   let token = '';
 
   beforeAll(async () => {
