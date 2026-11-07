@@ -1,7 +1,9 @@
 import type { INode } from '@falang/dto';
 import { TRIGGER_FUNCTION_BODY_NAME, TRIGGER_FUNCTION_NAME, type TTriggerFunctionBodyData } from '@falang/workflow-dto';
 
-export type DocumentType = 'function' | 'objects-structure' | 'trigger-function';
+export type DocumentType = 'function' | 'objects-structure' | 'trigger-function' | 'table';
+
+export { TABLE_DOCUMENT_TYPE } from '@falang/workflow-dto';
 
 export interface WorkflowFolder {
   id: string;
@@ -32,7 +34,16 @@ export interface WorkflowDocument {
   customData?: unknown;
 }
 
+/**
+ * Whether a document is edited as a scheme (has a node tree and a `Scheme`). The pinned `integrations`
+ * document and `table` documents (a field list, ADR 0075 (private)) are not.
+ */
+export const hasSchemeEditor = (doc: Pick<WorkflowDocument, 'type' | 'pinned'>): boolean =>
+  !doc.pinned && doc.type !== 'table';
+
+/** `table` has no node tree; its entry only keeps the map total (never used to build a scheme). */
 export const ROOT_NODE: Record<DocumentType, string> = {
+  table: 'table',
   function: 'function',
   'objects-structure': 'objects-structure',
   'trigger-function': TRIGGER_FUNCTION_NAME,

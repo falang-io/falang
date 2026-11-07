@@ -11,6 +11,7 @@ const folders: WorkflowFolder[] = [
   { id: 'f', name: 'Functions', parentId: null, fixedKind: 'functions' },
   { id: 't', name: 'Triggers', parentId: null, fixedKind: 'triggers' },
   { id: 'y', name: 'Types', parentId: null, fixedKind: 'types' },
+  { id: 'tb', name: 'Tables', parentId: null, fixedKind: 'tables' },
   { id: 'sub', name: 'Helpers', parentId: 'f' },
 ];
 const documents: WorkflowDocument[] = [
@@ -23,7 +24,7 @@ const label = (kind: string): string => kind.toUpperCase();
 describe('project tree model', () => {
   it('orders root: pinned doc, then sections in config order', () => {
     const nodes = buildProjectTreeNodes(folders, documents, label);
-    expect(nodes.map((n) => n.title)).toEqual(['Integrations', 'TRIGGERS', 'FUNCTIONS', 'TYPES']);
+    expect(nodes.map((n) => n.title)).toEqual(['Integrations', 'TRIGGERS', 'FUNCTIONS', 'TYPES', 'TABLES']);
     expect(nodes[0]?.disableDrag).toBe(true);
     expect(nodes[1]?.disableDrag).toBe(true);
     const functions = nodes[2];
@@ -34,6 +35,7 @@ describe('project tree model', () => {
   it('builds menus per section', () => {
     expect(getFolderMenuKeys('t', folders)).toEqual(['new-subfolder', 'new-trigger']);
     expect(getFolderMenuKeys('y', folders)).toEqual(['new-subfolder', 'new-object']);
+    expect(getFolderMenuKeys('tb', folders)).toEqual(['new-subfolder', 'new-table']);
     expect(getFolderMenuKeys('sub', folders)).toEqual(['new-subfolder', 'new-function', 'rename', 'delete']);
   });
 
@@ -41,6 +43,12 @@ describe('project tree model', () => {
     expect(getDocumentMenuKeys(documents[0])).toEqual(['rename', 'delete']);
     expect(getDocumentMenuKeys(documents[2])).toEqual([]);
     expect(getDocumentMenuKeys()).toEqual([]);
+  });
+
+  it('drops a table only into the Tables section', () => {
+    const docs: WorkflowDocument[] = [...documents, { id: 'tt', name: 'clients', type: 'table', folderId: 'tb' }];
+    expect(canDropInProject({ kind: 'doc', id: 'tt' }, 'tb', folders, docs)).toBe(true);
+    expect(canDropInProject({ kind: 'doc', id: 'tt' }, 'f', folders, docs)).toBe(false);
   });
 
   it('allows drops only within the right section and never at the root', () => {

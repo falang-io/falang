@@ -184,6 +184,8 @@ export class ProjectSync {
         name: doc.name,
         folderId: doc.folderId,
         root: doc.data,
+        // A `table` document carries its field list as `data` (no node tree).
+        ...(doc.type === 'table' && (doc.customData ?? null) !== null ? { data: doc.customData } : {}),
       })
       .catch((error: unknown) => this.reportError(error));
   }
