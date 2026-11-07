@@ -112,9 +112,9 @@ describe('normalizeFieldValue', () => {
 
   it('file keeps only { id, name, size, mime } (publicUrl stripped)', () => {
     const f = field('file');
-    const ref = { id: '123e4567-e89b-42d3-a456-426614174000', name: 'a.pdf', size: 10, mime: 'application/pdf' };
+    const ref = { id: 'kQ3x_9-AbCdEfGhIjKlMnO', name: 'a.pdf', size: 10, mime: 'application/pdf' };
     expect(value(f, { ...ref, publicUrl: 'https://x/y', extra: 1 })).toEqual(ref);
-    expect(code(f, { ...ref, id: 'not-a-uuid' })).toBe('invalid_file');
+    expect(code(f, { ...ref, id: 'not a valid id!' })).toBe('invalid_file');
     expect(code(f, { ...ref, size: -1 })).toBe('invalid_file');
     expect(code(f, { ...ref, size: '10' })).toBe('invalid_file');
     expect(code(f, { ...ref, name: 5 })).toBe('invalid_file');

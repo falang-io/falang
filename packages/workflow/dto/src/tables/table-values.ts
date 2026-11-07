@@ -15,7 +15,8 @@ export type TFieldValueResult =
   /** `value === null` means "the key is cleared" (a stored cell is never `null`). */
   { ok: true; value: unknown } | { ok: false; code: TTableErrorCode; message: string };
 
-const UUID_RE = /^[\da-f]{8}-[\da-f]{4}-[\da-f]{4}-[\da-f]{4}-[\da-f]{12}$/i;
+/** `files.id` is 16 random bytes in base64url (22 chars), not a uuid. */
+const FILE_ID_RE = /^[\w-]{1,64}$/;
 const DATE_RE = /^(\d{4})-(\d{2})-(\d{2})$/;
 const DATETIME_RE = /^(\d{4})-(\d{2})-(\d{2})[T ](\d{2}):(\d{2})(?::(\d{2})(?:\.\d+)?)?(Z|[+-]\d{2}(?::?\d{2})?)?$/i;
 
@@ -94,8 +95,8 @@ const normalizeFile = (field: ITableField, raw: unknown): TFieldValueResult => {
   if (!isRecord(raw))
     return fail('invalid_file', `Field "${field.name}" expects a file reference { id, name, size, mime }`);
   const { id, name, size, mime } = raw;
-  if (typeof id !== 'string' || !UUID_RE.test(id)) {
-    return fail('invalid_file', `Field "${field.name}": file "id" must be a uuid string`);
+  if (typeof id !== 'string' || !FILE_ID_RE.test(id)) {
+    return fail('invalid_file', `Field "${field.name}": file "id" must be a file id string`);
   }
   if (typeof name !== 'string' || typeof mime !== 'string') {
     return fail('invalid_file', `Field "${field.name}": file "name" and "mime" must be strings`);

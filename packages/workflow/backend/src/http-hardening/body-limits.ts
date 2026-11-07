@@ -13,6 +13,7 @@ const LARGE_BODY_PATHS: readonly RegExp[] = [
   /^\/+projects\/import\/?$/i,
   /^\/+projects\/[^/]+\/documents(\/[^/]+)?\/?$/i,
   /^\/+projects\/[^/]+\/agent\/(chat|check-project)\/?$/i,
+  /^\/+projects\/[^/]+\/tables\/[^/]+\/(import\.csv|files)\/?$/i,
   /^\/+admin\/project-templates(\/.*)?$/i,
   /^\/+mcp(\/.*)?$/i,
   /^\/+internal(\/|$)/i,

@@ -37,7 +37,10 @@ describe('table documents (e2e)', () => {
     vi.unstubAllEnvs();
   });
 
-  const newId = (): string => `00000000-0000-4000-8000-${String(++seq).padStart(12, '0')}`;
+  const newId = (): string => {
+    seq += 1;
+    return `00000000-0000-4000-8000-${String(seq).padStart(12, '0')}`;
+  };
 
   const createTable = (name: string, data: unknown = tableData(), extra: Record<string, unknown> = {}) =>
     request(app.getHttpServer())
@@ -93,7 +96,8 @@ describe('table documents (e2e)', () => {
   it('enforces maxTablesPerProject with 409 table_limit', async () => {
     vi.stubEnv('MAX_TABLES_PER_PROJECT', '1');
     await start();
-    expect((await createTable('First')).status).toBe(201);
+    const first = await createTable('First');
+    expect(first.status).toBe(201);
     const second = await createTable('Second');
     expect(second.status).toBe(409);
     expect(second.body.code).toBe('table_limit');
@@ -127,7 +131,8 @@ describe('table documents (e2e)', () => {
       .send({ data: tableData({ id: 'f2', name: 'Qty', type: 'number' }) })
       .expect(200);
     // Within the TTL, only the explicit invalidation by the write makes this fresh.
-    expect((await definitions.get(projectId, created.body.id as string)).data.fields).toHaveLength(2);
+    const definition = await definitions.get(projectId, created.body.id as string);
+    expect(definition.data.fields).toHaveLength(2);
 
     const fn = await request(app.getHttpServer())
       .post(`/projects/${projectId}/documents`)
@@ -162,7 +167,8 @@ describe('table documents (e2e)', () => {
         .expect(201);
     }
     const projects = app.get(ProjectsService);
-    const adminId = (await request(server).get('/auth/me').set(auth(token))).body.id as string;
+    const me = await request(server).get('/auth/me').set(auth(token));
+    const adminId = me.body.id as string;
     for (const user of [owner.id, editor.id, executor.id, adminId]) {
       // oxlint-disable-next-line no-await-in-loop
       await expect(projects.getOwnedProject(id, user, 'tables')).resolves.toMatchObject({ id });

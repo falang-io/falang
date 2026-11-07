@@ -46,6 +46,14 @@ export const agentChatDuration = metricsRegistry.histogram(
   'Duration of the vendor call behind one agent chat request.',
   AGENT_BUCKETS,
 );
+export const tableRequestsTotal = metricsRegistry.counter(
+  'falang_table_requests_total',
+  'Project table record operations, by operation and result (ok or the error code).',
+);
+export const tableRecordsGauge = metricsRegistry.gauge(
+  'falang_table_records',
+  'Project table records, by environment.',
+);
 export const httpRateLimitedTotal = metricsRegistry.counter(
   'falang_http_rate_limited_total',
   'Requests rejected with 429 by the in-memory rate limiter, by policy.',
