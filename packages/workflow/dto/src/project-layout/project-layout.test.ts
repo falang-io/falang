@@ -17,7 +17,12 @@ const section = (kind: string, name: string): IProjectTreeFolder => ({
   parentId: null,
   fixedKind: kind,
 });
-const SECTIONS = [section('triggers', 'Triggers'), section('functions', 'Functions'), section('types', 'Types')];
+const SECTIONS = [
+  section('triggers', 'Triggers'),
+  section('functions', 'Functions'),
+  section('types', 'Types'),
+  section('tables', 'Tables'),
+];
 const doc = (id: string, type: string, folderId: string | null, pinned = false): ILayoutDocument => ({
   id,
   type,
@@ -37,6 +42,7 @@ describe('sections lookup', () => {
     expect(sectionForDocumentType('trigger-function')).toBe('triggers');
     expect(sectionForDocumentType('function')).toBe('functions');
     expect(sectionForDocumentType('objects-structure')).toBe('types');
+    expect(sectionForDocumentType('table')).toBe('tables');
     expect(sectionForDocumentType('integrations')).toBeNull();
   });
 
@@ -53,7 +59,7 @@ describe('sections lookup', () => {
     expect(resolveFolderSection(null, folders)).toBeNull();
     expect(resolveFolderSection('missing', folders)).toBeNull();
     expect(isFixedFolder(SECTIONS[0])).toBe(true);
-    expect(isFixedFolder(folders[3])).toBe(false);
+    expect(isFixedFolder(folders[SECTIONS.length])).toBe(false);
   });
 });
 
@@ -103,6 +109,7 @@ describe('normalizeWorkflowProjectLayout', () => {
         doc('f', 'function', null),
         doc('t', 'trigger-function', null),
         doc('o', 'objects-structure', null),
+        doc('tb', 'table', null),
       ],
       { createId: counter() },
     );
@@ -110,12 +117,14 @@ describe('normalizeWorkflowProjectLayout', () => {
       ['Triggers', 'triggers', null],
       ['Functions', 'functions', null],
       ['Types', 'types', null],
+      ['Tables', 'tables', null],
     ]);
     const byKind = Object.fromEntries(folders.map((f) => [f.fixedKind, f.id]));
     expect(documents.find((d) => d.id === 'i')?.folderId).toBeNull();
     expect(documents.find((d) => d.id === 'f')?.folderId).toBe(byKind.functions);
     expect(documents.find((d) => d.id === 't')?.folderId).toBe(byKind.triggers);
     expect(documents.find((d) => d.id === 'o')?.folderId).toBe(byKind.types);
+    expect(documents.find((d) => d.id === 'tb')?.folderId).toBe(byKind.tables);
   });
 
   it('splits a mixed user folder by section; the section with most documents keeps the ids', () => {

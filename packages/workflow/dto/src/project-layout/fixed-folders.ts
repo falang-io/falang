@@ -1,7 +1,7 @@
 import type { IProjectTreeFolder } from '@falang/dto';
 
 /** Kinds of the fixed section folders at the root of a workflow project (ADR 0055 (private)). */
-export type TWorkflowFixedFolderKind = 'triggers' | 'functions' | 'types';
+export type TWorkflowFixedFolderKind = 'triggers' | 'functions' | 'types' | 'tables';
 
 /** One fixed root section: which document types it accepts. A type belongs to at most one section. */
 export interface IFixedFolderConfig {
@@ -16,6 +16,7 @@ export const WORKFLOW_FIXED_FOLDERS = [
   { kind: 'triggers', name: 'Triggers', documentTypes: ['trigger-function'] },
   { kind: 'functions', name: 'Functions', documentTypes: ['function'] },
   { kind: 'types', name: 'Types', documentTypes: ['objects-structure'] },
+  { kind: 'tables', name: 'Tables', documentTypes: ['table'] },
 ] as const satisfies readonly IFixedFolderConfig[];
 
 export const WORKFLOW_FIXED_FOLDER_KINDS: readonly TWorkflowFixedFolderKind[] = WORKFLOW_FIXED_FOLDERS.map(

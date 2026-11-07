@@ -46,6 +46,7 @@
     "@falang/workflow-integrations-postgres": "*",
     "@falang/workflow-integrations-schedule": "*",
     "@falang/workflow-integrations-sqlite": "*",
+    "@falang/workflow-integrations-tables": "*",
     "@falang/workflow-integrations-tasks": "*",
     "@falang/workflow-integrations-tbank": "*",
     "@falang/workflow-integrations-telegram": "*",

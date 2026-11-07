@@ -146,6 +146,8 @@ export interface IRunJournalNodeHeader {
 export const ACTIVITY_VENDORS_EXPORT = '__falangActivityVendors';
 export const ACTIVITY_JOURNAL_EXPORT = '__falangActivityJournal';
 export const ACTIVITY_PARAMS_EXPORT = '__falangActivityParams';
+/** Export of the compiled `activities.ts` when the `tables` vendor is used: `{ [tableDocId]: { [fieldName]: fieldId } }` (ADR 0075 (private)). */
+export const TABLE_FIELDS_EXPORT = '__falangTableFields';
 /** Export of the compiled `workflows.ts` (position tracking on): the frame stack the header interceptor reads. */
 export const POSITION_STACK_EXPORT = '__falangPositionStack';
 

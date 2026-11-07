@@ -1,0 +1,13 @@
+{
+  "tables": {
+    "label": "Таблицы",
+    "trigger": {
+      "recordCreated": "Таблица: запись создана",
+      "recordUpdated": "Таблица: запись изменена",
+      "recordDeleted": "Таблица: запись удалена"
+    },
+    "field": {
+      "table": "Таблица"
+    }
+  }
+}

@@ -29,7 +29,9 @@ export { taskOptionDataTypeToVariableInfo } from './question-extensions.js';
  * `Record<string,string>` node data shape. 'new-variable' declares a fresh identifier (validated for TS
  * syntax/uniqueness, see `@falang/typescript-scheme`'s `NewVariableStore`) that the action's result is assigned to
  * — e.g. `call-ai-text`'s `resultVariable` — and becomes visible to later sibling nodes' scope (see
- * `@falang/typescript-common`'s `getScopeContribution`).
+ * `@falang/typescript-common`'s `getScopeContribution`). 'document-ref' is the id of another document of this
+ * project (see `IFieldConfig.documentType`, e.g. a `table`), stored as a plain string and compiled to a string
+ * literal like a 'text' field; ADR 0075 (private).
  */
 export type TIntegrationFieldKind =
   | 'text'
@@ -39,7 +41,8 @@ export type TIntegrationFieldKind =
   | 'secret'
   | 'credential-ref'
   | 'result-type'
-  | 'new-variable';
+  | 'new-variable'
+  | 'document-ref';
 
 export interface IFieldSelectOption {
   readonly value: string;
@@ -69,6 +72,8 @@ export interface IFieldConfig {
   ) => Promise<readonly IFieldSelectOption[]>;
   /** Only meaningful for `kind: 'credential-ref'` — restricts to this vendor's instances. */
   readonly vendor?: string;
+  /** Only meaningful for `kind: 'document-ref'` — the document type (e.g. `'table'`) the field may point at; the editor offers the project's documents of that type. */
+  readonly documentType?: string;
   /** Initial value of this field on a freshly inserted node (and what the editor shows for a stored-empty one), e.g. `'[]'` for an optional array expression. Defaults to `''`. */
   readonly defaultValue?: string;
   /**
@@ -123,6 +128,21 @@ export interface ITriggerDescriptor {
   readonly name: string;
   readonly label: string;
   readonly scopeType: TVariableInfo;
+  /**
+   * The scope type for one concrete trigger configuration, when it depends on a `contextFields` value
+   * (e.g. the `tables` triggers: a per-table record type). Called at "New trigger" time with the entered
+   * `triggerConfig`; the result is copied into `trigger-function-body.data.scopeType` instead of `scopeType`.
+   * Absent = `scopeType` is used as is. ADR 0075 (private).
+   */
+  readonly scopeTypeFor?: (triggerConfig: Readonly<Record<string, string>>) => TVariableInfo;
+  /**
+   * Compiler-side rewrite of the signalled payload before it reaches the trigger-function body, for a
+   * vendor whose wire payload is keyed differently from the scope type the user codes against. `'tables'`:
+   * the payload is keyed by table field ids and the compiled trigger preamble renames them to field names
+   * with a name -> id map baked into the workflows module (published versions keep their names across
+   * renames, like actions do). Declared here only; implemented by the compiler (ADR 0075 (private), amendment A1).
+   */
+  readonly transformPayload?: { readonly kind: 'tables' };
   readonly scopeVariableName: string;
   readonly signalName: string;
   readonly webhookPath: string;

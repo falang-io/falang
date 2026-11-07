@@ -1,0 +1,13 @@
+{
+  "tables": {
+    "label": "Tables",
+    "trigger": {
+      "recordCreated": "Table: record created",
+      "recordUpdated": "Table: record updated",
+      "recordDeleted": "Table: record deleted"
+    },
+    "field": {
+      "table": "Table"
+    }
+  }
+}
