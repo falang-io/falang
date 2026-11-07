@@ -33,6 +33,11 @@ export interface IBuildWorkflowDocumentSchemeParams {
   readonly getFieldOptionsProvider?: IWorkflowFunctionalSchemeFactoryParams['getFieldOptionsProvider'];
   readonly getActivepiecesCatalogProvider?: IWorkflowFunctionalSchemeFactoryParams['getActivepiecesCatalogProvider'];
   readonly getActivepiecesFieldOptionsProvider?: IWorkflowFunctionalSchemeFactoryParams['getActivepiecesFieldOptionsProvider'];
+  /**
+   * The project's documents of a type, live — backs `document-ref` fields (a table action's `table` picker and block caption).
+   * The host passes `(type) => documents of that type`; without it such a field lists nothing.
+   */
+  readonly getDocumentsOfType?: IWorkflowFunctionalSchemeFactoryParams['getDocumentsOfType'];
   /** What a plain valence-point click inserts (`'magic'` when the host enables magic insert, else `'action'`). */
   readonly defaultInsertNodeName?: () => string;
   /** Runs after the scheme exists and the theme is set, before its root node is set — the host's place to register the magic host. */
@@ -100,6 +105,7 @@ export const buildWorkflowDocumentScheme = (params: IBuildWorkflowDocumentScheme
         getFieldOptionsProvider: params.getFieldOptionsProvider,
         getActivepiecesCatalogProvider: params.getActivepiecesCatalogProvider,
         getActivepiecesFieldOptionsProvider: params.getActivepiecesFieldOptionsProvider,
+        getDocumentsOfType: params.getDocumentsOfType,
         defaultInsertNodeName: params.defaultInsertNodeName,
       })
     : objectsStructureSchemeFactory({

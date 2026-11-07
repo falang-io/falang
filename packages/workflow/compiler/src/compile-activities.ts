@@ -1,4 +1,9 @@
-import { ACTIVITY_JOURNAL_EXPORT, ACTIVITY_PARAMS_EXPORT, ACTIVITY_VENDORS_EXPORT } from '@falang/workflow-dto';
+import {
+  ACTIVITY_JOURNAL_EXPORT,
+  ACTIVITY_PARAMS_EXPORT,
+  ACTIVITY_VENDORS_EXPORT,
+  TABLE_FIELDS_EXPORT,
+} from '@falang/workflow-dto';
 import type { IWorkflowIntegration } from '@falang/workflow-integrations-common';
 import type { IActivityJournalMetadata } from './activity-journal.js';
 
@@ -163,6 +168,12 @@ export const compileActivities = (
     readonly activityVendors?: Readonly<Record<string, string>>;
     /** Run-journal metadata (`collectActivityJournal`); when given, exported as `__falangActivityJournal`/`__falangActivityParams` (read by the runner's journal wrapper). */
     readonly activityJournal?: IActivityJournalMetadata;
+    /**
+     * Table document id -> field name -> field id (ADR 0075 (private)); exported as `__falangTableFields`, which the
+     * `tables` vendor's activities read to translate names to the ids the internal API speaks. When omitted but some
+     * block mentions the export, an empty map is emitted (so every activity of that vendor reports an unknown table).
+     */
+    readonly tableFields?: Readonly<Record<string, Readonly<Record<string, string>>>>;
   } = {},
 ): string => {
   const blocks = [
@@ -188,6 +199,14 @@ export const compileActivities = (
       ([name, vendor]) => `  ${name}: ${JSON.stringify(vendor).replaceAll('"', "'")},`,
     );
     bodies.push([`export const ${ACTIVITY_VENDORS_EXPORT}: Record<string, string> = {`, ...lines, '};'].join('\n'));
+  }
+  const tableFields =
+    options.tableFields ?? (blocks.some((block) => block.includes(TABLE_FIELDS_EXPORT)) ? {} : undefined);
+  if (tableFields) {
+    // Plain `JSON.stringify` (not `toSingleQuoted`): field names are user text and may hold quotes or any script.
+    bodies.push(
+      `export const ${TABLE_FIELDS_EXPORT}: Record<string, Record<string, string>> = ${JSON.stringify(tableFields)};`,
+    );
   }
   if (options.activityJournal) {
     const { journal, params } = options.activityJournal;

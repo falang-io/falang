@@ -65,6 +65,15 @@ const SidebarFieldEditorComponent: React.FC<{ editor: IntegrationActionEditorSto
         />
       );
     }
+    if (field.kind === 'document-ref') {
+      return (
+        <SidebarFieldSelectComponent
+          editor={editor}
+          field={field}
+          placeholder={t('integration-editor:select-table-placeholder')}
+        />
+      );
+    }
     if (field.kind === 'result-type') {
       return <SidebarResultTypeFieldComponent editor={editor} field={field} />;
     }
@@ -139,6 +148,15 @@ const FieldEditorComponent: React.FC<{
         editor={editor}
         field={field}
         placeholder={t('integration-editor:select-credential-placeholder')}
+      />
+    );
+  }
+  if (field.kind === 'document-ref') {
+    return (
+      <FieldSelectComponent
+        editor={editor}
+        field={field}
+        placeholder={t('integration-editor:select-table-placeholder')}
       />
     );
   }

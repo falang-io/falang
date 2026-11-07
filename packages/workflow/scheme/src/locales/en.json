@@ -2,6 +2,7 @@
   "integration-editor": {
     "select-placeholder": "Select…",
     "select-credential-placeholder": "Select an integration…",
+    "select-table-placeholder": "Select a table…",
     "select-struct-placeholder": "Select a struct…",
     "loading": "Loading…",
     "select-credential-first": "Select an integration first…",

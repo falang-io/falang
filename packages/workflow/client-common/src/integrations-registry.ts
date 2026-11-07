@@ -16,6 +16,7 @@ import { ozonIntegration } from '@falang/workflow-integrations-ozon';
 import { postgresIntegration } from '@falang/workflow-integrations-postgres';
 import { scheduleIntegration } from '@falang/workflow-integrations-schedule';
 import { sqliteIntegration } from '@falang/workflow-integrations-sqlite';
+import { tablesIntegration } from '@falang/workflow-integrations-tables';
 import { tasksIntegration } from '@falang/workflow-integrations-tasks';
 import { tbankIntegration } from '@falang/workflow-integrations-tbank';
 import { telegramIntegration } from '@falang/workflow-integrations-telegram';
@@ -62,6 +63,7 @@ export const REGISTERED_INTEGRATIONS: readonly IWorkflowIntegration[] = [
   mysqlIntegration,
   sqliteIntegration,
   tasksIntegration,
+  tablesIntegration,
 ];
 
 /**

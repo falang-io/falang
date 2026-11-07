@@ -32,6 +32,7 @@ import type { IDebugEmitOptions, TResolveFunctionName } from './node-emitters.js
 import { NodeCompileError } from './node-compile-error.js';
 import { POSITION_RUNTIME_CODE, POSITION_RUNTIME_IMPORTS } from './position-runtime.js';
 import { buildQuestionEmitters } from './question-emitters.js';
+import { collectTableFields, TABLES_VENDOR_ID } from './table-fields.js';
 import { containsNodeNamed, selectUsedIntegrations, type IUsedIntegrations } from './used-integrations.js';
 
 export interface ICompileProjectParams {
@@ -272,6 +273,9 @@ export const compileProject = ({
     includeActivepiecesAction: used.usesActivepiecesAction,
     activityVendors: collectActivityVendors(used.integrations),
     activityJournal: collectActivityJournal(used.integrations),
+    ...(used.integrations.some((integration) => integration.vendor === TABLES_VENDOR_ID)
+      ? { tableFields: collectTableFields(documents) }
+      : {}),
   });
 
   // Each document's block is wrapped in its own `doc-start`/`doc-end` marker (see

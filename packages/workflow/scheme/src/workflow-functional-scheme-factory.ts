@@ -7,6 +7,7 @@ import { ActivepiecesPickerModule } from './blocks/activepieces-action/activepie
 import type {
   IActivepiecesCatalogProvider,
   IActivepiecesFieldOptionsProvider,
+  IDocumentRefOption,
   IFieldOptionsProvider,
 } from './registry/di-tokens.js';
 import { IntegrationsModule } from './registry/integrations.module.js';
@@ -30,6 +31,8 @@ export interface IWorkflowFunctionalSchemeFactoryParams extends IFunctionStructu
   getActivepiecesCatalogProvider?: () => IActivepiecesCatalogProvider;
   /** Backs `DROPDOWN`/`MULTI_SELECT_DROPDOWN` ActivePieces props — see `IActivepiecesFieldOptionsProvider`. */
   getActivepiecesFieldOptionsProvider?: () => IActivepiecesFieldOptionsProvider;
+  /** Live read access to the project's documents of a type — backs `kind: 'document-ref'` fields (a table action's `table`). */
+  getDocumentsOfType?: (type: string) => readonly IDocumentRefOption[];
 }
 
 /**
@@ -47,6 +50,7 @@ export const workflowFunctionalSchemeFactory = ({
   getFieldOptionsProvider,
   getActivepiecesCatalogProvider,
   getActivepiecesFieldOptionsProvider,
+  getDocumentsOfType,
   extraModules,
   extraIconsGroups,
   ...props
@@ -75,6 +79,7 @@ export const workflowFunctionalSchemeFactory = ({
         getFieldOptionsProvider,
         getActivepiecesCatalogProvider,
         getActivepiecesFieldOptionsProvider,
+        getDocumentsOfType,
       ),
       new ActivepiecesPickerModule(),
       new MagicModule(),

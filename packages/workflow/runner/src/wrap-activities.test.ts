@@ -17,4 +17,12 @@ describe('wrapActivitiesWithEgressVendor', () => {
   it('works without a vendor map', () => {
     expect(Object.keys(wrapActivitiesWithEgressVendor({ a: () => 1 }))).toEqual(['a']);
   });
+
+  it('never registers the baked table field map (__falangTableFields) as an activity', () => {
+    const wrapped = wrapActivitiesWithEgressVendor({
+      __falangTableFields: { t1: { name: 'f1' } },
+      tableSelect: () => [],
+    });
+    expect(Object.keys(wrapped)).toEqual(['tableSelect']);
+  });
 });

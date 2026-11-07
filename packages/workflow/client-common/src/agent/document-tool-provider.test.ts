@@ -200,9 +200,10 @@ describe('DocumentToolProvider', () => {
     // ADR 0037 (private) §4) — `schedule` (`schedule/Fire`), `files`
     // (`files/File`, ADR 0038 (private)), `media`
     // (`media/MediaInfo`, ADR 0041 (private)), and `tasks`
-    // (`tasks/Task`, ADR 0040 (private)) are the only four of those
-    // that actually declare a struct type, so all four are expected here alongside Telegram.
-    const ALWAYS_IN_USE_VENDORS = new Set([TELEGRAM_VENDOR, 'schedule', 'files', 'media', 'tasks']);
+    // (`tasks/Task`, ADR 0040 (private)) and `tables` (the shared SQL filter
+    // structs, ADR 0075 (private)) are the only five of those that actually declare a struct type, so all are expected
+    // here alongside Telegram.
+    const ALWAYS_IN_USE_VENDORS = new Set([TELEGRAM_VENDOR, 'schedule', 'files', 'media', 'tasks', 'tables']);
     expect(types.every((type) => !type.vendor || ALWAYS_IN_USE_VENDORS.has(type.vendor))).toBe(true);
   });
 

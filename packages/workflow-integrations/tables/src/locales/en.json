@@ -1,13 +1,29 @@
 {
   "tables": {
     "label": "Tables",
+    "action": {
+      "select": "Select records",
+      "get": "Get record by id",
+      "insert": "Insert record",
+      "update": "Update records",
+      "delete": "Delete records"
+    },
     "trigger": {
       "recordCreated": "Table: record created",
       "recordUpdated": "Table: record updated",
       "recordDeleted": "Table: record deleted"
     },
     "field": {
-      "table": "Table"
+      "table": "Table",
+      "where": "Filter (where)",
+      "whereRequired": "A filter is required — to touch every record, say so explicitly in the condition",
+      "orderBy": "Order by (e.g. name asc, createdAt desc)",
+      "limit": "Limit (default 100, max 1000)",
+      "offset": "Skip (offset)",
+      "id": "Record id",
+      "row": "New record",
+      "set": "Fields to change",
+      "result": "Save result to"
     }
   }
 }

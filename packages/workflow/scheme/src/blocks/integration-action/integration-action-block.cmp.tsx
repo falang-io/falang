@@ -9,7 +9,11 @@ import {
 } from '@falang/typescript-scheme';
 import type { IFieldConfig } from '@falang/workflow-integrations-common';
 import { observer } from 'mobx-react-lite';
-import { TOKEN_CREDENTIALS_PROVIDER, TOKEN_INTEGRATIONS_REGISTRY } from '../../registry/di-tokens.js';
+import {
+  TOKEN_CREDENTIALS_PROVIDER,
+  TOKEN_DOCUMENTS_PROVIDER,
+  TOKEN_INTEGRATIONS_REGISTRY,
+} from '../../registry/di-tokens.js';
 import type { TIntegrationActionData } from './integration-action-editor.store.js';
 import { describeResultType } from './describe-result-type.js';
 
@@ -18,11 +22,13 @@ const FieldValueComponent: React.FC<{
   field: IFieldConfig;
   value: string;
   credentialNames: Map<string, string>;
+  documentNames: Map<string, string>;
   getStructName: (id: string) => string | null | undefined;
-}> = ({ field, value, credentialNames, getStructName }) => {
+}> = ({ field, value, credentialNames, documentNames, getStructName }) => {
   const t = useService(TOKEN_I18N).t;
   if (field.kind === 'result-type') return <>{describeResultType(value, t, getStructName)}</>;
   if (field.kind === 'credential-ref') return <>{credentialNames.get(value) ?? value}</>;
+  if (field.kind === 'document-ref') return <>{documentNames.get(value) ?? value}</>;
   if (field.kind === 'template-string') return <TemplateStringViewComponent value={value} />;
   if (field.kind === 'expression') return <CodeViewComponent value={value} />;
   return <>{value}</>;
@@ -44,11 +50,19 @@ const useStructNameGetter = (): ((id: string) => string | null | undefined) => {
 export const IntegrationActionBlockComponent: IBlockView<TIntegrationActionData> = observer(({ data, icon }) => {
   const registry = useService(TOKEN_INTEGRATIONS_REGISTRY);
   const credentialsProvider = useService(TOKEN_CREDENTIALS_PROVIDER);
+  const documentsProvider = useService(TOKEN_DOCUMENTS_PROVIDER);
   const t = useService(TOKEN_I18N).t;
   const getStructName = useStructNameGetter();
   const descriptor = registry.findAction(icon.name);
   if (!descriptor || !data) return <div>&nbsp;</div>;
   const credentialNames = new Map(credentialsProvider.getInstances().map((instance) => [instance.id, instance.name]));
+  const documentNames = new Map<string, string>();
+  for (const field of descriptor.fields) {
+    if (field.kind !== 'document-ref') continue;
+    for (const document of documentsProvider.getDocuments(field.documentType ?? '')) {
+      documentNames.set(document.id, document.name);
+    }
+  }
   return (
     <TypeScriptBlockContainer>
       <div className="workflow-integration-block">
@@ -64,6 +78,7 @@ export const IntegrationActionBlockComponent: IBlockView<TIntegrationActionData>
                     field={field}
                     value={data[field.name] ?? ''}
                     credentialNames={credentialNames}
+                    documentNames={documentNames}
                     getStructName={getStructName}
                   />
                 </td>

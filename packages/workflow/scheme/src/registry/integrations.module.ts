@@ -12,12 +12,14 @@ import {
   TOKEN_ACTIVEPIECES_CATALOG_PROVIDER,
   TOKEN_ACTIVEPIECES_FIELD_OPTIONS_PROVIDER,
   TOKEN_CREDENTIALS_PROVIDER,
+  TOKEN_DOCUMENTS_PROVIDER,
   TOKEN_FIELD_OPTIONS_PROVIDER,
   TOKEN_INTEGRATIONS_REGISTRY,
 } from './di-tokens.js';
 import type {
   IActivepiecesCatalogProvider,
   IActivepiecesFieldOptionsProvider,
+  IDocumentRefOption,
   IFieldOptionsProvider,
 } from './di-tokens.js';
 import { IntegrationsRegistryStore } from './integrations-registry.store.js';
@@ -28,6 +30,7 @@ import { registerOptionsSyncOnMove } from '../blocks/sync-options-on-move.js';
 import { registerOptionsValencePointsFilter } from '../blocks/options-valence-points-filter.js';
 
 const NO_CREDENTIAL_INSTANCES = (): readonly IIntegrationInstance[] => [];
+const NO_DOCUMENTS = (): readonly IDocumentRefOption[] => [];
 const NO_FIELD_OPTIONS_PROVIDER: IFieldOptionsProvider = {
   loadOptions: () => Promise.resolve([]),
 };
@@ -42,7 +45,8 @@ const NO_ACTIVEPIECES_FIELD_OPTIONS_PROVIDER: IActivepiecesFieldOptionsProvider 
  * Registers the vendor descriptor list the generic action/trigger blocks resolve via `useService`,
  * seeds every vendor's struct types (`IWorkflowIntegration.types`) into `TypesRegistryStore`, and
  * exposes the project's live credential instances (see `ICredentialsProvider`) so a
- * `credential-ref` field can render a real bot picker. Type-registry seeding is resolved optionally,
+ * `credential-ref` field can render a real bot picker, and its documents by type (`IDocumentsProvider`) for
+ * `document-ref` fields. Type-registry seeding is resolved optionally,
  * same graceful-degradation pattern as every other `@falang/typescript-scheme` consumer, since a
  * scheme built without `registerTypescriptProjectService` (e.g. a bare test harness) simply skips it.
  */
@@ -50,6 +54,7 @@ export class IntegrationsModule implements IModule {
   private readonly integrations: readonly IWorkflowIntegration[];
   private readonly getCredentialInstances: () => readonly IIntegrationInstance[];
   private readonly getFieldOptionsProvider: () => IFieldOptionsProvider;
+  private readonly getDocumentsOfType: (type: string) => readonly IDocumentRefOption[];
   private readonly getActivepiecesCatalogProvider: () => IActivepiecesCatalogProvider;
   private readonly getActivepiecesFieldOptionsProvider: () => IActivepiecesFieldOptionsProvider;
   private disposers: (() => void)[] = [];
@@ -61,10 +66,12 @@ export class IntegrationsModule implements IModule {
     getActivepiecesCatalogProvider: () => IActivepiecesCatalogProvider = () => NO_ACTIVEPIECES_CATALOG_PROVIDER,
     getActivepiecesFieldOptionsProvider: () => IActivepiecesFieldOptionsProvider = () =>
       NO_ACTIVEPIECES_FIELD_OPTIONS_PROVIDER,
+    getDocumentsOfType: (type: string) => readonly IDocumentRefOption[] = NO_DOCUMENTS,
   ) {
     this.integrations = integrations;
     this.getCredentialInstances = getCredentialInstances;
     this.getFieldOptionsProvider = getFieldOptionsProvider;
+    this.getDocumentsOfType = getDocumentsOfType;
     this.getActivepiecesCatalogProvider = getActivepiecesCatalogProvider;
     this.getActivepiecesFieldOptionsProvider = getActivepiecesFieldOptionsProvider;
   }
@@ -75,6 +82,9 @@ export class IntegrationsModule implements IModule {
     });
     scheme.container.register(TOKEN_CREDENTIALS_PROVIDER, {
       useValue: { getInstances: this.getCredentialInstances },
+    });
+    scheme.container.register(TOKEN_DOCUMENTS_PROVIDER, {
+      useValue: { getDocuments: this.getDocumentsOfType },
     });
     scheme.container.register(TOKEN_FIELD_OPTIONS_PROVIDER, {
       useValue: this.getFieldOptionsProvider(),
