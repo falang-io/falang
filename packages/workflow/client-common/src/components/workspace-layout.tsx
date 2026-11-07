@@ -1,7 +1,9 @@
 import type React from 'react';
 import { observer } from 'mobx-react-lite';
+import { message } from 'antd';
 import { ContainerContext } from '@falang/scheme';
 import { ResizeHandle, useResizablePanelWidth } from '@falang/antd';
+import { TABLE_DOCUMENT_TYPE } from '@falang/workflow-dto';
 import { INTEGRATIONS_DOCUMENT_TYPE } from '@falang/workflow-integrations-common';
 import type { WorkflowStore } from '../workflow-store.js';
 import { WorkflowStoreContext } from '../workflow-store-context.js';
@@ -12,6 +14,7 @@ import { AddressesTab } from './addresses-tab.js';
 import { FilesTab } from './files-tab.js';
 import { IntegrationsEditor } from './integrations-editor.js';
 import { Sidebar } from './sidebar.js';
+import { TableEditor } from './table-editor/table-editor.js';
 import { TasksPage } from './tasks-page.js';
 
 const styles = {
@@ -111,6 +114,7 @@ export const WorkspaceLayout: React.FC<IWorkspaceLayoutProps> = observer(({ stor
   const activeId = store.activeTabId;
   const activeDocument = activeId ? store.getDocument(activeId) : null;
   const isIntegrationsDoc = activeDocument?.type === INTEGRATIONS_DOCUMENT_TYPE;
+  const tableDocument = activeDocument?.type === TABLE_DOCUMENT_TYPE ? activeDocument : null;
   // The scheme tabs kept mounted (the active one plus the most recently active others, hidden — see
   // `keep-alive.ts`). The active scheme is always among them even on the very first render, before the
   // store's keep-alive reaction has run.
@@ -130,6 +134,25 @@ export const WorkspaceLayout: React.FC<IWorkspaceLayoutProps> = observer(({ stor
     if (store.activeView === 'tasks') return <TasksPage projectId={store.projectId} />;
     if (store.activeView === 'addresses') return <AddressesTab />;
     if (isIntegrationsDoc) return <IntegrationsEditor />;
+    if (tableDocument) {
+      return (
+        <TableEditor
+          key={tableDocument.id}
+          projectId={store.projectId}
+          tableId={tableDocument.id}
+          name={tableDocument.name}
+          data={store.getTableData(tableDocument.id)}
+          readOnly={store.readOnly}
+          guest={store.isGuest}
+          onFieldsChange={store.readOnly ? null : (next) => store.updateTableFields(tableDocument.id, next)}
+          onFieldsCreated={() => {
+            store.refreshTableDocument(tableDocument.id).catch((error: unknown) => {
+              message.error(error instanceof Error ? error.message : String(error));
+            });
+          }}
+        />
+      );
+    }
     if (showScheme) return null;
     return (
       <div style={styles.welcome}>

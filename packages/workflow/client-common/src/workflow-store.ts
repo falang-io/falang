@@ -50,10 +50,14 @@ import {
   checkDocumentPlacement,
   checkFolderPlacement,
   findSectionFolder,
+  emptyTableData,
   isFixedFolder,
   MAGIC_NAME,
+  normalizeTableDocumentData,
   sectionForDocumentType,
+  TABLE_DOCUMENT_TYPE,
   TRIGGER_FUNCTION_NAME,
+  type ITableDocumentData,
   type TTriggerFunctionBodyData,
 } from '@falang/workflow-dto';
 import type { IIntegrationInstance } from '@falang/workflow-integrations-common';
@@ -109,8 +113,10 @@ import { resolveServerActivity, type TServerActivity } from './server-activity.j
 import { buildReadOnlySchemeForDiff as buildReadOnlySchemeForDiffImpl } from './versioning/build-read-only-scheme-for-diff.js';
 import { HttpVersionStore } from './versioning/http-version-store.js';
 import type { TProjectRouteView } from './navigation-url.js';
+import { syncTableTypes } from './table-types-sync.js';
 import {
   getTriggerFunctionBodyData,
+  hasSchemeEditor,
   type DocumentType,
   type WorkflowDocument,
   type WorkflowFolder,
@@ -225,6 +231,7 @@ export class WorkflowStore implements IWorkflowAgentStore {
    * `IntegrationsEditor`'s "Sync structure" button.
    */
   readonly vendorData = new VendorDataStore();
+  private readonly registeredTableIds = new Set<string>();
   /** The deployment's sandbox (test) bot platforms, loaded lazily by the integrations editor (ADR 0073 (private)). */
   readonly sandboxBots = new SandboxBotsStore();
   /**
@@ -380,6 +387,7 @@ export class WorkflowStore implements IWorkflowAgentStore {
             existing.customData = doc.data;
           }
         }
+        this.registerTableTypes();
         // The `integrations` document's instances (if any) are only known once this callback runs —
         // see ADR 0039 (private) §4/§5. `loadAll` never rejects (per-instance
         // errors are logged and swallowed), so this fire-and-forget chain is safe.
@@ -451,7 +459,7 @@ export class WorkflowStore implements IWorkflowAgentStore {
     const id = this.activeTabId;
     if (!id) return null;
     const doc = this.getDocument(id);
-    return doc && !doc.pinned ? id : null;
+    return doc && hasSchemeEditor(doc) ? id : null;
   }
 
   @action noteAgentTurnFinished(): void {
@@ -626,10 +634,30 @@ export class WorkflowStore implements IWorkflowAgentStore {
     if (this.hasDocumentName(name)) throw new Error(`A document named "${name}" already exists`);
     const id = generateUuid();
     const doc: WorkflowDocument = { id, name, type, folderId: folderId ?? this.getSectionFolderId(type) };
+    // A table has no node tree: its field list is the document's custom `data` (ADR 0075 (private)).
+    if (type === TABLE_DOCUMENT_TYPE) doc.customData = emptyTableData();
     this.documents.push(doc);
     this.sync.createDocumentRemote(doc);
+    if (type === TABLE_DOCUMENT_TYPE) this.registerTableTypes();
     this.openTab(id);
     return id;
+  }
+
+  /** Replaces a table document's field list (the Fields dialog, the agent) and saves it through the custom-data channel. */
+  @action updateTableFields(docId: string, data: ITableDocumentData): void {
+    this.assertWritable();
+    const doc = this.documents.find((item) => item.id === docId);
+    if (!doc || doc.type !== TABLE_DOCUMENT_TYPE) return;
+    doc.customData = data;
+    this.registerTableTypes();
+    this.sync.scheduleSaveCustomDocument(doc);
+  }
+
+  /** The validated field list of a table document (empty when the document is missing or its data is malformed). */
+  getTableData(docId: string): ITableDocumentData {
+    const doc = this.documents.find((item) => item.id === docId);
+    const parsed = normalizeTableDocumentData(null, doc?.customData);
+    return parsed.ok ? parsed.data : emptyTableData();
   }
 
   @action createTriggerFunctionDocument(
@@ -663,6 +691,7 @@ export class WorkflowStore implements IWorkflowAgentStore {
     if (this.hasDocumentName(trimmed, id)) return false;
     doc.name = trimmed;
     this.sync.updateDocumentRemote(id, { name: trimmed });
+    if (doc.type === TABLE_DOCUMENT_TYPE) this.registerTableTypes();
     return true;
   }
 
@@ -686,6 +715,7 @@ export class WorkflowStore implements IWorkflowAgentStore {
     this.closeTab(id);
     this.documents.replace(this.documents.filter((d) => d.id !== id));
     this.sync.deleteDocumentRemote(id);
+    if (deleted?.type === TABLE_DOCUMENT_TYPE) this.registerTableTypes();
   }
 
   @action moveDocument(docId: string, folderId: string | null): void {
@@ -837,6 +867,20 @@ export class WorkflowStore implements IWorkflowAgentStore {
     }
   }
 
+  /** Re-reads one table document's field list from the backend — after a CSV import created fields server-side. */
+  async refreshTableDocument(docId: string): Promise<void> {
+    const doc = this.documents.find((item) => item.id === docId);
+    if (!doc || this.isGuest) return;
+    const projectDocuments = await workflowApi.getProjectDocuments(this.projectId);
+    const fresh = projectDocuments.find((candidate) => candidate.id === docId);
+    if (fresh) {
+      runInAction(() => {
+        doc.customData = fresh.data;
+        this.registerTableTypes();
+      });
+    }
+  }
+
   @action deleteIntegrationInstance(id: string): void {
     this.assertWritable();
     deleteIntegrationInstanceAction(this.documents, this.sync, id);
@@ -883,7 +927,7 @@ export class WorkflowStore implements IWorkflowAgentStore {
     if (existing) return existing;
     const doc = this.getDocument(docId);
     if (!doc) throw new Error(`Document ${docId} not found`);
-    if (doc.pinned) throw new Error(`Document ${docId} is pinned and has no scheme editor`);
+    if (!hasSchemeEditor(doc)) throw new Error(`Document ${docId} has no scheme editor`);
     const scheme = this.buildScheme(doc);
     this.schemes.set(docId, scheme);
     this.registerValidationStore(docId, scheme);
@@ -940,7 +984,7 @@ export class WorkflowStore implements IWorkflowAgentStore {
     const id = this.activeTabId;
     if (!id) return null;
     const doc = this.getDocument(id);
-    if (!doc || doc.pinned || !isAgentEditableType(doc.type)) return null;
+    if (!doc || !hasSchemeEditor(doc) || !isAgentEditableType(doc.type)) return null;
     return id;
   }
 
@@ -1150,6 +1194,11 @@ export class WorkflowStore implements IWorkflowAgentStore {
     for (const doc of this.documents) {
       if (doc.type === OBJECTS_STRUCTURE_NAME && doc.data) updateTypesRegistryFromINode(doc.data, this.typesRegistry);
     }
+  }
+
+  /** Registers every table document's struct types (`table:<docId>` parents) — see `syncTableTypes`. Also for guest and read-only stores. */
+  private registerTableTypes(): void {
+    syncTableTypes(this.typesRegistry, this.documents, this.registeredTableIds);
   }
 
   /** Fetches every vendor-data-capable instance's stored data (see `VendorDataStore.loadAll`), then

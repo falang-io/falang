@@ -65,12 +65,20 @@ export const buildProjectTreeNodes = (
   return nodes;
 };
 
-export type TFolderMenuKey = 'new-subfolder' | 'rename' | 'new-trigger' | 'new-function' | 'new-object' | 'delete';
+export type TFolderMenuKey =
+  | 'new-subfolder'
+  | 'rename'
+  | 'new-trigger'
+  | 'new-function'
+  | 'new-object'
+  | 'new-table'
+  | 'delete';
 
 const MENU_KEY_BY_TYPE: Record<string, TFolderMenuKey> = {
   'trigger-function': 'new-trigger',
   function: 'new-function',
   'objects-structure': 'new-object',
+  table: 'new-table',
 };
 
 /** Context-menu entries of a section or a user folder: its own document types only, delete for user folders only. */

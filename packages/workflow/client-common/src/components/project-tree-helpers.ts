@@ -18,7 +18,28 @@ export const DOC_ICONS: Record<string, string> = {
   'section:triggers': '⚡',
   'section:functions': '⚙',
   'section:types': '📦',
+  'section:tables': '▦',
+  table: '▦',
 };
+
+export const getAddMenuItems = (t: TFunction): MenuProps['items'] => [
+  { key: 'function', label: t('client:project-tree.add-function') },
+  { key: 'trigger', label: t('client:project-tree.add-trigger') },
+  { key: 'objects-structure', label: t('client:project-tree.add-object') },
+  { key: 'table', label: t('client:project-tree.add-table') },
+];
+export const ITEM_ICONS: Record<string, string> = {
+  folder: '📁',
+  function: '⚙',
+  'objects-structure': '📦',
+  table: '▦',
+};
+export const getPlaceholders = (t: TFunction): Record<string, string> => ({
+  folder: t('client:project-tree.folder-placeholder'),
+  function: t('client:project-tree.function-placeholder'),
+  'objects-structure': t('client:project-tree.object-placeholder'),
+  table: t('client:project-tree.table-placeholder'),
+});
 
 export const idOf = (k: string) => k.slice(k.indexOf(':') + 1);
 
@@ -55,6 +76,7 @@ export const FOLDER_MENU_LABELS: Record<TFolderMenuKey, string> = {
   'new-trigger': 'client:project-tree.new-trigger-here',
   'new-function': 'client:project-tree.new-function-here',
   'new-object': 'client:project-tree.new-object-here',
+  'new-table': 'client:project-tree.new-table-here',
   rename: 'client:project-tree.rename',
   delete: 'client:project-tree.delete-folder',
 };

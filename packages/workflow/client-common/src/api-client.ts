@@ -3,6 +3,18 @@ import { resolveBackendUrl } from './resolve-backend-url.js';
 import type { INode } from '@falang/dto';
 import type { ICommitInfo, IProjectSnapshot, TCommitKind } from '@falang/versioning';
 import type { IActivepiecesPieceCatalogEntry } from '@falang/workflow-integrations-activepieces';
+import type {
+  ITableChangeEntry,
+  ITableClearResponse,
+  ITableCopyToProdResponse,
+  ITableFileRef,
+  ITableImportCsvResponse,
+  ITableRecord,
+  ITableRecordsQuery,
+  ITableRecordsResponse,
+  ITableSummary,
+  TTableEnv,
+} from '@falang/workflow-dto';
 import type { IFieldSelectOption } from '@falang/workflow-integrations-common';
 import { ApiCompileErrorsError, type IApiCompileError, type IApiCompileErrorFile } from './api-compile-error.js';
 import { AgentQuotaError } from './agent/agent-quota-error.js';
@@ -682,4 +694,103 @@ export const workflowApi = {
   markSupportRead: () => request<null>('/support/messages/read', { method: 'POST' }),
 
   getSupportUnread: () => request<{ count: number }>('/support/unread'),
+
+  // ── Project tables (ADR 0075 (private)); record `data` is keyed by field id ────────────────────
+
+  listTables: (projectId: string) => request<ITableSummary[]>(`/projects/${projectId}/tables`),
+
+  listTableRecords: (projectId: string, tableId: string, query: ITableRecordsQuery = {}) => {
+    const params = new URLSearchParams();
+    for (const [key, value] of Object.entries(query)) {
+      if ((value ?? '') !== '') params.set(key, String(value));
+    }
+    const text = params.toString();
+    return request<ITableRecordsResponse>(`/projects/${projectId}/tables/${tableId}/records${text ? `?${text}` : ''}`);
+  },
+
+  createTableRecord: (projectId: string, tableId: string, env: TTableEnv, data: Record<string, unknown>) =>
+    request<ITableRecord>(`/projects/${projectId}/tables/${tableId}/records`, {
+      method: 'POST',
+      body: JSON.stringify({ env, data }),
+    }),
+
+  /** `409 version_conflict` (an `ApiCodedError`) when `expectedVersion` differs from the stored version. */
+  patchTableRecord: (
+    projectId: string,
+    tableId: string,
+    recordId: string,
+    env: TTableEnv,
+    data: Record<string, unknown>,
+    expectedVersion: number | null = null,
+  ) =>
+    request<ITableRecord>(`/projects/${projectId}/tables/${tableId}/records/${recordId}`, {
+      method: 'PATCH',
+      body: JSON.stringify({ env, data, ...(expectedVersion === null ? {} : { expectedVersion }) }),
+    }),
+
+  deleteTableRecord: (projectId: string, tableId: string, recordId: string, env: TTableEnv) =>
+    request<null>(`/projects/${projectId}/tables/${tableId}/records/${recordId}?env=${env}`, { method: 'DELETE' }),
+
+  clearTable: (projectId: string, tableId: string, env: TTableEnv) =>
+    request<ITableClearResponse>(`/projects/${projectId}/tables/${tableId}/records/clear`, {
+      method: 'POST',
+      body: JSON.stringify({ env }),
+    }),
+
+  /** Replaces prod's records with dev's. */
+  copyTableToProd: (projectId: string, tableId: string) =>
+    request<ITableCopyToProdResponse>(`/projects/${projectId}/tables/${tableId}/records/copy-to-prod`, {
+      method: 'POST',
+      body: JSON.stringify({ confirm: true }),
+    }),
+
+  /** Fetches `export.csv` with the auth header (a plain link can't carry it) as a `Blob`. */
+  exportTableCsv: (projectId: string, tableId: string, env: TTableEnv) =>
+    requestRaw(`/projects/${projectId}/tables/${tableId}/export.csv?env=${env}`).then((response) => response.blob()),
+
+  /** The CSV text goes as a raw `text/csv` body. */
+  importTableCsv: (
+    projectId: string,
+    tableId: string,
+    csv: string,
+    options: { env: TTableEnv; mode: 'append' | 'replace'; createMissingFields: boolean; dryRun?: boolean },
+  ) => {
+    const params = new URLSearchParams({
+      env: options.env,
+      mode: options.mode,
+      createMissingFields: String(options.createMissingFields),
+    });
+    if (options.dryRun) params.set('dryRun', 'true');
+    return requestRaw(`/projects/${projectId}/tables/${tableId}/import.csv?${params.toString()}`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'text/csv' },
+      body: csv,
+    }).then((response) => response.json() as Promise<ITableImportCsvResponse>);
+  },
+
+  getTableRecordHistory: (projectId: string, tableId: string, recordId: string, env: TTableEnv, limit = 50) =>
+    request<{ changes: ITableChangeEntry[] }>(
+      `/projects/${projectId}/tables/${tableId}/records/${recordId}/history?env=${env}&limit=${limit}`,
+    ),
+
+  restoreTableRecord: (projectId: string, tableId: string, recordId: string, env: TTableEnv, changeId: number) =>
+    request<ITableRecord>(`/projects/${projectId}/tables/${tableId}/records/${recordId}/restore`, {
+      method: 'POST',
+      body: JSON.stringify({ env, changeId }),
+    }),
+
+  /** Uploads a file into a `file` cell (`env` picks the project environment the file belongs to). */
+  uploadTableFile: (projectId: string, tableId: string, env: TTableEnv, file: File) =>
+    requestRaw(`/projects/${projectId}/tables/${tableId}/files?env=${env}`, {
+      method: 'POST',
+      headers: {
+        'content-type': file.type || 'application/octet-stream',
+        'x-file-name': encodeURIComponent(file.name),
+      },
+      body: file,
+    }).then((response) => response.json() as Promise<ITableFileRef>),
+
+  /** Mints a capability URL for a file cell on click. */
+  getTableFileLink: (projectId: string, tableId: string, fileId: string) =>
+    request<{ url: string }>(`/projects/${projectId}/tables/${tableId}/files/${fileId}/link`),
 };

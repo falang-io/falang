@@ -1,30 +1,27 @@
 import type React from 'react';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { observer } from 'mobx-react-lite';
-import { getGlobalI18n, type TFunction } from '@falang/scheme';
+import { getGlobalI18n } from '@falang/scheme';
 import { ConfigProvider, Dropdown, Menu, message, Tree } from 'antd';
-import type { MenuProps, TreeDataNode } from 'antd';
+import type { TreeDataNode } from 'antd';
 import { validateDocumentName } from '../document-names.js';
 import { useWorkflowStore } from '../workflow-store-context.js';
 import type { DocumentType } from '../workflow-types.js';
 import { S } from './project-tree.styles.js';
 import { useProjectTreeRename } from './project-tree-rename.js';
 import { NewTriggerModal, type INewTriggerData } from './new-trigger-modal.js';
-import { idOf, getSectionLabel, toTreeData, getFolderLabel, getMenuItems } from './project-tree-helpers.js';
+import {
+  idOf,
+  getSectionLabel,
+  toTreeData,
+  getFolderLabel,
+  getMenuItems,
+  getAddMenuItems,
+  getPlaceholders,
+  ITEM_ICONS,
+} from './project-tree-helpers.js';
 import { REGISTERED_INTEGRATIONS } from '../integrations-registry.js';
 import { buildProjectTreeNodes, canDropInProject, loadExpandedKeys, saveExpandedKeys } from './project-tree-model.js';
-
-const getAddMenuItems = (t: TFunction): MenuProps['items'] => [
-  { key: 'function', label: t('client:project-tree.add-function') },
-  { key: 'trigger', label: t('client:project-tree.add-trigger') },
-  { key: 'objects-structure', label: t('client:project-tree.add-object') },
-];
-const ITEM_ICONS: Record<string, string> = { folder: '📁', function: '⚙', 'objects-structure': '📦' };
-const getPlaceholders = (t: TFunction): Record<string, string> => ({
-  folder: t('client:project-tree.folder-placeholder'),
-  function: t('client:project-tree.function-placeholder'),
-  'objects-structure': t('client:project-tree.object-placeholder'),
-});
 
 interface ContextMenuState {
   x: number;
@@ -151,6 +148,8 @@ export const ProjectTree: React.FC = observer(() => {
         setNewItem({ type: 'function', parentId, name: '' });
       } else if (key === 'new-object') {
         setNewItem({ type: 'objects-structure', parentId, name: '' });
+      } else if (key === 'new-table') {
+        setNewItem({ type: 'table', parentId, name: '' });
       }
     },
     [contextMenu, store],

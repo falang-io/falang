@@ -32,7 +32,12 @@ const bareTemplate: IApiProjectExport = {
 describe('buildGuestProjectState', () => {
   it('adds the fixed sections and an empty integrations document to a bare template', () => {
     const state = buildGuestProjectState(bareTemplate, counterIds());
-    expect(state.folders.map((folder) => folder.fixedKind).toSorted()).toEqual(['functions', 'triggers', 'types']);
+    expect(state.folders.map((folder) => folder.fixedKind).toSorted()).toEqual([
+      'functions',
+      'tables',
+      'triggers',
+      'types',
+    ]);
     const sectionOf = (kind: string) => state.folders.find((folder) => folder.fixedKind === kind)?.id;
     expect(state.documents.find((doc) => doc.id === 'trigger-1')?.folderId).toBe(sectionOf('triggers'));
     expect(state.documents.find((doc) => doc.id === 'fn-1')).toMatchObject({
@@ -57,6 +62,7 @@ describe('buildGuestProjectState', () => {
         { id: 'sec-t', name: 'Triggers', parentId: null, fixedKind: 'triggers' },
         { id: 'sec-f', name: 'Functions', parentId: null, fixedKind: 'functions' },
         { id: 'sec-y', name: 'Types', parentId: null, fixedKind: 'types' },
+        { id: 'sec-tb', name: 'Tables', parentId: null, fixedKind: 'tables' },
         { id: 'user', name: 'Bots', parentId: 'sec-t', fixedKind: null },
       ],
       documents: [
@@ -72,7 +78,9 @@ describe('buildGuestProjectState', () => {
       ],
     };
     const state = buildGuestProjectState(exported, counterIds());
-    expect(state.folders.map((folder) => folder.id).toSorted()).toEqual(['sec-f', 'sec-t', 'sec-y', 'user']);
+    expect(state.folders.map((folder) => folder.id).toSorted()).toEqual(
+      ['sec-f', 'sec-tb', 'sec-t', 'sec-y', 'user'].toSorted(),
+    );
     expect(state.documents).toEqual([
       expect.objectContaining({ id: 'int', pinned: true, data: { instances: [{ id: 'c' }] } }),
       expect.objectContaining({ id: 'trigger-1', folderId: 'user' }),
