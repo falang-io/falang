@@ -61,7 +61,7 @@ describe('toTelegramMessage', () => {
     const mapped = toTelegramMessage(raw);
     expect(mapped.chat).toEqual({ id: -100, type: 'supergroup', title: 'My group' });
     expect(mapped.entities).toEqual([
-      { type: 'url', offset: 4, length: 12, url: undefined },
+      { type: 'url', offset: 4, length: 12 },
       { type: 'text_link', offset: 21, length: 4, url: 'https://docs.io' },
     ]);
   });

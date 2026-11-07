@@ -49,7 +49,7 @@ describe('searchIntegrations', () => {
     const telegram = search(['telegram']).vendors.find((vendor) => vendor.vendor === 'telegram');
     const onCommand = telegram?.triggers?.find((trigger) => trigger.name === 'telegram-on-command-trigger');
     expect(onCommand?.notes).toContain('one trigger-function document per command');
-    expect(onCommand?.contextFields?.map((field) => field.name)).toEqual(['command']);
+    expect(onCommand?.contextFields?.map((field) => field.name)).toEqual(['command', 'chatType', 'conversation']);
     for (const trigger of telegram?.triggers ?? []) expect(trigger).not.toHaveProperty('label');
   });
 

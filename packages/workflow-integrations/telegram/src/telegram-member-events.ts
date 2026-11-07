@@ -88,19 +88,26 @@ const isPresent = (member: ITelegramRawChatMember): boolean =>
 
 const toTelegramUserStrict = (raw: ITelegramRawUser): ITelegramUser => toTelegramUser(raw) as ITelegramUser;
 
-/** `by` = who did it; absent when the user acted themselves (joined via a link / left on their own). */
-const toBy = (actor: ITelegramRawUser | undefined, user: ITelegramRawUser): ITelegramUser | undefined =>
-  actor && actor.id !== user.id ? toTelegramUserStrict(actor) : undefined;
+/** `by` = who did it; absent from the payload when the user acted themselves (joined via a link / left on their own). */
+const byField = (actor: ITelegramRawUser | undefined, user: ITelegramRawUser): { by?: ITelegramUser } =>
+  actor && actor.id !== user.id ? { by: toTelegramUserStrict(actor) } : {};
+
+const transitionKind = (
+  oldMember: ITelegramRawChatMember,
+  newMember: ITelegramRawChatMember,
+): TMemberEventKind | null => {
+  if (!isPresent(oldMember) && isPresent(newMember)) return 'joined';
+  if (ABSENT_STATUSES.has(newMember.status) && !ABSENT_STATUSES.has(oldMember.status)) return 'left';
+  return null;
+};
 
 /** A `chat_member` update -> a joined/left event, or `null` for a transition that is neither (promotion, restriction, …). */
 export const classifyChatMemberUpdate = (update: ITelegramRawChatMemberUpdated): IClassifiedMemberEvent | null => {
   const oldMember = update.old_chat_member;
   const newMember = update.new_chat_member;
   const user = newMember.user;
-  let kind: TMemberEventKind;
-  if (!isPresent(oldMember) && isPresent(newMember)) kind = 'joined';
-  else if (ABSENT_STATUSES.has(newMember.status) && !ABSENT_STATUSES.has(oldMember.status)) kind = 'left';
-  else return null;
+  const kind = transitionKind(oldMember, newMember);
+  if (!kind) return null;
   return {
     kind,
     chatId: update.chat.id,
@@ -108,10 +115,10 @@ export const classifyChatMemberUpdate = (update: ITelegramRawChatMemberUpdated):
     payload: {
       chat: toTelegramChat(update.chat),
       user: toTelegramUserStrict(user),
-      by: toBy(update.from, user),
+      ...byField(update.from, user),
       date: update.date,
       kicked: kind === 'left' && newMember.status === 'kicked',
-      inviteLink: update.invite_link?.invite_link,
+      ...(update.invite_link ? { inviteLink: update.invite_link.invite_link } : {}),
       viaJoinRequest: update.via_join_request === true,
     },
   };
@@ -124,7 +131,7 @@ export const classifyChatMemberUpdate = (update: ITelegramRawChatMemberUpdated):
 export const classifyServiceMessage = (message: ITelegramRawMessage): readonly IClassifiedMemberEvent[] => {
   const chat = toTelegramChat(message.chat);
   const build = (kind: TMemberEventKind, user: ITelegramRawUser): IClassifiedMemberEvent => {
-    const by = toBy(message.from, user);
+    const byPart = byField(message.from, user);
     return {
       kind,
       chatId: message.chat.id,
@@ -132,9 +139,9 @@ export const classifyServiceMessage = (message: ITelegramRawMessage): readonly I
       payload: {
         chat,
         user: toTelegramUserStrict(user),
-        by,
+        ...byPart,
         date: message.date,
-        kicked: kind === 'left' && by !== undefined,
+        kicked: kind === 'left' && 'by' in byPart,
         viaJoinRequest: false,
       },
     };
@@ -146,15 +153,15 @@ export const classifyServiceMessage = (message: ITelegramRawMessage): readonly I
 };
 
 export const isServiceMemberMessage = (message: ITelegramRawMessage): boolean =>
-  (message.new_chat_members?.length ?? 0) > 0 || message.left_chat_member !== undefined;
+  (message.new_chat_members?.length ?? 0) > 0 || Boolean(message.left_chat_member);
 
 export const toJoinRequest = (raw: ITelegramRawChatJoinRequest): ITelegramJoinRequest => ({
   chat: toTelegramChat(raw.chat),
   user: toTelegramUserStrict(raw.from),
   userChatId: raw.user_chat_id,
   date: raw.date,
-  bio: raw.bio,
-  inviteLink: raw.invite_link?.invite_link,
+  ...(typeof raw.bio === 'string' ? { bio: raw.bio } : {}),
+  ...(raw.invite_link ? { inviteLink: raw.invite_link.invite_link } : {}),
 });
 
 /** An admin bot receives both `chat_member` and the service message for one change; the second is dropped within this window. */
@@ -171,7 +178,7 @@ export class MemberEventDeduplicator {
     }
     const key = `${chatId}:${userId}:${kind}`;
     const previous = this.seen.get(key);
-    if (previous !== undefined && now - previous <= MEMBER_EVENT_DEDUP_WINDOW_MS) return true;
+    if (typeof previous === 'number' && now - previous <= MEMBER_EVENT_DEDUP_WINDOW_MS) return true;
     this.seen.set(key, now);
     return false;
   }
@@ -270,33 +277,5 @@ export const deliverJoinRequest = async (
     updateId,
     payload: toJoinRequest(raw),
     what: 'a join request',
-  });
-};
-
-export interface ITelegramRawMyChatMemberUpdated {
-  readonly chat: ITelegramRawChat;
-  readonly from: ITelegramRawUser;
-  readonly date: number;
-  readonly old_chat_member: ITelegramRawChatMember;
-  readonly new_chat_member: ITelegramRawChatMember;
-}
-
-/** `my_chat_member` is not a trigger in v1: it only leaves an `info` line in the journal of `tg-unbound-<chatId>`. */
-export const reportBotMembershipChange = async (
-  ctx: IIntegrationBackendContext,
-  update: ITelegramRawMyChatMemberUpdated,
-): Promise<void> => {
-  const oldStatus = update.old_chat_member.status;
-  const newStatus = update.new_chat_member.status;
-  const where = update.chat.title ? `chat "${update.chat.title}" (${update.chat.id})` : `chat ${update.chat.id}`;
-  let message: string;
-  if (ABSENT_STATUSES.has(newStatus)) message = `The bot was removed from ${where}`;
-  else if (ABSENT_STATUSES.has(oldStatus)) message = `The bot was added to ${where} as ${newStatus}`;
-  else message = `The bot's status in ${where} changed: ${oldStatus} -> ${newStatus}`;
-  await ctx.reportJournalProblem?.({
-    workflowId: unboundWorkflowId(update.chat.id),
-    level: 'info',
-    message,
-    data: { errorType: 'BotMembershipChanged', oldStatus, newStatus, chatType: update.chat.type },
   });
 };

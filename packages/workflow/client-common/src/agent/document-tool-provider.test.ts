@@ -183,8 +183,9 @@ describe('DocumentToolProvider', () => {
     const { store } = buildStore([structDoc, ...withTelegramCredential()], registry);
     const provider = new DocumentToolProvider(store);
 
-    const { types } = parseOk(provider.execute(call('list_types', {}))) as {
+    const { types, typeIndex = [] } = parseOk(provider.execute(call('list_types', {}))) as {
       types: { id: string; documentId?: string; vendor?: string }[];
+      typeIndex?: { id: string; vendor?: string }[];
     };
 
     expect(types).toContainEqual({
@@ -194,7 +195,9 @@ describe('DocumentToolProvider', () => {
       properties: { score: { type: 'string' } },
     });
     expect(types.some((type) => type.id === 'thread-x')).toBe(false);
-    expect(types.some((type) => type.vendor === TELEGRAM_VENDOR)).toBe(true);
+    // Telegram has more than LIST_TYPES_FULL_LIMIT struct types since the community-management ones (ADR 0076
+    // (private)), so they come as an id/name index rather than in full.
+    expect([...types, ...typeIndex].some((type) => type.vendor === TELEGRAM_VENDOR)).toBe(true);
     // No instance of any big-catalog vendor (МойСклад, Ozon, …) — none of their types leak in. Every
     // credential-less vendor (`credentialFields: []`) counts as "in use" with no instance needed (see
     // ADR 0037 (private) §4) — `schedule` (`schedule/Fire`), `files`

@@ -17,6 +17,7 @@ const loadActivity = (name: string, fetchMock: ReturnType<typeof vi.fn>): TActiv
   ].join('\n');
   const { outputText } = ts.transpileModule(source, { compilerOptions: { module: ts.ModuleKind.CommonJS } });
   const exports: Record<string, TActivity> = {};
+  // oxlint-disable-next-line no-new-func -- the generated activity source is compiled on purpose, to run the real code.
   new Function('exports', 'fetch', outputText)(exports, fetchMock);
   return exports[name];
 };
@@ -96,7 +97,7 @@ describe('telegram moderation activities', () => {
     fetchMock.mockResolvedValueOnce(raw('administrator'));
     expect(await get('cred', -100, 7)).toEqual({
       status: 'administrator',
-      user: { id: 7, isBot: false, firstName: 'Bob', username: undefined },
+      user: { id: 7, isBot: false, firstName: 'Bob' },
       isAdmin: true,
     });
     fetchMock.mockResolvedValueOnce(raw('member'));

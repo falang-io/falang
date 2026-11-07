@@ -10,6 +10,7 @@ describe('node-kind-notes-vendors', () => {
   it('VENDOR_NODE_KIND_NOTES: has every telegram/MAX/AI/files/http entry moved out of node-kinds.ts', () => {
     expect(Object.keys(VENDOR_NODE_KIND_NOTES).toSorted()).toEqual(
       [
+        'telegram-get-member',
         'telegram-question',
         'telegram-question-option',
         'max-question',

@@ -28,12 +28,11 @@ import {
   deliverMemberEvents,
   isServiceMemberMessage,
   MemberEventDeduplicator,
-  reportBotMembershipChange,
   type IMemberEventContext,
   type ITelegramRawChatJoinRequest,
   type ITelegramRawChatMemberUpdated,
-  type ITelegramRawMyChatMemberUpdated,
 } from './telegram-member-events.js';
+import { reportBotMembershipChange, type ITelegramRawMyChatMemberUpdated } from './telegram-bot-membership.js';
 import { toTelegramMessage, type ITelegramRawMessage } from './telegram-message-mapper.js';
 
 /** Telegram's own long-poll timeout (seconds) — `getUpdates` blocks server-side for roughly this long when idle. */
@@ -260,6 +259,67 @@ const answerCallbackQuery = async (botToken: string, callbackQueryId: string): P
   });
 };
 
+type TCallbackRoute =
+  | { readonly kind: 'unbound' }
+  | {
+      readonly kind: 'unroutable';
+      readonly errorType: string;
+      readonly message: string;
+      readonly mode: TConversationMode;
+    }
+  | { readonly kind: 'route'; readonly document: IIntegrationDocumentRecord; readonly workflowId: string };
+
+/**
+ * Which run a button press belongs to: the chat's remembered conversation when this process has one (its full workflow
+ * id — also right for a `per-user`/`per-event` private chat), else a rebuild from the primary document's mode.
+ * ADR 0076 (private) §2: until the pending-question registry (phase 2) a group answer can only be routed by chat, which
+ * is impossible once a group has a workflow per member or per message.
+ */
+const routeCallback = (
+  documents: readonly IIntegrationDocumentRecord[],
+  callbackQuery: ITelegramCallbackQuery,
+  chatId: number,
+  chatTriggerFunctions: TChatTriggerMap,
+): TCallbackRoute => {
+  const remembered = chatTriggerFunctions.get(chatId);
+  const rememberedDoc = remembered && documents.find((doc) => doc.id === remembered.documentId);
+  const document = rememberedDoc || selectPrimaryTriggerFunction(documents);
+  if (!document) return { kind: 'unbound' };
+
+  const mode =
+    rememberedDoc && remembered
+      ? remembered.mode
+      : resolveConversationMode(getTriggerFunctionBodyData(document)?.triggerConfig);
+  const isGroup = chatKindOf(callbackQuery.message?.chat.type ?? 'private') === 'group';
+  if (isGroup && mode !== 'per-chat') {
+    return {
+      kind: 'unroutable',
+      errorType: 'UnroutableGroupAnswer',
+      message:
+        'Ignored a button press: a button pressed in a group cannot be routed to its conversation before pending-question routing (phase 2)',
+      mode,
+    };
+  }
+  if (rememberedDoc && remembered) return { kind: 'route', document, workflowId: remembered.workflowId };
+  // After a restart: rebuild the id from the document's mode. A private chat is its own user; a `per-event` run cannot be guessed.
+  if (mode === 'per-event') {
+    return {
+      kind: 'unroutable',
+      errorType: 'UnroutableAnswer',
+      message: 'Ignored a button press: the per-event conversation it belongs to is not known after a restart',
+      mode,
+    };
+  }
+  const workflowId = buildConversationWorkflowId({
+    vendorPrefix: 'tg',
+    documentId: document.id,
+    chatId,
+    userId: callbackQuery.from?.id ?? chatId,
+    mode,
+  });
+  return { kind: 'route', document, workflowId };
+};
+
 /**
  * Normalizes a button press into the fixed `{ messageId, value }` contract every vendor's
  * `IQuestionDescriptor.answerSignalName` payload uses (see `@falang/workflow-integrations-common`'s
@@ -278,12 +338,9 @@ const handleCallbackQuery = async (
   // Telegram callback_data is always a non-empty string (1-64 bytes) when a button carries one — a falsy value here means there's nothing to correlate to a pending question.
   if (!chatId || !callbackQuery.data) return;
 
-  const triggerFunctionDocuments = await findBoundTriggerFunctions(ctx);
   const payload = { messageId: String(callbackQuery.message?.message_id), value: callbackQuery.data };
-  const remembered = chatTriggerFunctions.get(chatId);
-  const rememberedDoc = remembered && triggerFunctionDocuments.find((doc) => doc.id === remembered.documentId);
-  const triggerFunction = rememberedDoc || selectPrimaryTriggerFunction(triggerFunctionDocuments);
-  if (!triggerFunction) {
+  const route = routeCallback(await findBoundTriggerFunctions(ctx), callbackQuery, chatId, chatTriggerFunctions);
+  if (route.kind === 'unbound') {
     await ctx.reportJournalProblem?.({
       workflowId: unboundWorkflowId(chatId),
       level: 'warn',
@@ -292,49 +349,19 @@ const handleCallbackQuery = async (
     });
     return;
   }
-
-  const mode =
-    rememberedDoc && remembered
-      ? remembered.mode
-      : resolveConversationMode(getTriggerFunctionBodyData(triggerFunction)?.triggerConfig);
-  const isGroup = chatKindOf(callbackQuery.message?.chat.type ?? 'private') === 'group';
-  // ADR 0076 (private) §2: until the pending-question registry (phase 2) a question's answer can only be routed by chat,
-  // which is impossible once a group has a workflow per member or per message.
-  if (isGroup && mode !== 'per-chat') {
+  if (route.kind === 'unroutable') {
     await ctx.reportJournalProblem?.({
       workflowId: unboundWorkflowId(chatId),
       level: 'warn',
-      message:
-        'Ignored a button press: a button pressed in a group cannot be routed to its conversation before pending-question routing (phase 2)',
-      data: { errorType: 'UnroutableGroupAnswer', signal: TELEGRAM_QUESTION_ANSWER_SIGNAL_NAME, payload, mode },
+      message: route.message,
+      data: { errorType: route.errorType, signal: TELEGRAM_QUESTION_ANSWER_SIGNAL_NAME, payload, mode: route.mode },
     });
     return;
   }
-  let workflowId = rememberedDoc && remembered ? remembered.workflowId : undefined;
-  if (!workflowId) {
-    // After a restart: rebuild the id from the document's mode. A private chat is its own user; a `per-event` run
-    // cannot be guessed.
-    if (mode === 'per-event') {
-      await ctx.reportJournalProblem?.({
-        workflowId: unboundWorkflowId(chatId),
-        level: 'warn',
-        message: 'Ignored a button press: the per-event conversation it belongs to is not known after a restart',
-        data: { errorType: 'UnroutableAnswer', signal: TELEGRAM_QUESTION_ANSWER_SIGNAL_NAME, payload, mode },
-      });
-      return;
-    }
-    workflowId = buildConversationWorkflowId({
-      vendorPrefix: 'tg',
-      documentId: triggerFunction.id,
-      chatId,
-      userId: callbackQuery.from?.id ?? chatId,
-      mode,
-    });
-  }
 
   await ctx.signalWorkflow({
-    workflowId,
-    workflowType: triggerFunction.name,
+    workflowId: route.workflowId,
+    workflowType: route.document.name,
     signalName: TELEGRAM_QUESTION_ANSWER_SIGNAL_NAME,
     signalArgs: [payload],
   });

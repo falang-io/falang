@@ -45,14 +45,15 @@ export const jsonResponse = (body: unknown, ok = true): Response =>
 
 export type TTestCtx = IIntegrationBackendContext & { registeredWebhook?: (request: Request) => Promise<Response> };
 
-export const buildCommunityCtx = (documents: readonly IIntegrationDocumentRecord[]): TTestCtx => {
+export const buildCommunityCtx = (documents: readonly IIntegrationDocumentRecord[], poll = false): TTestCtx => {
   const ctx: TTestCtx = {
     vendor: 'telegram',
     credentialId: 'cred-1',
     projectId: 'project-1',
     env: 'prod',
     fields: { botToken: 'bot-token' },
-    webhookUrl: 'https://bots.example.com/webhooks/telegram/p/cred-1/prod',
+    // An empty webhookUrl is poll mode.
+    webhookUrl: poll ? '' : 'https://bots.example.com/webhooks/telegram/p/cred-1/prod',
     taskQueue: 'workflow-project-1',
     registerWebHook: vi.fn((_uri: string, handler: (request: Request) => Promise<Response>) => {
       ctx.registeredWebhook = (request) => handler(withTelegramSecret(request));
@@ -67,7 +68,7 @@ export const buildCommunityCtx = (documents: readonly IIntegrationDocumentRecord
     deleteSchedule: vi.fn().mockResolvedValue(null),
     listSchedules: vi.fn().mockResolvedValue([]),
     uploadFile: vi.fn(),
-    reportJournalProblem: vi.fn().mockResolvedValue(undefined),
+    reportJournalProblem: vi.fn().mockResolvedValue(null),
   };
   return ctx;
 };

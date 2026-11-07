@@ -56,6 +56,7 @@ describe('telegram routing: chatType filter and conversation modes (ADR 0076 (pr
     ]);
     await registerTelegramBackend(ctx);
     for (const [index, type] of ['group', 'supergroup', 'channel'].entries()) {
+      // oxlint-disable-next-line no-await-in-loop -- updates arrive in order.
       await postUpdate(ctx, { update_id: index, message: { ...groupMessage('x'), chat: { id: -5, type } } });
     }
     expect(ctx.signalWorkflow).toHaveBeenCalledTimes(3);
@@ -223,8 +224,7 @@ describe('telegram routing: chatType filter and conversation modes (ADR 0076 (pr
     });
 
     it('is sent explicitly in every getUpdates poll', async () => {
-      const ctx = buildCommunityCtx([]);
-      (ctx as { webhookUrl?: string }).webhookUrl = undefined;
+      const ctx = buildCommunityCtx([], true);
       await registerTelegramBackend(ctx);
       const poll = vi.mocked(ctx.registerInterval).mock.calls[0][0] as () => Promise<void>;
       await poll();

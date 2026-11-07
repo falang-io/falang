@@ -56,7 +56,6 @@ describe('classifyChatMemberUpdate', () => {
       payload: {
         chat: { id: -100, type: 'supergroup', title: 'Chat' },
         user: { id: 7, isBot: false, firstName: 'Bob', username: 'bob' },
-        by: undefined,
         date: 1000,
         kicked: false,
         inviteLink: 'https://t.me/+abc',
@@ -67,7 +66,7 @@ describe('classifyChatMemberUpdate', () => {
 
   it('sets by when someone else added the user', () => {
     const event = classifyChatMemberUpdate(chatMemberUpdate(member('left'), member('member'), admin));
-    expect(event?.payload.by).toEqual({ id: 1, isBot: false, firstName: 'Admin', username: undefined });
+    expect(event?.payload.by).toEqual({ id: 1, isBot: false, firstName: 'Admin' });
   });
 
   it('counts a restricted member with is_member as present, both as a join and as a non-leave', () => {
@@ -128,9 +127,9 @@ describe('MemberEventDeduplicator', () => {
   it('drops the same (chat, user, kind) within 10 seconds, not other users or kinds, and lets it through after', () => {
     const dedup = new MemberEventDeduplicator();
     expect(dedup.isDuplicate(1, 2, 'joined', 0)).toBe(false);
-    expect(dedup.isDuplicate(1, 2, 'joined', 9_000)).toBe(true);
-    expect(dedup.isDuplicate(1, 3, 'joined', 9_000)).toBe(false);
-    expect(dedup.isDuplicate(1, 2, 'left', 9_000)).toBe(false);
+    expect(dedup.isDuplicate(1, 2, 'joined', 9000)).toBe(true);
+    expect(dedup.isDuplicate(1, 3, 'joined', 9000)).toBe(false);
+    expect(dedup.isDuplicate(1, 2, 'left', 9000)).toBe(false);
     expect(dedup.isDuplicate(1, 2, 'joined', MEMBER_EVENT_DEDUP_WINDOW_MS + 1)).toBe(false);
   });
 });
