@@ -6,7 +6,12 @@
     },
     "trigger": {
       "onMessage": "При сообщении",
-      "onCommand": "При команде"
+      "onCommand": "При команде",
+      "groupMemberJoined": "Подписчик вступил в сообщество",
+      "groupMemberLeft": "Подписчик покинул сообщество",
+      "joinRequest": "Заявка на вступление в сообщество",
+      "chatMemberJoined": "Участник вошёл в беседу",
+      "chatMemberLeft": "Участник вышел из беседы"
     },
     "field": {
       "command": "Команда",
@@ -17,11 +22,17 @@
       "timeout": "Таймаут (например, 10m, 48h) — оставьте пустым, если таймаут не нужен",
       "file": "Файл",
       "sendFileAs": "Отправить как",
-      "caption": "Подпись"
+      "caption": "Подпись",
+      "userId": "ID пользователя",
+      "conversationMessageId": "ID сообщения в беседе (conversationMessageId)",
+      "chatType": "Чаты",
+      "conversation": "Диалог"
     },
     "action": {
       "sendMessage": "Отправить сообщение",
-      "sendFile": "Отправить файл"
+      "sendFile": "Отправить файл",
+      "kickFromChat": "Исключить участника из беседы",
+      "deleteMessage": "Удалить сообщение"
     },
     "question": {
       "askQuestion": "Задать вопрос"
@@ -30,6 +41,16 @@
       "auto": "Авто (по типу файла)",
       "photo": "Изображение",
       "document": "Документ"
+    },
+    "chatType": {
+      "any": "Любой чат",
+      "private": "Только личные диалоги",
+      "group": "Только беседы (группы)"
+    },
+    "conversation": {
+      "perChat": "Один на чат (диалог)",
+      "perUser": "Один на пользователя в чате",
+      "perEvent": "Один на каждое сообщение (без состояния)"
     }
   }
 }

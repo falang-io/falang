@@ -148,6 +148,38 @@ const saveDoc = ({ state, params, baseUrl }: IMethodContext): IMethodResult => {
   };
 };
 
+const SETTINGS_NON_EVENT_PARAMS = new Set(['group_id', 'server_id', 'enabled', 'api_version']);
+
+/** Both settings calls: every `<event>=1` parameter is an event the community now receives. */
+const setEventSettings = ({ state, params }: IMethodContext): IMethodResult => {
+  state.subscribedEvents.clear();
+  for (const [name, value] of Object.entries(params)) {
+    if (!SETTINGS_NON_EVENT_PARAMS.has(name) && value === '1') state.subscribedEvents.add(name);
+  }
+  return ok();
+};
+
+/** Kicking a user who is not (any more) in the chat is VK error 935. */
+const removeChatUser = ({ state, params }: IMethodContext): IMethodResult => {
+  const chatId = requireParam(params, 'chat_id');
+  const memberId = params.member_id ?? requireParam(params, 'user_id');
+  const key = `${chatId}:${memberId}`;
+  if (state.removedMembers.has(key)) throw new VkApiError(935, 'User not found in chat');
+  state.removedMembers.add(key);
+  return ok();
+};
+
+/** Deleting a message in a chat that no longer has it answers error 927 (the mock's stand-in for "already gone"). */
+const deleteMessages = ({ state, params }: IMethodContext): IMethodResult => {
+  const peerId = requireParam(params, 'peer_id');
+  const cmids = requireParam(params, 'cmids').split(',');
+  const keys = cmids.map((cmid) => `${peerId}:${cmid}`);
+  if (keys.every((key) => state.deletedMessages.has(key))) throw new VkApiError(927, 'Chat does not exist');
+  for (const key of keys) state.deletedMessages.add(key);
+  state.messages = state.messages.filter((m) => !keys.includes(`${m.peerId}:${m.conversationMessageId}`));
+  return { response: Object.fromEntries(cmids.map((cmid) => [cmid, 1])) };
+};
+
 const METHODS: Record<string, TMethodHandler> = {
   'groups.getById': ({ state }) => ({
     response: {
@@ -155,8 +187,10 @@ const METHODS: Record<string, TMethodHandler> = {
       profiles: [],
     },
   }),
-  'groups.setLongPollSettings': ok,
-  'groups.setCallbackSettings': ok,
+  'groups.setLongPollSettings': setEventSettings,
+  'groups.setCallbackSettings': setEventSettings,
+  'messages.removeChatUser': removeChatUser,
+  'messages.delete': deleteMessages,
   'messages.sendMessageEventAnswer': ok,
   'messages.setActivity': ok,
   'groups.getLongPollServer': getLongPollServer,

@@ -1,7 +1,13 @@
 import type { TVariableInfo } from '@falang/typescript-dto';
 import type { IIntegrationStructType } from '@falang/workflow-integrations-common';
 import { FILE_TYPE_ID } from '@falang/workflow-integrations-files';
-import { VK_CHAT_TYPE_ID, VK_MESSAGE_TYPE_ID, VK_USER_TYPE_ID } from './constants.js';
+import {
+  VK_CHAT_MEMBER_EVENT_TYPE_ID,
+  VK_CHAT_TYPE_ID,
+  VK_GROUP_MEMBER_EVENT_TYPE_ID,
+  VK_MESSAGE_TYPE_ID,
+  VK_USER_TYPE_ID,
+} from './constants.js';
 
 const anyNumber: TVariableInfo = { type: 'number', numberType: { type: 'any' } };
 
@@ -50,6 +56,32 @@ export const vkStructTypes: readonly IIntegrationStructType[] = [
       photo: optionalFileType,
       document: optionalFileType,
       voice: optionalFileType,
+    },
+  },
+  {
+    id: VK_GROUP_MEMBER_EVENT_TYPE_ID,
+    name: 'VkGroupMemberEvent',
+    properties: {
+      groupId: anyNumber,
+      userId: anyNumber,
+      /** `join`, `unsure`, `accepted`, `approved` or `request` for a join; absent when the member left. */
+      joinType: { type: 'string', optional: true },
+      /** A leave: `true` when the user left on their own, `false` when the community removed them. Always `false` for a join. */
+      self: { type: 'boolean' },
+    },
+  },
+  {
+    id: VK_CHAT_MEMBER_EVENT_TYPE_ID,
+    name: 'VkChatMemberEvent',
+    properties: {
+      chat: { type: 'struct', id: VK_CHAT_TYPE_ID },
+      userId: anyNumber,
+      /** Who added or removed the member (the service message's `from_id`; equals `userId` when the user left on their own). */
+      byId: anyNumber,
+      /** Joined through an invite link (`chat_invite_user_by_link`). */
+      viaLink: { type: 'boolean' },
+      /** Unix time, seconds. */
+      date: anyNumber,
     },
   },
 ];

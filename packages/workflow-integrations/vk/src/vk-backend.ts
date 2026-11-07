@@ -1,9 +1,14 @@
 // oxlint-disable max-lines -- mirrors max-backend.ts: routing, both delivery modes and the run-journal reports.
-import { TRIGGER_FUNCTION_BODY_NAME, TRIGGER_FUNCTION_NAME } from '@falang/workflow-dto';
 import {
+  buildConversationWorkflowId,
+  chatTypeAdmits,
   constantTimeEqual,
+  resolveChatTypeFilter,
+  resolveConversationMode,
   type IIntegrationBackendContext,
   type IIntegrationDocumentRecord,
+  type TChatKind,
+  type TConversationMode,
   type TRegisterIntegrationBackend,
 } from '@falang/workflow-integrations-common';
 import {
@@ -17,6 +22,13 @@ import {
 } from './constants.js';
 import { resolveIncomingMedia } from './vk-media.js';
 import {
+  handleChatMemberAction,
+  handleGroupMemberUpdate,
+  isVkMemberAction,
+  type TVkRawActionMessage,
+} from './vk-member-events.js';
+import {
+  CONVERSATION_PEER_OFFSET,
   parseVkPayload,
   toVkMessage,
   toVkUser,
@@ -24,6 +36,7 @@ import {
   type IVkRawUser,
   type IVkUser,
 } from './vk-message-mapper.js';
+import { findBoundTriggerFunctions, getTriggerFunctionBodyData, unboundWorkflowId } from './vk-trigger-docs.js';
 
 /** `wait` of a Bots Long Poll request (seconds). */
 export const VK_LONG_POLL_WAIT_SECONDS = 25;
@@ -33,13 +46,6 @@ export const VK_POLL_INTERVAL_MS = 1000;
 const VK_CALLBACK_SECRET_LABEL = 'vk-callback';
 /** At most 14 characters. */
 const VK_CALLBACK_SERVER_TITLE = 'Falang';
-
-interface ITriggerFunctionBodyData {
-  readonly vendor: string;
-  readonly triggerName: string;
-  readonly credentialId: string;
-  readonly triggerConfig?: Readonly<Record<string, string>>;
-}
 
 interface IVkMessageNewObject {
   readonly message?: IVkRawMessage;
@@ -59,6 +65,8 @@ export interface IVkUpdate {
   readonly object?: unknown;
   readonly group_id?: number;
   readonly secret?: string;
+  /** Unique per event, in Callback API and Bots Long Poll alike (ADR 0076 (private)). */
+  readonly event_id?: string | number;
 }
 
 /**
@@ -130,7 +138,7 @@ export interface IVkLongPollServer {
 }
 
 /** Best effort: switches Bots Long Poll on for the events a falang bot reads. A key without `manage` rights may refuse. */
-export const vkEnableLongPoll = async (accessToken: string, groupId: number): Promise<void> => {
+export const vkEnableLongPoll = async (accessToken: string, groupId: number, memberEvents = false): Promise<void> => {
   try {
     await vkApiJson(accessToken, 'groups.setLongPollSettings', {
       group_id: groupId,
@@ -138,6 +146,7 @@ export const vkEnableLongPoll = async (accessToken: string, groupId: number): Pr
       api_version: VK_API_VERSION,
       message_new: 1,
       message_event: 1,
+      ...(memberEvents ? { group_join: 1, group_leave: 1 } : {}),
     });
   } catch {
     // Long Poll may already be configured in the community's settings; the next call tells if it really is not.
@@ -169,23 +178,6 @@ export const vkLongPollCheck = async (
   return (await response.json()) as IVkLongPollAnswer;
 };
 
-/** `trigger-function`'s childTuple is `[function-header, trigger-function-body, function-footer]` — see `@falang/workflow-dto`. */
-const getTriggerFunctionBodyData = (doc: IIntegrationDocumentRecord): ITriggerFunctionBodyData | undefined => {
-  const body = doc.root?.children?.[1];
-  if (body?.name !== TRIGGER_FUNCTION_BODY_NAME) return;
-  return body.data as ITriggerFunctionBodyData;
-};
-
-const findBoundTriggerFunctions = async (
-  ctx: IIntegrationBackendContext,
-): Promise<readonly IIntegrationDocumentRecord[]> => {
-  const triggerFunctionDocuments = await ctx.getDocumentsByType(TRIGGER_FUNCTION_NAME);
-  return triggerFunctionDocuments.filter((doc) => {
-    const body = getTriggerFunctionBodyData(doc);
-    return body?.vendor === ctx.vendor && body.credentialId === ctx.credentialId;
-  });
-};
-
 /** A leading `/command`, with an optional `@community` suffix (conversations) stripped. */
 const COMMAND_PATTERN = /^\/([a-zA-Z0-9_]+)(?:@\S+)?(?:\s|$)/;
 
@@ -194,14 +186,31 @@ const extractVkCommand = (text: string): string | undefined => COMMAND_PATTERN.e
 /** Tolerates the command being configured with or without its leading slash. */
 const normalizeCommandName = (value: string): string => value.trim().replace(/^\//, '');
 
-/** A bound on-command trigger whose command matches wins over the catch-all on-message trigger (same rule as Telegram/MAX). */
+const vkChatKindOf = (peerId: number): TChatKind => (peerId > CONVERSATION_PEER_OFFSET ? 'group' : 'private');
+
+/** The on-message / on-command documents (member triggers never receive a message). */
+const isMessageDocument = (doc: IIntegrationDocumentRecord): boolean => {
+  const name = getTriggerFunctionBodyData(doc)?.triggerName;
+  return name === VK_TRIGGER_NAME || name === VK_ON_COMMAND_TRIGGER_NAME;
+};
+
+const admitsChat = (doc: IIntegrationDocumentRecord, kind: TChatKind): boolean =>
+  chatTypeAdmits(resolveChatTypeFilter(getTriggerFunctionBodyData(doc)?.triggerConfig), kind);
+
+/**
+ * A bound on-command trigger whose command matches wins over the catch-all on-message trigger (same rule as
+ * Telegram/MAX); only documents whose `chatType` filter admits the chat take part, so a private-chat and a
+ * conversation handler can coexist.
+ */
 const selectTriggerFunctionForMessage = (
   documents: readonly IIntegrationDocumentRecord[],
   text: string,
+  kind: TChatKind,
 ): IIntegrationDocumentRecord | undefined => {
+  const candidates = documents.filter((doc) => admitsChat(doc, kind));
   const command = extractVkCommand(text);
   if (command) {
-    const commandMatch = documents.find((doc) => {
+    const commandMatch = candidates.find((doc) => {
       const body = getTriggerFunctionBodyData(doc);
       return (
         body?.triggerName === VK_ON_COMMAND_TRIGGER_NAME &&
@@ -210,33 +219,35 @@ const selectTriggerFunctionForMessage = (
     });
     if (commandMatch) return commandMatch;
   }
-  return documents.find((doc) => getTriggerFunctionBodyData(doc)?.triggerName === VK_TRIGGER_NAME);
+  return candidates.find((doc) => getTriggerFunctionBodyData(doc)?.triggerName === VK_TRIGGER_NAME);
 };
 
 const selectPrimaryTriggerFunction = (
   documents: readonly IIntegrationDocumentRecord[],
-): IIntegrationDocumentRecord | undefined =>
-  documents.find((doc) => getTriggerFunctionBodyData(doc)?.triggerName === VK_TRIGGER_NAME) ?? documents[0];
-
-/** Per-target state: which trigger started each chat's conversation, and the sender names already looked up. */
-interface IVkTargetState {
-  readonly chatTriggerFunctions: Map<number, string>;
-  /** `null`: the lookup failed or the sender is not a user; not retried within this target. */
-  readonly users: Map<number, IVkUser | null>;
-}
-
-const selectTriggerFunctionForCallback = (
-  documents: readonly IIntegrationDocumentRecord[],
-  chatId: number,
-  state: IVkTargetState,
+  kind: TChatKind,
 ): IIntegrationDocumentRecord | undefined => {
-  const rememberedId = state.chatTriggerFunctions.get(chatId);
-  const remembered = rememberedId && documents.find((doc) => doc.id === rememberedId);
-  return remembered || selectPrimaryTriggerFunction(documents);
+  const candidates = documents.filter((doc) => isMessageDocument(doc) && admitsChat(doc, kind));
+  return candidates.find((doc) => getTriggerFunctionBodyData(doc)?.triggerName === VK_TRIGGER_NAME) ?? candidates[0];
 };
 
-/** Workflow id for journal entries about input no trigger function takes (ADR 0059 (private) §2c). */
-const unboundWorkflowId = (chatId: number): string => `vk-unbound-${chatId}`;
+/** Which run started a chat's conversation: the full workflow id (not just the document) and the mode it was built with. */
+interface IChatTrigger {
+  readonly workflowId: string;
+  readonly workflowType: string;
+  readonly mode: TConversationMode;
+}
+
+/** `peer_id` -> the conversation last started there, so a button press finds its run (in memory, per target). */
+type TChatTriggerMap = Map<number, IChatTrigger>;
+
+/** Per-target state: which run started each chat's conversation, and the sender names already looked up. */
+interface IVkTargetState {
+  readonly chatTriggerFunctions: TChatTriggerMap;
+  /** `null`: the lookup failed or the sender is not a user; not retried within this target. */
+  readonly users: Map<number, IVkUser | null>;
+  /** The community id once known (a Callback/Long Poll event also carries `group_id`). */
+  groupId?: number;
+}
 
 const lookupSender = async (
   ctx: IIntegrationBackendContext,
@@ -260,9 +271,19 @@ const lookupSender = async (
   return user;
 };
 
+/** `<doc>-<peer>` per chat, `…-<from_id>` per user, `…-<event_id>` per event; one place for message and button routing. */
+const conversationWorkflowId = (
+  doc: IIntegrationDocumentRecord,
+  mode: TConversationMode,
+  chatId: number,
+  userId: number | undefined,
+  eventKey: string,
+): string => buildConversationWorkflowId({ vendorPrefix: 'vk', documentId: doc.id, chatId, userId, eventKey, mode });
+
 const signalIncomingMessage = async (
   ctx: IIntegrationBackendContext,
   raw: IVkRawMessage,
+  update: IVkUpdate,
   state: IVkTargetState,
 ): Promise<void> => {
   const chatId = raw.peer_id;
@@ -271,7 +292,11 @@ const signalIncomingMessage = async (
 
   const from = await lookupSender(ctx, state, raw.from_id);
   const message = toVkMessage(raw, from);
-  const triggerFunction = selectTriggerFunctionForMessage(await findBoundTriggerFunctions(ctx), message.text);
+  const triggerFunction = selectTriggerFunctionForMessage(
+    await findBoundTriggerFunctions(ctx),
+    message.text,
+    vkChatKindOf(chatId),
+  );
   if (!triggerFunction) {
     await ctx.reportJournalProblem?.({
       workflowId: unboundWorkflowId(chatId),
@@ -281,16 +306,40 @@ const signalIncomingMessage = async (
     });
     return;
   }
-  state.chatTriggerFunctions.set(chatId, triggerFunction.id);
+  const mode = resolveConversationMode(getTriggerFunctionBodyData(triggerFunction)?.triggerConfig);
+  // Both transports carry `event_id`; the stand-in only keeps a hand-made event from throwing in per-event mode.
+  const eventKey = String(update.event_id ?? `${chatId}-${raw.conversation_message_id ?? raw.id ?? ''}`);
+  const workflowId = conversationWorkflowId(triggerFunction, mode, chatId, raw.from_id, eventKey);
+  state.chatTriggerFunctions.set(chatId, { workflowId, workflowType: triggerFunction.name, mode });
 
   const media = await resolveIncomingMedia(raw, { uploadFile: ctx.uploadFile });
 
   await ctx.signalWorkflow({
-    workflowId: `vk-${triggerFunction.id}-${chatId}`,
+    workflowId,
     workflowType: triggerFunction.name,
     signalName: VK_SIGNAL_NAME,
     signalArgs: [{ ...message, ...media }],
   });
+};
+
+/** Where a button press goes: the remembered run, else (after a restart) the primary document's conversation id. */
+const resolveCallbackTarget = (
+  documents: readonly IIntegrationDocumentRecord[],
+  event: IVkMessageEventObject,
+  state: IVkTargetState,
+): IChatTrigger | undefined => {
+  const remembered = state.chatTriggerFunctions.get(event.peer_id);
+  if (remembered) return remembered;
+  const doc = selectPrimaryTriggerFunction(documents, vkChatKindOf(event.peer_id));
+  if (!doc) return;
+  const mode = resolveConversationMode(getTriggerFunctionBodyData(doc)?.triggerConfig);
+  // Only a per-chat id (or, in a private chat, the user's own) can be rebuilt without the message that started the run.
+  if (mode === 'per-event') return { workflowId: '', workflowType: doc.name, mode };
+  return {
+    workflowId: conversationWorkflowId(doc, mode, event.peer_id, event.user_id, ''),
+    workflowType: doc.name,
+    mode,
+  };
 };
 
 /** Normalizes a button press into the fixed `{ messageId, value }` answer contract every question vendor uses. */
@@ -320,8 +369,8 @@ const handleMessageEvent = async (
   const messageId = event.conversation_message_id;
   if (typeof value !== 'string' || !chatId || !messageId) return;
 
-  const triggerFunction = selectTriggerFunctionForCallback(await findBoundTriggerFunctions(ctx), chatId, state);
-  if (!triggerFunction) {
+  const target = resolveCallbackTarget(await findBoundTriggerFunctions(ctx), event, state);
+  if (!target) {
     await ctx.reportJournalProblem?.({
       workflowId: unboundWorkflowId(chatId),
       level: 'warn',
@@ -334,10 +383,39 @@ const handleMessageEvent = async (
     });
     return;
   }
+  // A conversation's per-user / per-event runs cannot be told apart by chat alone until pending-question routing
+  // (ADR 0076 (private) phase 2); guessing would silently start a new run with signalWithStart.
+  if (vkChatKindOf(chatId) === 'group' && target.mode !== 'per-chat') {
+    await ctx.reportJournalProblem?.({
+      workflowId: unboundWorkflowId(chatId),
+      level: 'warn',
+      message:
+        'A button pressed in a group cannot be routed to its conversation before pending-question routing (phase 2)',
+      data: {
+        errorType: 'UnroutableGroupAnswer',
+        signal: VK_QUESTION_ANSWER_SIGNAL_NAME,
+        payload: { messageId: String(messageId), value },
+      },
+    });
+    return;
+  }
+  if (!target.workflowId) {
+    await ctx.reportJournalProblem?.({
+      workflowId: unboundWorkflowId(chatId),
+      level: 'warn',
+      message: 'Ignored a button press: the run that asked cannot be found after a restart (per-event conversation)',
+      data: {
+        errorType: 'UnroutableAnswer',
+        signal: VK_QUESTION_ANSWER_SIGNAL_NAME,
+        payload: { messageId: String(messageId), value },
+      },
+    });
+    return;
+  }
 
   await ctx.signalWorkflow({
-    workflowId: `vk-${triggerFunction.id}-${chatId}`,
-    workflowType: triggerFunction.name,
+    workflowId: target.workflowId,
+    workflowType: target.workflowType,
     signalName: VK_QUESTION_ANSWER_SIGNAL_NAME,
     signalArgs: [{ messageId: String(messageId), value }],
   });
@@ -349,17 +427,27 @@ export const handleVkUpdate = async (
   update: IVkUpdate,
   state?: IVkTargetState,
 ): Promise<void> => {
-  const targetState = state ?? { chatTriggerFunctions: new Map(), users: new Map() };
+  const targetState: IVkTargetState = state ?? { chatTriggerFunctions: new Map(), users: new Map() };
   if (update.type === 'message_new') {
     const object = update.object as (IVkMessageNewObject & Partial<IVkRawMessage>) | null | undefined;
     const raw = object?.message ?? (object as IVkRawMessage | null | undefined);
     // The community's own messages come back as events too.
     if (!raw || raw.out === 1) return;
-    await signalIncomingMessage(ctx, raw, targetState);
+    // A join/leave service message is a member event, never an on-message input; other service messages carry no text.
+    if (isVkMemberAction(raw as TVkRawActionMessage)) {
+      await handleChatMemberAction(ctx, update, raw as TVkRawActionMessage);
+      return;
+    }
+    if ((raw as TVkRawActionMessage).action) return;
+    await signalIncomingMessage(ctx, raw, update, targetState);
     return;
   }
   if (update.type === 'message_event') {
     await handleMessageEvent(ctx, update.object as IVkMessageEventObject, targetState);
+    return;
+  }
+  if (update.type === 'group_join' || update.type === 'group_leave') {
+    await handleGroupMemberUpdate(ctx, update, update.group_id ?? targetState.groupId);
   }
 };
 
@@ -370,6 +458,8 @@ interface ICallbackServerList {
 export interface IVkIngressParams {
   readonly accessToken: string;
   readonly groupId: number;
+  /** Also switch on `group_join` / `group_leave` (the production bot; the shared test bot has no use for them). */
+  readonly memberEvents?: boolean;
   /** Receives every VK event in order (confirmations and secret checks are done before). */
   onUpdate(update: IVkUpdate): Promise<void>;
 }
@@ -418,6 +508,7 @@ export const startVkCallbackIngress = async (params: IVkCallbackIngressParams): 
     api_version: VK_API_VERSION,
     message_new: 1,
     message_event: 1,
+    ...(params.memberEvents ? { group_join: 1, group_leave: 1 } : {}),
   });
   return async () => {
     await vkApiJson(accessToken, 'groups.deleteCallbackServer', { group_id: groupId, server_id: serverId });
@@ -431,7 +522,7 @@ export interface IVkLongPollIngressParams extends IVkIngressParams {
 /** Bots Long Poll: a non-overlapping loop with `failed` handling; the position lives in this closure only. */
 export const startVkLongPollIngress = async (params: IVkLongPollIngressParams): Promise<() => Promise<void>> => {
   const { accessToken, groupId } = params;
-  await vkEnableLongPoll(accessToken, groupId);
+  await vkEnableLongPoll(accessToken, groupId, params.memberEvents);
   let poll: IVkLongPollServer | null = null;
   let polling = false;
   params.registerInterval(async () => {
@@ -486,6 +577,7 @@ export const registerVkBackend: TRegisterIntegrationBackend = async (ctx) => {
   }
 
   const groupId = await vkGetGroupId(accessToken);
+  state.groupId = groupId;
   const onUpdate = (update: IVkUpdate): Promise<void> => handleVkUpdate(ctx, update, state);
 
   if (ctx.webhookUrl) {
@@ -493,6 +585,7 @@ export const registerVkBackend: TRegisterIntegrationBackend = async (ctx) => {
     return startVkCallbackIngress({
       accessToken,
       groupId,
+      memberEvents: true,
       onUpdate,
       webhookUrl: ctx.webhookUrl,
       // base64url of an HMAC — 43 characters, within VK's `secret_key` limit (50).
@@ -504,6 +597,7 @@ export const registerVkBackend: TRegisterIntegrationBackend = async (ctx) => {
   return startVkLongPollIngress({
     accessToken,
     groupId,
+    memberEvents: true,
     onUpdate,
     registerInterval: (callback, intervalMs) => ctx.registerInterval(callback, intervalMs),
   });
