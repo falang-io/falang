@@ -200,8 +200,8 @@ export const compileActivities = (
     );
     bodies.push([`export const ${ACTIVITY_VENDORS_EXPORT}: Record<string, string> = {`, ...lines, '};'].join('\n'));
   }
-  const tableFields =
-    options.tableFields ?? (blocks.some((block) => block.includes(TABLE_FIELDS_EXPORT)) ? {} : undefined);
+  const mentionsTableFields = blocks.some((block) => block.includes(TABLE_FIELDS_EXPORT));
+  const tableFields = options.tableFields ?? (mentionsTableFields ? {} : null);
   if (tableFields) {
     // Plain `JSON.stringify` (not `toSingleQuoted`): field names are user text and may hold quotes or any script.
     bodies.push(

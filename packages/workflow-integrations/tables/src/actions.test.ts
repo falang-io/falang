@@ -1,3 +1,4 @@
+// oxlint-disable no-undefined -- optional values are modelled with `undefined` throughout (absent filter/field).
 import { describe, expect, it } from 'vitest';
 import { tablesActions, TABLES_SHARED_ACTIVITY_CODE } from './actions.js';
 

@@ -1,3 +1,4 @@
+// oxlint-disable no-undefined -- optional values are modelled with `undefined` throughout (absent filter/field).
 import { describe, expect, it } from 'vitest';
 import { TablesRequestError, dataToIds, invertFieldMap, orderByToIds, recordToRow, whereToIds } from './translate.js';
 

@@ -79,8 +79,8 @@ describe('table field maps in the activities module', () => {
     const line = project.activities
       .split('\n')
       .find((candidate) => candidate.startsWith('export const __falangTableFields'));
-    expect(line).toBeDefined();
-    const json = line!.slice(line!.indexOf('= ') + 2, -1);
+    if (!line) throw new Error('__falangTableFields export missing');
+    const json = line.slice(line.indexOf('= ') + 2, -1);
     expect(JSON.parse(json)).toEqual({ t1: { [name]: 'f1', Телефон: 'f2' } });
   });
 

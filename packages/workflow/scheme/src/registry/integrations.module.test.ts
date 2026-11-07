@@ -1,3 +1,4 @@
+// oxlint-disable no-undefined -- optional values are modelled with `undefined` throughout (absent filter/field).
 import { container as diContainer, resolveService } from '@falang/di';
 import { registerGlobalTokens, TOKEN_I18N, type Scheme } from '@falang/scheme';
 import type { IWorkflowIntegration, TIntegrationLocaleLoader } from '@falang/workflow-integrations-common';

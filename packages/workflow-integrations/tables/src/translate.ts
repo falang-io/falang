@@ -1,3 +1,4 @@
+// oxlint-disable no-undefined -- optional values are modelled with `undefined` throughout (absent filter/field).
 import { TABLE_SYSTEM_KEYS } from '@falang/workflow-dto';
 
 /**
