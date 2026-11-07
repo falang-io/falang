@@ -107,7 +107,7 @@ describe('integrations (workflow tier): VK community management', () => {
       documents: [integrationsDocument(credentialId, botToken), ...documents(credentialId)],
     };
     const imported = await workflowE2eApi().post('/projects/import').set(workflowE2eAuth(token)).send(fixture);
-    expect(imported.status).toBe(201);
+    expect(imported.status, JSON.stringify(imported.body)).toBe(201);
     const projectId = imported.body.id as string;
     try {
       const buildResponse = await workflowE2eApi().post(`/projects/${projectId}/build`).set(workflowE2eAuth(token));
@@ -131,7 +131,7 @@ describe('integrations (workflow tier): VK community management', () => {
     await withRunningProject(
       'Workflow-tier VK group join',
       (credentialId) => [
-        triggerDocument('on-join', credentialId, VK_GROUP_MEMBER_JOINED_TRIGGER_NAME, [
+        triggerDocument('onJoin', credentialId, VK_GROUP_MEMBER_JOINED_TRIGGER_NAME, [
           buildVkSendMessageNode('welcome', {
             credentialId,
             chatId: 'event.userId',
@@ -159,11 +159,11 @@ describe('integrations (workflow tier): VK community management', () => {
     await withRunningProject(
       'Workflow-tier VK chat join kick',
       (credentialId) => [
-        triggerDocument('on-chat-join', credentialId, VK_CHAT_MEMBER_JOINED_TRIGGER_NAME, [
+        triggerDocument('onChatJoin', credentialId, VK_CHAT_MEMBER_JOINED_TRIGGER_NAME, [
           buildVkKickFromChatNode('kick', { credentialId, chatId: 'event.chat.id', userId: 'event.userId' }),
         ]),
         // The service message must not reach the on-message trigger.
-        triggerDocument('on-message', credentialId, VK_TRIGGER_NAME, [
+        triggerDocument('onMessage', credentialId, VK_TRIGGER_NAME, [
           buildVkSendMessageNode('echo', { credentialId, chatId: 'message.chat.id', text: 'Echo' }),
         ]),
       ],

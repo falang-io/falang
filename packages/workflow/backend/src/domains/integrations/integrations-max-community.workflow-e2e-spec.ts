@@ -103,7 +103,7 @@ describe('integrations (workflow tier): MAX community management', () => {
       ],
     };
     const imported = await workflowE2eApi().post('/projects/import').set(workflowE2eAuth(token)).send(fixture);
-    expect(imported.status).toBe(201);
+    expect(imported.status, JSON.stringify(imported.body)).toBe(201);
     const projectId = imported.body.id as string;
     try {
       const buildResponse = await workflowE2eApi().post(`/projects/${projectId}/build`).set(workflowE2eAuth(token));
@@ -127,7 +127,7 @@ describe('integrations (workflow tier): MAX community management', () => {
     await withRunningProject(
       'Workflow-tier MAX member joined',
       (credentialId) => [
-        triggerDocument('on-join', credentialId, MAX_MEMBER_JOINED_TRIGGER_NAME, [
+        triggerDocument('onJoin', credentialId, MAX_MEMBER_JOINED_TRIGGER_NAME, [
           {
             id: 'welcome',
             name: MAX_SEND_MESSAGE_NAME,
@@ -157,7 +157,7 @@ describe('integrations (workflow tier): MAX community management', () => {
       'Workflow-tier MAX moderation',
       (credentialId) => [
         triggerDocument(
-          'on-group-message',
+          'onGroupMessage',
           credentialId,
           MAX_TRIGGER_NAME,
           [

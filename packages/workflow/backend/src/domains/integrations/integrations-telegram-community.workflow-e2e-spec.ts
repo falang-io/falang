@@ -101,7 +101,7 @@ describe('integrations (workflow tier): Telegram community management', () => {
     const projectId = imported.body.id as string;
     try {
       const build = await workflowE2eApi().post(`/projects/${projectId}/build`).set(workflowE2eAuth(token));
-      expect(build.status).toBe(202);
+      expect(build.status, JSON.stringify(build.body.errors ?? build.body)).toBe(202);
       await waitForDevRunnerStatus(projectId, true, 60_000);
       await scenario(botToken);
       await workflowE2eApi().post(`/projects/${projectId}/stop`).set(workflowE2eAuth(token)).expect(204);
@@ -170,7 +170,7 @@ describe('integrations (workflow tier): Telegram community management', () => {
           buildTelegramSendMessageNode('report', {
             credentialId,
             chatId: 'message.chat.id',
-            text: 'links: ${(message.entities ?? []).filter((entity) => entity.type === "url").length}',
+            text: 'links: ${(message.entities ?? []).filter((entity: { type: string }) => entity.type === "url").length}',
           }),
         ],
       },
