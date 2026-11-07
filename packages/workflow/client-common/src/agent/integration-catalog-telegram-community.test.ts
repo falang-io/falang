@@ -24,3 +24,19 @@ describe('searchIntegrations — Telegram community management (ADR 0076 (privat
     expect(onMessage?.contextFields?.map((field) => field.name)).toEqual(['chatType', 'conversation']);
   });
 });
+
+describe('searchIntegrations — MAX and VK community management (ADR 0076 (private))', () => {
+  it.each(['moderation', 'kick', 'member'])('"%s" finds MAX and VK', (keyword) => {
+    const vendors = search([keyword]).vendors.map((vendor) => vendor.vendor);
+    expect(vendors).toContain('max');
+    expect(vendors).toContain('vk');
+  });
+
+  it.each(['max', 'vk'])('lists %s member triggers and the routing context fields of its on-message trigger', (id) => {
+    const vendor = search([id]).vendors.find((entry) => entry.vendor === id);
+    const triggers = vendor?.triggers ?? [];
+    expect(triggers.some((trigger) => /member/.test(trigger.name))).toBe(true);
+    const onMessage = triggers.find((trigger) => trigger.name === `${id}-trigger`);
+    expect(onMessage?.contextFields?.map((field) => field.name)).toEqual(['chatType', 'conversation']);
+  });
+});

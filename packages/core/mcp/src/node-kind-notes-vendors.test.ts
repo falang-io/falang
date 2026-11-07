@@ -11,6 +11,14 @@ describe('node-kind-notes-vendors', () => {
     expect(Object.keys(VENDOR_NODE_KIND_NOTES).toSorted()).toEqual(
       [
         'telegram-get-member',
+        'telegram-ban-member',
+        'telegram-delete-message',
+        'telegram-approve-join-request',
+        'telegram-decline-join-request',
+        'max-remove-member',
+        'max-delete-message',
+        'vk-kick-from-chat',
+        'vk-delete-message',
         'telegram-question',
         'telegram-question-option',
         'max-question',

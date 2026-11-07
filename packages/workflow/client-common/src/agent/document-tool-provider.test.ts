@@ -245,6 +245,33 @@ describe('DocumentToolProvider', () => {
     expect(folderId).toBeNull();
   });
 
+  it('create_trigger_document: contextFields chatType/conversation land in triggerConfig; omitted ones fall back to their defaults', () => {
+    const { createTriggerFunctionDocument, store } = buildStore(withTelegramCredential());
+    const provider = new DocumentToolProvider(store);
+    const base = { credentialId: 'cred-1', triggerName: TELEGRAM_TRIGGER_NAME, vendor: TELEGRAM_VENDOR };
+
+    parseOk(
+      provider.execute(
+        call('create_trigger_document', {
+          ...base,
+          contextFields: { chatType: 'group', conversation: 'per-event' },
+          name: 'onGroupMessage',
+        }),
+      ),
+    );
+    expect(createTriggerFunctionDocument.mock.calls[0][1].triggerConfig).toEqual({
+      chatType: 'group',
+      conversation: 'per-event',
+    });
+
+    parseOk(provider.execute(call('create_trigger_document', { ...base, name: 'onAnyMessage' })));
+    // Omitted fields get the descriptor's defaultValue (any / per-chat), which routing also treats as the default.
+    expect(createTriggerFunctionDocument.mock.calls[1][1].triggerConfig).toEqual({
+      chatType: 'any',
+      conversation: 'per-chat',
+    });
+  });
+
   it('create_trigger_document rejects a name that is not a camelCase English identifier', () => {
     const { createTriggerFunctionDocument, store } = buildStore(withTelegramCredential());
     const provider = new DocumentToolProvider(store);

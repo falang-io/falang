@@ -24,6 +24,35 @@ export const VENDOR_NODE_KIND_NOTES: Record<string, string> = {
     'routed back to the asking run when the trigger is "per-chat"; with conversation "per-user"/"per-event"',
     'a pressed button is not delivered (private chats are fine) — ask in a private chat instead.',
   ].join(' '),
+  'telegram-ban-member': [
+    'Bans a user from a chat (requires the bot to be an administrator with `can_restrict_members`). `untilDate` is a',
+    'Unix time in seconds; 0 or omitted bans forever. Banning someone who is already banned is a no-op.',
+  ].join(' '),
+  'telegram-delete-message': [
+    "Deletes one message of a chat (the bot needs `can_delete_messages` for other users' messages in groups).",
+    'A message that is already gone is a no-op.',
+  ].join(' '),
+  'telegram-approve-join-request': [
+    'Approves a pending join request (the bot needs `can_invite_users`). An already processed request is a no-op.',
+  ].join(' '),
+  'telegram-decline-join-request': [
+    'Declines a pending join request (the bot needs `can_invite_users`). An already processed request is a no-op.',
+  ].join(' '),
+  'max-remove-member': [
+    'Removes a user from a MAX chat (the bot needs the `add_remove_members` right). `block` defaults to true, which',
+    'bans the user so they cannot return; set it to false to just remove. A user who is already not a member is a no-op.',
+  ].join(' '),
+  'max-delete-message':
+    'Deletes one message of a MAX chat by its `messageId`. A message that is already gone is a no-op.',
+  'vk-kick-from-chat': [
+    "Removes a user from a VK conversation. `chatId` is the conversation's `peer_id` (2000000000 + chat number), and the",
+    'community must be an administrator of it. A user who is already not in the chat (VK error 935) is a no-op.',
+    'This is not a community-level ban.',
+  ].join(' '),
+  'vk-delete-message': [
+    'Deletes one message of a VK conversation. `messageId` is its `conversation_message_id` (the one the message',
+    "payload carries), not the global id. The community needs administrator rights for other users' messages.",
+  ].join(' '),
   'telegram-get-member': [
     'Looks up one user in a chat and declares a variable `{ status, user, isAdmin }`. `status` is one of',
     '"creator", "administrator", "member", "restricted", "left", "kicked"; `isAdmin` is true for the first two.',
@@ -44,6 +73,7 @@ export const VENDOR_NODE_KIND_NOTES: Record<string, string> = {
     "buttons — one per `max-question-option` child, in order, each child's `data.label` the button's text —",
     "and pauses the workflow until the user taps one. Do **not** match the next incoming message's text",
     "instead. Set each option's `out` exactly as for `telegram-question-option`.",
+    'In a group chat the buttons are only routed back to the asking run when the trigger\'s conversation is "per-chat" (until a later phase); with "per-user"/"per-event" use it in private chats only.',
   ].join(' '),
   'max-question-option': [
     "One button of the enclosing `max-question`'s inline keyboard; `data.label` is its text and the value of",
@@ -55,6 +85,7 @@ export const VENDOR_NODE_KIND_NOTES: Record<string, string> = {
     "buttons — one per `vk-question-option` child, in order, each child's `data.label` the button's text —",
     "and pauses the workflow until the user taps one. Do **not** match the next incoming message's text",
     "instead. Set each option's `out` exactly as for `telegram-question-option`.",
+    'In a group chat the buttons are only routed back to the asking run when the trigger\'s conversation is "per-chat" (until a later phase); with "per-user"/"per-event" use it in private chats only.',
   ].join(' '),
   'vk-question-option': [
     "One button of the enclosing `vk-question`'s inline keyboard; `data.label` is its text and the value of",
