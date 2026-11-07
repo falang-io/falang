@@ -23,10 +23,26 @@ support chat, "Change password" and Logout; the desktop app passes it). Every en
 `EGRESS_ALLOW_PRIVATE=true`, `TEMPORAL_ADDRESS`, …) is applied only if you have not set it already, so any of them can be
 overridden from the shell.
 
+## Optional services (`--with`)
+
+`--with <a,b>` (or `startLocalMode({ services })`) starts optional external services before the backend and stops them
+after it: `mailpit`, `egress-proxy`, `media`, `postgres-user-db`, `mysql-user-db`, `activepieces` (the names are fixed;
+one not implemented yet is a start error). `--test-mode` marks an e2e run (a service may enable test-only behaviour,
+e.g. ActivePieces' mock pieces). Each service lives in `src/services/<name>.ts` as an `ILocalService` and is registered by
+one line in `src/services/index.ts`. Its `start(ctx)` gets its own data directory (`<dataDir>/services/<name>`), a free-port
+helper, the backend's public and internal URLs, `childEnv` (the environment without the platform secrets) and
+`getSecret(key)` (a value persisted in `secrets.json` next to the platform secrets). It returns `backendEnv` (applied
+as `??=` defaults, after the local mode's own), `backendSecretEnv` (the same, but never passed to runner processes),
+`testEnv`, the e2e capabilities it provides and `stop()`. `startSupervisedProcess` (spawn, output piped as
+`[name] <line>`, wait for an HTTP URL or a TCP port with the output tail in the error, SIGTERM then SIGKILL) and
+`tsxEntryCommand` (`node --import tsx <entry>`) are the shared helpers. The started services appear in the status file
+as `services: { <name>: { testEnv, capabilities } }`; `npm run test-e2e:fast -- --with <list>` merges every `testEnv`
+into the test environment and drops the capabilities from `FALANG_E2E_MISSING`.
+
 ## Control routes (for a shell such as the Electron app)
 
 With `--status-file <path>` (or the `statusFile` option) the process writes `{ url, internalUrl, temporalAddress,
-temporalUiUrl, pid, firstRun, controlToken }` to that file once everything is up (atomically, mode 0600) and removes it on
+temporalUiUrl, pid, firstRun, controlToken, services }` to that file once everything is up (atomically, mode 0600) and removes it on
 stop. `controlToken` is a fresh random 32-byte hex string per run and enables two routes:
 
 - `POST /internal/local/auto-login` -> `{ accessToken }` for the seeded `admin` (same token as `POST /auth/login`);
@@ -55,6 +71,7 @@ file are known before the server exists (the UI answers only once it has started
 | `files/`               | project files (`<projectId>/<fileId>`)                                                                                                        |
 | `temporal/temporal.db` | Temporal's SQLite database (workflow history)                                                                                                 |
 | `bin/`                 | the downloaded `temporal` CLI                                                                                                                 |
+| `services/<name>/`     | data of an optional service (`--with`)                                                                                                        |
 | `secrets.json`         | generated secrets, mode 0600. Back it up with the directory: without `CREDENTIALS_ENCRYPTION_KEY` the stored credentials cannot be decrypted. |
 
 ## What is different from the hosted stack
@@ -67,7 +84,8 @@ to the public port; Telegram in polling mode works. Signup is off - create more 
 
 - `src/local-control.ts` - the control routes; `src/local-mode.ts` - `startLocalMode`; `src/main.ts` - the CLI; `src/local-mode.module.ts` - the overlay Nest module.
 - `src/db/`, `src/files/`, `src/runner/`, `src/temporal/` - PGlite driver, `DiskFileStorage`, `createProcessDeploymentsClient`, the Temporal CLI supervisor.
-- `src/serve-client.ts` - static client with its own CSP; `src/secrets.ts` - `secrets.json`.
+- `src/serve-client.ts` - static client with its own CSP; `src/secrets.ts` - `secrets.json`; `src/status-file.ts` - the status file.
+- `src/services/` - the optional services (`--with`): `types.ts`, `supervisor.ts`, `start-services.ts`, the registry `index.ts`.
 
 `npm run test-e2e:local` (repo root) starts the CLI in a child process and drives build, run, stop and file upload over HTTP.
 
@@ -75,3 +93,4 @@ to the public port; Telegram in polling mode works. Signup is off - create more 
 Playwright browser tier — against this CLI plus `@falang/workflow-mocks`, both as child processes on free ports. Specs
 that need a service the local mode does not start (ActivePieces, media, mail, user databases, the egress proxy,
 per-project Temporal isolation) are skipped via `FALANG_E2E_MISSING`; `npm run test-e2e` on kind still covers them.
+`--with <list>` (default `DEFAULT_SERVICES` in the script) starts optional services and runs the specs they enable.

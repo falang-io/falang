@@ -1,4 +1,6 @@
 // oxlint-disable no-undefined, unicorn/switch-case-braces -- `argv[i]` may be undefined past the end; flat switch of flags.
+import { isLocalServiceName, LOCAL_SERVICE_NAMES, type TLocalServiceName } from './services/types.js';
+
 export interface ICliArgs {
   dataDir: string;
   port?: number;
@@ -9,7 +11,24 @@ export interface ICliArgs {
   skipClient: boolean;
   statusFile?: string;
   singleUser: boolean;
+  /** `--with a,b` (repeatable): optional services to start, deduplicated, in the given order. */
+  services: TLocalServiceName[];
+  /** `--test-mode`: an e2e run; services may enable test-only behaviour. */
+  testMode: boolean;
 }
+
+/** Parses a `--with` value: comma-separated service names; empty items are ignored, unknown ones rejected. */
+export const parseServiceList = (raw: string): TLocalServiceName[] =>
+  raw
+    .split(',')
+    .map((item) => item.trim())
+    .filter(Boolean)
+    .map((item) => {
+      if (!isLocalServiceName(item)) {
+        throw new Error(`Unknown service "${item}" in --with (known: ${LOCAL_SERVICE_NAMES.join(', ')})`);
+      }
+      return item;
+    });
 
 export const parseLocalCliArgs = (argv: readonly string[], defaultDataDir: string): ICliArgs => {
   const args: ICliArgs = {
@@ -18,6 +37,8 @@ export const parseLocalCliArgs = (argv: readonly string[], defaultDataDir: strin
     temporalUi: true,
     skipClient: false,
     singleUser: false,
+    services: [],
+    testMode: false,
   };
   for (let i = 0; i < argv.length; i += 1) {
     const flag = argv[i];
@@ -60,6 +81,12 @@ export const parseLocalCliArgs = (argv: readonly string[], defaultDataDir: strin
         break;
       case '--skip-client':
         args.skipClient = true;
+        break;
+      case '--with':
+        for (const name of parseServiceList(value())) if (!args.services.includes(name)) args.services.push(name);
+        break;
+      case '--test-mode':
+        args.testMode = true;
         break;
       default:
         throw new Error(`Unknown argument "${flag}"`);

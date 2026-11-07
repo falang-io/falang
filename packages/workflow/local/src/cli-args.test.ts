@@ -10,6 +10,8 @@ describe('parseLocalCliArgs', () => {
       temporalUi: true,
       skipClient: false,
       singleUser: false,
+      services: [],
+      testMode: false,
     });
   });
 
@@ -30,6 +32,9 @@ describe('parseLocalCliArgs', () => {
         '--status-file',
         '/s.json',
         '--single-user',
+        '--with',
+        'mailpit,media',
+        '--test-mode',
       ],
       '/d',
     );
@@ -43,6 +48,8 @@ describe('parseLocalCliArgs', () => {
       temporalUi: false,
       statusFile: '/s.json',
       singleUser: true,
+      services: ['mailpit', 'media'],
+      testMode: true,
     });
   });
 
@@ -57,5 +64,16 @@ describe('parseLocalCliArgs', () => {
       '--internal-port must be a port number',
     );
     expect(parseLocalCliArgs(['--port', '0'], '/d').port).toBe(0);
+  });
+
+  it('parses --with: repeatable, deduplicated, empty items ignored, unknown names rejected', () => {
+    expect(parseLocalCliArgs(['--with', 'media, mailpit,', '--with', 'media,activepieces'], '/d').services).toEqual([
+      'media',
+      'mailpit',
+      'activepieces',
+    ]);
+    expect(parseLocalCliArgs(['--with', ''], '/d').services).toEqual([]);
+    expect(() => parseLocalCliArgs(['--with', 'mailpit,redis'], '/d')).toThrow('Unknown service "redis" in --with');
+    expect(() => parseLocalCliArgs(['--with'], '/d')).toThrow('--with needs a value');
   });
 });

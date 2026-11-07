@@ -1,20 +1,25 @@
 // oxlint-disable unicorn/prefer-module -- this package is CommonJS (package.json "type"); __filename is the correct tool here.
-import { spawn } from 'node:child_process';
 import { createRequire } from 'node:module';
 import { randomBytes } from 'node:crypto';
-import { mkdir, rename, rm, writeFile } from 'node:fs/promises';
+import { mkdir, rm } from 'node:fs/promises';
 import os from 'node:os';
 import path from 'node:path';
-import { pathToFileURL } from 'node:url';
 import { startApp } from '@falang/workflow-backend';
 import { createPgliteDatabaseOptions, UuidOsspExtensionMigration } from './db/queued-pglite-driver.js';
 import { DiskFileStorage } from './files/disk-file-storage.js';
 import { LocalModeModule } from './local-mode.module.js';
 import { createProcessDeploymentsClient } from './runner/process-deployments-client.js';
 import { loadOrCreateSecrets } from './secrets.js';
+import { openInBrowser } from './open-in-browser.js';
 import { createClientMiddleware } from './serve-client.js';
+import { writeStatusFile, type ILocalStatus } from './status-file.js';
+import { getLocalService, startLocalServices, tsxEntryCommand } from './services/index.js';
+import type { ILocalServiceStatus, TLocalServiceName } from './services/index.js';
 import { downloadTemporalCli, findFreePort, OnDemandTemporalServer, resolveTemporalCli } from './temporal/index.js';
 import type { IProcessDeploymentsClient } from './runner/process-deployments-client.js';
+
+export type { ILocalStatus } from './status-file.js';
+export { openInBrowser } from './open-in-browser.js';
 
 const requireFromHere = createRequire(__filename);
 
@@ -49,16 +54,13 @@ export interface IStartLocalModeOptions {
   readonly log?: (line: string) => void;
   /** Called when the Temporal child dies on its own (after it was started on demand). */
   readonly onTemporalExit?: (error: Error) => void;
-}
-
-export interface ILocalStatus {
-  readonly url: string;
-  readonly internalUrl: string;
-  readonly temporalAddress: string;
-  readonly temporalUiUrl: string | null;
-  readonly pid: number;
-  readonly firstRun: boolean;
-  readonly controlToken: string;
+  /**
+   * Optional services to start before the backend (`--with`): see `src/services/`. Their `backendEnv` is applied as
+   * defaults, they are stopped after the backend and the runners, and listed in the status file. Default none.
+   */
+  readonly services?: readonly TLocalServiceName[];
+  /** An e2e/test run (`--test-mode`): services may enable test-only behaviour (e.g. mock pieces). Default false. */
+  readonly testMode?: boolean;
 }
 
 export interface ILocalMode {
@@ -70,6 +72,8 @@ export interface ILocalMode {
   readonly firstRun: boolean;
   /** The per-run control token, or `null` when the control routes are off. */
   readonly controlToken: string | null;
+  /** Same as the status file's `services`. */
+  readonly services: Readonly<Partial<Record<TLocalServiceName, ILocalServiceStatus>>>;
   stop(): Promise<void>;
 }
 
@@ -108,19 +112,6 @@ const startTemporalBeforeRunners = (
 /** Default data directory of the CLI. */
 export const defaultDataDir = (): string =>
   process.env.FALANG_LOCAL_DATA_DIR ?? path.join(os.homedir(), '.falang-flow');
-
-export const openInBrowser = (url: string): void => {
-  let command = { file: 'xdg-open', args: [url] };
-  if (process.platform === 'darwin') command = { file: 'open', args: [url] };
-  if (process.platform === 'win32') command = { file: 'cmd', args: ['/c', 'start', '', url] };
-  try {
-    const child = spawn(command.file, command.args, { detached: true, stdio: 'ignore' });
-    child.on('error', () => null);
-    child.unref();
-  } catch {
-    // no browser available: the URL is printed anyway
-  }
-};
 
 /**
  * Starts the whole workflow product in this one process: PGlite database, disk file storage, runners as child processes
@@ -202,19 +193,36 @@ export const startLocalMode = async (options: IStartLocalModeOptions): Promise<I
   };
   Object.entries(env).forEach(([key, value]) => setDefault(key, value));
 
+  // Optional services: their `backendEnv` must be in `process.env` before the backend reads its config. Started after
+  // the local defaults above (which therefore win on a clash) and stopped again if the backend fails to start.
+  const withoutSecrets = (source: NodeJS.ProcessEnv, extra: readonly string[] = []): NodeJS.ProcessEnv =>
+    Object.fromEntries(
+      Object.entries(source).filter(
+        ([key]) => !(SECRET_ENV_KEYS as readonly string[]).includes(key) && !extra.includes(key),
+      ),
+    );
+  const services = await startLocalServices(options.services ?? [], {
+    dataDir,
+    log,
+    publicUrl,
+    internalUrl,
+    testMode: options.testMode ?? false,
+    childEnv: withoutSecrets(process.env),
+    resolve: getLocalService,
+  });
+  Object.entries(services.backendEnv).forEach(([key, value]) => setDefault(key, value));
+  Object.entries(services.backendSecretEnv).forEach(([key, value]) => setDefault(key, value));
+
   // Tenant code runs in the runner: it gets no platform secrets.
-  const runnerEnv: NodeJS.ProcessEnv = Object.fromEntries(
-    Object.entries(process.env).filter(([key]) => !(SECRET_ENV_KEYS as readonly string[]).includes(key)),
-  );
+  const runnerEnv = withoutSecrets(process.env, Object.keys(services.backendSecretEnv));
   // The runner resolves the activities module's imports (`@temporalio/activity`, vendor packages) from this directory.
   runnerEnv.RUNNER_MODULE_ROOT = path.dirname(requireFromHere.resolve('@falang/workflow-runner/package.json'));
   // `--import tsx` loads TypeScript in the runner's own process; the `tsx` CLI would add a second Node process
-  // (~60 MB) per runner. A file URL, since `--import` takes a URL or a bare specifier, not a Windows path.
-  const tsxLoader = pathToFileURL(requireFromHere.resolve('tsx')).href;
-  const runnerMain = requireFromHere.resolve('@falang/workflow-runner/src/main.ts');
+  // (~60 MB) per runner.
+  const runnerCommand = tsxEntryCommand(requireFromHere.resolve('@falang/workflow-runner/src/main.ts'));
   const deploymentsClient = startTemporalBeforeRunners(
     createProcessDeploymentsClient({
-      command: { file: process.execPath, args: ['--import', tsxLoader, runnerMain] },
+      command: { file: runnerCommand.command, args: runnerCommand.args },
       baseEnv: runnerEnv,
       log,
     }),
@@ -242,6 +250,7 @@ export const startLocalMode = async (options: IStartLocalModeOptions): Promise<I
     },
   }).catch(async (error: unknown) => {
     await deploymentsClient.stopAll();
+    await services.stop();
     await temporal.stop();
     throw error;
   });
@@ -251,6 +260,7 @@ export const startLocalMode = async (options: IStartLocalModeOptions): Promise<I
       if (statusFile) await rm(statusFile, { force: true });
       await app.close().catch((error: unknown) => log(`[local] app.close failed: ${String(error)}`));
       await deploymentsClient.stopAll();
+      await services.stop();
       await temporal.stop();
     })();
     return stopping;
@@ -265,11 +275,9 @@ export const startLocalMode = async (options: IStartLocalModeOptions): Promise<I
       pid: process.pid,
       firstRun: created,
       controlToken,
+      services: services.status,
     };
-    await mkdir(path.dirname(statusFile), { recursive: true });
-    const tmpFile = `${statusFile}.${process.pid}.tmp`;
-    await writeFile(tmpFile, JSON.stringify(status), { mode: 0o600 });
-    await rename(tmpFile, statusFile);
+    await writeStatusFile(statusFile, status);
   }
   if (options.openBrowser) openInBrowser(publicUrl);
   return {
@@ -279,6 +287,7 @@ export const startLocalMode = async (options: IStartLocalModeOptions): Promise<I
     temporalUiUrl: temporal.uiUrl,
     firstRun: created,
     controlToken,
+    services: services.status,
     stop,
   };
 };

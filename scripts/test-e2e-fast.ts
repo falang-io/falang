@@ -10,16 +10,18 @@
  * Not a replacement for `npm run test-e2e`: k8s runner pods, real Postgres, S3 and tenant isolation are only
  * covered there.
  *
- * Run: `npm run test-e2e:fast [-- --tier workflow|browser|all] [--reuse-client] [--keep] [-- <filters>]`
- * (filters go to the one selected tier and need `--tier workflow` or `--tier browser`). Needs a `temporal` binary on
- * PATH or downloads one (see `@falang/workflow-local`).
+ * Run: `npm run test-e2e:fast [-- --tier workflow|browser|all] [--with <services>] [--reuse-client] [--keep]
+ * [-- <filters>]` (filters go to the one selected tier and need `--tier workflow` or `--tier browser`). `--with a,b`
+ * starts optional local services (`@falang/workflow-local`'s `src/services/`, default `DEFAULT_SERVICES`; `--with ''`
+ * none); each service's `testEnv` reaches the tests and its capabilities are removed from `FALANG_E2E_MISSING`.
+ * Needs a `temporal` binary on PATH or downloads one (see `@falang/workflow-local`).
  */
-import { spawn, type ChildProcess } from 'node:child_process';
-import { createWriteStream, existsSync } from 'node:fs';
+import type { ChildProcess } from 'node:child_process';
+import { existsSync } from 'node:fs';
 import { mkdtemp, readFile, rm } from 'node:fs/promises';
-import net from 'node:net';
 import os from 'node:os';
 import path from 'node:path';
+import { freePort, isUp, run, sleep, startService, stopService } from './test-e2e-fast-lib.js';
 
 const ROOT = path.resolve(__dirname, '..');
 const CLIENT_PACKAGE_DIR = path.join(ROOT, 'packages', 'workflow', 'client');
@@ -28,6 +30,14 @@ const E2E_TESTS_DIR = path.join(ROOT, 'packages', 'workflow', 'e2e-tests');
 
 /** What the local mode lacks compared with the kind stack — the matching specs are skipped. */
 const MISSING_CAPABILITIES = ['activepieces', 'media', 'mail', 'user-databases', 'egress-proxy', 'temporal-isolation'];
+
+/**
+ * Optional local services started by default (`--with` overrides). Each started service removes the capabilities it
+ * reports from the list above. One line per service.
+ */
+const DEFAULT_SERVICES: readonly string[] = [
+  // e.g. 'mailpit',
+];
 
 /** Same value as `docker-compose.workflow-e2e.yml`: the tables spec derives project tokens from it. */
 const PROJECT_TOKEN_SECRET = 'e2e-project-token-secret-at-least-32-chars';
@@ -38,13 +48,28 @@ interface IArgs {
   readonly tier: TTier;
   readonly reuseClient: boolean;
   readonly keep: boolean;
+  readonly services: readonly string[];
   readonly filters: readonly string[];
 }
+
+interface ILocalStatusFile {
+  readonly temporalAddress: string;
+  readonly services?: Readonly<
+    Record<string, { readonly testEnv?: Readonly<Record<string, string>>; readonly capabilities?: readonly string[] }>
+  >;
+}
+
+const splitList = (value: string): string[] =>
+  value
+    .split(',')
+    .map((item) => item.trim())
+    .filter(Boolean);
 
 const parseArgs = (argv: readonly string[]): IArgs => {
   let tier: TTier = 'all';
   let reuseClient = false;
   let keep = false;
+  let services: readonly string[] = DEFAULT_SERVICES;
   const filters: string[] = [];
   for (let index = 0; index < argv.length; index += 1) {
     const arg = argv[index];
@@ -52,6 +77,11 @@ const parseArgs = (argv: readonly string[]): IArgs => {
       const value = argv[index + 1];
       if (value !== 'workflow' && value !== 'browser' && value !== 'all') throw new Error(`Unknown tier: ${value}`);
       tier = value;
+      index += 1;
+    } else if (arg === '--with') {
+      const value = argv[index + 1];
+      if (typeof value !== 'string') throw new Error('--with needs a value (comma-separated services, or "")');
+      services = splitList(value);
       index += 1;
     } else if (arg === '--reuse-client') reuseClient = true;
     else if (arg === '--keep') keep = true;
@@ -61,70 +91,7 @@ const parseArgs = (argv: readonly string[]): IArgs => {
     if (arg === '--') break;
   }
   if (filters.length > 0 && tier === 'all') throw new Error('Filters need --tier workflow or --tier browser');
-  return { tier, reuseClient, keep, filters };
-};
-
-const freePort = (): Promise<number> =>
-  new Promise((resolve, reject) => {
-    const server = net.createServer();
-    server.once('error', reject);
-    server.listen(0, '127.0.0.1', () => {
-      const address = server.address();
-      server.close(() =>
-        typeof address === 'object' && address ? resolve(address.port) : reject(new Error('no port')),
-      );
-    });
-  });
-
-const sleep = (ms: number): Promise<void> =>
-  new Promise((resolve) => {
-    setTimeout(resolve, ms);
-  });
-
-const isUp = async (url: string): Promise<boolean> => {
-  try {
-    await fetch(url);
-    return true;
-  } catch {
-    return false;
-  }
-};
-
-/** Runs a command with inherited output; resolves with its exit code. */
-const run = (
-  command: string,
-  args: readonly string[],
-  options: { cwd: string; env: NodeJS.ProcessEnv },
-): Promise<number> =>
-  new Promise((resolve, reject) => {
-    const child = spawn(command, args, { ...options, stdio: 'inherit', shell: process.platform === 'win32' });
-    child.once('error', reject);
-    child.once('exit', (code, signal) => resolve(code ?? (signal ? 1 : 0)));
-  });
-
-/** Starts a long-running TypeScript entry point with its output in `logFile`. */
-const startService = (
-  entry: string,
-  args: readonly string[],
-  env: NodeJS.ProcessEnv,
-  logFile: string,
-): ChildProcess => {
-  const log = createWriteStream(logFile);
-  // `--import tsx` keeps it one Node process, so a signal reaches the service itself (`npx tsx` would not forward it).
-  const child = spawn(process.execPath, ['--import', 'tsx', entry, ...args], { cwd: ROOT, env, stdio: 'pipe' });
-  child.stdout?.pipe(log);
-  child.stderr?.pipe(log);
-  return child;
-};
-
-const stopService = async (child: ChildProcess | null, signal: NodeJS.Signals, timeoutMs: number): Promise<void> => {
-  if (!child || child.exitCode !== null || child.signalCode !== null) return;
-  const exited = new Promise<void>((resolve) => {
-    child.once('exit', () => resolve());
-  });
-  child.kill(signal);
-  await Promise.race([exited, sleep(timeoutMs)]);
-  if (child.exitCode === null && child.signalCode === null) child.kill('SIGKILL');
+  return { tier, reuseClient, keep, services, filters };
 };
 
 const buildClient = async (): Promise<void> => {
@@ -136,11 +103,7 @@ const buildClient = async (): Promise<void> => {
   if (code !== 0) throw new Error(`client build failed (exit ${code})`);
 };
 
-const waitForStatusFile = async (
-  file: string,
-  local: ChildProcess,
-  logFile: string,
-): Promise<{ temporalAddress: string }> => {
+const waitForStatusFile = async (file: string, local: ChildProcess, logFile: string): Promise<ILocalStatusFile> => {
   const deadline = Date.now() + 180_000;
   while (!existsSync(file)) {
     if (local.exitCode !== null) throw new Error(`local mode exited with code ${local.exitCode}, see ${logFile}`);
@@ -148,7 +111,7 @@ const waitForStatusFile = async (
     // oxlint-disable-next-line no-await-in-loop -- polling
     await sleep(500);
   }
-  return JSON.parse(await readFile(file, 'utf8')) as { temporalAddress: string };
+  return JSON.parse(await readFile(file, 'utf8')) as ILocalStatusFile;
 };
 
 const main = async (): Promise<number> => {
@@ -191,6 +154,7 @@ const main = async (): Promise<number> => {
       [],
       { ...process.env, PORT: String(mocksPort) },
       mocksLog,
+      ROOT,
     );
     local = startService(
       'packages/workflow/local/src/main.ts',
@@ -205,6 +169,8 @@ const main = async (): Promise<number> => {
         statusFile,
         '--no-browser',
         '--no-ui',
+        '--test-mode',
+        ...(args.services.length > 0 ? ['--with', args.services.join(',')] : []),
         ...(runBrowser ? ['--client-dir', CLIENT_OUT_DIR] : ['--skip-client']),
       ],
       {
@@ -224,6 +190,7 @@ const main = async (): Promise<number> => {
         VK_API_BASE_URL: `${mocksUrl}/vk`,
       },
       localLog,
+      ROOT,
     );
     const status = await waitForStatusFile(statusFile, local, localLog);
     const mocksDeadline = Date.now() + 30_000;
@@ -237,9 +204,16 @@ const main = async (): Promise<number> => {
       `[e2e-fast] stack up in ${Math.round((Date.now() - startedAt) / 1000)} s — ${backendUrl}, logs in ${runDir}`,
     );
 
+    const serviceStatuses = Object.values(status.services ?? {});
+    const provided = new Set(serviceStatuses.flatMap((service) => service.capabilities ?? []));
+    const missing = MISSING_CAPABILITIES.filter((capability) => !provided.has(capability));
+    if (args.services.length > 0) {
+      console.log(`[e2e-fast] services: ${args.services.join(', ')}; missing capabilities: ${missing.join(', ')}`);
+    }
     const testEnv: NodeJS.ProcessEnv = {
       ...process.env,
-      FALANG_E2E_MISSING: MISSING_CAPABILITIES.join(','),
+      ...Object.assign({}, ...serviceStatuses.map((service) => service.testEnv ?? {})),
+      FALANG_E2E_MISSING: missing.join(','),
       BACKEND_URL: backendUrl,
       BACKEND_INTERNAL_URL: internalUrl,
       TEMPORAL_ADDRESS: status.temporalAddress,

@@ -15,3 +15,6 @@ export {
   type TSpawnFn,
 } from './runner/process-deployments-client.js';
 export * from './temporal/index.js';
+export { getOrCreateSecret, loadOrCreateSecrets, type ILocalSecrets } from './secrets.js';
+export * from './services/index.js';
+export { writeStatusFile, type ILocalStatus } from './status-file.js';

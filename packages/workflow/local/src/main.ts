@@ -49,6 +49,8 @@ const main = async (): Promise<void> => {
     openBrowser: args.openBrowser,
     temporalUi: args.temporalUi,
     singleUser: args.singleUser,
+    services: args.services,
+    testMode: args.testMode,
     ...(args.statusFile === undefined ? {} : { statusFile: args.statusFile }),
     onShutdownRequested: () => shutdown(),
     onTemporalExit: (error) => {

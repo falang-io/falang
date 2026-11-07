@@ -11,6 +11,8 @@ export type TWorkflowE2eCapability =
   | 'media'
   | 'mail'
   | 'user-databases'
+  | 'postgres-user-db'
+  | 'mysql-user-db'
   | 'egress-proxy'
   | 'temporal-isolation';
 
