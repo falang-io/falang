@@ -120,4 +120,56 @@ describe('max mock', () => {
     await resetMaxMock(server.url, TOKEN);
     expect(await getMaxCalls(server.url, TOKEN)).toEqual([]);
   });
+
+  it('hands member and bot-chat updates out as queued, whatever their type', async () => {
+    for (const type of ['user_added', 'user_removed', 'bot_added', 'bot_removed']) {
+      // oxlint-disable-next-line no-await-in-loop -- queued in order.
+      await pushMaxUpdate(server.url, TOKEN, { update_type: type, chat_id: 5, user: { user_id: 9 } });
+    }
+    const polled = await api<{ updates: { update_type: string; chat_id: number }[] }>(server.url, 'GET', 'updates');
+    expect(polled.updates.map((update) => update.update_type)).toEqual([
+      'user_added',
+      'user_removed',
+      'bot_added',
+      'bot_removed',
+    ]);
+  });
+
+  it('records the update types of a subscription', async () => {
+    await api(server.url, 'POST', 'subscriptions', {
+      url: 'https://hook',
+      update_types: ['user_added', 'user_removed'],
+    });
+    const calls = await getMaxCalls(server.url, TOKEN);
+    expect(calls.find((call) => call.method === 'subscribe')?.body).toMatchObject({
+      update_types: ['user_added', 'user_removed'],
+    });
+  });
+
+  it('removes a member once, then answers 200 { success: false } like real MAX', async () => {
+    const first = await api<{ success: boolean }>(server.url, 'DELETE', 'chats/7/members?user_id=9&block=true');
+    expect(first).toEqual({ success: true });
+    const second = await api<{ success: boolean; message: string }>(
+      server.url,
+      'DELETE',
+      'chats/7/members?user_id=9&block=true',
+    );
+    expect(second).toMatchObject({ success: false, message: expect.stringContaining('not a member') });
+    const calls = await getMaxCalls(server.url, TOKEN);
+    expect(calls.filter((call) => call.method === 'removeMember').map((call) => call.query)).toEqual([
+      { chat_id: '7', user_id: '9', block: 'true' },
+      { chat_id: '7', user_id: '9', block: 'true' },
+    ]);
+  });
+
+  it('deletes a message once, then answers 404', async () => {
+    expect(await api(server.url, 'DELETE', 'messages?message_id=mid.1')).toEqual({ success: true });
+    const again = await fetch(`${server.url}/max/messages?message_id=mid.1`, {
+      method: 'DELETE',
+      headers: { Authorization: TOKEN },
+    });
+    expect(again.status).toBe(404);
+    const calls = await getMaxCalls(server.url, TOKEN);
+    expect(calls.filter((call) => call.method === 'deleteMessage')).toHaveLength(2);
+  });
 });

@@ -29,6 +29,10 @@ interface IMaxTokenState {
   readonly messages: Map<string, { body: { mid: string; text: string | null } }>;
   readonly subscriptions: Map<string, unknown>;
   readonly files: Map<string, IMaxMockFile>;
+  /** `chatId:userId` of members already removed via `DELETE /chats/:chatId/members`. */
+  readonly removedMembers: Set<string>;
+  /** `mid`s already deleted via `DELETE /messages`. */
+  readonly deletedMessages: Set<string>;
   /** Makes every `mid` globally unique, like MAX's real ones — a rerun on a database that remembers old ones never collides. */
   readonly midPrefix: string;
   nextMessageId: number;
@@ -51,6 +55,8 @@ const getState = (token: string): IMaxTokenState => {
       messages: new Map(),
       subscriptions: new Map(),
       files: new Map(),
+      removedMembers: new Set(),
+      deletedMessages: new Set(),
       midPrefix: randomBytes(4).toString('hex'),
       nextMessageId: 1,
       nextMarker: 1,
@@ -132,6 +138,38 @@ export const createMaxMockRouter = (): Router => {
     const state = authorized(req, res);
     if (!state) return;
     state.calls.push({ method: 'editMessage', query: queryOf(req), body: req.body });
+    res.json({ success: true });
+  });
+
+  // Moderation (ADR 0076 (private)): a repeated removal answers like real MAX — `200 { success: false, message }`.
+  router.delete('/max/chats/:chatId/members', (req: Request, res: Response) => {
+    const state = authorized(req, res);
+    if (!state) return;
+    state.calls.push({
+      method: 'removeMember',
+      query: { chat_id: paramString(req.params.chatId), ...queryOf(req) },
+      body: null,
+    });
+    const key = `${paramString(req.params.chatId)}:${String(req.query.user_id)}`;
+    if (state.removedMembers.has(key)) {
+      res.json({ success: false, message: 'user is not a member' });
+      return;
+    }
+    state.removedMembers.add(key);
+    res.json({ success: true });
+  });
+
+  router.delete('/max/messages', (req: Request, res: Response) => {
+    const state = authorized(req, res);
+    if (!state) return;
+    state.calls.push({ method: 'deleteMessage', query: queryOf(req), body: null });
+    const mid = String(req.query.message_id);
+    if (state.deletedMessages.has(mid)) {
+      res.status(404).json({ code: 'not.found', message: 'Message not found' });
+      return;
+    }
+    state.deletedMessages.add(mid);
+    state.messages.delete(mid);
     res.json({ success: true });
   });
 

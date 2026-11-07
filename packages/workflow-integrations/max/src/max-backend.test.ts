@@ -122,7 +122,15 @@ describe('registerMaxBackend', () => {
       expect(init.headers).toMatchObject({ Authorization: 'bot-token' });
       expect(JSON.parse(String(init.body))).toEqual({
         url: webhookUrl,
-        update_types: ['message_created', 'message_callback', 'bot_started'],
+        update_types: [
+          'message_created',
+          'message_callback',
+          'bot_started',
+          'user_added',
+          'user_removed',
+          'bot_added',
+          'bot_removed',
+        ],
         secret: SECRET,
       });
 
@@ -269,7 +277,9 @@ describe('registerMaxBackend', () => {
       const firstPoll = new URL(calledUrls().at(-1) ?? '');
       expect(firstPoll.pathname).toBe('/updates');
       expect(firstPoll.searchParams.get('marker')).toBeNull();
-      expect(firstPoll.searchParams.get('types')).toBe('message_created,message_callback,bot_started');
+      expect(firstPoll.searchParams.get('types')).toBe(
+        'message_created,message_callback,bot_started,user_added,user_removed,bot_added,bot_removed',
+      );
       expect(ctx.signalWorkflow).toHaveBeenCalledTimes(1);
 
       await ctx.interval?.();

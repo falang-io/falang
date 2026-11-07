@@ -1,9 +1,13 @@
 // oxlint-disable max-lines -- mirrors telegram-backend.ts: routing, both delivery modes and the run-journal reports.
-import { TRIGGER_FUNCTION_BODY_NAME, TRIGGER_FUNCTION_NAME } from '@falang/workflow-dto';
 import {
+  buildConversationWorkflowId,
+  chatTypeAdmits,
   constantTimeEqual,
+  resolveChatTypeFilter,
+  resolveConversationMode,
   type IIntegrationBackendContext,
   type IIntegrationDocumentRecord,
+  type TChatKind,
   type TRegisterIntegrationBackend,
 } from '@falang/workflow-integrations-common';
 import {
@@ -15,6 +19,18 @@ import {
   MAX_TRIGGER_NAME,
 } from './constants.js';
 import { resolveIncomingMedia } from './max-media.js';
+import {
+  reportMaxBotChatEvent,
+  signalMaxMemberEvent,
+  type IMaxBotChatUpdate,
+  type IMaxUserAddedUpdate,
+  type IMaxUserRemovedUpdate,
+} from './max-member-events.js';
+import {
+  findBoundTriggerFunctions,
+  getTriggerFunctionBodyData,
+  maxUnboundWorkflowId as unboundWorkflowId,
+} from './max-trigger-documents.js';
 import {
   botStartedToMaxMessage,
   maxChatIdOf,
@@ -30,14 +46,15 @@ export const MAX_POLL_TIMEOUT_SECONDS = 30;
 export const POLL_INTERVAL_MS = 1000;
 
 /** The update kinds a bot built in falang reacts to — subscribed to explicitly, so Max never sends the rest. */
-export const MAX_UPDATE_TYPES = ['message_created', 'message_callback', 'bot_started'] as const;
-
-interface ITriggerFunctionBodyData {
-  readonly vendor: string;
-  readonly triggerName: string;
-  readonly credentialId: string;
-  readonly triggerConfig?: Readonly<Record<string, string>>;
-}
+export const MAX_UPDATE_TYPES = [
+  'message_created',
+  'message_callback',
+  'bot_started',
+  'user_added',
+  'user_removed',
+  'bot_added',
+  'bot_removed',
+] as const;
 
 interface IMaxMessageCreatedUpdate {
   readonly update_type: 'message_created';
@@ -69,6 +86,9 @@ type TMaxUpdate =
   | IMaxMessageCreatedUpdate
   | IMaxMessageCallbackUpdate
   | IMaxBotStartedUpdate
+  | IMaxUserAddedUpdate
+  | IMaxUserRemovedUpdate
+  | IMaxBotChatUpdate
   | { readonly update_type: string; readonly timestamp: number };
 
 /**
@@ -123,23 +143,6 @@ const maxApiJson = async <T>(
   return (await response.json()) as T;
 };
 
-/** `trigger-function`'s childTuple is `[function-header, trigger-function-body, function-footer]` — see `@falang/workflow-dto`. */
-const getTriggerFunctionBodyData = (doc: IIntegrationDocumentRecord): ITriggerFunctionBodyData | undefined => {
-  const body = doc.root?.children?.[1];
-  if (body?.name !== TRIGGER_FUNCTION_BODY_NAME) return;
-  return body.data as ITriggerFunctionBodyData;
-};
-
-const findBoundTriggerFunctions = async (
-  ctx: IIntegrationBackendContext,
-): Promise<readonly IIntegrationDocumentRecord[]> => {
-  const triggerFunctionDocuments = await ctx.getDocumentsByType(TRIGGER_FUNCTION_NAME);
-  return triggerFunctionDocuments.filter((doc) => {
-    const body = getTriggerFunctionBodyData(doc);
-    return body?.vendor === ctx.vendor && body.credentialId === ctx.credentialId;
-  });
-};
-
 /** A leading `/command`, with an optional `@botUsername` suffix (group chats) stripped. */
 const COMMAND_PATTERN = /^\/([a-zA-Z0-9_]+)(?:@\S+)?(?:\s|$)/;
 
@@ -148,23 +151,34 @@ const extractMaxCommand = (text: string): string | undefined => COMMAND_PATTERN.
 /** Tolerates the command being configured with or without its leading slash. */
 const normalizeCommandName = (value: string): string => value.trim().replace(/^\//, '');
 
-/** A bound on-command trigger whose command matches wins over the catch-all on-message trigger (same rule as Telegram). */
+/** MAX `recipient.chat_type`: `dialog` is a private chat with the bot, `chat` (group) and `channel` are group-like. */
+const maxChatKindOf = (chatType: string): TChatKind => (chatType === 'dialog' ? 'private' : 'group');
+
+/**
+ * A bound on-command trigger whose command matches wins over the catch-all on-message trigger (same rule as Telegram);
+ * either only counts when its `chatType` filter admits the chat, so a private-chat and a group-chat on-message document
+ * can coexist (the first admitting one wins).
+ */
 const selectTriggerFunctionForMessage = (
   documents: readonly IIntegrationDocumentRecord[],
   text: string,
+  chatKind: TChatKind,
 ): IIntegrationDocumentRecord | undefined => {
+  const admits = (doc: IIntegrationDocumentRecord): boolean =>
+    chatTypeAdmits(resolveChatTypeFilter(getTriggerFunctionBodyData(doc)?.triggerConfig), chatKind);
   const command = extractMaxCommand(text);
   if (command) {
     const commandMatch = documents.find((doc) => {
       const body = getTriggerFunctionBodyData(doc);
       return (
         body?.triggerName === MAX_ON_COMMAND_TRIGGER_NAME &&
-        normalizeCommandName(body.triggerConfig?.[MAX_COMMAND_FIELD_NAME] ?? '') === command
+        normalizeCommandName(body.triggerConfig?.[MAX_COMMAND_FIELD_NAME] ?? '') === command &&
+        admits(doc)
       );
     });
     if (commandMatch) return commandMatch;
   }
-  return documents.find((doc) => getTriggerFunctionBodyData(doc)?.triggerName === MAX_TRIGGER_NAME);
+  return documents.find((doc) => getTriggerFunctionBodyData(doc)?.triggerName === MAX_TRIGGER_NAME && admits(doc));
 };
 
 const selectPrimaryTriggerFunction = (
@@ -172,25 +186,20 @@ const selectPrimaryTriggerFunction = (
 ): IIntegrationDocumentRecord | undefined =>
   documents.find((doc) => getTriggerFunctionBodyData(doc)?.triggerName === MAX_TRIGGER_NAME) ?? documents[0];
 
+/** The conversation mode a document's trigger is configured with. */
+const modeOf = (doc: IIntegrationDocumentRecord) =>
+  resolveConversationMode(getTriggerFunctionBodyData(doc)?.triggerConfig);
+
 /**
- * Chat id -> the `trigger-function` document whose workflow runs that chat's conversation, remembered from the most
+ * Chat id -> the workflow id (and document) of the conversation last started in that chat, remembered from the most
  * recent inbound message — a button press doesn't say which trigger started the conversation, and guessing wrong would
  * `signalWithStart` an unrelated new workflow. Per target/process, lost on restart (see `telegram-backend.ts`).
  */
-type TChatTriggerMap = Map<number, string>;
-
-const selectTriggerFunctionForCallback = (
-  documents: readonly IIntegrationDocumentRecord[],
-  chatId: number,
-  chatTriggerFunctions: TChatTriggerMap,
-): IIntegrationDocumentRecord | undefined => {
-  const rememberedId = chatTriggerFunctions.get(chatId);
-  const remembered = rememberedId && documents.find((doc) => doc.id === rememberedId);
-  return remembered || selectPrimaryTriggerFunction(documents);
-};
-
-/** Workflow id for journal entries about input no trigger function takes (ADR 0059 (private) §2c). */
-const unboundWorkflowId = (chatId: number): string => `max-unbound-${chatId}`;
+interface IRememberedConversation {
+  readonly documentId: string;
+  readonly workflowId: string;
+}
+type TChatTriggerMap = Map<number, IRememberedConversation>;
 
 const signalIncomingMessage = async (
   ctx: IIntegrationBackendContext,
@@ -202,7 +211,11 @@ const signalIncomingMessage = async (
   // Max chat ids are never zero — a falsy value means there's no chat to reply to.
   if (!chatId) return;
 
-  const triggerFunction = selectTriggerFunctionForMessage(await findBoundTriggerFunctions(ctx), message.text ?? '');
+  const triggerFunction = selectTriggerFunctionForMessage(
+    await findBoundTriggerFunctions(ctx),
+    message.text ?? '',
+    maxChatKindOf(message.chat.type),
+  );
   if (!triggerFunction) {
     await ctx.reportJournalProblem?.({
       workflowId: unboundWorkflowId(chatId),
@@ -212,7 +225,15 @@ const signalIncomingMessage = async (
     });
     return;
   }
-  chatTriggerFunctions.set(chatId, triggerFunction.id);
+  const workflowId = buildConversationWorkflowId({
+    vendorPrefix: 'max',
+    documentId: triggerFunction.id,
+    chatId,
+    userId: message.from?.id ?? chatId,
+    eventKey: `${message.timestamp}-${message.messageId}`,
+    mode: modeOf(triggerFunction),
+  });
+  chatTriggerFunctions.set(chatId, { documentId: triggerFunction.id, workflowId });
 
   const media = raw
     ? await resolveIncomingMedia(raw, {
@@ -223,7 +244,7 @@ const signalIncomingMessage = async (
     : {};
 
   await ctx.signalWorkflow({
-    workflowId: `max-${triggerFunction.id}-${chatId}`,
+    workflowId,
     workflowType: triggerFunction.name,
     signalName: MAX_SIGNAL_NAME,
     signalArgs: [{ ...message, ...media }],
@@ -242,6 +263,24 @@ const answerCallback = async (botToken: string, callbackId: string, notification
   }
 };
 
+/** A group's `per-user`/`per-event` conversation cannot be found from the button alone (phase 2) — journal it instead of starting a stray run. */
+const rejectUnroutableGroupAnswer = async (
+  ctx: IIntegrationBackendContext,
+  update: IMaxMessageCallbackUpdate,
+  mode: ReturnType<typeof resolveConversationMode>,
+  rememberedWorkflowId: string | undefined,
+): Promise<boolean> => {
+  if (mode === 'per-chat' || update.message?.recipient.chat_type === 'dialog') return false;
+  await ctx.reportJournalProblem?.({
+    workflowId: rememberedWorkflowId ?? unboundWorkflowId(update.message ? maxChatIdOf(update.message) : 0),
+    level: 'warn',
+    message:
+      'A button pressed in a group cannot be routed to its conversation before pending-question routing (phase 2)',
+    data: { errorType: 'UnroutableGroupAnswer', signal: MAX_QUESTION_ANSWER_SIGNAL_NAME, conversation: mode },
+  });
+  return true;
+};
+
 /** Normalizes a button press into the fixed `{ messageId, value }` answer contract every question vendor uses. */
 const handleCallback = async (
   ctx: IIntegrationBackendContext,
@@ -256,8 +295,12 @@ const handleCallback = async (
   const messageId = update.message?.body?.mid;
   if (!chatId || !messageId || !value) return;
 
-  const triggerFunctionDocuments = await findBoundTriggerFunctions(ctx);
-  const triggerFunction = selectTriggerFunctionForCallback(triggerFunctionDocuments, chatId, chatTriggerFunctions);
+  const documents = await findBoundTriggerFunctions(ctx);
+  const remembered = chatTriggerFunctions.get(chatId);
+  const rememberedDoc = remembered && documents.find((doc) => doc.id === remembered.documentId);
+  // After a restart the map is empty: the primary on-message document, its id built by that document's own mode. A
+  // chat id is a private chat's only participant, so `per-user` collapses to one run; in a group it cannot be rebuilt.
+  const triggerFunction = rememberedDoc || selectPrimaryTriggerFunction(documents);
   if (!triggerFunction) {
     await ctx.reportJournalProblem?.({
       workflowId: unboundWorkflowId(chatId),
@@ -268,8 +311,22 @@ const handleCallback = async (
     return;
   }
 
+  const mode = modeOf(triggerFunction);
+  if (await rejectUnroutableGroupAnswer(ctx, update, mode, remembered?.workflowId)) return;
+
+  const workflowId =
+    remembered && rememberedDoc
+      ? remembered.workflowId
+      : buildConversationWorkflowId({
+          vendorPrefix: 'max',
+          documentId: triggerFunction.id,
+          chatId,
+          userId: update.callback.user.user_id,
+          eventKey: update.timestamp,
+          mode,
+        });
   await ctx.signalWorkflow({
-    workflowId: `max-${triggerFunction.id}-${chatId}`,
+    workflowId,
     workflowType: triggerFunction.name,
     signalName: MAX_QUESTION_ANSWER_SIGNAL_NAME,
     signalArgs: [{ messageId, value }],
@@ -299,6 +356,14 @@ const handleMaxUpdate = async (
       payload: started.payload,
     });
     await signalIncomingMessage(ctx, message, null, chatTriggerFunctions);
+    return;
+  }
+  if (update.update_type === 'user_added' || update.update_type === 'user_removed') {
+    await signalMaxMemberEvent(ctx, update as IMaxUserAddedUpdate | IMaxUserRemovedUpdate);
+    return;
+  }
+  if (update.update_type === 'bot_added' || update.update_type === 'bot_removed') {
+    await reportMaxBotChatEvent(ctx, update as IMaxBotChatUpdate);
   }
 };
 
