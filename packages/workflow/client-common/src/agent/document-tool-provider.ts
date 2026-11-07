@@ -381,7 +381,7 @@ export class DocumentToolProvider implements IAgentToolProvider {
       triggerName,
       credentialId: credentialResult.credentialId,
       scopeVariableName: trigger.scopeVariableName,
-      scopeType: trigger.scopeType,
+      scopeType: trigger.scopeTypeFor?.(configResult.config ?? {}) ?? trigger.scopeType,
       ...(configResult.config ? { triggerConfig: configResult.config } : {}),
     };
     const placement = this.resolvePlacement('create_trigger_document', 'trigger-function', params.folderId);

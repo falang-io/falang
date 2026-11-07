@@ -5,6 +5,8 @@ import { FilesModule } from '../files/files.module.js';
 import { ProjectTokenModule } from '../internal-auth/project-token.module.js';
 import { Document } from '../projects/documents/document.entity.js';
 import { ProjectsModule } from '../projects/projects/projects.module.js';
+import { RunJournalModule } from '../run-journal/run-journal.module.js';
+import { tableChangeDispatcherProviders } from './table-change-dispatcher.service.js';
 import { TableDefinitionsService } from './table-definitions.service.js';
 import { TableGcService } from './table-gc.service.js';
 import { TableMetricsService } from './table-metrics.service.js';
@@ -17,7 +19,7 @@ import { TablesService } from './tables.service.js';
 
 /**
  * Project tables (ADR 0075 (private)): definitions, the records API (project + internal routes), CSV, the change-log
- * GC and metrics. The change dispatcher (T6) is added here later. Must not import `DocumentsModule` — `DocumentsModule`
+ * GC, metrics and the change-log trigger dispatcher. Must not import `DocumentsModule` — `DocumentsModule`
  * imports this one.
  */
 @Module({
@@ -27,9 +29,17 @@ import { TablesService } from './tables.service.js';
     UserLimitsModule,
     FilesModule,
     ProjectTokenModule,
+    RunJournalModule,
   ],
   controllers: [TablesProjectController, TablesInternalController],
-  providers: [TableDefinitionsService, TablesService, TablesCsvService, TableGcService, TableMetricsService],
+  providers: [
+    TableDefinitionsService,
+    TablesService,
+    TablesCsvService,
+    TableGcService,
+    TableMetricsService,
+    ...tableChangeDispatcherProviders,
+  ],
   exports: [TableDefinitionsService, TablesService],
 })
 export class TablesModule {}

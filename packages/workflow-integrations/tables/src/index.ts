@@ -6,3 +6,4 @@ export * from './actions.js';
 export * from './activity-helpers.js';
 export * from './tables-backend.js';
 export * from './translate.js';
+export * from './triggers.js';

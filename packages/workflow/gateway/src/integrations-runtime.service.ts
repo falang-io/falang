@@ -68,6 +68,13 @@ const targetKey = (target: Pick<IKnownTarget, 'vendor' | 'credentialId' | 'proje
 const webhookHandlerKey = (vendor: string, projectId: string, credentialId: string, env: string, uri: string): string =>
   `${vendor}/${projectId}/${credentialId}/${env}/${uri}`;
 
+type TTargetSignalWorkflow = (signal: {
+  readonly workflowId: string;
+  readonly workflowType: string;
+  readonly signalName: string;
+  readonly signalArgs: readonly unknown[];
+}) => Promise<void>;
+
 interface IActiveTarget {
   readonly dispose: () => Promise<void>;
   readonly onRunnerIdle: (() => Promise<void>) | undefined;
@@ -76,6 +83,7 @@ interface IActiveTarget {
   readonly intervalHandles: readonly NodeJS.Timeout[];
   readonly mode: TTargetMode;
   readonly unsubscribe: (() => void) | undefined;
+  readonly signalWorkflow: TTargetSignalWorkflow;
 }
 
 const NORMAL_MODE: TTargetMode = 'normal';
@@ -511,6 +519,7 @@ export class IntegrationsRuntimeService implements OnModuleInit, OnModuleDestroy
         ? `${this.publicHost}/webhooks/${target.vendor}/${target.projectId}/${target.credentialId}/${target.env}`
         : null;
 
+    const signalWorkflow = this.buildSignalWorkflow(target, taskQueue);
     const vendorId = target.vendor;
     const inVendor = <T>(fn: () => T): T => runWithEgressVendor(vendorId, fn);
     const registerResult = await inVendor(() =>
@@ -558,39 +567,7 @@ export class IntegrationsRuntimeService implements OnModuleInit, OnModuleDestroy
           }, intervalMs);
           intervalHandles.push(handle);
         },
-        signalWorkflow: async (signal) => {
-          const wake: { error?: unknown } = {};
-          if (this.ensureRunnerRunning) {
-            try {
-              await this.ensureRunnerRunning({ projectId: target.projectId, env: target.env, taskQueue });
-            } catch (error) {
-              wake.error = error;
-              if (error instanceof RunnerStartRefusedError) {
-                // Refused on purpose (suspended project / no balance): do not queue the event in Temporal.
-                this.logger.warn(
-                  `Runner start refused for ${target.vendor}/${target.credentialId}/${target.env}: ${error.message}`,
-                );
-                await this.reportUndeliverable(target, signal, error, wake);
-                throw error;
-              }
-              // Best-effort: fall through to signaling anyway — no worse than the pre-wake status quo.
-              this.logger.error(
-                `ensureRunnerRunning failed for ${target.vendor}/${target.credentialId}/${target.env}`,
-                error instanceof Error ? error.stack : error,
-              );
-            }
-          }
-          try {
-            await this.signalWorkflowWithStart({
-              ...signal,
-              taskQueue,
-              projectId: target.projectId,
-            });
-          } catch (error) {
-            await this.reportUndeliverable(target, signal, error, wake);
-            throw error;
-          }
-        },
+        signalWorkflow,
         reportJournalProblem: (report) =>
           this.recordJournalProblem({
             ...report,
@@ -645,7 +622,65 @@ export class IntegrationsRuntimeService implements OnModuleInit, OnModuleDestroy
       intervalHandles,
       mode,
       unsubscribe: () => unsubscribe?.(),
+      signalWorkflow,
     });
+  }
+
+  /**
+   * The per-target `ctx.signalWorkflow`: wakes a scaled-down runner first (a refusal — suspended project, no
+   * balance — is journaled as undeliverable and rethrown, nothing is queued), then `signalWithStart`s.
+   */
+  private buildSignalWorkflow(target: IKnownTarget, taskQueue: string): TTargetSignalWorkflow {
+    return async (signal) => {
+      const wake: { error?: unknown } = {};
+      if (this.ensureRunnerRunning) {
+        try {
+          await this.ensureRunnerRunning({ projectId: target.projectId, env: target.env, taskQueue });
+        } catch (error) {
+          wake.error = error;
+          if (error instanceof RunnerStartRefusedError) {
+            // Refused on purpose (suspended project / no balance): do not queue the event in Temporal.
+            this.logger.warn(
+              `Runner start refused for ${target.vendor}/${target.credentialId}/${target.env}: ${error.message}`,
+            );
+            await this.reportUndeliverable(target, signal, error, wake);
+            throw error;
+          }
+          // Best-effort: fall through to signaling anyway — no worse than the pre-wake status quo.
+          this.logger.error(
+            `ensureRunnerRunning failed for ${target.vendor}/${target.credentialId}/${target.env}`,
+            error instanceof Error ? error.stack : error,
+          );
+        }
+      }
+      try {
+        await this.signalWorkflowWithStart({
+          ...signal,
+          taskQueue,
+          projectId: target.projectId,
+        });
+      } catch (error) {
+        await this.reportUndeliverable(target, signal, error, wake);
+        throw error;
+      }
+    };
+  }
+
+  /**
+   * Signals a workflow through the active (project, env) target of a credential-less vendor — used by hosts
+   * that produce events themselves (the table change dispatcher, ADR 0075 (private)). `'inactive'` when that
+   * target is not running (the environment is stopped or not activated); throws like `ctx.signalWorkflow`.
+   */
+  async signalTarget(
+    vendor: string,
+    projectId: string,
+    env: TEnv,
+    signal: Parameters<TTargetSignalWorkflow>[0],
+  ): Promise<'delivered' | 'inactive'> {
+    const active = this.activeTargets.get(targetKey({ vendor, credentialId: vendor, projectId, env }));
+    if (!active) return 'inactive';
+    await active.signalWorkflow(signal);
+    return 'delivered';
   }
 
   /** Never throws — a broken journal must not change what the caller sees. */

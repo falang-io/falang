@@ -15,6 +15,7 @@ import { compileStatements, type IDebugEmitOptions, type TResolveFunctionName } 
 import { NodeCompileError } from './node-compile-error.js';
 import { asComment, asStatement } from './raw-code.js';
 import { buildQuestionEmitters } from './question-emitters.js';
+import { TABLE_TRIGGER_EVENT_FN, TABLE_TRIGGER_WIRE_TYPE } from './table-trigger-runtime.js';
 
 export interface ITriggerFunctionBodyData {
   readonly vendor: string;
@@ -107,6 +108,12 @@ export const compileTriggerFunction = (
   const journalMessage = trigger.journalMessage ?? JSON.stringify(trigger.name).slice(1, -1);
   const triggerJournal = `${JOURNAL_FN}({ kind: 'trigger', level: 'info', message: \`${journalMessage}\`, data: { payload: ${trigger.scopeVariableName} } });`;
 
+  // `transformPayload: tables`: the signal carries the id-keyed wire payload; `__falangTableEvent` (baked name map,
+  // see `table-trigger-runtime.ts`) renames it to the name-keyed event before the body sees it.
+  const transformsTables = trigger.transformPayload?.kind === 'tables' && !isStartDelivery;
+  const wireType = transformsTables ? TABLE_TRIGGER_WIRE_TYPE : payloadType;
+  const assignPayload = transformsTables ? `${TABLE_TRIGGER_EVENT_FN}(payload)` : 'payload';
+
   const preamble = isStartDelivery
     ? [
         `const __falangScheduledStart = workflowInfo().searchAttributes['TemporalScheduledStartTime']?.[0] as Date | undefined;`,
@@ -114,12 +121,12 @@ export const compileTriggerFunction = (
         triggerJournal,
       ].join('\n')
     : [
-        `const ${signalConstName} = defineSignal<[${payloadType}]>('${trigger.signalName}');`,
+        `const ${signalConstName} = defineSignal<[${wireType}]>('${trigger.signalName}');`,
         '',
         `let ${trigger.scopeVariableName}!: ${payloadType};`,
         'let hasSignal = false;',
-        `setHandler(${signalConstName}, (payload: ${payloadType}) => {`,
-        `  ${trigger.scopeVariableName} = payload;`,
+        `setHandler(${signalConstName}, (payload: ${wireType}) => {`,
+        `  ${trigger.scopeVariableName} = ${assignPayload};`,
         '  hasSignal = true;',
         '});',
         'await condition(() => hasSignal);',

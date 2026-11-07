@@ -151,6 +151,19 @@ export const NewTriggerModal: React.FC<NewTriggerModalProps> = observer(({ open,
         />
       );
     }
+    if (field.kind === 'document-ref') {
+      // e.g. a `tables` trigger's table: pick one of the project's documents of that type.
+      return (
+        <Select
+          options={store.documents
+            .filter((document) => document.type === field.documentType)
+            .map((document) => ({ value: document.id, label: document.name }))}
+          placeholder={t(field.label)}
+          showSearch
+          optionFilterProp="label"
+        />
+      );
+    }
     if (field.kind === 'select') {
       return (
         <Select
