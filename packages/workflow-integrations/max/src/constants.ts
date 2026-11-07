@@ -18,3 +18,15 @@ export const MAX_DEFAULT_API_BASE_URL = 'https://platform-api2.max.ru';
 export const MAX_USER_TYPE_ID = 'max/User';
 export const MAX_CHAT_TYPE_ID = 'max/Chat';
 export const MAX_MESSAGE_TYPE_ID = 'max/Message';
+
+export const MAX_MEMBER_JOINED_TRIGGER_NAME = 'max-member-joined';
+export const MAX_MEMBER_LEFT_TRIGGER_NAME = 'max-member-left';
+export const MAX_MEMBER_JOINED_SIGNAL_NAME = 'maxMemberJoined';
+export const MAX_MEMBER_LEFT_SIGNAL_NAME = 'maxMemberLeft';
+/** The identifier a compiled member-event `trigger-function` binds the `max/MemberEvent` payload to. */
+export const MAX_EVENT_SCOPE_VARIABLE_NAME = 'event';
+export const MAX_REMOVE_MEMBER_NAME = 'max-remove-member';
+export const MAX_DELETE_MESSAGE_NAME = 'max-delete-message';
+
+export const MAX_MEMBER_EVENT_TYPE_ID = 'max/MemberEvent';
+export const MAX_MEMBER_EVENT_CHAT_TYPE_ID = 'max/MemberEventChat';

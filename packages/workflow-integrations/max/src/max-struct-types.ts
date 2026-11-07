@@ -1,7 +1,13 @@
 import type { TVariableInfo } from '@falang/typescript-dto';
 import type { IIntegrationStructType } from '@falang/workflow-integrations-common';
 import { FILE_TYPE_ID } from '@falang/workflow-integrations-files';
-import { MAX_CHAT_TYPE_ID, MAX_MESSAGE_TYPE_ID, MAX_USER_TYPE_ID } from './constants.js';
+import {
+  MAX_CHAT_TYPE_ID,
+  MAX_MEMBER_EVENT_CHAT_TYPE_ID,
+  MAX_MEMBER_EVENT_TYPE_ID,
+  MAX_MESSAGE_TYPE_ID,
+  MAX_USER_TYPE_ID,
+} from './constants.js';
 
 const anyNumber: TVariableInfo = { type: 'number', numberType: { type: 'any' } };
 
@@ -48,6 +54,28 @@ export const maxStructTypes: readonly IIntegrationStructType[] = [
       document: optionalFileType,
       audio: optionalFileType,
       video: optionalFileType,
+    },
+  },
+  {
+    id: MAX_MEMBER_EVENT_CHAT_TYPE_ID,
+    name: 'MaxMemberEventChat',
+    properties: {
+      id: anyNumber,
+      /** `true` for a channel, `false` for a group chat. */
+      isChannel: { type: 'boolean' },
+    },
+  },
+  {
+    id: MAX_MEMBER_EVENT_TYPE_ID,
+    name: 'MaxMemberEvent',
+    properties: {
+      chat: { type: 'struct', id: MAX_MEMBER_EVENT_CHAT_TYPE_ID },
+      /** The member who joined (`user_added`) or left / was removed (`user_removed`). */
+      user: { type: 'struct', id: MAX_USER_TYPE_ID },
+      /** `user_added`: who invited them (absent when they joined by link). `user_removed`: the admin who removed them (absent when they left on their own). */
+      byId: { ...anyNumber, optional: true },
+      /** Unix time, milliseconds. */
+      date: anyNumber,
     },
   },
 ];

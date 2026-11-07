@@ -34,8 +34,12 @@ describe('maxIntegration', () => {
     expect(getIntegrationNodeConfigs([maxIntegration]).map((config) => config.name)).toEqual([
       MAX_TRIGGER_NAME,
       MAX_ON_COMMAND_TRIGGER_NAME,
+      'max-member-joined',
+      'max-member-left',
       MAX_SEND_MESSAGE_NAME,
       MAX_SEND_FILE_NAME,
+      'max-remove-member',
+      'max-delete-message',
     ]);
   });
 
@@ -102,6 +106,36 @@ describe('maxIntegration', () => {
     for (const key of keys) {
       expect(typeof lookup(en, key), `en: ${key}`).toBe('string');
       expect(typeof lookup(ru, key), `ru: ${key}`).toBe('string');
+    }
+  });
+
+  it('the message triggers carry the chatType and conversation selects with defaults', () => {
+    for (const trigger of maxIntegration.triggers.slice(0, 2)) {
+      const names = trigger.contextFields?.map((field) => field.name) ?? [];
+      expect(names).toEqual(expect.arrayContaining(['chatType', 'conversation']));
+      expect(trigger.contextFields?.find((field) => field.name === 'chatType')?.defaultValue).toBe('any');
+      expect(trigger.contextFields?.find((field) => field.name === 'conversation')?.defaultValue).toBe('per-chat');
+      expect(trigger.notes).toContain('per-event');
+    }
+  });
+
+  it('member triggers deliver by signal with the `event` variable and the max/MemberEvent type', () => {
+    const member = maxIntegration.triggers.filter((trigger) => trigger.name.startsWith('max-member-'));
+    expect(member.map((trigger) => trigger.signalName)).toEqual(['maxMemberJoined', 'maxMemberLeft']);
+    for (const trigger of member) {
+      expect(trigger.scopeVariableName).toBe('event');
+      expect(trigger.scopeType).toEqual({ type: 'struct', id: 'max/MemberEvent' });
+      expect(trigger.journalMessage).toContain('event.user.firstName');
+      expect(trigger.delivery ?? 'signal').toBe('signal');
+    }
+    expect(maxIntegration.types?.map((type) => type.id)).toEqual(
+      expect.arrayContaining(['max/MemberEvent', 'max/MemberEventChat']),
+    );
+  });
+
+  it('vendor notes carry the moderation keywords', () => {
+    for (const word of ['moderation', 'remove', 'block', 'kick', 'group', 'chat', 'community', 'member']) {
+      expect(maxIntegration.notes.toLowerCase()).toContain(word);
     }
   });
 });
