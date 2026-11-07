@@ -1116,6 +1116,9 @@ export class WorkflowStore implements IWorkflowAgentStore {
       ],
       theme: darkTheme,
       getCredentialInstances: () => getIntegrationInstances(this.documents),
+      // `document-ref` fields (e.g. the `tables` actions' table picker) list the project's documents of a type.
+      getDocumentsOfType: (type) =>
+        this.documents.filter((d) => d.type === type).map((d) => ({ id: d.id, name: d.name })),
       // The option/catalog lookups are the backend's (and need an account) — a guest gets the empty defaults.
       ...(this.isGuest
         ? {}
