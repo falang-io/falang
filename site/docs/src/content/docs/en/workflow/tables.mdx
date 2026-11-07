@@ -1,0 +1,136 @@
+---
+title: Tables
+description: A built-in record store for a project — typed fields, a grid, workflow nodes, record triggers, CSV import and export
+head:
+  - tag: meta
+    attrs:
+      name: keywords
+      content: 'tables, records, database, grid, csv, trigger, workflow'
+---
+
+<p>
+  A <b>table</b> is a place inside the project where scenarios remember things between runs — the users a bot has seen,
+  a lead list, a counter, a queue of orders to retry. No credentials, no connection string, no SQL: you create a table
+  next to your functions, give it typed fields and use it from nodes. For an external database use{' '}
+  <a href="../databases/">Databases</a> instead.
+</p>
+
+#### Tables and fields
+
+<p>
+  Tables live in the <b>Tables</b> section of the project tree. Open a table to edit its fields: a name and a type —{' '}
+  <code>text</code>, <code>number</code>, <code>boolean</code>, <code>date</code>, <code>datetime</code> (stored in UTC,
+  shown in your time zone), <code>select</code> (a fixed list of options), <code>json</code> and <code>file</code>.
+  Field names may be in any language, must be unique within the table (case-insensitively) and cannot be{' '}
+  <code>id</code>, <code>version</code>, <code>createdAt</code>, <code>updatedAt</code>, <code>and</code> or{' '}
+  <code>or</code> — those are reserved. Every record also has these system fields: <code>id</code>, <code>version</code>,{' '}
+  <code>createdAt</code>, <code>updatedAt</code>.
+</p>
+
+<p>
+  The schema (tables and fields) is part of the project: it is exported, versioned and shared between the dev and the
+  production environment. The <b>records</b> are not — dev and prod each have their own, so the test stand never
+  touches production data, and records are never included in a project export or a version. Restoring a version that
+  predates a table deletes the table and its records.
+</p>
+
+#### The grid
+
+<p>
+  The table editor is a grid with a <b>dev / prod</b> switch. Records are paged (50 per page), searchable (over text and
+  select fields), sortable and editable in place. Each record has a history; open it to see earlier values and restore
+  one. You can also:
+</p>
+
+<ul>
+  <li><b>Import CSV</b> (up to 5 MB) — append to the records or replace them, creating missing fields from the header.</li>
+  <li><b>Export CSV</b> of the selected environment.</li>
+  <li><b>Clear</b> all records of the environment.</li>
+  <li><b>Copy dev to prod</b> — replaces the production records with the development ones.</li>
+  <li>Upload files into <code>file</code> cells; the project's owner and editors can download them.</li>
+</ul>
+
+#### Nodes
+
+<p>Five nodes work with a table; pick the table in the node and the editor types the rows and fields for you:</p>
+
+<ul>
+  <li><b>Select</b> — returns matching records as an array (<code>where</code>, <code>orderBy</code>, <code>limit</code>, default 100, at most 1000).</li>
+  <li><b>Get</b> — returns one record.</li>
+  <li><b>Insert</b> — adds a record and returns it with its <code>id</code>. An insert is safe across automatic retries: the same step never creates the record twice.</li>
+  <li><b>Update</b> — changes every record matching <code>where</code> and returns how many changed.</li>
+  <li><b>Delete</b> — removes matching records and returns how many.</li>
+</ul>
+
+<p>
+  <code>where</code> is keyed by field name and works like in <a href="../databases/">Databases</a>: a bare value means
+  "equals", an object takes operators (<code>eq</code>, <code>ne</code>, <code>gt</code>, <code>gte</code>,{' '}
+  <code>lt</code>, <code>lte</code>, <code>in</code>, <code>notIn</code>, <code>isNull</code>, <code>contains</code>, …),
+  and <code>and</code>/<code>or</code> arrays combine conditions. Update and Delete require a non-empty{' '}
+  <code>where</code>. <code>orderBy</code> is plain text:
+</p>
+
+```ts
+// where
+{ status: { in: ['new', 'paid'] }, total: { gt: 100 } }
+
+// orderBy
+'priority asc, createdAt desc'
+```
+
+<p>
+  <b>Optimistic locking.</b> Every update raises the record's <code>version</code>. Put <code>id</code> and{' '}
+  <code>version</code> in <code>where</code> to change a record only if nobody changed it since you read it — zero
+  changed records means somebody got there first, and the scenario decides whether to re-read and retry:
+</p>
+
+```ts
+// Update node: where
+{ id: order.id, version: order.version }
+// patch
+{ status: 'paid' }
+```
+
+<p>
+  Nodes refer to fields by name in the editor, but a published version carries field ids: renaming a field never breaks a
+  version that is already running. A field you delete makes the node fail with <code>field "x" no longer exists</code>;
+  if you change a field's type, values that no longer parse read as empty.
+</p>
+
+#### Triggers
+
+<p>
+  Three triggers start a scenario when a record of a chosen table is <b>created</b>, <b>updated</b> or <b>deleted</b>.
+  Pick the table in "New trigger". The scenario receives <code>event</code>:{' '}
+  <code>{'{ table, record, previous?, changedFields?, source }'}</code> — the record by field name, the previous values
+  for updates and deletes, the names of the changed fields for updates.
+</p>
+
+<ul>
+  <li>Triggers fire only for changes made by scenarios (<code>source</code> is <code>"workflow"</code>). Grid edits, CSV import, Clear and Copy dev to prod never fire them.</li>
+  <li>The environment follows the write: a dev run fires dev triggers, a production run fires production ones.</li>
+  <li>Each change starts its own run. At most 600 events per minute per table and environment are delivered; the overflow is written to the run journal.</li>
+  <li>If the stand has been inactive for 10 minutes, a pending event is dropped rather than delivered late.</li>
+  <li>A trigger that writes to its own table fires again — by design. Guard against a loop by checking <code>event.source</code> or <code>event.changedFields</code>.</li>
+  <li>"Run function" on a trigger asks for a test <code>event</code> payload keyed by field name.</li>
+</ul>
+
+#### Limits and access
+
+<p>
+  Per project: 20 tables, 100 fields per table, 10 000 records per table and environment, 64 KB per record. An
+  administrator can change them per user in the <b>Limits</b> dialog (see <a href="../administration/">Administration</a>).
+</p>
+
+<p>
+  The owner and editors can do everything above. An <b>executor</b> (see <a href="../project-users/">Project users</a>)
+  and a platform administrator get a read-only Tables tab. A guest looking at a template sees only its fields.
+</p>
+
+#### The AI agent
+
+<p>
+  The <a href="../ai-agent/">agent</a> creates tables and edits their fields (as <code>tables/&lt;name&gt;.json</code> in
+  the file interface, or with a table tool), and uses them in functions. It does not read or edit records in this
+  version — use the grid or CSV for data.
+</p>

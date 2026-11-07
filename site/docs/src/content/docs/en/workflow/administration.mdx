@@ -238,7 +238,7 @@ head:
   project (default 3, or whatever the deployment's <code>MAX_CONCURRENT_PROD_VERSIONS</code> setting says), plus the maximum
   number of projects, development servers, stored versions, total file size across all the owner's projects and
   schedules (defaults <code>MAX_PROJECTS</code>, <code>MAX_DEV_PODS</code>, <code>MAX_STORED_VERSIONS</code>,
-  <code>MAX_OWNER_FILES_BYTES</code>, <code>MAX_SCHEDULES</code>). An empty
+  <code>MAX_OWNER_FILES_BYTES</code>, <code>MAX_SCHEDULES</code>), and for <a href="../tables/">tables</a> the number of tables per project, fields per table, records per table and environment, and the size of one record (defaults <code>MAX_TABLES_PER_PROJECT</code> 20, <code>MAX_TABLE_FIELDS</code> 100, <code>MAX_TABLE_RECORDS</code> 10 000, <code>MAX_TABLE_RECORD_BYTES</code> 65 536). An empty
   field means "use the deployment default"; a filled one overrides it for that account's projects only.
 </p>
 
