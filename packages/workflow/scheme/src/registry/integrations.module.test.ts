@@ -2,6 +2,7 @@ import { container as diContainer, resolveService } from '@falang/di';
 import { registerGlobalTokens, TOKEN_I18N, type Scheme } from '@falang/scheme';
 import type { IWorkflowIntegration, TIntegrationLocaleLoader } from '@falang/workflow-integrations-common';
 import { describe, expect, it } from 'vitest';
+import { TOKEN_DOCUMENTS_PROVIDER } from './di-tokens.js';
 import { IntegrationsModule } from './integrations.module.js';
 
 const loaderFor =
@@ -56,5 +57,32 @@ describe('IntegrationsModule locales', () => {
     await i18n.whenIdle();
 
     expect(i18n.t(bareIntegration.label)).toBe('Bare Vendor');
+  });
+});
+
+describe('IntegrationsModule documents provider', () => {
+  const buildScheme = (container: ReturnType<typeof diContainer.createChildContainer>): Scheme =>
+    ({ container }) as unknown as Scheme;
+
+  it('exposes the host-supplied documents by type to `document-ref` fields', () => {
+    registerGlobalTokens();
+    const container = diContainer.createChildContainer();
+    const documents = [
+      { id: 't1', name: 'Clients', type: 'table' },
+      { id: 'f1', name: 'main', type: 'function' },
+    ];
+    new IntegrationsModule([], undefined, undefined, undefined, undefined, (type) =>
+      documents.filter((document) => document.type === type),
+    ).register(buildScheme(container));
+
+    const provider = resolveService(TOKEN_DOCUMENTS_PROVIDER, container);
+    expect(provider.getDocuments('table').map((document) => document.id)).toEqual(['t1']);
+  });
+
+  it('lists nothing when the host supplies no provider', () => {
+    registerGlobalTokens();
+    const container = diContainer.createChildContainer();
+    new IntegrationsModule([]).register(buildScheme(container));
+    expect(resolveService(TOKEN_DOCUMENTS_PROVIDER, container).getDocuments('table')).toEqual([]);
   });
 });

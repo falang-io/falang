@@ -13,6 +13,19 @@ export interface ICredentialsProvider {
 
 export const TOKEN_CREDENTIALS_PROVIDER = createSchemeToken<ICredentialsProvider>('CREDENTIALS_PROVIDER');
 
+/** One document of the project, as a `document-ref` field lists it. */
+export interface IDocumentRefOption {
+  readonly id: string;
+  readonly name: string;
+}
+
+/** Live read access to the project's documents by type — backs `kind: 'document-ref'` fields (ADR 0075 (private)). */
+export interface IDocumentsProvider {
+  getDocuments(type: string): readonly IDocumentRefOption[];
+}
+
+export const TOKEN_DOCUMENTS_PROVIDER = createSchemeToken<IDocumentsProvider>('DOCUMENTS_PROVIDER');
+
 /** Backs any `kind: 'select'` field with a `loadOptions` hook (e.g. `call-ai-text`'s `model`) — see `IntegrationsModule`. */
 export interface IFieldOptionsProvider {
   loadOptions(

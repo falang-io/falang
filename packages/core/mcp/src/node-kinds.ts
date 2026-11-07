@@ -2,6 +2,7 @@ import type { INodeConfig, NodesStack } from '@falang/dto';
 import { zod } from '@falang/dto';
 import { NUMBER_TYPE_NODE_KIND_NOTES } from './node-kind-notes-numbers.js';
 import { SQL_VENDOR_NODE_KIND_NOTES, VENDOR_NODE_KIND_NOTES } from './node-kind-notes-vendors.js';
+import { TABLES_VENDOR_NODE_KIND_NOTES } from './node-kind-notes-tables.js';
 
 /**
  * `{ tuple: [...] }` names every fixed slot in order (e.g. `if` → `['if-child', 'if-child']`) — unlike
@@ -140,6 +141,7 @@ const ALL_NODE_KIND_NOTES: Record<string, string> = {
   ...NODE_KIND_NOTES,
   ...VENDOR_NODE_KIND_NOTES,
   ...SQL_VENDOR_NODE_KIND_NOTES,
+  ...TABLES_VENDOR_NODE_KIND_NOTES,
   ...NUMBER_TYPE_NODE_KIND_NOTES,
 };
 

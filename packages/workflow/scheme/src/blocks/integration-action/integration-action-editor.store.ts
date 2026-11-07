@@ -12,6 +12,7 @@ import type { IActionDescriptor, IFieldConfig, IIntegrationInstance } from '@fal
 import { action, makeObservable, observable, runInAction } from 'mobx';
 import {
   TOKEN_CREDENTIALS_PROVIDER,
+  TOKEN_DOCUMENTS_PROVIDER,
   TOKEN_FIELD_OPTIONS_PROVIDER,
   TOKEN_INTEGRATIONS_REGISTRY,
   type IFieldOptionsProvider,
@@ -67,6 +68,7 @@ export class IntegrationActionEditorStore extends ExpressionBlockEditorStore<TIn
   @observable optionsLoading = false;
   private readonly credentialInstances: readonly IIntegrationInstance[];
   private readonly fieldOptionsProvider: IFieldOptionsProvider;
+  private readonly getDocuments: (type: string) => readonly { id: string; name: string }[];
   private readonly credentialRefFieldName: string | undefined;
   private readonly dynamicOptionsField: IFieldConfig | undefined;
   /** Every field's starting value, so a function `expectedType` sees a complete snapshot even while the stores are still being created. */
@@ -82,6 +84,14 @@ export class IntegrationActionEditorStore extends ExpressionBlockEditorStore<TIn
     this.editorType = descriptor.editorType ?? 'inline';
     this.credentialInstances = resolveService(TOKEN_CREDENTIALS_PROVIDER, params.container).getInstances();
     this.fieldOptionsProvider = resolveService(TOKEN_FIELD_OPTIONS_PROVIDER, params.container);
+    this.getDocuments = (type) => {
+      try {
+        return resolveService(TOKEN_DOCUMENTS_PROVIDER, params.container).getDocuments(type);
+      } catch {
+        // No documents provider registered (a bare test harness) — nothing to pick.
+        return [];
+      }
+    };
     this.credentialRefFieldName = descriptor.fields.find((field) => field.kind === 'credential-ref')?.name;
     this.dynamicOptionsField = descriptor.fields.find((field) => field.kind === 'select' && field.loadOptions);
     this.initialValues = storedFieldValues(descriptor.fields, params.data, this.credentialInstances);
@@ -216,8 +226,14 @@ export class IntegrationActionEditorStore extends ExpressionBlockEditorStore<TIn
     }
   }
 
-  /** Options for a `select`/`credential-ref` field's `TsSelect`. */
+  /** Options for a `select`/`credential-ref`/`document-ref` field's `TsSelect`. */
   getFieldOptions(field: IFieldConfig): readonly ISelectOption[] {
+    if (field.kind === 'document-ref') {
+      return this.getDocuments(field.documentType ?? '').map((document) => ({
+        value: document.id,
+        label: document.name,
+      }));
+    }
     if (field.kind === 'credential-ref') {
       return this.credentialInstances
         .filter((instance) => instance.vendor === field.vendor)

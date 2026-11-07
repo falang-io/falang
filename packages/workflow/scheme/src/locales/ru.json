@@ -2,6 +2,7 @@
   "integration-editor": {
     "select-placeholder": "Выбрать…",
     "select-credential-placeholder": "Выберите интеграцию…",
+    "select-table-placeholder": "Выберите таблицу…",
     "select-struct-placeholder": "Выберите структуру…",
     "loading": "Загрузка…",
     "select-credential-first": "Сначала выберите интеграцию…",
