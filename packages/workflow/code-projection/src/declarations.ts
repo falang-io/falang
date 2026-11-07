@@ -103,7 +103,7 @@ const vendorBlock = (integration: IWorkflowIntegration, model: WorkflowModel, wi
       const payload = `(${trigger.scopeVariableName}: ${renderType(trigger.scopeType, model.types)}) => Promise<unknown>`;
       const config =
         trigger.contextFields && trigger.contextFields.length > 0
-          ? `config: { ${trigger.contextFields.map((field) => `${field.name}: string`).join('; ')} }, `
+          ? `config: { ${trigger.contextFields.map((field) => `${field.name}${field.defaultValue === undefined ? '' : '?'}: string`).join('; ')} }, `
           : '';
       lines.push(`  /** ${trigger.notes.replaceAll('*/', '* /').replaceAll('\n', ' ')} */`);
       lines.push(`  ${triggerMethodName(trigger.name, integration.vendor)}(${config}handler: ${payload}): Trigger;`);
