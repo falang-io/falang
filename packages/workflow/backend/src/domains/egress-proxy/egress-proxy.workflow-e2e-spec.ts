@@ -53,8 +53,15 @@ const sumFor = (stats: Record<string, number>, predicate: (target: string) => bo
     .filter(([target]) => predicate(target))
     .reduce((total, [, count]) => total + count, 0);
 
-const isBackendTarget = (target: string): boolean => target.endsWith(':4100');
-const isPodTarget = (target: string): boolean => target.endsWith(':4102');
+/**
+ * How the backend and a runner reach the Telegram mock, as the proxy sees it (`host:port` suffixes). Defaults: the kind
+ * stack (`mocks:4100` from `backend`, `<gateway>:4102` from a pod). The local mode (`npm run test-e2e:fast`) has both on
+ * one machine, so it points runners at `localhost` and the backend at `127.0.0.1` and passes the two targets here.
+ */
+const BACKEND_TARGET = process.env.E2E_PROXY_BACKEND_TARGET ?? ':4100';
+const POD_TARGET = process.env.E2E_PROXY_POD_TARGET ?? ':4102';
+const isBackendTarget = (target: string): boolean => target.endsWith(BACKEND_TARGET);
+const isPodTarget = (target: string): boolean => target.endsWith(POD_TARGET);
 
 const delay = (ms: number): Promise<void> =>
   new Promise((resolve) => {

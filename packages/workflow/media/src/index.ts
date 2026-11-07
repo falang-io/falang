@@ -1,7 +1,7 @@
 export { createApp } from './app.js';
 export type { ICreateAppDeps } from './app.js';
-export { loadConfig } from './config.js';
-export type { IMediaServiceConfig } from './config.js';
+export { loadConfig, resolveNiceCommand } from './config.js';
+export type { IMediaServiceConfig, IResolveNiceParams } from './config.js';
 export { NodeProcessSpawner } from './jobs/ffmpeg-process.js';
 export type { IProcessSpawner, ISpawnedProcess } from './jobs/ffmpeg-process.js';
 export { createFilesClient } from './jobs/files-client.js';

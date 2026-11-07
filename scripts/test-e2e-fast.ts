@@ -29,14 +29,27 @@ const CLIENT_OUT_DIR = path.join(ROOT, 'node_modules', '.cache', 'falang-e2e-fas
 const E2E_TESTS_DIR = path.join(ROOT, 'packages', 'workflow', 'e2e-tests');
 
 /** What the local mode lacks compared with the kind stack — the matching specs are skipped. */
-const MISSING_CAPABILITIES = ['activepieces', 'media', 'mail', 'user-databases', 'egress-proxy', 'temporal-isolation'];
+const MISSING_CAPABILITIES = [
+  'activepieces',
+  'media',
+  'mail',
+  'postgres-user-db',
+  'mysql-user-db',
+  'egress-proxy',
+  'temporal-isolation',
+];
 
 /**
  * Optional local services started by default (`--with` overrides). Each started service removes the capabilities it
  * reports from the list above. One line per service.
  */
 const DEFAULT_SERVICES: readonly string[] = [
-  // e.g. 'mailpit',
+  'activepieces',
+  'mailpit',
+  'egress-proxy',
+  'media',
+  'postgres-user-db',
+  'mysql-user-db',
 ];
 
 /** Same value as `docker-compose.workflow-e2e.yml`: the tables spec derives project tokens from it. */
@@ -186,6 +199,10 @@ const main = async (): Promise<number> => {
         MAX_STORED_VERSIONS: '1000',
         SCHEDULE_MIN_INTERVAL_SECONDS: '1',
         TELEGRAM_API_BASE_URL: `${mocksUrl}/telegram`,
+        // Runners reach the Telegram mock by another name than the backend, so the egress-proxy spec can tell them apart.
+        RUNNER_TELEGRAM_API_BASE_URL: `http://localhost:${mocksPort}/telegram`,
+        // Binaries the optional services download (mailpit) are kept between runs.
+        FALANG_LOCAL_BIN_DIR: path.join(ROOT, 'node_modules', '.cache', 'falang-e2e-fast', 'bin'),
         MAX_API_BASE_URL: `${mocksUrl}/max`,
         VK_API_BASE_URL: `${mocksUrl}/vk`,
       },
@@ -221,6 +238,9 @@ const main = async (): Promise<number> => {
       // Runners are processes on this machine: what the test process reaches, they reach too.
       RUNNER_MOCKS_URL: mocksUrl,
       KIND_GATEWAY_IP: '127.0.0.1',
+      // See RUNNER_TELEGRAM_API_BASE_URL above: the two Telegram targets the egress proxy sees.
+      E2E_PROXY_BACKEND_TARGET: `127.0.0.1:${mocksPort}`,
+      E2E_PROXY_POD_TARGET: `localhost:${mocksPort}`,
       PROJECT_TOKEN_SECRET,
     };
     const results: string[] = [];

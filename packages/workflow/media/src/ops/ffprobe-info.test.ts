@@ -58,6 +58,17 @@ describe('runFfprobe hardening', () => {
     expect(buildFfprobeArgv('/x.png').join(' ')).toContain('-protocol_whitelist file,pipe');
   });
 
+  it('spawns the configured ffprobe binary', async () => {
+    const spawner = new FakeProcessSpawner((call) => {
+      queueMicrotask(() => {
+        call.stdout.write('{}');
+        call.finish(0);
+      });
+    });
+    await runFfprobe(spawner, '/x.png', 1000, '/opt/ff/ffprobe');
+    expect(spawner.calls.map((call) => call.command)).toEqual(['/opt/ff/ffprobe']);
+  });
+
   it('kills a hung ffprobe after the timeout', async () => {
     const spawner = new FakeProcessSpawner(null);
     await expect(runFfprobe(spawner, '/x.png', 20)).rejects.toThrow(/timed out/);

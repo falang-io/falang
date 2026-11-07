@@ -2,12 +2,13 @@ import { mysqlIntegration } from '@falang/workflow-integrations-mysql';
 import { postgresIntegration } from '@falang/workflow-integrations-postgres';
 import { createConnection } from 'mysql2/promise';
 import { Client as PgClient } from 'pg';
-import { beforeAll, expect, it } from 'vitest';
+import { beforeAll, describe, expect, it } from 'vitest';
 import type { IProjectExportPayload } from '../projects/export/project-export.service.js';
 import {
+  WORKFLOW_E2E_MYSQL_USER_DB_RUNNER_URL,
   WORKFLOW_E2E_MYSQL_USER_DB_URL,
+  WORKFLOW_E2E_POSTGRES_USER_DB_RUNNER_URL,
   WORKFLOW_E2E_POSTGRES_USER_DB_URL,
-  WORKFLOW_E2E_RUNNER_DB_HOST,
   workflowE2eApi,
   workflowE2eAuth,
   workflowE2eGetIntegrationsDocumentId,
@@ -23,9 +24,11 @@ import {
   buildSqlSelectNode,
   buildSqlUpdateNode,
 } from '../../test-utils/workflow-e2e-fixtures-db.js';
-import { describeIfStackHas } from '../../test-utils/workflow-e2e-capabilities.js';
+import { itIfStackHas, workflowE2eHas } from '../../test-utils/workflow-e2e-capabilities.js';
 
-const describeWhenAvailable = describeIfStackHas('user-databases');
+// Each case needs its own database (`postgres-user-db` / `mysql-user-db`); the suite is skipped when neither exists.
+const describeWhenAvailable =
+  workflowE2eHas('postgres-user-db') || workflowE2eHas('mysql-user-db') ? describe : describe.skip;
 
 /**
  * Workflow-tier spec for ADR 0039 (private)'s "Consequences" e2e bullet —
@@ -34,7 +37,8 @@ const describeWhenAvailable = describeIfStackHas('user-databases');
  * (`docker-compose.workflow-e2e.yml`'s `postgres-user-db`/`mysql-user-db`, `docker/e2e-seed/*.sql`'s
  * one `orders` table each), reached from a real runner pod through the same
  * `${KIND_GATEWAY_IP}`-via-docker-bridge-gateway host every other cross-network fixture in this
- * suite uses (see `workflow-e2e-client.ts`'s `WORKFLOW_E2E_RUNNER_DB_HOST`) — the same address also
+ * suite uses (see `workflow-e2e-client.ts`'s `WORKFLOW_E2E_RUNNER_DB_HOST`; the local mode's
+ * `--with postgres-user-db,mysql-user-db` supplies its own URLs via `E2E_*_USER_DB_*`) — the same address also
  * works from this test process itself and from `backend`'s own "Sync structure" call, since it's one
  * value shared by every caller (see that constant's own doc comment).
  *
@@ -222,40 +226,48 @@ describeWhenAvailable('integrations (workflow tier): Databases (Postgres, MySQL)
     }
   };
 
-  it('postgres: insert -> select -> update -> query -> delete round-trips through a real runner pod', async () => {
-    await runDialectCase({
-      vendor: postgresIntegration.vendor,
-      connectionString: `postgres://falang:falang@${WORKFLOW_E2E_RUNNER_DB_HOST}:5435/userdb`,
-      countSql: 'SELECT count(*) AS c FROM orders WHERE status = $1',
-      assertRowDeleted: async (id) => {
-        const client = new PgClient({ connectionString: WORKFLOW_E2E_POSTGRES_USER_DB_URL });
-        await client.connect();
-        try {
-          const rowsResult = await client.query('SELECT id FROM orders WHERE id = $1', [id]);
-          expect(rowsResult.rows).toHaveLength(0);
-        } finally {
-          await client.end();
-        }
-      },
-    });
-  }, 150_000);
+  itIfStackHas('postgres-user-db')(
+    'postgres: insert -> select -> update -> query -> delete round-trips through a real runner pod',
+    async () => {
+      await runDialectCase({
+        vendor: postgresIntegration.vendor,
+        connectionString: WORKFLOW_E2E_POSTGRES_USER_DB_RUNNER_URL,
+        countSql: 'SELECT count(*) AS c FROM orders WHERE status = $1',
+        assertRowDeleted: async (id) => {
+          const client = new PgClient({ connectionString: WORKFLOW_E2E_POSTGRES_USER_DB_URL });
+          await client.connect();
+          try {
+            const rowsResult = await client.query('SELECT id FROM orders WHERE id = $1', [id]);
+            expect(rowsResult.rows).toHaveLength(0);
+          } finally {
+            await client.end();
+          }
+        },
+      });
+    },
+    150_000,
+  );
 
-  it('mysql: insert -> select -> update -> query -> delete round-trips through a real runner pod', async () => {
-    await runDialectCase({
-      vendor: mysqlIntegration.vendor,
-      connectionString: `mysql://falang:falang@${WORKFLOW_E2E_RUNNER_DB_HOST}:3308/userdb`,
-      countSql: 'SELECT count(*) AS c FROM orders WHERE status = ?',
-      assertRowDeleted: async (id) => {
-        const connection = await createConnection(WORKFLOW_E2E_MYSQL_USER_DB_URL);
-        try {
-          const [rows] = await connection.query('SELECT id FROM orders WHERE id = ?', [id]);
-          expect(rows as unknown[]).toHaveLength(0);
-        } finally {
-          await connection.end();
-        }
-      },
-    });
-  }, 150_000);
+  itIfStackHas('mysql-user-db')(
+    'mysql: insert -> select -> update -> query -> delete round-trips through a real runner pod',
+    async () => {
+      await runDialectCase({
+        vendor: mysqlIntegration.vendor,
+        connectionString: WORKFLOW_E2E_MYSQL_USER_DB_RUNNER_URL,
+        countSql: 'SELECT count(*) AS c FROM orders WHERE status = ?',
+        assertRowDeleted: async (id) => {
+          const connection = await createConnection(WORKFLOW_E2E_MYSQL_USER_DB_URL);
+          try {
+            const [rows] = await connection.query('SELECT id FROM orders WHERE id = ?', [id]);
+            expect(rows as unknown[]).toHaveLength(0);
+          } finally {
+            await connection.end();
+          }
+        },
+      });
+    },
+    150_000,
+  );
 
   // A blank `where` on *-update/*-delete is rejected before it can "update everything" —
   // `build-sql-integration.ts`'s field-level `validate` (`requireNonBlankWhere`) at edit time, and

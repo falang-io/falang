@@ -140,7 +140,11 @@ describe('job-runner', () => {
         });
       });
       const filesClient = new FakeFilesClient();
-      const runner = createJobRunner({ filesClient, spawner, config: loadConfig({ MEDIA_WORK_DIR: workDir }) });
+      const runner = createJobRunner({
+        filesClient,
+        spawner,
+        config: { ...loadConfig({ MEDIA_WORK_DIR: workDir }), niceCommand: 'nice' },
+      });
       const store = new JobStore();
       const job: IJob = store.createJob(
         {
@@ -252,7 +256,7 @@ describe('job-runner', () => {
       const runner = createJobRunner({
         filesClient: new FakeFilesClient(),
         spawner,
-        config: loadConfig({ MEDIA_WORK_DIR: workDir }),
+        config: { ...loadConfig({ MEDIA_WORK_DIR: workDir }), niceCommand: 'nice' },
       });
       const job: IJob = new JobStore().createJob(
         { projectId: 'p1', op: 'media-image-resize', inputs: baseInputs, params: { width: 10 } },

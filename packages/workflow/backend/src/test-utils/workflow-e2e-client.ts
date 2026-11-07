@@ -47,14 +47,29 @@ export const WORKFLOW_E2E_RUNNER_MOCKS_URL =
  */
 export const WORKFLOW_E2E_RUNNER_DB_HOST = process.env.KIND_GATEWAY_IP ?? '172.18.0.1';
 
-/** `postgres-user-db`'s host-published port (`docker-compose.workflow-e2e.yml`, `5435:5432`) — for a
- *  direct `pg` connection from *this* test process (not a pod), e.g. to confirm a row was really
- *  deleted after the workflow under test claims it deleted it. */
-export const WORKFLOW_E2E_POSTGRES_USER_DB_URL = 'postgres://falang:falang@localhost:5435/userdb';
+/**
+ * The user-database stand-ins' URLs (ADR 0039 (private)). Each has two forms: `*_USER_DB_URL` for a direct `pg`/`mysql2`
+ * connection from *this* test process (e.g. to confirm a row was really deleted after the workflow claims it was),
+ * and `*_USER_DB_RUNNER_URL`, the `connectionString` seeded into the credential — reached by `backend` ("Sync
+ * structure") and by the runner (the compiled activities), so it must work from both (see
+ * `WORKFLOW_E2E_RUNNER_DB_HOST`). Defaults: the kind stack (`docker-compose.workflow-e2e.yml`, host ports
+ * `5435`/`3308`); `npm run test-e2e:fast -- --with postgres-user-db,mysql-user-db` sets the `E2E_*` variables to the
+ * local mode's own databases (`@falang/workflow-local`'s `src/services/{postgres,mysql}-user-db.ts`).
+ */
+export const WORKFLOW_E2E_POSTGRES_USER_DB_URL =
+  process.env.E2E_POSTGRES_USER_DB_URL ?? 'postgres://falang:falang@localhost:5435/userdb';
 
-/** `mysql-user-db`'s host-published port (`docker-compose.workflow-e2e.yml`, `3308:3306`) — for a
- *  direct `mysql2` connection from *this* test process, mirrors `WORKFLOW_E2E_POSTGRES_USER_DB_URL`. */
-export const WORKFLOW_E2E_MYSQL_USER_DB_URL = 'mysql://falang:falang@localhost:3308/userdb';
+/** See `WORKFLOW_E2E_POSTGRES_USER_DB_URL`. */
+export const WORKFLOW_E2E_POSTGRES_USER_DB_RUNNER_URL =
+  process.env.E2E_POSTGRES_USER_DB_RUNNER_URL ?? `postgres://falang:falang@${WORKFLOW_E2E_RUNNER_DB_HOST}:5435/userdb`;
+
+/** See `WORKFLOW_E2E_POSTGRES_USER_DB_URL`. */
+export const WORKFLOW_E2E_MYSQL_USER_DB_URL =
+  process.env.E2E_MYSQL_USER_DB_URL ?? 'mysql://falang:falang@localhost:3308/userdb';
+
+/** See `WORKFLOW_E2E_POSTGRES_USER_DB_URL`. */
+export const WORKFLOW_E2E_MYSQL_USER_DB_RUNNER_URL =
+  process.env.E2E_MYSQL_USER_DB_RUNNER_URL ?? `mysql://falang:falang@${WORKFLOW_E2E_RUNNER_DB_HOST}:3308/userdb`;
 
 /**
  * `falang-workflow-activepieces`'s own test-only fixture routes (`src/routes/mock.ts`), reachable

@@ -1,3 +1,9 @@
+import { activepiecesService } from './activepieces.js';
+import { egressProxyService } from './egress-proxy.js';
+import { mailpitService } from './mailpit.js';
+import { mediaService } from './media.js';
+import { mysqlUserDbService } from './mysql-user-db.js';
+import { postgresUserDbService } from './postgres-user-db.js';
 import type { ILocalService, TLocalServiceName } from './types.js';
 
 /**
@@ -6,12 +12,12 @@ import type { ILocalService, TLocalServiceName } from './types.js';
  * yet (asking for it is an error).
  */
 export const LOCAL_SERVICES: Readonly<Record<TLocalServiceName, ILocalService | null>> = {
-  mailpit: null,
-  'egress-proxy': null,
-  media: null,
-  'postgres-user-db': null,
-  'mysql-user-db': null,
-  activepieces: null,
+  mailpit: mailpitService,
+  'egress-proxy': egressProxyService,
+  media: mediaService,
+  'postgres-user-db': postgresUserDbService,
+  'mysql-user-db': mysqlUserDbService,
+  activepieces: activepiecesService,
 };
 
 export type TLocalServiceRegistry = Readonly<Partial<Record<string, ILocalService | null>>>;

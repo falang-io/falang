@@ -110,6 +110,8 @@ const runJob = async (deps: IJobRunnerDeps, job: IJob, workDir: string): Promise
   const result = await runFfmpeg({
     spawner: deps.spawner,
     argv: fullArgv,
+    ffmpegPath: deps.config.ffmpegPath,
+    niceCommand: deps.config.niceCommand,
     timeoutMs: deps.config.jobTimeoutMs,
     durationSeconds: primaryProbe.duration,
     onProgress: (fraction) => {

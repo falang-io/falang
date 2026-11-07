@@ -22,7 +22,12 @@ answers cached 60 s): wrong token -> 401, `backend` unreachable -> 503 (fail clo
 | `MEDIA_MAX_INPUTS`                                                 | 10             | inputs per job                                        |
 | `MEDIA_MAX_DURATION_SECONDS`                                       | 3600           | longest accepted input (by ffprobe)                   |
 | `MEDIA_OUTPUT_MAX_BYTES`, `MEDIA_FFMPEG_THREADS`, `MEDIA_WORK_DIR` | 500 MB, 2, tmp | output cap, threads, work directory                   |
+| `MEDIA_FFMPEG_PATH` / `MEDIA_FFPROBE_PATH`                         | from `PATH`    | ffmpeg / ffprobe binaries (absolute path or name)     |
 
 Inputs wider or taller than 8192 px are rejected. ffmpeg/ffprobe run with `-protocol_whitelist file,pipe` (ffmpeg:
 before every `-i`); the concat demuxer uses `-safe 1` with the job's own relative file names. Input file names are
 reduced to `[A-Za-z0-9._-]` basenames before they reach a path or an uploaded name.
+
+ffmpeg runs as `nice -n 10 <ffmpeg> …` when a `nice` is found on `PATH` at startup (POSIX only); on Windows, or where
+`nice` is missing, it runs directly. The local mode (`@falang/workflow-local`, `--with media`) starts this service as a
+child process and passes the ffmpeg/ffprobe it resolved (`FALANG_FFMPEG`/`FALANG_FFPROBE`, else `PATH`).

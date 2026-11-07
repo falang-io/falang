@@ -24,6 +24,7 @@ const app = createApp({
   maxJobsPerProject: config.maxJobsPerProject,
   verifyProjectToken: createProjectTokenVerifier({ backendInternalUrl: config.backendInternalUrl }),
   maxInputs: config.maxInputs,
+  ffmpegPath: config.ffmpegPath,
 });
 const server = app.listen(config.port, () => {
   // oxlint-disable-next-line no-console -- process-lifecycle log, this service has no logging framework yet.

@@ -39,6 +39,49 @@ as `??=` defaults, after the local mode's own), `backendSecretEnv` (the same, bu
 as `services: { <name>: { testEnv, capabilities } }`; `npm run test-e2e:fast -- --with <list>` merges every `testEnv`
 into the test environment and drops the capabilities from `FALANG_E2E_MISSING`.
 
+Downloaded binaries go to `$FALANG_LOCAL_BIN_DIR`, default `<dataDir>/bin` (`services/managed-binary.ts`: `resolveBinary` =
+env var → `PATH` → that directory; `downloadBinary` checks a pinned SHA-256, extracts with `tar`, installs atomically).
+`test-e2e:fast` points it at `node_modules/.cache/falang-e2e-fast/bin` and starts all six services by default.
+
+- **`mailpit`** (capability `mail`): an SMTP sink with a web UI and API ([mailpit](https://github.com/axllent/mailpit)).
+  Binary: `FALANG_MAILPIT` → `mailpit` on `PATH` → `<bin>/mailpit`, else v1.31.6 is downloaded there (SHA-256 of the
+  GitHub release asset digests pinned in `services/mailpit.ts`). SMTP and HTTP on free loopback ports; mail kept in
+  `<dataDir>/services/mailpit/mailpit.db` (a temporary database in `--test-mode`). Backend: `SMTP_URL`,
+  `MAIL_FROM=noreply@falang.local`; tests: `MAILPIT_URL`. For real mail don't use it — export your own `SMTP_URL`.
+- **`egress-proxy`** (capability `egress-proxy`): the repository's `proxy/` (`node --import tsx proxy/src/main.ts`;
+  checkouts only, or `FALANG_PROXY_ENTRY`), token `LOCAL_EGRESS_PROXY_TOKEN` from `secrets.json`; `--test-mode` also
+  allows every target port and `GET /__stats`. It does not configure the product (the admin "Proxy" page does — the e2e
+  spec uses the API). Tests: `E2E_PROXY_URL`, `E2E_PROXY_TOKEN`, `E2E_PROXY_STATS_URL`. `test-e2e:fast` reaches the
+  Telegram mock as `localhost` from runners and `127.0.0.1` from the backend (`RUNNER_TELEGRAM_API_BASE_URL`), so the
+  spec tells the two apart (`E2E_PROXY_BACKEND_TARGET`/`E2E_PROXY_POD_TARGET`).
+- **`media`** (capability `media`): `@falang/workflow-media` (a dependency of this package) as
+  `node --import tsx <media>/src/main.ts`, work directory `<dataDir>/services/media`. ffmpeg/ffprobe from
+  `FALANG_FFMPEG`/`FALANG_FFPROBE`, else `PATH`; missing ones fail the start with an install hint (nothing is
+  downloaded). Backend and runners: `MEDIA_SERVICE_URL`; tests: `MEDIA_URL`. Without `nice` (Windows) ffmpeg runs at
+  normal priority.
+- **`activepieces`** (capability `activepieces`): the repository's `activepieces/` (outside the npm workspace; or
+  `FALANG_ACTIVEPIECES_DIR`). On start its `node_modules` is (re)installed with `npm ci` when the stamp
+  `node_modules/.falang-install-stamp` (lockfile sha256 + Node ABI) is missing or stale, serialized by a pid lock file in
+  the OS temp directory (taken over when its process is gone or after 30 min); then `src/main.ts` runs as one Node process
+  with the service's own `tsx`, ready on `GET /health`. Backend and runners: `ACTIVEPIECES_SERVICE_URL`; backend only:
+  `ACTIVEPIECES_SERVICE_SECRET` (`secrets.json`, or the exported value). `--test-mode`: `NODE_ENV=test` (mock pieces)
+  and `MOCK_OAUTH_BASE_URL` on itself. Tests: `ACTIVEPIECES_URL`, `ACTIVEPIECES_SERVICE_SECRET`. ~220 MB of
+  dependencies, ~8 s to start.
+- **`postgres-user-db`, `mysql-user-db`** (capabilities of the same names): e2e fixtures standing in for "the user's
+  own database" (the kind stack's containers), on `127.0.0.1:<free port>`, account `falang`/`falang`, database `userdb`,
+  seeded from `docker/e2e-seed/*.sql` (checkouts only). Their libraries are devDependencies of this package, loaded
+  lazily. The product needs neither: `EGRESS_ALLOW_PRIVATE=true` already lets "Sync structure" and runners reach a
+  database on localhost. Tests: `E2E_{POSTGRES,MYSQL}_USER_DB_URL` and `…_RUNNER_URL` (the kind ports are the defaults).
+  - Postgres 18 from `embedded-postgres`'s binaries, without its JS API (it installs process-wide exit hooks): `initdb` +
+    seed once per data directory (`<dataDir>/services/postgres-user-db/pgdata`), fast shutdown on stop. PGlite behind
+    `pglite-socket` was rejected: it multiplexes every connection onto PGlite's one session per protocol message, so
+    concurrent extended-protocol queries corrupt each other's unnamed statements and portals (308 of 400 queries failed
+    in a spike with two `pg` pools).
+  - MySQL 8.4 from `mysql-memory-server` in a child process (`mysql-user-db-child.ts`; the library's `signal-exit`
+    handlers would end the local mode on its first signal). The first start downloads ~400 MB into
+    `<os tmpdir>/mysqlmsn/binaries/` (~1 min), later starts take ~8 s; a system MySQL 8.4 is used when installed. The
+    database is ephemeral (deleted and re-seeded on every start).
+
 ## Control routes (for a shell such as the Electron app)
 
 With `--status-file <path>` (or the `statusFile` option) the process writes `{ url, internalUrl, temporalAddress,
@@ -76,8 +119,8 @@ file are known before the server exists (the UI answers only once it has started
 
 ## What is different from the hosted stack
 
-Runners are child processes of the backend (they stop when it stops). ActivePieces integrations and the ffmpeg media
-service are off, mail is not configured, and inbound webhooks (including OAuth callbacks of third-party apps) need a tunnel
+Runners are child processes of the backend (they stop when it stops). ActivePieces integrations, the ffmpeg media
+service and mail are off unless started with `--with` (see above; ActivePieces needs a repository checkout), and inbound webhooks (including OAuth callbacks of third-party apps) need a tunnel
 to the public port; Telegram in polling mode works. Signup is off - create more users on the admin page (`/admin`).
 
 ## Code map
@@ -90,7 +133,7 @@ to the public port; Telegram in polling mode works. Signup is off - create more 
 `npm run test-e2e:local` (repo root) starts the CLI in a child process and drives build, run, stop and file upload over HTTP.
 
 `npm run test-e2e:fast` (repo root, `scripts/test-e2e-fast.ts`) runs the regular e2e suites — the workflow tier and the
-Playwright browser tier — against this CLI plus `@falang/workflow-mocks`, both as child processes on free ports. Specs
-that need a service the local mode does not start (ActivePieces, media, mail, user databases, the egress proxy,
-per-project Temporal isolation) are skipped via `FALANG_E2E_MISSING`; `npm run test-e2e` on kind still covers them.
-`--with <list>` (default `DEFAULT_SERVICES` in the script) starts optional services and runs the specs they enable.
+Playwright browser tier — against this CLI plus `@falang/workflow-mocks`, both as child processes on free ports. By
+default it starts all six optional services (`DEFAULT_SERVICES` in the script, `--with <list>` overrides); specs that
+need something no started service provides are skipped via `FALANG_E2E_MISSING` — always per-project Temporal
+isolation, which `temporal server start-dev` cannot do; `npm run test-e2e` on kind still covers that.

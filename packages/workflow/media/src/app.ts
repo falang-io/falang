@@ -14,6 +14,8 @@ export interface ICreateAppDeps {
   readonly maxJobsPerProject: number;
   readonly verifyProjectToken: TProjectTokenVerifier;
   readonly maxInputs?: number;
+  /** `IMediaServiceConfig.ffmpegPath` for `GET /health`'s version line; default `ffmpeg`. */
+  readonly ffmpegPath?: string;
 }
 
 /** Split out from `main.ts` so unit tests can exercise the routes (via `supertest`) without
@@ -22,7 +24,7 @@ export const createApp = (deps: ICreateAppDeps): Express => {
   const app = express();
   app.use(express.json({ limit: '1mb' }));
 
-  const resolveFfmpegVersion = createFfmpegVersionResolver(deps.spawner);
+  const resolveFfmpegVersion = createFfmpegVersionResolver(deps.spawner, deps.ffmpegPath);
   app.get('/health', async (_req, res) => {
     try {
       res.status(200).json({ ok: true, ffmpeg: await resolveFfmpegVersion() });

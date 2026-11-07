@@ -29,7 +29,6 @@ export type TLocalServiceCapability =
   | 'activepieces'
   | 'media'
   | 'mail'
-  | 'user-databases'
   | 'postgres-user-db'
   | 'mysql-user-db'
   | 'egress-proxy';

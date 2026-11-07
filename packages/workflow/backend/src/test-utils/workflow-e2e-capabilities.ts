@@ -1,4 +1,4 @@
-import { describe } from 'vitest';
+import { describe, it } from 'vitest';
 
 /**
  * What the stack under test provides beyond the product itself. The kind stack (`docker-compose.workflow-e2e.yml`)
@@ -10,7 +10,6 @@ export type TWorkflowE2eCapability =
   | 'activepieces'
   | 'media'
   | 'mail'
-  | 'user-databases'
   | 'postgres-user-db'
   | 'mysql-user-db'
   | 'egress-proxy'
@@ -28,3 +27,7 @@ export const workflowE2eHas = (capability: TWorkflowE2eCapability): boolean => !
 /** `describe` when the stack has `capability`, `describe.skip` otherwise. */
 export const describeIfStackHas = (capability: TWorkflowE2eCapability): typeof describe =>
   (workflowE2eHas(capability) ? describe : describe.skip) as typeof describe;
+
+/** `it` when the stack has `capability`, `it.skip` otherwise — for a spec whose cases need different capabilities. */
+export const itIfStackHas = (capability: TWorkflowE2eCapability): typeof it =>
+  (workflowE2eHas(capability) ? it : it.skip) as typeof it;

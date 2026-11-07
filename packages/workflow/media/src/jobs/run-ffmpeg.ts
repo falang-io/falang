@@ -4,6 +4,10 @@ import { ProgressStreamParser } from './progress-parser.js';
 export interface IRunFfmpegOptions {
   readonly spawner: IProcessSpawner;
   readonly argv: readonly string[];
+  /** ffmpeg binary (`IMediaServiceConfig.ffmpegPath`); default `ffmpeg` from `PATH`. */
+  readonly ffmpegPath?: string;
+  /** `nice` to run ffmpeg under (`IMediaServiceConfig.niceCommand`); `null`/absent runs ffmpeg directly. */
+  readonly niceCommand?: string | null;
   readonly timeoutMs: number;
   /** Total duration of the primary input, for turning `out_time_ms` into a 0..1 fraction — `0`
    * (a still image, or a probe that couldn't determine one) means progress just never advances
@@ -22,13 +26,22 @@ export interface IRunFfmpegResult {
   readonly stderr: string;
 }
 
-/** Wraps ffmpeg with `nice -n 10` (the ADR's own CPU-priority sketch), a wall-clock timeout that
- * `SIGKILL`s on expiry, and `-progress pipe:1` parsing. Never touches a shell — `argv` is always a
- * plain array, `nice`/`ffmpeg` are fixed command names, so nothing here can be used to inject an
- * arbitrary command. */
+/** The command and argv that run ffmpeg: `nice -n 10 <ffmpeg> …` when a `nice` is given, else ffmpeg directly. */
+export const buildFfmpegCommand = (
+  argv: readonly string[],
+  ffmpegPath = 'ffmpeg',
+  niceCommand: string | null = null,
+): { readonly command: string; readonly args: readonly string[] } =>
+  niceCommand ? { command: niceCommand, args: ['-n', '10', ffmpegPath, ...argv] } : { command: ffmpegPath, args: argv };
+
+/** Wraps ffmpeg with `nice -n 10` where available (the ADR's own CPU-priority sketch), a wall-clock
+ * timeout that `SIGKILL`s on expiry, and `-progress pipe:1` parsing. Never touches a shell — `argv`
+ * is always a plain array, `nice`/ffmpeg come from the service's own config (never from a job), so
+ * nothing here can be used to inject an arbitrary command. */
 export const runFfmpeg = (options: IRunFfmpegOptions): Promise<IRunFfmpegResult> =>
   new Promise((resolve) => {
-    const proc = options.spawner.spawn('nice', ['-n', '10', 'ffmpeg', ...options.argv]);
+    const { command, args } = buildFfmpegCommand(options.argv, options.ffmpegPath, options.niceCommand);
+    const proc = options.spawner.spawn(command, args);
     options.registerKill(() => proc.kill('SIGKILL'));
 
     let timedOut = false;

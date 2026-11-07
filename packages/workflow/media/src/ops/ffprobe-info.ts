@@ -44,9 +44,10 @@ export const runFfprobe = (
   spawner: IProcessSpawner,
   filePath: string,
   timeoutMs: number = DEFAULT_PROBE_TIMEOUT_MS,
+  ffprobePath = 'ffprobe',
 ): Promise<IFfprobeResult> =>
   new Promise((resolve, reject) => {
-    const proc = spawner.spawn('ffprobe', buildFfprobeArgv(filePath));
+    const proc = spawner.spawn(ffprobePath, buildFfprobeArgv(filePath));
     let timedOut = false;
     const timer = setTimeout(() => {
       timedOut = true;

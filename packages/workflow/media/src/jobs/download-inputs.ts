@@ -23,7 +23,7 @@ export const downloadAndProbeInputs = async (
     readonly spawner: IProcessSpawner;
     readonly config: Pick<
       IMediaServiceConfig,
-      'probeTimeoutMs' | 'maxInputBytes' | 'maxInputs' | 'maxDurationSeconds' | 'maxDimension'
+      'probeTimeoutMs' | 'maxInputBytes' | 'maxInputs' | 'maxDurationSeconds' | 'maxDimension' | 'ffprobePath'
     >;
   },
   projectId: string,
@@ -45,7 +45,7 @@ export const downloadAndProbeInputs = async (
     // oxlint-disable-next-line no-await-in-loop
     await deps.filesClient.download(projectId, input.id, token, destPath, config.maxInputBytes);
     // oxlint-disable-next-line no-await-in-loop
-    const raw = await runFfprobe(deps.spawner, destPath, config.probeTimeoutMs);
+    const raw = await runFfprobe(deps.spawner, destPath, config.probeTimeoutMs, config.ffprobePath);
     const probe = toProbeInfo(raw);
     if (!isProbeAllowed(probe)) {
       throw new UnsupportedInputError(`unsupported input: ${input.name} (${probe.formatName || 'unknown format'})`);
