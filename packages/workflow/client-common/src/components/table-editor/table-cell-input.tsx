@@ -16,7 +16,7 @@ export interface ITableCellInputProps {
   /** Uploads a file into a `file` cell and returns the stored reference. */
   readonly uploadFile?: (file: File) => Promise<unknown>;
   /** Mints a link for a `file` cell on click (not offered when absent). */
-  readonly openFile?: (fileId: string) => void;
+  readonly openFile?: (fileId: string, name: string) => void;
 }
 
 const errText = (error: unknown): string => (error instanceof Error ? error.message : String(error));
@@ -72,7 +72,7 @@ const FileCell: React.FC<{
   value: unknown;
   pick: TPick;
   uploadFile?: (file: File) => Promise<unknown>;
-  openFile?: (fileId: string) => void;
+  openFile?: (fileId: string, name: string) => void;
 }> = ({ value, pick, uploadFile, openFile }) => {
   const t = getGlobalI18n().t;
   const input = useRef<HTMLInputElement>(null);
@@ -89,7 +89,7 @@ const FileCell: React.FC<{
 
   return (
     <span style={{ display: 'inline-flex', gap: 8, alignItems: 'center' }}>
-      {ref && (openFile ? <a onClick={() => openFile(ref.id)}>{ref.name}</a> : <span>{ref.name}</span>)}
+      {ref && (openFile ? <a onClick={() => openFile(ref.id, ref.name)}>{ref.name}</a> : <span>{ref.name}</span>)}
       {uploadFile && (
         <>
           <input

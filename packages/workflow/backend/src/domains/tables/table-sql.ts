@@ -77,6 +77,10 @@ export interface IChangeRow {
   readonly source: TTableSource;
   readonly runId: string | null;
   readonly workflowId: string | null;
+  /** The record's version after the change (for `deleted`: the deleted record's version). */
+  readonly recordVersion?: number | null;
+  /** The record's creation time (UTC ISO). */
+  readonly recordCreatedAt?: string | null;
 }
 
 const CHANGE_CHUNK = 400;
@@ -105,12 +109,14 @@ export const insertChanges = async (
         row.runId,
         row.workflowId,
         createdAt,
+        row.recordVersion ?? null,
+        row.recordCreatedAt ?? null,
       );
       const ph = (offset: number): string => `$${base + offset}`;
-      return `(${ph(1)}, ${ph(2)}, ${ph(3)}, ${ph(4)}, ${ph(5)}, ${ph(6)}::jsonb, ${ph(7)}::jsonb, ${ph(8)}::jsonb, ${ph(9)}, ${ph(10)}, ${ph(11)}, ${ph(12)}::timestamp)`;
+      return `(${ph(1)}, ${ph(2)}, ${ph(3)}, ${ph(4)}, ${ph(5)}, ${ph(6)}::jsonb, ${ph(7)}::jsonb, ${ph(8)}::jsonb, ${ph(9)}, ${ph(10)}, ${ph(11)}, ${ph(12)}::timestamp, ${ph(13)}, ${ph(14)}::timestamp)`;
     });
     await em.query(
-      `INSERT INTO table_record_changes (project_id, table_id, env, record_id, op, before, after, changed_fields, source, run_id, workflow_id, created_at) VALUES ${tuples.join(', ')}`,
+      `INSERT INTO table_record_changes (project_id, table_id, env, record_id, op, before, after, changed_fields, source, run_id, workflow_id, created_at, record_version, record_created_at) VALUES ${tuples.join(', ')}`,
       params,
     );
   }

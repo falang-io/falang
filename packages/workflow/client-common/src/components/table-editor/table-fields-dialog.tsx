@@ -76,6 +76,7 @@ export const TableFieldsDialog: React.FC<IDialogProps> = ({ open, data, onSave, 
           >
             <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
               <Input
+                data-testid="table-field-name"
                 disabled={readOnly}
                 value={field.name}
                 placeholder={t('client:table-editor.field-name')}
@@ -101,6 +102,7 @@ export const TableFieldsDialog: React.FC<IDialogProps> = ({ open, data, onSave, 
               )}
             </div>
             <Select
+              data-testid="table-field-type"
               disabled={readOnly}
               value={field.type}
               options={FIELD_TYPE_OPTIONS.map((type) => ({

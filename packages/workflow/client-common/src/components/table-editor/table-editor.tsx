@@ -62,10 +62,10 @@ export const TableEditor: React.FC<ITableEditorProps> = observer(
       ? null
       : {
           upload: (file) => workflowApi.uploadTableFile(projectId, tableId, store.env, file),
-          open: (fileId) => {
+          open: (fileId, fileName) => {
             workflowApi
-              .getTableFileLink(projectId, tableId, fileId)
-              .then((result) => window.open(result.url, '_blank', 'noopener'))
+              .downloadTableFile(projectId, tableId, fileId)
+              .then((blob) => downloadBlob(blob, fileName))
               .catch((error: unknown) => message.error(errText(error)));
           },
         };

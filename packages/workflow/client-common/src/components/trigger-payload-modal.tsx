@@ -8,6 +8,7 @@ import { REGISTERED_INTEGRATIONS } from '../integrations-registry.js';
 import {
   buildSamplePayload,
   findDocumentTrigger,
+  resolveTriggerPayloadType,
   loadLastTriggerPayload,
   parseTriggerPayload,
   saveLastTriggerPayload,
@@ -41,7 +42,7 @@ export const TriggerPayloadModal: React.FC<ITriggerPayloadModalProps> = observer
     const [starting, setStarting] = useState(false);
 
     const trigger = useMemo(() => findDocumentTrigger(document?.data, REGISTERED_INTEGRATIONS), [document]);
-    const payloadType = trigger?.scopeType ?? ANY_TYPE;
+    const payloadType = resolveTriggerPayloadType(document?.data, trigger) ?? ANY_TYPE;
     const resolveStruct = (id: string) => store.typesRegistry.types.get(id)?.properties ?? null;
     const sampleText = () => JSON.stringify(buildSamplePayload(payloadType, resolveStruct), null, 2);
     const hiddenPrefix = `${buildHiddenScopeCode(

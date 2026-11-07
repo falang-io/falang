@@ -1,5 +1,7 @@
 import { describe, expect, it } from 'vitest';
-import { buildSamplePayload, parseTriggerPayload } from './trigger-payload.js';
+import type { INode } from '@falang/dto';
+import type { ITriggerDescriptor } from '@falang/workflow-integrations-common';
+import { buildSamplePayload, parseTriggerPayload, resolveTriggerPayloadType } from './trigger-payload.js';
 
 describe('buildSamplePayload', () => {
   const structs: Record<string, Record<string, unknown>> = {
@@ -43,5 +45,33 @@ describe('parseTriggerPayload', () => {
     expect(parseTriggerPayload('[1]').ok).toBe(false);
     expect(parseTriggerPayload('"x"').ok).toBe(false);
     expect(parseTriggerPayload('null').ok).toBe(false);
+  });
+});
+
+describe('resolveTriggerPayloadType', () => {
+  const root = (data: unknown): INode =>
+    ({
+      id: 'r',
+      name: 'trigger-function',
+      children: [{ id: 'h' }, { id: 'b', name: 'trigger-function-body', data }],
+    }) as INode;
+  const descriptor = { scopeType: { type: 'any' } } as unknown as ITriggerDescriptor;
+
+  it("prefers the scopeType stored on the body (a table trigger's event struct)", () => {
+    const type = { type: 'struct', id: 'table:t1#created' };
+    expect(resolveTriggerPayloadType(root({ scopeType: type }), descriptor)).toEqual(type);
+  });
+
+  it('falls back to the descriptor, scopeTypeFor first', () => {
+    expect(resolveTriggerPayloadType(root({}), descriptor)).toEqual({ type: 'any' });
+    const dynamic = {
+      ...descriptor,
+      scopeTypeFor: (config: Readonly<Record<string, string>>) => ({ type: 'struct', id: config.table }),
+    } as unknown as ITriggerDescriptor;
+    expect(resolveTriggerPayloadType(root({ triggerConfig: { table: 'x' } }), dynamic)).toEqual({
+      type: 'struct',
+      id: 'x',
+    });
+    expect(resolveTriggerPayloadType(root({}), null)).toBeNull();
   });
 });

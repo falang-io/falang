@@ -15,6 +15,7 @@ import type { Request, Response } from 'express';
 import { CurrentUser } from '../auth/auth/current-user.decorator.js';
 import type { IJwtPayloadUser } from '../auth/auth/jwt.strategy.js';
 import { FilesService } from '../files/files.service.js';
+import { streamFileResponse } from '../files/stream-file-response.js';
 import { contentTypeOf, rawUploadBody, requireFileName } from '../files/upload-request.js';
 import { ProjectsService } from '../projects/projects/projects.service.js';
 import { TablesError } from './table-errors.js';
@@ -273,18 +274,24 @@ export class TablesProjectController {
     return { id: file.id, name: file.name, size: file.size, mime: file.mime };
   }
 
-  /** Mints a capability URL for a file cell (publishes the file — the link is its public capability URL). */
-  @Get(':tableId/files/:fileId/link')
-  async fileLink(
+  /** Streams a file cell's file (authenticated, `edit` access) — never publishes it. */
+  @Get(':tableId/files/:fileId')
+  async downloadFile(
     @Param('projectId') projectId: string,
     @Param('tableId') tableId: string,
     @Param('fileId') fileId: string,
     @CurrentUser() user: IJwtPayloadUser,
-  ): Promise<{ url: string }> {
+    @Res({ passthrough: false }) res: Response,
+  ): Promise<void> {
     await this.projects.getOwnedProject(projectId, user.id);
     await this.tables.resolveContext(projectId, tableId, 'dev');
-    const file = await this.files.publish(projectId, fileId);
-    if (!file.publicUrl) throw new TablesError('file_not_found', 'The file has no link');
-    return { url: file.publicUrl };
+    const opened = await this.files.openStream(projectId, fileId);
+    await streamFileResponse(res, {
+      body: opened.body,
+      contentType: opened.file.mime,
+      name: opened.file.name,
+      disposition: 'attachment',
+      ...(typeof opened.contentLength === 'number' ? { contentLength: opened.contentLength } : {}),
+    });
   }
 }

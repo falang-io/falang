@@ -64,11 +64,19 @@ describe.skipIf(resolveTestDb() === 'sqlite')('project tables records API (e2e)'
     return response.body as { id: string; version: number; data: Record<string, unknown> };
   };
 
-  const changes = async (): Promise<{ op: string; source: string; changed_fields: string[] | null; env: string }[]> => {
+  const changes = async (): Promise<
+    {
+      op: string;
+      source: string;
+      changed_fields: string[] | null;
+      env: string;
+      record_version: number | string | null;
+    }[]
+  > => {
     const raw: unknown = await app
       .get(DataSource)
-      .query('SELECT op, source, changed_fields, env FROM table_record_changes ORDER BY id');
-    return raw as { op: string; source: string; changed_fields: string[] | null; env: string }[];
+      .query('SELECT op, source, changed_fields, env, record_version FROM table_record_changes ORDER BY id');
+    return raw as Awaited<ReturnType<typeof changes>>;
   };
 
   describe('project routes', () => {
@@ -95,6 +103,7 @@ describe.skipIf(resolveTestDb() === 'sqlite')('project tables records API (e2e)'
         ['updated', 'grid'],
         ['deleted', 'grid'],
       ]);
+      expect((await changes()).map((row) => Number(row.record_version))).toEqual([1, 2, 2]);
       expect((await changes())[1].changed_fields).toEqual(['f1', 'f2']);
     });
 
@@ -296,7 +305,7 @@ describe.skipIf(resolveTestDb() === 'sqlite')('project tables records API (e2e)'
       expect(summary.body[0].nextFieldNo).toBe(7);
     });
 
-    it('uploads a file for a file cell and mints a link', async () => {
+    it('uploads a file for a file cell and downloads it without publishing', async () => {
       const uploaded = await request(server())
         .post(`${base()}/files?env=dev`)
         .set(auth(token))
@@ -307,12 +316,14 @@ describe.skipIf(resolveTestDb() === 'sqlite')('project tables records API (e2e)'
       expect(uploaded.body).toMatchObject({ name: 'нота.txt', size: 5, mime: 'text/plain' });
       const record = await addRecord({ f5: uploaded.body });
       expect(record.data.f5).toEqual(uploaded.body);
-      const link = await request(server()).get(`${base()}/files/${uploaded.body.id}/link`).set(auth(token)).expect(200);
-      expect(link.body.url).toContain('http');
-      await request(server())
-        .get(`${base()}/files/00000000-0000-4000-8000-00000000eeee/link`)
-        .set(auth(token))
-        .expect(404);
+      const download = await request(server()).get(`${base()}/files/${uploaded.body.id}`).set(auth(token)).expect(200);
+      expect(download.headers['content-disposition']).toContain('attachment');
+      await request(server()).get(`${base()}/files/${uploaded.body.id}`).expect(401);
+      await request(server()).get(`${base()}/files/00000000-0000-4000-8000-00000000eeee`).set(auth(token)).expect(404);
+      const stored = await app
+        .get(DataSource)
+        .query('SELECT public_token FROM files WHERE id = $1', [uploaded.body.id]);
+      expect((stored as { public_token: string | null }[])[0].public_token).toBeNull();
     });
 
     it('enforces record count and size limits (409 / 413), CSV import included', async () => {
@@ -427,6 +438,7 @@ describe.skipIf(resolveTestDb() === 'sqlite')('project tables records API (e2e)'
       expect(current.body).toMatchObject({ version: 2, data: { f1: 'Ann', f2: 2 } });
       expect((await changes()).map((row) => row.op)).toEqual(['created', 'updated']);
       expect((await changes())[1]).toMatchObject({ source: 'workflow', changed_fields: ['f2'] });
+      expect((await changes()).map((row) => Number(row.record_version))).toEqual([1, 2]);
     });
 
     it('updates and deletes many records and records workflow changes', async () => {

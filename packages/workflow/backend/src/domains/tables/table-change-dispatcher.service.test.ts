@@ -110,6 +110,25 @@ describe('buildWirePayload', () => {
     expect(updated.previous?.data).toEqual({ f1: 'A' });
     expect(updated.changedFieldIds).toEqual(['f1']);
 
+    const stored = buildWirePayload(
+      change({
+        op: 'updated',
+        before: { f1: 'A' },
+        after: { f1: 'B' },
+        changedFields: ['f1'],
+        recordVersion: 4,
+        recordCreatedAt: new Date('2026-01-01T00:00:00.000Z'),
+      }),
+    );
+    expect(stored.record.version).toBe(4);
+    expect(stored.previous?.version).toBe(3);
+    expect(stored.record.createdAt).toBe('2026-01-01T00:00:00.000Z');
+    expect(stored.record.data).toEqual({ f1: 'B' });
+    const storedDeleted = buildWirePayload(
+      change({ op: 'deleted', before: { f1: 'A' }, after: null, recordVersion: 7 }),
+    );
+    expect(storedDeleted.record.version).toBe(7);
+
     const deleted = buildWirePayload(change({ op: 'deleted', before: { f1: 'A', version: 3 }, after: null }));
     expect(deleted.record.data).toEqual({ f1: 'A' });
     expect(deleted.previous).toBeUndefined();

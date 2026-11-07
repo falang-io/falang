@@ -20,6 +20,8 @@ interface IRawChange {
   changed_fields: unknown;
   source: string;
   created_at: unknown;
+  record_version: number | null;
+  record_created_at: unknown;
 }
 
 const mapRow = (row: IRawChange): IChangeRow => ({
@@ -34,9 +36,11 @@ const mapRow = (row: IRawChange): IChangeRow => ({
   changedFields: toJson<string[]>(row.changed_fields),
   source: row.source,
   createdAt: toDate(row.created_at),
+  recordVersion: row.record_version === null ? null : Number(row.record_version),
+  recordCreatedAt: (row.record_created_at ?? null) === null ? null : toDate(row.record_created_at),
 });
 
-const COLUMNS = `"id","project_id","table_id","env","record_id","op","before","after","changed_fields","source","created_at"`;
+const COLUMNS = `"id","project_id","table_id","env","record_id","op","before","after","changed_fields","source","created_at","record_version","record_created_at"`;
 
 /** Postgres implementation of the outbox (the dispatcher only runs against Postgres/PGlite). */
 export class PgChangeOutboxStore implements IChangeOutboxStore {

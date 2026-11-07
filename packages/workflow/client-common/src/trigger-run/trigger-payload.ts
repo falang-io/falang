@@ -13,6 +13,25 @@ export const findDocumentTrigger = (
   return findTriggerDescriptor(body.data as ITriggerFunctionBodyData, integrations) ?? null;
 };
 
+/**
+ * The type of the payload a trigger-function receives: the `scopeType` stored on its body (set when the document was
+ * created — for a table trigger it is the per-table event struct), else the descriptor's own (`scopeTypeFor` first).
+ */
+export const resolveTriggerPayloadType = (
+  root: INode | null | undefined,
+  trigger: ITriggerDescriptor | null,
+): TVariableInfo | null => {
+  const data = root?.children?.[1]?.data as
+    | { scopeType?: unknown; triggerConfig?: Readonly<Record<string, string>> }
+    | undefined;
+  const stored = data?.scopeType;
+  if (typeof stored === 'object' && stored !== null && typeof (stored as { type?: unknown }).type === 'string') {
+    return stored as TVariableInfo;
+  }
+  if (!trigger) return null;
+  return trigger.scopeTypeFor?.(data?.triggerConfig ?? {}) ?? trigger.scopeType;
+};
+
 /** Property map of a struct type by id (the project's/vendors' types registry), `null` when unknown. */
 export type TResolveStructProperties = (id: string) => Readonly<Record<string, TVariableInfo>> | null;
 

@@ -13,6 +13,10 @@ export interface IChangeRow {
   readonly changedFields: readonly string[] | null;
   readonly source: string;
   readonly createdAt: Date;
+  /** Record version after the change (the deleted record's for `deleted`); absent on rows written before it existed. */
+  readonly recordVersion?: number | null;
+  /** The record's creation time; absent on old rows. */
+  readonly recordCreatedAt?: Date | null;
 }
 
 /** Keys a change row's `before`/`after` may carry next to the field-id keyed data (none of them can be a field id). */
@@ -23,6 +27,7 @@ const toRecord = (
   snapshot: Record<string, unknown>,
   fallbackCreatedAt: Date,
   changedAt: Date,
+  versionOverride?: number | null,
 ): ITableRecord => {
   const data: Record<string, unknown> = {};
   for (const [key, value] of Object.entries(snapshot)) {
@@ -33,7 +38,7 @@ const toRecord = (
   const updatedAt = snapshot.updatedAt;
   return {
     id: recordId,
-    version: typeof version === 'number' ? version : 1,
+    version: versionOverride ?? (typeof version === 'number' ? version : 1),
     createdAt: typeof createdAt === 'string' ? createdAt : fallbackCreatedAt.toISOString(),
     updatedAt: typeof updatedAt === 'string' ? updatedAt : changedAt.toISOString(),
     data,
@@ -46,17 +51,28 @@ const toRecord = (
  * record's real creation time when still known (a live record), else the change time.
  */
 export const buildWirePayload = (change: IChangeRow, recordCreatedAt?: Date): ITableTriggerWirePayload => {
-  const created = recordCreatedAt ?? change.createdAt;
+  const created = change.recordCreatedAt ?? recordCreatedAt ?? change.createdAt;
+  const version = change.recordVersion ?? null;
   const current = change.op === 'deleted' ? change.before : change.after;
   const payload: ITableTriggerWirePayload = {
     table: change.tableId,
-    record: toRecord(change.recordId, current ?? {}, created, change.createdAt),
+    record: toRecord(change.recordId, current ?? {}, created, change.createdAt, version),
     source: change.source as TTableSource,
   };
   if (change.op === 'updated') {
     return {
       ...payload,
-      ...(change.before ? { previous: toRecord(change.recordId, change.before, created, change.createdAt) } : {}),
+      ...(change.before
+        ? {
+            previous: toRecord(
+              change.recordId,
+              change.before,
+              created,
+              change.createdAt,
+              version === null ? null : Math.max(version - 1, 1),
+            ),
+          }
+        : {}),
       changedFieldIds: [...(change.changedFields ?? [])],
     };
   }
