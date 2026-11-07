@@ -1,3 +1,4 @@
+// oxlint-disable no-undefined -- optional values are modelled with `undefined` throughout (absent filter/field).
 import type { TVariableInfo } from '@falang/typescript-dto';
 import type { IActionDescriptor, IActivityOptions, IFieldConfig } from '@falang/workflow-integrations-common';
 import {

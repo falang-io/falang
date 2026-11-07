@@ -1,3 +1,4 @@
+// oxlint-disable no-undefined -- optional values are modelled with `undefined` throughout (absent filter/field).
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import {
   isTablesNonRetryable,
@@ -11,8 +12,7 @@ import {
 const fields = { name: 'f1', age: 'f2' };
 const record = { id: 'r1', version: 1, createdAt: 'c', updatedAt: 'u', data: { f1: 'Ann', f9: 'x' } };
 
-const json = (body: unknown, status = 200): Response =>
-  new Response(JSON.stringify(body), { status, headers: { 'content-type': 'application/json' } });
+const json = (body: unknown, status = 200): Response => Response.json(body, { status });
 
 describe('table activity helpers', () => {
   const fetchMock = vi.fn();
