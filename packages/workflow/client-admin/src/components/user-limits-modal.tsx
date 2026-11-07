@@ -15,7 +15,11 @@ type TFieldKey =
   | 'maxDevPods'
   | 'maxStoredVersions'
   | 'maxOwnerFilesBytes'
-  | 'maxSchedules';
+  | 'maxSchedules'
+  | 'maxTablesPerProject'
+  | 'maxTableFields'
+  | 'maxTableRecords'
+  | 'maxTableRecordBytes';
 
 const FIELD_KEYS: readonly TFieldKey[] = [
   'maxProjectFilesBytes',
@@ -29,6 +33,10 @@ const FIELD_KEYS: readonly TFieldKey[] = [
   'maxStoredVersions',
   'maxOwnerFilesBytes',
   'maxSchedules',
+  'maxTablesPerProject',
+  'maxTableFields',
+  'maxTableRecords',
+  'maxTableRecordBytes',
 ];
 
 /** `maxIdleMinutes` → `max-idle-minutes` (the locale key stem). */

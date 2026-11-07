@@ -25,6 +25,14 @@ export interface IUserLimits {
   readonly maxOwnerFilesBytes: number;
   /** Schedules (all projects and envs) the owner may have registered (`MAX_SCHEDULES`, default 20). */
   readonly maxSchedules: number;
+  /** `table` documents per project (`MAX_TABLES_PER_PROJECT`, default 20) — ADR 0075 (private). */
+  readonly maxTablesPerProject: number;
+  /** Fields per table (`MAX_TABLE_FIELDS`, default 100). */
+  readonly maxTableFields: number;
+  /** Records per table and env (`MAX_TABLE_RECORDS`, default 10000). */
+  readonly maxTableRecords: number;
+  /** Serialised size of one record's data in bytes (`MAX_TABLE_RECORD_BYTES`, default 65536). */
+  readonly maxTableRecordBytes: number;
 }
 
 /** A field set to `null` clears that override (falls back to the env default); an omitted field leaves it untouched. */

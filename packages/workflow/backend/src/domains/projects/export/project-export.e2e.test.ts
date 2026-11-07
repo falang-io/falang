@@ -73,7 +73,7 @@ describe('project export/import (e2e)', () => {
       parentId: expect.any(String),
       fixedKind: null,
     });
-    expect(response.body.folders.filter((f: { fixedKind: string | null }) => f.fixedKind)).toHaveLength(3);
+    expect(response.body.folders.filter((f: { fixedKind: string | null }) => f.fixedKind)).toHaveLength(4);
 
     const integrationsDoc = response.body.documents.find((doc: { type: string }) => doc.type === 'integrations');
     expect(integrationsDoc.data.instances[0].fields.botToken).toEqual({ dev: '', prod: '' });
@@ -113,7 +113,7 @@ describe('project export/import (e2e)', () => {
 
     const newProjectId: string = imported.body.id;
     const tree = await request(app.getHttpServer()).get(`/projects/${newProjectId}/tree`).set(auth(token));
-    expect(tree.body.folders).toHaveLength(4);
+    expect(tree.body.folders).toHaveLength(5);
     const helpers = tree.body.folders.find((f: { name: string }) => f.name === 'Helpers');
     expect(helpers).toBeDefined();
     expect(helpers.id).not.toBe(sourceFolderId);
@@ -181,6 +181,64 @@ describe('project export/import (e2e)', () => {
     expect(newId).not.toBe('cred-1');
     const fn = documents.body.find((doc: { type: string }) => doc.type === 'function');
     expect(fn.root.children[0].data).toEqual({ credentialId: newId, text: 'cred-1' });
+  });
+
+  it('re-mints table document ids on import and rewrites document-ref values and table struct ids', async () => {
+    const token = await login(app);
+    const tableId = '7a7a7a7a-7a7a-4a7a-8a7a-7a7a7a7a7a7a';
+    const fnId = '5d1d9a64-2f4b-4e4b-9d54-0b5b6b4a7c22';
+    const payload = {
+      formatVersion: 1,
+      project: { id: '', name: 'With table' },
+      folders: [],
+      documents: [
+        {
+          id: tableId,
+          type: 'table',
+          name: 'Customers',
+          folderId: null,
+          pinned: false,
+          data: { fields: [{ id: 'f1', name: 'Name', type: 'text' }], nextFieldNo: 2 },
+        },
+        {
+          id: fnId,
+          type: 'function',
+          name: 'run',
+          folderId: null,
+          pinned: false,
+          root: {
+            id: fnId,
+            name: 'function',
+            children: [
+              {
+                id: 'n1',
+                name: 'x',
+                data: { table: tableId, structType: { type: 'struct', id: `table:${tableId}#insert` } },
+              },
+              { id: 'n2', name: 'y', data: { table: 'unrelated', text: tableId } },
+            ],
+          },
+          data: null,
+        },
+      ],
+    };
+    const imported = await request(app.getHttpServer()).post('/projects/import').set(auth(token)).send(payload);
+    expect(imported.status).toBe(201);
+    const tree = await request(app.getHttpServer()).get(`/projects/${imported.body.id}/tree`).set(auth(token));
+    const tablesFolder = tree.body.folders.find((f: { fixedKind: string | null }) => f.fixedKind === 'tables');
+    const table = tree.body.documents.find((doc: { type: string }) => doc.type === 'table');
+    expect(table.id).not.toBe(tableId);
+    expect(table.folderId).toBe(tablesFolder.id);
+    const documents = await request(app.getHttpServer())
+      .get(`/projects/${imported.body.id}/documents`)
+      .set(auth(token));
+    const fn = documents.body.find((doc: { type: string }) => doc.type === 'function');
+    expect(fn.root.children[0].data).toEqual({
+      table: table.id,
+      structType: { type: 'struct', id: `table:${table.id}#insert` },
+    });
+    // Unknown ids and plain strings equal to the old id stay untouched.
+    expect(fn.root.children[1].data).toEqual({ table: 'unrelated', text: tableId });
   });
 
   it('rejects (409) an integrations document that uses a credential id already taken by another project', async () => {

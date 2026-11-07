@@ -16,10 +16,12 @@ import { Project, type TSuspendedReason } from './project.entity.js';
  * - `'edit'` (default — every write, run, build, agent call, member management) — the owner or an editor;
  * - `'read'` — the owner, an editor, or a platform admin viewing read-only (GET routes only);
  * - `'tasks'` — the owner, an editor or an executor (task list / detail / resolve);
+ * - `'tables'` — the owner, an editor, an executor or a platform admin (reading a project's table records, ADR 0075
+ *   (private); table writes use `'edit'`);
  * - `'info'` — any of the above (`GET /projects/:id`).
  * Anyone else gets 404, so a project's existence never leaks.
  */
-export type TProjectAccess = 'owner' | 'edit' | 'read' | 'tasks' | 'info';
+export type TProjectAccess = 'owner' | 'edit' | 'read' | 'tasks' | 'info' | 'tables';
 
 /** The caller's relation to a project — `'owner'` plus any member roles. */
 export type TProjectRole = 'owner' | TProjectMemberRole;
@@ -176,8 +178,8 @@ export class ProjectsService {
     const roles = await this.rolesOf(project, userId);
     if (roles.has('editor')) return true;
     if (access === 'tasks' && roles.has('executor')) return true;
-    if (access === 'info' && roles.has('executor')) return true;
-    return (access === 'read' || access === 'info') && (await this.isAdmin(userId));
+    if ((access === 'info' || access === 'tables') && roles.has('executor')) return true;
+    return (access === 'read' || access === 'info' || access === 'tables') && (await this.isAdmin(userId));
   }
 
   /** `GET /projects/:id` — for the owner, members, and (read-only) an admin. */

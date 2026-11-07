@@ -24,6 +24,8 @@ import { SandboxBotBinding } from '../domains/sandbox-bots/sandbox-bot-binding.e
 import { SandboxBotLinkCode } from '../domains/sandbox-bots/sandbox-bot-link-code.entity.js';
 import { SandboxBotBlock } from '../domains/sandbox-bots/sandbox-bot-block.entity.js';
 import { SandboxBotMessage } from '../domains/sandbox-bots/sandbox-bot-message.entity.js';
+import { TableRecordChange } from '../domains/tables/table-record-change.entity.js';
+import { TableRecord } from '../domains/tables/table-record.entity.js';
 import { User } from '../domains/users/users/user.entity.js';
 
 export const TEST_ENTITIES = [
@@ -53,4 +55,6 @@ export const TEST_ENTITIES = [
   SandboxBotLinkCode,
   SandboxBotMessage,
   SandboxBotBlock,
+  TableRecord,
+  TableRecordChange,
 ];

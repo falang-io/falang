@@ -16,6 +16,7 @@ import {
 import { stripIntegrationsSecretsForExport } from '../../integrations/credentials-codec.js';
 import { REGISTERED_INTEGRATIONS } from '../../integrations/registered-integrations.js';
 import { Document } from '../documents/document.entity.js';
+import { buildTableIdMap, remapDocumentRefs } from './document-id-remap.js';
 import { DocumentsService } from '../documents/documents.service.js';
 import { FoldersService } from '../folders/folders.service.js';
 import type { Project } from '../projects/project.entity.js';
@@ -175,16 +176,21 @@ export class ProjectExportService {
       normalizedDocuments.filter((document) => document.type !== INTEGRATIONS_DOCUMENT_TYPE && !document.pinned),
       seededDocuments.map((document) => document.name),
     );
+    // Table documents are re-minted too, and `document-ref`/struct-id references to them follow (ADR 0075 (private)).
+    const tableIdMap = buildTableIdMap(regularDocuments);
     await Promise.all(
       regularDocuments.map((document) => {
         const folderId = document.folderId ? (folderIdMap.get(document.folderId) ?? null) : null;
         return this.documentsService.create(project.id, ownerId, {
-          id: randomUUID(),
+          id: tableIdMap.get(document.id) ?? randomUUID(),
           type: document.type,
           name: document.name,
           folderId,
-          root: remapCredentialRefs(document.root ?? null, credentialIdMap) as INode | null,
-          data: remapCredentialRefs(document.data ?? null, credentialIdMap),
+          root: remapDocumentRefs(
+            remapCredentialRefs(document.root ?? null, credentialIdMap),
+            tableIdMap,
+          ) as INode | null,
+          data: remapDocumentRefs(remapCredentialRefs(document.data ?? null, credentialIdMap), tableIdMap),
         });
       }),
     );

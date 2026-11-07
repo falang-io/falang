@@ -149,7 +149,7 @@ describe('workflow-backend (e2e)', () => {
       parentId: functionsSection,
       fixedKind: null,
     });
-    expect(tree.body.folders).toHaveLength(4);
+    expect(tree.body.folders).toHaveLength(5);
     expect(tree.body.documents).toEqual(
       expect.arrayContaining([integrationsDoc, { id: docId, type: 'function', name: 'run', folderId, pinned: false }]),
     );

@@ -54,6 +54,9 @@ import { SupportMessage } from '../domains/support/support-message.entity.js';
 import { SupportModule } from '../domains/support/support.module.js';
 import { SandboxBotBinding } from '../domains/sandbox-bots/sandbox-bot-binding.entity.js';
 import { SandboxBotLinkCode } from '../domains/sandbox-bots/sandbox-bot-link-code.entity.js';
+import { TableRecordChange } from '../domains/tables/table-record-change.entity.js';
+import { TableRecord } from '../domains/tables/table-record.entity.js';
+import { TablesModule } from '../domains/tables/tables.module.js';
 import { SandboxBotBlock } from '../domains/sandbox-bots/sandbox-bot-block.entity.js';
 import { SandboxBotMessage } from '../domains/sandbox-bots/sandbox-bot-message.entity.js';
 import { SandboxBotsModule } from '../domains/sandbox-bots/sandbox-bots.module.js';
@@ -104,6 +107,8 @@ export const buildTestAppImports = (extraModules: TAppImport[] = []) => [
       SandboxBotLinkCode,
       SandboxBotMessage,
       SandboxBotBlock,
+      TableRecord,
+      TableRecordChange,
     ],
   }),
   UsersModule,
@@ -127,6 +132,7 @@ export const buildTestAppImports = (extraModules: TAppImport[] = []) => [
   TemporalModule,
   EgressProxyModule,
   SandboxBotsModule,
+  TablesModule,
   GatewayModule.forRoot([], noopDiscoveryPort),
   ...extraModules,
 ];
