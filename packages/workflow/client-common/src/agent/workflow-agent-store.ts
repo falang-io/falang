@@ -1,6 +1,6 @@
 import type { Scheme } from '@falang/scheme';
 import type { TypesRegistryStore } from '@falang/typescript-scheme';
-import type { TTriggerFunctionBodyData } from '@falang/workflow-dto';
+import type { ITableDocumentData, TTriggerFunctionBodyData } from '@falang/workflow-dto';
 import type { IIntegrationInstance } from '@falang/workflow-integrations-common';
 import type { IApiVendorData } from '../api-types.js';
 import type { IProjectTreeFolder } from '@falang/dto';
@@ -24,6 +24,10 @@ export interface IWorkflowAgentStore {
   getScheme(documentId: string): Scheme;
   /** Creates a blank `function`/`objects-structure` document, returns its id. */
   createDocument(type: DocumentType, name: string, folderId?: string | null): string;
+  /** The validated field list of a `table` document (ADR 0075 (private)); empty when missing or malformed. */
+  getTableData(documentId: string): ITableDocumentData;
+  /** Replaces a `table` document's field list (already normalised by the caller). */
+  updateTableFields(documentId: string, data: ITableDocumentData): void;
   /** Creates a trigger-bound `trigger-function` document, returns its id. */
   createTriggerFunctionDocument(name: string, bodyData: TTriggerFunctionBodyData, folderId?: string | null): string;
   /** Creates or replaces an integration instance in the `integrations` document. */

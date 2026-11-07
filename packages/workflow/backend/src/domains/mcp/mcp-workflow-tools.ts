@@ -22,6 +22,7 @@ import type { ProjectExportService } from '../projects/export/project-export.ser
 import type { ProjectsService } from '../projects/projects/projects.service.js';
 import type { RunsService } from '../runs/runs.service.js';
 import { assertMcpProjectScope, type IMcpAuthContext } from './mcp-auth.js';
+import { registerMcpTableTools } from './mcp-table-tools.js';
 import { registerLooseTool } from './mcp-register-tool.js';
 import { errorResult, okResult, withToolErrors } from './mcp-tool-result.js';
 
@@ -104,6 +105,8 @@ export const registerWorkflowMcpTools = (
   deps: IWorkflowToolsDeps,
   getAuth: () => IMcpAuthContext,
 ): void => {
+  registerMcpTableTools(server, deps.documentsService, getAuth);
+
   registerLooseTool(
     server,
     'list_projects',

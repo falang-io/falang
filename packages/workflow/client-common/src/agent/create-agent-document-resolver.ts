@@ -42,6 +42,12 @@ export const createAgentDocumentResolver = (deps: ICreateAgentDocumentResolverDe
     const doc = deps.getDocument(documentId);
     if (!doc) throw new Error(`Document ${documentId} not found`);
     if (doc.pinned) throw new Error(`Document ${documentId} is pinned and cannot be edited by the agent`);
+    if (doc.type === 'table') {
+      throw new Error(
+        `Document ${documentId} is a table — it has no node tree. Change its columns with set_table_fields ` +
+          '(or write tables/<name>.json in the file interface); records are not editable by the agent',
+      );
+    }
     if (!isAgentEditableType(doc.type)) {
       throw new Error(
         `Document ${documentId} is a "${doc.type}" document — the agent can only edit function/trigger-function/objects-structure documents`,

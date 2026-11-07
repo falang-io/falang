@@ -12,6 +12,7 @@ import {
 } from '@falang/agent';
 import type { NodesStack } from '@falang/dto';
 import { ScopeVariablesContextProvider } from '@falang/typescript-agent';
+import { TABLE_DOCUMENT_TYPE } from '@falang/workflow-dto';
 import { getIntegrationInstances } from '../integration-instances.js';
 import { getEnabledIntegrations } from '../disabled-vendors.js';
 import { REGISTERED_INTEGRATIONS } from '../integrations-registry.js';
@@ -20,6 +21,7 @@ import { DocumentToolProvider } from './document-tool-provider.js';
 import { createWorkflowNodeKindFilter } from './integration-catalog.js';
 import { describeSections, folderPath } from './project-layout-context.js';
 import { IntegrationToolProvider } from './integration-tool-provider.js';
+import { describeTableFields } from './table-agent.js';
 import type { IWorkflowAgentStore } from './workflow-agent-store.js';
 import { CodeIntegrationTools } from './code/code-integration-tools.js';
 import { CODE_SYSTEM_PROMPT } from './code/code-prompt.js';
@@ -90,6 +92,7 @@ const documentsContext = (store: IWorkflowAgentStore): IAgentContextProvider =>
       store.documents
         .filter((doc) => !doc.pinned)
         .map((doc) => ({
+          detail: doc.type === TABLE_DOCUMENT_TYPE ? describeTableFields(store.getTableData(doc.id)) : '',
           id: doc.id,
           name: doc.name,
           path: folderPath(doc.folderId, store.folders ?? []) ?? '',

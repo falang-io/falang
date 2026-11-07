@@ -78,4 +78,46 @@ describe('JsonFileToolProvider', () => {
     const result = await call('write_file', { content: '{}', path: 'functions/new.json' });
     expect(!result.ok && result.error).toContain("can't be created");
   });
+
+  describe('dataFiles capability', () => {
+    const files = new Map<string, string>([['tables/orders.json', '{"fields":[]}']]);
+    const dataProvider = () =>
+      new JsonFileToolProvider({
+        dataFiles: {
+          handles: (path) => path.startsWith('tables/'),
+          list: () => [...files.keys()].map((path) => ({ path, type: 'table' })),
+          read: (path) => files.get(path) ?? null,
+          write: (path, text) => {
+            if (text.includes('BAD')) throw new Error('bad table');
+            files.set(path, text);
+            return JSON.stringify({ ok: true, path });
+          },
+        },
+        extraFiles: {},
+        getScheme: () => {
+          throw new Error('no scheme');
+        },
+        listDocuments: () => [],
+        readKindSchema: () => null,
+      });
+
+    it('lists, reads, creates, updates and edits data files; errors come back as failures', async () => {
+      const p = dataProvider();
+      const run = (name: string, input: Record<string, unknown>) => p.execute({ id: 'c', input, name });
+      const list = await run('list_files', {});
+      expect(list.ok && list.content).toContain('tables/orders.json  (table, writable)');
+      expect(await run('read_file', { path: 'tables/orders.json' })).toEqual({ content: '{"fields":[]}', ok: true });
+      const created = await run('write_file', { content: '{"a":1}', path: 'tables/new.json' });
+      expect(created.ok).toBe(true);
+      expect(files.get('tables/new.json')).toBe('{"a":1}');
+      const edited = await run('edit_file', { new_string: '2', old_string: '1', path: 'tables/new.json' });
+      expect(edited.ok).toBe(true);
+      expect(files.get('tables/new.json')).toBe('{"a":2}');
+      const bad = await run('write_file', { content: 'BAD', path: 'tables/new.json' });
+      expect(bad.ok).toBe(false);
+      expect(files.get('tables/new.json')).toBe('{"a":2}');
+      const missing = await run('edit_file', { new_string: 'x', old_string: 'y', path: 'tables/nope.json' });
+      expect(missing.ok).toBe(false);
+    });
+  });
 });

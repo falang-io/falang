@@ -143,6 +143,8 @@ describe('/mcp (HTTP-level, PAT auth) (e2e)', () => {
           'debug_stop',
           'list_credentials',
           'list_integrations',
+          'create_table',
+          'set_table_fields',
         ].toSorted(),
       );
     } finally {
@@ -357,6 +359,85 @@ describe('/mcp (HTTP-level, PAT auth) (e2e)', () => {
       });
       expect(rootFolder.isError).toBe(true);
       expect(toolText(rootFolder)).toContain(functions?.id);
+    } finally {
+      await client.close();
+    }
+  });
+
+  it('create_table / set_table_fields: ids kept on rename, new fields get the next id, errors bounce back', async () => {
+    const rawToken = await createPat(harness, jwt);
+    const client = await connectClient(harness, rawToken);
+    try {
+      const created = await client.callTool({
+        name: 'create_table',
+        arguments: { projectId, name: 'orders', fields: [{ name: 'title', type: 'text', required: true }] },
+      });
+      expect(created.isError).not.toBe(true);
+      const table = JSON.parse(toolText(created)) as { id: string; type: string; data: { fields: { id: string }[] } };
+      expect(table.type).toBe('table');
+      expect(table.data.fields[0]?.id).toBe('f1');
+
+      const updated = await client.callTool({
+        name: 'set_table_fields',
+        arguments: {
+          projectId,
+          documentId: table.id,
+          fields: [
+            { id: 'f1', name: 'subject', type: 'text', required: true },
+            { name: 'qty', type: 'number' },
+          ],
+        },
+      });
+      expect(updated.isError).not.toBe(true);
+      const saved = JSON.parse(toolText(updated)) as { data: { fields: { id: string; name: string }[] } };
+      expect(saved.data.fields.map((field) => `${field.id}:${field.name}`)).toEqual(['f1:subject', 'f2:qty']);
+
+      const read = await client.callTool({ name: 'get_document', arguments: { projectId, documentId: table.id } });
+      expect((JSON.parse(toolText(read)) as { data: { nextFieldNo: number } }).data.nextFieldNo).toBe(3);
+
+      const bad = await client.callTool({
+        name: 'set_table_fields',
+        arguments: { projectId, documentId: table.id, fields: [{ id: 'f9', name: 'x', type: 'text' }] },
+      });
+      expect(bad.isError).toBe(true);
+      const reserved = await client.callTool({
+        name: 'set_table_fields',
+        arguments: { projectId, documentId: table.id, fields: [{ name: 'version', type: 'text' }] },
+      });
+      expect(reserved.isError).toBe(true);
+      const duplicate = await client.callTool({
+        name: 'create_table',
+        arguments: { projectId, name: 'Orders', fields: [] },
+      });
+      expect(duplicate.isError).toBe(true);
+    } finally {
+      await client.close();
+    }
+  });
+
+  it('set_table_fields refuses a non-table document; create_table surfaces the field limit', async () => {
+    const rawToken = await createPat(harness, jwt);
+    const client = await connectClient(harness, rawToken);
+    try {
+      const fn = JSON.parse(
+        toolText(
+          await client.callTool({ name: 'create_document', arguments: { projectId, name: 'fn3', type: 'function' } }),
+        ),
+      ) as { id: string };
+      const wrong = await client.callTool({
+        name: 'set_table_fields',
+        arguments: { projectId, documentId: fn.id, fields: [] },
+      });
+      expect(wrong.isError).toBe(true);
+      expect(toolText(wrong)).toContain('not a table');
+
+      const many = Array.from({ length: 101 }, (_, index) => ({ name: `field${index}`, type: 'text' }));
+      const limited = await client.callTool({
+        name: 'create_table',
+        arguments: { projectId, name: 'wide', fields: many },
+      });
+      expect(limited.isError).toBe(true);
+      expect(toolText(limited)).toMatch(/at most 100 fields/);
     } finally {
       await client.close();
     }

@@ -7,6 +7,8 @@ export interface IProjectDocumentSummary {
   readonly name: string;
   /** Optional folder path the host wants shown (e.g. `Functions/Telegram`); rendered as `in <path>`. */
   readonly path?: string;
+  /** Optional one-line extra the host wants shown (e.g. a table's fields); rendered after the row. */
+  readonly detail?: string;
 }
 
 /**
@@ -32,7 +34,10 @@ export class ProjectDocumentsContextProvider implements IAgentContextProvider {
     const extra = this.getExtraLines?.() ?? [];
     const extraText = extra.length > 0 ? `\n${extra.join('\n')}` : '';
     if (documents.length === 0) return `This project has no documents yet.${extraText}`;
-    const rows = documents.map((doc) => `- ${doc.id} (${doc.type}) "${doc.name}"${doc.path ? ` in ${doc.path}` : ''}`);
+    const rows = documents.map(
+      (doc) =>
+        `- ${doc.id} (${doc.type}) "${doc.name}"${doc.path ? ` in ${doc.path}` : ''}${doc.detail ? ` — ${doc.detail}` : ''}`,
+    );
     return `Documents in this project (documentId, type, name):\n${rows.join('\n')}${extraText}`;
   }
 }
