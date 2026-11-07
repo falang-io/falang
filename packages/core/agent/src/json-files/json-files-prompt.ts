@@ -35,7 +35,11 @@ export class JsonFilesContextProvider implements IAgentContextProvider {
     const openLine = open
       ? `The user has ${open.path} open in the editor — "this document"/"here" means it.`
       : 'No document is open in the editor.';
-    const files = documents.length > 0 ? documents.map((doc) => `- ${doc.path}`).join('\n') : '(no documents yet)';
+    const paths = [
+      ...documents.map((doc) => doc.path),
+      ...(this.host.dataFiles?.list().map((file) => file.path) ?? []),
+    ];
+    const files = paths.length > 0 ? paths.map((path) => `- ${path}`).join('\n') : '(no documents yet)';
     return `${openLine}\nDocument files:\n${files}`;
   }
 }

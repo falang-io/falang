@@ -18,6 +18,8 @@ describe('DocumentToolProvider allowlist (magic runs: list_types only)', () => {
 
   it('offers everything without an allowlist', () => {
     expect(new DocumentToolProvider(store).tools.map((tool) => tool.name)).toEqual([
+      'create_table',
+      'set_table_fields',
       'create_document',
       'create_trigger_document',
       'list_types',

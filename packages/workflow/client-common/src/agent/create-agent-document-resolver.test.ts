@@ -63,6 +63,12 @@ describe('createAgentDocumentResolver', () => {
     expect(getScheme).not.toHaveBeenCalled();
   });
 
+  it('refuses a table document with a hint to set_table_fields', () => {
+    const { acquireLock, resolver } = buildResolver({ t1: { type: 'table' } });
+    expect(() => resolver.resolve('t1')).toThrow(/set_table_fields/);
+    expect(acquireLock).not.toHaveBeenCalled();
+  });
+
   it('resolves an objects-structure document (interface declarations are agent-editable)', () => {
     const { acquireLock, getScheme, resolver } = buildResolver({
       'struct-doc': { type: 'objects-structure' },

@@ -26,4 +26,11 @@ describe('ProjectDocumentsContextProvider', () => {
     );
     expect(provider.describe(context)).toBe('This project has no documents yet.\nSections: …');
   });
+
+  it('renders the optional detail after the row', () => {
+    const provider = new ProjectDocumentsContextProvider(() => [
+      { detail: 'fields: name:text!, qty:number', id: 't1', name: 'orders', type: 'table' },
+    ]);
+    expect(provider.describe(context)).toContain('- t1 (table) "orders" — fields: name:text!, qty:number');
+  });
 });

@@ -12,10 +12,13 @@ import type {
 } from '@falang/workflow-integrations-common';
 import {
   checkDocumentPlacement,
+  TABLE_DOCUMENT_TYPE,
+  TABLE_FIELD_TYPES,
   findSectionFolder,
   sectionForDocumentType,
   type TTriggerFunctionBodyData,
 } from '@falang/workflow-dto';
+import { buildTableFields } from './table-agent.js';
 import { getIntegrationInstances } from '../integration-instances.js';
 import { getEnabledIntegrations } from '../disabled-vendors.js';
 import { resolveTriggerCredentialId } from '../components/trigger-credential.js';
@@ -98,7 +101,52 @@ const OBJECTS_STRUCTURE_DESCRIPTION =
   'placeholder properties): call get_tree on it, then turn them into the real interfaces with set_data/' +
   'insert_nodes, or delete the ones you do not need.';
 
+const TABLE_FIELDS_SCHEMA = {
+  type: 'array',
+  description:
+    'The complete field list. Each field: { name, type, required?, options? (select only), description?, id? }. Keep ' +
+    '"id" for a field that already exists (a rename or retype of the same column); omit it for a new field. ' +
+    `type is one of ${TABLE_FIELD_TYPES.join(', ')}.`,
+  items: {
+    type: 'object',
+    properties: {
+      id: { type: 'string' },
+      name: { type: 'string' },
+      type: { type: 'string', enum: [...TABLE_FIELD_TYPES] },
+      required: { type: 'boolean' },
+      options: { type: 'array', items: { type: 'string' } },
+      description: { type: 'string' },
+    },
+    required: ['name', 'type'],
+  },
+};
+
 const TOOLS: readonly ILlmToolDefinition[] = [
+  {
+    name: 'create_table',
+    description:
+      'Creates a project table (a built-in record store) with the given fields and opens its tab. The name is the ' +
+      'table name (unique among all documents, case-insensitively). The tool only defines the columns — records are ' +
+      "filled by people in the grid and by the table-* workflow nodes; use the returned documentId in those nodes' " +
+      '`table` field. Fields get ids automatically.',
+    inputSchema: {
+      type: 'object',
+      properties: { name: { type: 'string' }, fields: TABLE_FIELDS_SCHEMA },
+      required: ['name', 'fields'],
+    },
+  },
+  {
+    name: 'set_table_fields',
+    description:
+      "Replaces a table's whole field list (full replacement: a field you leave out is deleted together with its " +
+      'data). Pass the table by documentId or name. Keep each existing field\'s "id" (from the project context ' +
+      'or a previous result) so its data survives a rename/retype; fields without an "id" are new.',
+    inputSchema: {
+      type: 'object',
+      properties: { documentId: { type: 'string' }, name: { type: 'string' }, fields: TABLE_FIELDS_SCHEMA },
+      required: ['fields'],
+    },
+  },
   {
     name: 'create_document',
     description:
@@ -203,6 +251,12 @@ export class DocumentToolProvider implements IAgentToolProvider {
       case 'create_trigger_document': {
         return this.createTriggerDocument(call.input);
       }
+      case 'create_table': {
+        return this.createTable(call.input);
+      }
+      case 'set_table_fields': {
+        return this.setTableFields(call.input);
+      }
       case 'list_types': {
         return ok(
           JSON.stringify(
@@ -252,6 +306,42 @@ export class DocumentToolProvider implements IAgentToolProvider {
       );
     }
     return ok(JSON.stringify({ documentId }));
+  }
+
+  private createTable(input: unknown): TToolExecutionResult {
+    const params = asRecord(input);
+    const name = params && typeof params.name === 'string' ? params.name.trim() : '';
+    if (!name) return fail('create_table: name is required');
+    if (name.includes('/')) return fail('create_table: the name must not contain "/"');
+    const conflict = this.nameConflictError('create_table', name);
+    if (conflict) return fail(conflict);
+    const built = buildTableFields(null, params?.fields ?? []);
+    if (!built.ok) return fail(`create_table: ${built.error}`);
+    const placement = this.resolvePlacement('create_table', TABLE_DOCUMENT_TYPE, params?.folderId);
+    if ('error' in placement) return fail(placement.error);
+    const documentId = this.store.createDocument(TABLE_DOCUMENT_TYPE, name, placement.folderId);
+    this.store.updateTableFields(documentId, built.data);
+    return ok(JSON.stringify({ documentId, fields: built.data.fields }));
+  }
+
+  private setTableFields(input: unknown): TToolExecutionResult {
+    const params = asRecord(input);
+    if (!params) return fail('set_table_fields: invalid input');
+    const tables = this.store.documents.filter((doc) => doc.type === TABLE_DOCUMENT_TYPE);
+    const target =
+      typeof params.documentId === 'string'
+        ? tables.find((doc) => doc.id === params.documentId)
+        : tables.find((doc) => typeof params.name === 'string' && doc.name === params.name);
+    if (!target) {
+      return fail(
+        'set_table_fields: pass the documentId or name of an existing table — ' +
+          `tables: ${tables.length > 0 ? tables.map((doc) => `${doc.id} "${doc.name}"`).join(', ') : 'none'}`,
+      );
+    }
+    const built = buildTableFields(this.store.getTableData(target.id), params.fields);
+    if (!built.ok) return fail(`set_table_fields: ${built.error}`);
+    this.store.updateTableFields(target.id, built.data);
+    return ok(JSON.stringify({ documentId: target.id, fields: built.data.fields }));
   }
 
   private createTriggerDocument(input: unknown): TToolExecutionResult {

@@ -3,6 +3,7 @@ import { ScriptedLlmClient } from '@falang/agent';
 import { container as rootContainer, resolveService, type DependencyContainer } from '@falang/di';
 import { registerGlobalTokens, type Scheme } from '@falang/scheme';
 import { registerTypescriptProjectService, TOKEN_TYPESCRIPT_PROJECT_SERVICE } from '@falang/typescript-scheme';
+import { emptyTableData, normalizeTableDocumentData, type ITableDocumentData } from '@falang/workflow-dto';
 import { compileProject, type ICompileProjectParams } from '@falang/workflow-compiler';
 import {
   INTEGRATIONS_DOCUMENT_TYPE,
@@ -72,8 +73,20 @@ export class HeadlessWorkflowStore implements IWorkflowAgentStore {
   createDocument(type: DocumentType, name: string, folderId: string | null = null): string {
     this.nextId += 1;
     const id = `doc-${this.nextId}`;
-    this.documents.push({ folderId, id, name, type });
+    this.documents.push(
+      type === 'table' ? { customData: emptyTableData(), folderId, id, name, type } : { folderId, id, name, type },
+    );
     return id;
+  }
+
+  getTableData(documentId: string): ITableDocumentData {
+    const parsed = normalizeTableDocumentData(null, this.getDocument(documentId)?.customData);
+    return parsed.ok ? parsed.data : emptyTableData();
+  }
+
+  updateTableFields(documentId: string, data: ITableDocumentData): void {
+    const doc = this.getDocument(documentId);
+    if (doc?.type === 'table') doc.customData = data;
   }
 
   createTriggerFunctionDocument(

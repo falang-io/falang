@@ -82,7 +82,7 @@ export const describeFieldForAgent = (field: IFieldConfig): string => {
       return `The id of an integration (credential) instance${vendor} from this project's integrations — the raw id, no quotes.`;
     }
     case 'document-ref': {
-      return `The id of a "${field.documentType ?? 'document'}" document in this project (see list_documents) — the raw id, no quotes.`;
+      return `The id of a "${field.documentType ?? 'document'}" document in this project (see list_documents; in the file interface, the document file path such as "tables/orders.json") — no extra quotes.`;
     }
     case 'result-type': {
       return 'A JSON-encoded type descriptor: either `{"type":"string"}` or `{"type":"struct","id":"<struct id>"}`.';

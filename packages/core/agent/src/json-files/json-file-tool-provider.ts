@@ -26,6 +26,22 @@ export interface IJsonFilesDiagnostic {
 }
 
 /**
+ * Optional capability: files that are not node trees (a workflow project's `tables/<name>.json`). Product-neutral —
+ * the provider only lists, reads and writes text; the host validates and applies it. `write` creates the underlying
+ * document when `path` doesn't exist yet and throws (message → the agent) on any problem, applying nothing.
+ */
+export interface IJsonDataFiles {
+  /** Existing data files, `type` shown by `list_files` (e.g. `table`). */
+  list(): readonly { readonly path: string; readonly type: string }[];
+  /** True when `path` belongs to this capability (an existing or a new file of its kind). */
+  handles(path: string): boolean;
+  /** The file text, or null when it doesn't exist. */
+  read(path: string): string | null;
+  /** Creates or updates; returns a short JSON summary for the agent. */
+  write(path: string, text: string): string;
+}
+
+/**
  * What a host supplies so its project can be edited as JSON files (ADR 0062). Product-neutral: the workflow client
  * implements it over `IWorkflowAgentStore`; a desktop host could over its own store.
  */
@@ -46,6 +62,8 @@ export interface IJsonFilesHost {
   isListed?(kind: string): boolean;
   /** Two-way `data` mapping between storage and the file (e.g. document references as file paths). */
   readonly dataMapping?: IJsonDataMapping;
+  /** Writable non-tree files (e.g. tables); absent → none. */
+  readonly dataFiles?: IJsonDataFiles;
   /** Compile + type-check; absent → `check_project` is not offered. */
   checkProject?(): Promise<readonly IJsonFilesDiagnostic[]>;
 }
@@ -186,9 +204,15 @@ export class JsonFileToolProvider implements IAgentToolProvider {
 
   private listFiles(): TToolExecutionResult {
     const documents = this.host.listDocuments().map((doc) => `${doc.path}  (${doc.type}, writable)`);
+    const data = (this.host.dataFiles?.list() ?? []).map((file) => `${file.path}  (${file.type}, writable)`);
     const extras = Object.keys(this.host.extraFiles).map((path) => `${path}  (read-only)`);
     return ok(
-      [...documents, ...extras, `${SCHEMA_PREFIX}<kind>.json  (read-only, one per node kind in NODES.md)`].join('\n'),
+      [
+        ...documents,
+        ...data,
+        ...extras,
+        `${SCHEMA_PREFIX}<kind>.json  (read-only, one per node kind in NODES.md)`,
+      ].join('\n'),
     );
   }
 
@@ -202,7 +226,11 @@ export class JsonFileToolProvider implements IAgentToolProvider {
       return schema ? ok(schema) : fail(`${path}: no node kind "${kind}" — see NODES.md`);
     }
     const doc = this.findDocument(path);
-    if (!doc) return fail(`${path}: no such file — call list_files`);
+    if (!doc) {
+      const dataText = this.host.dataFiles?.read(path);
+      if ((dataText ?? null) !== null) return ok(dataText as string);
+      return fail(`${path}: no such file — call list_files`);
+    }
     return ok(this.renderDocument(doc));
   }
 
@@ -211,6 +239,7 @@ export class JsonFileToolProvider implements IAgentToolProvider {
     if (typeof input.content !== 'string') return fail('write_file: content must be the file text (a string)');
     if (this.host.extraFiles[path] || path.startsWith(SCHEMA_PREFIX)) return fail(`${path} is read-only`);
     let doc = this.findDocument(path);
+    if (!doc && this.host.dataFiles?.handles(path)) return ok(this.host.dataFiles.write(path, input.content));
     if (!doc) {
       if (!this.host.createDocument)
         return fail(`${path}: no such file — documents can't be created by writing a file here`);
@@ -228,8 +257,9 @@ export class JsonFileToolProvider implements IAgentToolProvider {
       return fail('edit_file: old_string (non-empty) and new_string are required strings');
     }
     const doc = this.findDocument(path);
-    if (!doc) return fail(`${path}: no such document file — call list_files`);
-    const text = this.renderDocument(doc);
+    const dataText = doc ? null : (this.host.dataFiles?.read(path) ?? null);
+    if (!doc && dataText === null) return fail(`${path}: no such document file — call list_files`);
+    const text = doc ? this.renderDocument(doc) : (dataText as string);
     const occurrences = text.split(original).length - 1;
     if (occurrences === 0) {
       return fail(
@@ -241,10 +271,10 @@ export class JsonFileToolProvider implements IAgentToolProvider {
         `${path}: old_string occurs ${occurrences} times — add surrounding lines to make it unique, or pass replace_all: true.`,
       );
     }
-    return this.applyText(
-      doc,
-      replaceAll === true ? text.split(original).join(replacement) : text.replace(original, () => replacement),
-    );
+    const updated =
+      replaceAll === true ? text.split(original).join(replacement) : text.replace(original, () => replacement);
+    if (!doc) return ok((this.host.dataFiles as IJsonDataFiles).write(path, updated));
+    return this.applyText(doc, updated);
   }
 
   private applyText(doc: IJsonFileDocument, text: string): TToolExecutionResult {
