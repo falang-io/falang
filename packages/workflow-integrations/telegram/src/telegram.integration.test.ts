@@ -23,8 +23,17 @@ describe('telegramIntegration', () => {
     expect(configs.map((config) => config.name)).toEqual([
       TELEGRAM_TRIGGER_NAME,
       TELEGRAM_ON_COMMAND_TRIGGER_NAME,
+      'telegram-member-joined',
+      'telegram-member-left',
+      'telegram-join-request',
       TELEGRAM_SEND_MESSAGE_NAME,
       TELEGRAM_SEND_FILE_NAME,
+      'telegram-ban-member',
+      'telegram-unban-member',
+      'telegram-delete-message',
+      'telegram-approve-join-request',
+      'telegram-decline-join-request',
+      'telegram-get-member',
     ]);
   });
 
@@ -78,7 +87,8 @@ describe('telegramIntegration', () => {
     expect(onCommand?.scopeType).toEqual(onMessage.scopeType);
     expect(onCommand?.scopeVariableName).toBe(onMessage.scopeVariableName);
     expect(onCommand?.signalName).toBe(onMessage.signalName);
-    expect(onCommand?.contextFields).toEqual([{ name: 'command', label: 'telegram:field.command', kind: 'text' }]);
+    expect(onCommand?.contextFields?.[0]).toEqual({ name: 'command', label: 'telegram:field.command', kind: 'text' });
+    expect(onCommand?.contextFields?.map((field) => field.name)).toEqual(['command', 'chatType', 'conversation']);
   });
 
   it('every struct id a registered type references resolves to another entry in `types`, or is a known cross-vendor struct', () => {

@@ -46,11 +46,17 @@ export interface IVkTokenState {
   readonly groupId: number;
   readonly pendingUpdates: unknown[];
   readonly calls: IVkMockCall[];
-  readonly messages: IVkStoredMessage[];
+  messages: IVkStoredMessage[];
   readonly files: Map<string, { mime: string; bytes: Buffer }>;
   readonly callbackServers: Map<number, { id: number; url: string; title: string; secret_key: string }>;
   readonly uploads: Map<string, IVkUploadSlot>;
   readonly cmidByPeer: Map<number, number>;
+  /** `messages.removeChatUser`: `<chat_id>:<member_id>` already removed (a repeat answers error 935). */
+  readonly removedMembers: Set<string>;
+  /** `messages.delete`: `<peer_id>:<cmid>` already deleted (a repeat answers error 927). */
+  readonly deletedMessages: Set<string>;
+  /** The event flags the last `groups.setLongPollSettings` / `groups.setCallbackSettings` switched on (e.g. `group_join`). */
+  readonly subscribedEvents: Set<string>;
   /** Random large offset: message ids stay globally unique across mock restarts and reruns. */
   readonly messageIdOffset: number;
   longPollKey: string;
@@ -91,6 +97,9 @@ export const getState = (token: string): IVkTokenState => {
       callbackServers: new Map(),
       uploads: new Map(),
       cmidByPeer: new Map(),
+      removedMembers: new Set(),
+      deletedMessages: new Set(),
+      subscribedEvents: new Set(),
       messageIdOffset: 1_000_000 + Math.floor(Math.random() * 1_000_000_000),
       longPollKey: randomBytes(8).toString('hex'),
       nextMessageId: 1,

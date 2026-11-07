@@ -1,7 +1,15 @@
 import type { TVariableInfo } from '@falang/typescript-dto';
 import type { IIntegrationStructType } from '@falang/workflow-integrations-common';
 import { FILE_TYPE_ID } from '@falang/workflow-integrations-files';
-import { TELEGRAM_CHAT_TYPE_ID, TELEGRAM_MESSAGE_TYPE_ID, TELEGRAM_USER_TYPE_ID } from './constants.js';
+import {
+  TELEGRAM_CHAT_TYPE_ID,
+  TELEGRAM_JOIN_REQUEST_TYPE_ID,
+  TELEGRAM_MEMBER_EVENT_TYPE_ID,
+  TELEGRAM_MEMBER_INFO_TYPE_ID,
+  TELEGRAM_MESSAGE_ENTITY_TYPE_ID,
+  TELEGRAM_MESSAGE_TYPE_ID,
+  TELEGRAM_USER_TYPE_ID,
+} from './constants.js';
 
 const anyNumber: TVariableInfo = { type: 'number', numberType: { type: 'any' } };
 
@@ -32,6 +40,17 @@ export const telegramStructTypes: readonly IIntegrationStructType[] = [
     properties: {
       id: anyNumber,
       type: { type: 'string' },
+      title: { type: 'string', optional: true },
+    },
+  },
+  {
+    id: TELEGRAM_MESSAGE_ENTITY_TYPE_ID,
+    name: 'TelegramMessageEntity',
+    properties: {
+      type: { type: 'string' },
+      offset: anyNumber,
+      length: anyNumber,
+      url: { type: 'string', optional: true },
     },
   },
   {
@@ -42,6 +61,12 @@ export const telegramStructTypes: readonly IIntegrationStructType[] = [
       date: anyNumber,
       text: { type: 'string', optional: true },
       caption: { type: 'string', optional: true },
+      entities: {
+        type: 'array',
+        elementType: { type: 'struct', id: TELEGRAM_MESSAGE_ENTITY_TYPE_ID },
+        dimensions: 1,
+        optional: true,
+      },
       chat: { type: 'struct', id: TELEGRAM_CHAT_TYPE_ID },
       from: { type: 'struct', id: TELEGRAM_USER_TYPE_ID, optional: true },
       photo: optionalFileType,
@@ -49,6 +74,40 @@ export const telegramStructTypes: readonly IIntegrationStructType[] = [
       voice: optionalFileType,
       audio: optionalFileType,
       video: optionalFileType,
+    },
+  },
+  {
+    id: TELEGRAM_MEMBER_EVENT_TYPE_ID,
+    name: 'TelegramMemberEvent',
+    properties: {
+      chat: { type: 'struct', id: TELEGRAM_CHAT_TYPE_ID },
+      user: { type: 'struct', id: TELEGRAM_USER_TYPE_ID },
+      by: { type: 'struct', id: TELEGRAM_USER_TYPE_ID, optional: true },
+      date: anyNumber,
+      kicked: { type: 'boolean' },
+      inviteLink: { type: 'string', optional: true },
+      viaJoinRequest: { type: 'boolean' },
+    },
+  },
+  {
+    id: TELEGRAM_JOIN_REQUEST_TYPE_ID,
+    name: 'TelegramJoinRequest',
+    properties: {
+      chat: { type: 'struct', id: TELEGRAM_CHAT_TYPE_ID },
+      user: { type: 'struct', id: TELEGRAM_USER_TYPE_ID },
+      userChatId: anyNumber,
+      date: anyNumber,
+      bio: { type: 'string', optional: true },
+      inviteLink: { type: 'string', optional: true },
+    },
+  },
+  {
+    id: TELEGRAM_MEMBER_INFO_TYPE_ID,
+    name: 'TelegramMemberInfo',
+    properties: {
+      status: { type: 'string' },
+      user: { type: 'struct', id: TELEGRAM_USER_TYPE_ID },
+      isAdmin: { type: 'boolean' },
     },
   },
 ];

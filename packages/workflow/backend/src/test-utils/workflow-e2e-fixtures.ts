@@ -260,3 +260,14 @@ export const buildSingleFunctionFixture = (
 
 // `files-download`/`files-from-text`/`files-read-text`/`files-publish` node builders live in
 // `workflow-e2e-fixtures-files.ts` — split out to stay under this file's 300-line lint cap.
+
+/** Telegram moderation node (`telegram-ban-member`, `telegram-delete-message`, `telegram-approve-join-request`, …) — ADR 0076 (private). */
+export const buildTelegramModerationNode = (
+  id: string,
+  name: string,
+  data: Readonly<Record<string, string>>,
+): INode => ({
+  id,
+  name,
+  data: { ...data },
+});

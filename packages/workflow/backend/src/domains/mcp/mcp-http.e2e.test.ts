@@ -212,7 +212,7 @@ describe('/mcp (HTTP-level, PAT auth) (e2e)', () => {
       const onCommand = telegram?.triggers.find((trigger) => trigger.nodeKind === 'telegram-on-command-trigger');
       expect(onMessage?.notes).toContain('telegram-on-command-trigger');
       expect(onCommand?.notes).toContain('one trigger-function document per command');
-      expect(onCommand?.contextFields?.map((field) => field.name)).toEqual(['command']);
+      expect(onCommand?.contextFields?.map((field) => field.name)).toEqual(['command', 'chatType', 'conversation']);
 
       // `notes` is a required field on `ITriggerDescriptor` precisely so every trigger in this catalog
       // has one, not just Telegram's — and `label` (UI-only, sometimes an untranslated i18n key) is

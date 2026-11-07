@@ -18,3 +18,4 @@ export * from './question-scope-contributor.js';
 export * from './ai-result-type.js';
 export * from './constant-time-equal.js';
 export * from './sandbox-bot.js';
+export * from './conversation-routing.js';

@@ -233,4 +233,67 @@ describe('vk mock', () => {
     await fetch(`${server.url}/__mock__/reset`, { method: 'POST' });
     expect(await getVkCalls(server.url, TOKEN)).toHaveLength(0);
   });
+
+  it('long poll delivers member events (group_join, group_leave, a service message) each with its own event_id', async () => {
+    const lp = await api<{ server: string; key: string }>(server.url, 'groups.getLongPollServer');
+    await pushVkUpdate(server.url, TOKEN, [
+      { type: 'group_join', object: { user_id: 5, join_type: 'join' } },
+      { type: 'group_leave', object: { user_id: 5, self: 1 } },
+      {
+        type: 'message_new',
+        object: {
+          message: { peer_id: 2_000_000_001, from_id: 9, action: { type: 'chat_invite_user', member_id: 5 } },
+        },
+      },
+    ]);
+    const answer = (await (
+      await fetch(`${lp.response?.server}?act=a_check&key=${lp.response?.key}&ts=1&wait=1`)
+    ).json()) as { updates: { type: string; event_id: string; object: Record<string, unknown> }[] };
+    expect(answer.updates.map((u) => u.type)).toEqual(['group_join', 'group_leave', 'message_new']);
+    expect(new Set(answer.updates.map((u) => u.event_id)).size).toBe(3);
+    expect(answer.updates[2].object).toMatchObject({ message: { action: { member_id: 5 } } });
+  });
+
+  it('records the event flags of the long poll and callback settings calls', async () => {
+    await api(server.url, 'groups.setLongPollSettings', {
+      group_id: '1',
+      enabled: '1',
+      message_new: '1',
+      group_join: '1',
+      group_leave: '1',
+    });
+    await api(server.url, 'groups.setCallbackSettings', { group_id: '1', server_id: '2', group_join: '1' });
+    const calls = await getVkCalls(server.url, TOKEN);
+    expect(calls.map((c) => c.method)).toEqual(['groups.setLongPollSettings', 'groups.setCallbackSettings']);
+    expect(calls[0].params).toMatchObject({ group_join: '1', group_leave: '1' });
+    expect(calls[1].params).toMatchObject({ group_join: '1' });
+  });
+
+  it('messages.removeChatUser: the first kick succeeds, the same user again is error 935', async () => {
+    const kick = { chat_id: '1', member_id: '5' };
+    expect((await api(server.url, 'messages.removeChatUser', kick)).response).toBe(1);
+    expect((await api(server.url, 'messages.removeChatUser', kick)).error?.error_code).toBe(935);
+    expect((await api(server.url, 'messages.removeChatUser', { chat_id: '1', member_id: '6' })).response).toBe(1);
+    expect((await getVkCalls(server.url, TOKEN)).filter((c) => c.method === 'messages.removeChatUser')).toHaveLength(3);
+  });
+
+  it('messages.delete removes the message; deleting it again is error 927', async () => {
+    const sent = await api<{ conversation_message_id: number }[]>(server.url, 'messages.send', {
+      peer_ids: '2000000001',
+      message: 'spam',
+      random_id: '1',
+    });
+    const cmid = String(sent.response?.[0].conversation_message_id);
+    const params = { peer_id: '2000000001', cmids: cmid, delete_for_all: '1', group_id: '1' };
+    expect((await api<Record<string, number>>(server.url, 'messages.delete', params)).response).toEqual({ [cmid]: 1 });
+    expect(
+      (
+        await api(server.url, 'messages.getByConversationMessageId', {
+          peer_id: '2000000001',
+          conversation_message_ids: cmid,
+        })
+      ).response,
+    ).toMatchObject({ count: 0 });
+    expect((await api(server.url, 'messages.delete', params)).error?.error_code).toBe(927);
+  });
 });

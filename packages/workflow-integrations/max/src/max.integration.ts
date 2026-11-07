@@ -1,7 +1,17 @@
 import type { TVariableInfo } from '@falang/typescript-dto';
-import type { IWorkflowIntegration } from '@falang/workflow-integrations-common';
+import {
+  buildChatTypeContextField,
+  buildConversationContextField,
+  type IWorkflowIntegration,
+} from '@falang/workflow-integrations-common';
 import {
   MAX_COMMAND_FIELD_NAME,
+  MAX_EVENT_SCOPE_VARIABLE_NAME,
+  MAX_MEMBER_EVENT_TYPE_ID,
+  MAX_MEMBER_JOINED_SIGNAL_NAME,
+  MAX_MEMBER_JOINED_TRIGGER_NAME,
+  MAX_MEMBER_LEFT_SIGNAL_NAME,
+  MAX_MEMBER_LEFT_TRIGGER_NAME,
   MAX_MESSAGE_TYPE_ID,
   MAX_ON_COMMAND_TRIGGER_NAME,
   MAX_QUESTION_ANSWER_SIGNAL_NAME,
@@ -13,6 +23,7 @@ import {
   MAX_VENDOR,
 } from './constants.js';
 import { registerMaxBackend } from './max-backend.js';
+import { maxDeleteMessageAction, maxRemoveMemberAction } from './max-moderation-actions.js';
 import { maxSandboxAdapter } from './max-sandbox.js';
 import { maxSendFileAction } from './max-send-file-action.js';
 import { MAX_SHARED_ACTIVITY_CODE } from './max-shared-activity-code.js';
@@ -29,6 +40,38 @@ const MAX_WEBHOOK_PATH = '/webhooks/max/:projectId/:credentialId/:env';
 const anyNumber: TVariableInfo = { type: 'number', numberType: { type: 'any' } };
 
 const maxMessageScopeType: TVariableInfo = { type: 'struct', id: MAX_MESSAGE_TYPE_ID };
+const maxMemberEventScopeType: TVariableInfo = { type: 'struct', id: MAX_MEMBER_EVENT_TYPE_ID };
+
+/** Routing knobs of the two message triggers (ADR 0076 (private) §2), stored in `triggerConfig`. */
+const chatTypeField = buildChatTypeContextField({
+  label: 'max:field.chatType',
+  any: 'max:chatType.any',
+  private: 'max:chatType.private',
+  group: 'max:chatType.group',
+});
+const conversationField = buildConversationContextField({
+  label: 'max:field.conversation',
+  perChat: 'max:conversation.perChat',
+  perUser: 'max:conversation.perUser',
+  perEvent: 'max:conversation.perEvent',
+});
+
+const ROUTING_NOTES = [
+  'Two optional settings route group chats: `chatType` (any | private | group — the trigger only listens to those',
+  'chats, so a private-chat document and a group document can coexist) and `conversation` (per-chat = one',
+  'long-lived run per chat, the default; per-user = one run per user in a chat, a separate dialog with each member;',
+  'per-event = a fresh stateless run for every message). For group moderation (spam filter, deleting messages,',
+  'banning) use `chatType: group` with `conversation: per-event`. Buttons of `max-question` pressed in a group are',
+  'NOT routed back to the run for per-user/per-event until pending-question routing exists — ask questions only in',
+  'private chats or with `conversation: per-chat`.',
+].join(' ');
+
+const MEMBER_NOTES = [
+  'Use this (instead of the on-message trigger with `chatType: group`) when the bot must react to membership',
+  'itself, e.g. greet a newcomer or log a departure — it fires once per event with its own run. MAX delivers',
+  'member events only to a bot that is an admin of the chat with the `read_all_messages` right; the platform test bot',
+  'of the dev stand never sends them, so the bot needs its own token. `event.byId` is optional.',
+].join(' ');
 
 /**
  * The Max messenger (`https://max.ru`, Bot API `https://dev.max.ru/docs-api`) — the same shape as the Telegram
@@ -39,7 +82,7 @@ export const maxIntegration: IWorkflowIntegration = {
   vendor: MAX_VENDOR,
   label: 'max:label',
   notes:
-    'MAX messenger bots (Russian messenger MAX / Макс, chat bot): receive incoming messages and /commands, send text messages and files, and ask questions with inline-keyboard buttons (yes/no, multiple choice) that pause the workflow until the user taps one. Works like the Telegram integration.',
+    'MAX messenger bots (Russian messenger MAX / Макс, chat bot): receive incoming messages and /commands, send text messages and files, and ask questions with inline-keyboard buttons (yes/no, multiple choice) that pause the workflow until the user taps one. Works like the Telegram integration. Group and community management (moderation): triggers for a member joining or leaving a group chat or channel, and actions to remove or block (kick, ban) a member and to delete a message — the bot must be a chat admin (rights read_all_messages for member events, add_remove_members for removing, delete for deleting messages). Moderation keywords: remove, block, kick, ban, group, chat, community, member. Buttons of max-question pressed in a group chat are not routed back to the run when the trigger uses conversation per-user or per-event — ask in private chats or keep per-chat.',
   locales: {
     en: () => import('./locales/en.json'),
     ru: () => import('./locales/ru.json'),
@@ -54,6 +97,7 @@ export const maxIntegration: IWorkflowIntegration = {
       scopeVariableName: MAX_SCOPE_VARIABLE_NAME,
       signalName: MAX_SIGNAL_NAME,
       webhookPath: MAX_WEBHOOK_PATH,
+      contextFields: [chatTypeField, conversationField],
       journalMessage: MAX_JOURNAL_MESSAGE,
       notes: [
         'Fires for every incoming message to this MAX bot, commands included — there is no way to filter which',
@@ -64,6 +108,7 @@ export const maxIntegration: IWorkflowIntegration = {
         '`message.messageId` is a string; `message.timestamp` is Unix time in milliseconds.',
         '`message.photo`/`.document`/`.audio`/`.video` are `File`s (see the `files` vendor), already resolved —',
         '`null`, not absent, when MAX had media but it could not be fetched; always check for `null` first.',
+        ROUTING_NOTES,
       ].join(' '),
     },
     {
@@ -73,7 +118,11 @@ export const maxIntegration: IWorkflowIntegration = {
       scopeVariableName: MAX_SCOPE_VARIABLE_NAME,
       signalName: MAX_SIGNAL_NAME,
       webhookPath: MAX_WEBHOOK_PATH,
-      contextFields: [{ name: MAX_COMMAND_FIELD_NAME, label: 'max:field.command', kind: 'text' }],
+      contextFields: [
+        { name: MAX_COMMAND_FIELD_NAME, label: 'max:field.command', kind: 'text' },
+        chatTypeField,
+        conversationField,
+      ],
       journalMessage: MAX_JOURNAL_MESSAGE,
       notes: [
         'The correct, ONLY way to handle a MAX bot command (e.g. /start, /help, /cancel) — do not reimplement',
@@ -83,7 +132,28 @@ export const maxIntegration: IWorkflowIntegration = {
         '"start" command also fires when the user presses "Start" in a new dialog with the bot. A matching command',
         'wins over the onMessage trigger, which is then not signalled for that message. The payload is the same',
         '`message` shape as onMessage.',
+        ROUTING_NOTES,
       ].join(' '),
+    },
+    {
+      name: MAX_MEMBER_JOINED_TRIGGER_NAME,
+      label: 'max:trigger.memberJoined',
+      scopeType: maxMemberEventScopeType,
+      scopeVariableName: MAX_EVENT_SCOPE_VARIABLE_NAME,
+      signalName: MAX_MEMBER_JOINED_SIGNAL_NAME,
+      webhookPath: MAX_WEBHOOK_PATH,
+      journalMessage: '${event.user.firstName} joined',
+      notes: `A user joined a MAX group chat or channel the bot administers (update user_added). ${MEMBER_NOTES} \`event.byId\` is the inviter and is absent when the user joined by an invite link.`,
+    },
+    {
+      name: MAX_MEMBER_LEFT_TRIGGER_NAME,
+      label: 'max:trigger.memberLeft',
+      scopeType: maxMemberEventScopeType,
+      scopeVariableName: MAX_EVENT_SCOPE_VARIABLE_NAME,
+      signalName: MAX_MEMBER_LEFT_SIGNAL_NAME,
+      webhookPath: MAX_WEBHOOK_PATH,
+      journalMessage: '${event.user.firstName} left',
+      notes: `A user left, or was removed from, a MAX group chat or channel the bot administers (update user_removed). ${MEMBER_NOTES} \`event.byId\` is the admin who removed the user and is absent when the user left on their own.`,
     },
   ],
   actions: [
@@ -106,6 +176,8 @@ export const maxIntegration: IWorkflowIntegration = {
       ].join('\n'),
     },
     maxSendFileAction,
+    maxRemoveMemberAction,
+    maxDeleteMessageAction,
   ],
   questions: [
     {

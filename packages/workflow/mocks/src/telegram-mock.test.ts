@@ -160,4 +160,78 @@ describe('telegram mock', () => {
       });
     });
   });
+
+  describe('community management (ADR 0076 (private))', () => {
+    const call = (token: string, method: string, body: unknown): Promise<Response> =>
+      fetch(`${server.url}/telegram/bot${token}/${method}`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(body),
+      });
+
+    it('passes chat_member / chat_join_request / service-message updates through getUpdates as they are', async () => {
+      const token = 'c:1';
+      const updates = [
+        { chat_member: { chat: { id: -1, type: 'supergroup' }, new_chat_member: { status: 'member' } } },
+        { chat_join_request: { chat: { id: -1, type: 'supergroup' }, from: { id: 5 } } },
+        { my_chat_member: { chat: { id: -1, type: 'supergroup' } } },
+        { message: { message_id: 1, new_chat_members: [{ id: 5 }], chat: { id: -1, type: 'supergroup' } } },
+        { message: { message_id: 2, left_chat_member: { id: 5 }, chat: { id: -1, type: 'supergroup' } } },
+      ];
+      for (const update of updates) {
+        // oxlint-disable-next-line no-await-in-loop -- queue order is the thing under test.
+        await pushTelegramUpdate(server.url, token, update);
+      }
+      const pollResponse = await fetch(`${server.url}/telegram/bot${token}/getUpdates`);
+      const polled = (await pollResponse.json()) as { result: Record<string, unknown>[] };
+      expect(polled.result.map(({ update_id: _id, ...rest }) => rest)).toEqual(updates);
+    });
+
+    it('records the allowed_updates of getUpdates (once per change) and of setWebhook', async () => {
+      const token = 'c:2';
+      const allowed = encodeURIComponent(JSON.stringify(['message', 'chat_member']));
+      await fetch(`${server.url}/telegram/bot${token}/getUpdates?allowed_updates=${allowed}`);
+      await fetch(`${server.url}/telegram/bot${token}/getUpdates?allowed_updates=${allowed}`);
+      await call(token, 'setWebhook', { url: 'http://x', allowed_updates: ['message', 'chat_member'] });
+      expect(await getTelegramCalls(server.url, token)).toEqual([
+        { method: 'getUpdates', body: { allowed_updates: ['message', 'chat_member'] } },
+        { method: 'setWebhook', body: { url: 'http://x', allowed_updates: ['message', 'chat_member'] } },
+      ]);
+    });
+
+    it('tracks member status through ban / unban and answers getChatMember', async () => {
+      const token = 'c:3';
+      const status = async (): Promise<string> => {
+        const response = await call(token, 'getChatMember', { chat_id: -1, user_id: 7 });
+        const body = (await response.json()) as { result: { status: string } };
+        return body.result.status;
+      };
+      expect(await status()).toBe('member');
+      await call(token, 'banChatMember', { chat_id: -1, user_id: 7 });
+      expect(await status()).toBe('kicked');
+      await call(token, 'unbanChatMember', { chat_id: -1, user_id: 7, only_if_banned: true });
+      expect(await status()).toBe('left');
+      const recorded = await getTelegramCalls(server.url, token);
+      const methods = recorded.map((entry) => entry.method);
+      expect(methods).toEqual(['getChatMember', 'banChatMember', 'getChatMember', 'unbanChatMember', 'getChatMember']);
+    });
+
+    it('deleteMessage succeeds once, then answers 400 "message to delete not found"', async () => {
+      const token = 'c:4';
+      const first = await call(token, 'deleteMessage', { chat_id: -1, message_id: 9 });
+      expect(first.status).toBe(200);
+      const second = await call(token, 'deleteMessage', { chat_id: -1, message_id: 9 });
+      expect(second.status).toBe(400);
+      expect(((await second.json()) as { description: string }).description).toContain('message to delete not found');
+    });
+
+    it('records approve / decline join request calls', async () => {
+      const token = 'c:5';
+      const approve = await call(token, 'approveChatJoinRequest', { chat_id: -1, user_id: 7 });
+      const decline = await call(token, 'declineChatJoinRequest', { chat_id: -1, user_id: 8 });
+      expect([approve.status, decline.status]).toEqual([200, 200]);
+      const calls = await getTelegramCalls(server.url, token);
+      expect(calls.map((recorded) => recorded.method)).toEqual(['approveChatJoinRequest', 'declineChatJoinRequest']);
+    });
+  });
 });

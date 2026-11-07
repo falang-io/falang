@@ -1,5 +1,6 @@
 import express, { Router, type Request, type Response } from 'express';
 import { parseMultipart } from './multipart.js';
+import { registerModerationRoutes } from './telegram-mock-moderation.js';
 
 /** One outbound call recorded for a given bot token — inspectable via the admin `/calls` route. */
 export interface ITelegramMockCall {
@@ -19,6 +20,11 @@ interface ITelegramTokenState {
   readonly calls: ITelegramMockCall[];
   nextMessageId: number;
   nextUpdateId: number;
+  /** See `IModerationState`. */
+  readonly memberStatuses: Map<string, string>;
+  readonly deletedMessages: Set<string>;
+  /** The last `allowed_updates` recorded for `getUpdates` (`''` = none), so a one-second poll loop adds one entry per change, not per poll. */
+  lastPolledAllowedUpdates: string;
   /** Keyed by `file_id` (for `getFile`) and by `file_path` (for the actual download route) — both point at the same seeded bytes. */
   readonly filesById: Map<string, ITelegramMockFile>;
   readonly filesByPath: Map<string, ITelegramMockFile>;
@@ -39,6 +45,9 @@ const getState = (token: string): ITelegramTokenState => {
       calls: [],
       nextMessageId: 1,
       nextUpdateId: 1,
+      memberStatuses: new Map(),
+      deletedMessages: new Set(),
+      lastPolledAllowedUpdates: '',
       filesById: new Map(),
       filesByPath: new Map(),
     };
@@ -152,8 +161,19 @@ export const createTelegramMockRouter = (): Router => {
   router.get('/telegram/:botSegment/getUpdates', (req: Request, res: Response) => {
     const state = getState(tokenFromSegment(req.params.botSegment));
     const updates = state.pendingUpdates.splice(0);
+    // `allowed_updates` (a JSON array in the query) is what makes Telegram deliver `chat_member` at all — recorded when it changes.
+    const allowedUpdates = typeof req.query.allowed_updates === 'string' ? req.query.allowed_updates : '';
+    if (allowedUpdates !== state.lastPolledAllowedUpdates) {
+      state.lastPolledAllowedUpdates = allowedUpdates;
+      state.calls.push({
+        method: 'getUpdates',
+        body: allowedUpdates ? { allowed_updates: JSON.parse(allowedUpdates) as unknown } : {},
+      });
+    }
     okResult(res, updates);
   });
+
+  registerModerationRoutes(router, (botSegment) => getState(tokenFromSegment(botSegment)));
 
   // `telegram-media.ts`'s `resolveIncomingMedia` calls this to resolve a `file_id` (from an update's
   // `photo`/`document`/… ref) into a `file_path` it then downloads — see ADR 0038 (private) §5.

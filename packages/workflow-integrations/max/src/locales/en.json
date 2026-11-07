@@ -6,7 +6,9 @@
     },
     "trigger": {
       "onMessage": "On message",
-      "onCommand": "On command"
+      "onCommand": "On command",
+      "memberJoined": "Member joined",
+      "memberLeft": "Member left"
     },
     "field": {
       "command": "Command",
@@ -17,11 +19,18 @@
       "timeout": "Timeout (e.g. 10m, 48h) — leave empty for no timeout",
       "file": "File",
       "sendFileAs": "Send as",
-      "caption": "Caption"
+      "caption": "Caption",
+      "chatType": "Chats",
+      "conversation": "Conversation",
+      "userId": "User ID",
+      "block": "Block the user (ban)",
+      "messageId": "Message ID"
     },
     "action": {
       "sendMessage": "Send message",
-      "sendFile": "Send file"
+      "sendFile": "Send file",
+      "removeMember": "Remove member",
+      "deleteMessage": "Delete message"
     },
     "question": {
       "askQuestion": "Ask question"
@@ -32,6 +41,16 @@
       "document": "File",
       "video": "Video",
       "audio": "Audio"
+    },
+    "chatType": {
+      "any": "Any chat",
+      "private": "Private chats only",
+      "group": "Groups and channels only"
+    },
+    "conversation": {
+      "perChat": "One per chat",
+      "perUser": "One per user in a chat",
+      "perEvent": "One per message (stateless)"
     }
   }
 }

@@ -69,6 +69,12 @@ describe('max sandbox adapter', () => {
       ).toEqual({ chatId: '42', isPrivateChat: true, startPayload: null, text: null, chatTitle: 'Ann Lee @ann' });
     });
 
+    it("ignores member and bot-chat events (a test bot is not an admin of anyone's chat)", () => {
+      for (const type of ['user_added', 'user_removed', 'bot_added', 'bot_removed']) {
+        expect(adapter.describeUpdate({ update_type: type, timestamp: 1, chat_id: 5, user: ann })).toBeNull();
+      }
+    });
+
     it('ignores a callback without a message and unknown update types', () => {
       expect(
         adapter.describeUpdate({ update_type: 'message_callback', callback: { user: ann }, message: null }),

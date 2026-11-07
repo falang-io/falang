@@ -35,8 +35,15 @@ describe('vkIntegration', () => {
     expect(getIntegrationNodeConfigs([vkIntegration]).map((config) => config.name)).toEqual([
       VK_TRIGGER_NAME,
       VK_ON_COMMAND_TRIGGER_NAME,
+      'vk-group-member-joined',
+      'vk-group-member-left',
+      'vk-join-request',
+      'vk-chat-member-joined',
+      'vk-chat-member-left',
       VK_SEND_MESSAGE_NAME,
       VK_SEND_FILE_NAME,
+      'vk-kick-from-chat',
+      'vk-delete-message',
     ]);
   });
 
@@ -124,6 +131,45 @@ describe('vkIntegration', () => {
     for (const key of keys) {
       expect(typeof lookup(en, key), `en: ${key}`).toBe('string');
       expect(typeof lookup(ru, key), `ru: ${key}`).toBe('string');
+    }
+  });
+
+  it('both message triggers carry the chatType and conversation selects with the defaults', () => {
+    for (const name of [VK_TRIGGER_NAME, VK_ON_COMMAND_TRIGGER_NAME]) {
+      const trigger = vkIntegration.triggers.find((item) => item.name === name);
+      const fields = trigger?.contextFields ?? [];
+      expect(fields.find((field) => field.name === 'chatType')).toMatchObject({
+        kind: 'select',
+        defaultValue: 'any',
+        options: [{ value: 'any' }, { value: 'private' }, { value: 'group' }],
+      });
+      expect(fields.find((field) => field.name === 'conversation')).toMatchObject({
+        kind: 'select',
+        defaultValue: 'per-chat',
+        options: [{ value: 'per-chat' }, { value: 'per-user' }, { value: 'per-event' }],
+      });
+      expect(trigger?.notes).toContain('chatType');
+      expect(trigger?.notes).toContain('per-event');
+    }
+  });
+
+  it('declares the five member triggers with their own signal, scope variable and struct', () => {
+    const member = (name: string) => vkIntegration.triggers.find((trigger) => trigger.name === name);
+    expect(member('vk-group-member-joined')).toMatchObject({
+      signalName: 'vkGroupMemberJoined',
+      scopeVariableName: 'event',
+      scopeType: { type: 'struct', id: 'vk/GroupMemberEvent' },
+    });
+    expect(member('vk-join-request')).toMatchObject({ scopeVariableName: 'request' });
+    expect(member('vk-join-request')?.notes).toContain('NOTIFICATION ONLY');
+    expect(member('vk-chat-member-left')?.scopeType).toEqual({ type: 'struct', id: 'vk/ChatMemberEvent' });
+    const signals = vkIntegration.triggers.map((trigger) => trigger.signalName);
+    expect(new Set(signals).size).toBe(signals.length - 1);
+  });
+
+  it('the vendor notes carry the moderation keywords', () => {
+    for (const word of ['moderation', 'kick', 'group', 'community', 'conversation', 'chat', 'member', 'join request']) {
+      expect(vkIntegration.notes.toLowerCase()).toContain(word);
     }
   });
 });
