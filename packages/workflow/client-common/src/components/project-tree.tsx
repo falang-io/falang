@@ -214,7 +214,7 @@ export const ProjectTree: React.FC = observer(() => {
       {
         ...data,
         scopeVariableName: descriptor.scopeVariableName,
-        scopeType: descriptor.scopeType,
+        scopeType: descriptor.scopeTypeFor?.(data.triggerConfig ?? {}) ?? descriptor.scopeType,
       },
       triggerTargetFolderId,
     );

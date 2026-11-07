@@ -33,6 +33,7 @@ import { NodeCompileError } from './node-compile-error.js';
 import { POSITION_RUNTIME_CODE, POSITION_RUNTIME_IMPORTS } from './position-runtime.js';
 import { buildQuestionEmitters } from './question-emitters.js';
 import { collectTableFields, TABLES_VENDOR_ID } from './table-fields.js';
+import { buildTableTriggerRuntime } from './table-trigger-project.js';
 import { containsNodeNamed, selectUsedIntegrations, type IUsedIntegrations } from './used-integrations.js';
 
 export interface ICompileProjectParams {
@@ -64,7 +65,6 @@ export interface ICompileProjectParams {
    */
   readonly debug?: boolean;
 }
-
 /**
  * `logActivity` (kept for versions published before `log` moved to the run-journal sink, ADR 0059
  * (private) §8 — no compiled call site uses it any more) and the activity-backed actions of every
@@ -290,7 +290,7 @@ export const compileProject = ({
   // Always assembled, even when `errors` isn't empty — the successfully-compiled blocks still form
   // valid partial output, carried on `ProjectCompileError` below so a caller can show the user their
   // code alongside the errors instead of nothing at all.
-  const workflows = `${buildWorkflowPreamble(used, trackPosition, debug, hasStartDeliveryTrigger, hasCloseableQuestion, hasWait, usesDayjs(content))}\n\n${content}`;
+  const workflows = `${buildWorkflowPreamble(used, trackPosition, debug, hasStartDeliveryTrigger, hasCloseableQuestion, hasWait, usesDayjs(content))}\n\n${buildTableTriggerRuntime(triggerFunctionDocuments, integrations, documents)}${content}`;
 
   if (errors.length > 0) {
     throw new ProjectCompileError(errors, workflows, activities);

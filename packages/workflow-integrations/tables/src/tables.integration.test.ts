@@ -18,6 +18,10 @@ describe('tablesIntegration', () => {
     ]);
     expect(tablesIntegration.registerBackend).toBeInstanceOf(Function);
     expect(tablesIntegration.sharedActivityCode).toContain("import { Context } from '@temporalio/activity';");
-    expect(tablesIntegration.triggers).toEqual([]);
+    expect(tablesIntegration.triggers.map((trigger) => trigger.name)).toEqual([
+      'table-record-created',
+      'table-record-updated',
+      'table-record-deleted',
+    ]);
   });
 });
