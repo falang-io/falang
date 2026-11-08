@@ -22,6 +22,22 @@ test.describe('documents and folders', () => {
     await expect(page.getByRole('tab', { name: 'MyStruct' })).toBeVisible();
   });
 
+  test('a section folder stays expanded and a left click opens its context menu', async ({ page }) => {
+    await loginAndReachProjectList(page);
+    await createProjectViaUI(page, `Sections ${Date.now()}`);
+
+    await createTreeItemInFolderViaUI(page, 'Functions', 'function', 'insideSection');
+    const section = page.getByRole('treeitem', { name: 'Functions' });
+    await section.click();
+    await expect(page.getByRole('menuitem', { name: 'New function here' })).toBeVisible();
+    await expect(page.getByRole('menuitem', { name: 'New subfolder' })).toBeVisible();
+    // the click didn't collapse the section
+    await expect(page.getByRole('treeitem', { name: 'insideSection' })).toBeVisible();
+
+    await page.getByRole('menuitem', { name: 'New subfolder' }).click();
+    await expect(page.getByPlaceholder('Folder name...')).toBeVisible();
+  });
+
   test('creates a folder, nests a document inside it, and reflects the structure after a reload', async ({ page }) => {
     await loginAndReachProjectList(page);
     const projectName = `Folders ${Date.now()}`;

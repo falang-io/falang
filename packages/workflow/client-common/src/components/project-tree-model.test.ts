@@ -5,6 +5,8 @@ import {
   canDropInProject,
   getDocumentMenuKeys,
   getFolderMenuKeys,
+  isFixedFolderKey,
+  withFixedFoldersExpanded,
 } from './project-tree-model.js';
 
 const folders: WorkflowFolder[] = [
@@ -58,5 +60,23 @@ describe('project tree model', () => {
     expect(canDropInProject({ kind: 'doc', id: 'i' }, 'f', folders, documents)).toBe(false);
     expect(canDropInProject({ kind: 'folder', id: 'sub' }, 't', folders, documents)).toBe(false);
     expect(canDropInProject({ kind: 'folder', id: 'f' }, 'sub', folders, documents)).toBe(false);
+  });
+
+  it('keeps every section folder expanded', () => {
+    expect(withFixedFoldersExpanded([], folders)).toEqual(['folder:f', 'folder:t', 'folder:y', 'folder:tb']);
+    expect(withFixedFoldersExpanded(['folder:sub', 'folder:t'], folders)).toEqual([
+      'folder:sub',
+      'folder:t',
+      'folder:f',
+      'folder:y',
+      'folder:tb',
+    ]);
+  });
+
+  it('recognises section folder keys only', () => {
+    expect(isFixedFolderKey('folder:t', folders)).toBe(true);
+    expect(isFixedFolderKey('folder:sub', folders)).toBe(false);
+    expect(isFixedFolderKey('doc:b', folders)).toBe(false);
+    expect(isFixedFolderKey('folder:missing', folders)).toBe(false);
   });
 });

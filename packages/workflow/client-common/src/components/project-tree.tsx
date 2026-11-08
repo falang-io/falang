@@ -1,5 +1,5 @@
 import type React from 'react';
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import { observer } from 'mobx-react-lite';
 import { getGlobalI18n } from '@falang/scheme';
 import { ConfigProvider, Dropdown, Menu, message, Tree } from 'antd';
@@ -21,7 +21,8 @@ import {
   ITEM_ICONS,
 } from './project-tree-helpers.js';
 import { REGISTERED_INTEGRATIONS } from '../integrations-registry.js';
-import { buildProjectTreeNodes, canDropInProject, loadExpandedKeys, saveExpandedKeys } from './project-tree-model.js';
+import { buildProjectTreeNodes, canDropInProject, isFixedFolderKey } from './project-tree-model.js';
+import { useProjectTreeExpansion } from './project-tree-expansion.js';
 
 interface ContextMenuState {
   x: number;
@@ -43,27 +44,7 @@ export const ProjectTree: React.FC = observer(() => {
   const [newItem, setNewItem] = useState<NewItem | null>(null);
   const [triggerModalOpen, setTriggerModalOpen] = useState(false);
   const [triggerTargetFolderId, setTriggerTargetFolderId] = useState<string | null>(null);
-  const [expandedKeys, setExpandedKeys] = useState<React.Key[]>([]);
-  const prevFolderIdsRef = useRef<Set<string>>(new Set());
-
-  useEffect(() => {
-    const existing = prevFolderIdsRef.current;
-    const isFirstLoad = existing.size === 0;
-    const stored = isFirstLoad ? loadExpandedKeys(store.projectId) : null;
-    const known = new Set(store.folders.map((f) => f.id));
-    if (stored) {
-      setExpandedKeys(stored.filter((key) => known.has(idOf(String(key)))));
-    } else {
-      const newKeys = store.folders.filter((f) => !existing.has(f.id)).map((f): React.Key => `folder:${f.id}`);
-      if (newKeys.length > 0) setExpandedKeys((keys) => [...keys, ...newKeys]);
-    }
-    prevFolderIdsRef.current = known;
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [store.folders.length]);
-
-  useEffect(() => {
-    if (store.folders.length > 0) saveExpandedKeys(store.projectId, expandedKeys.map(String));
-  }, [expandedKeys, store.folders.length, store.projectId]);
+  const { expandedKeys, expandFolder, toggleFolder, handleExpand } = useProjectTreeExpansion(store);
 
   useEffect(() => {
     if (!contextMenu) return;
@@ -79,17 +60,20 @@ export const ProjectTree: React.FC = observer(() => {
   const selectedKeys = store.activeTabId ? [`doc:${store.activeTabId}`] : [];
 
   const handleSelect = useCallback(
-    (_keys: React.Key[], info: { node: { key: React.Key } }) => {
+    (_keys: React.Key[], info: { node: { key: React.Key }; nativeEvent: MouseEvent }) => {
       const key = String(info.node.key);
       if (key.startsWith('doc:')) {
         store.openTab(idOf(key));
-      } else if (key.startsWith('folder:'))
-        setExpandedKeys((ks) => (ks.includes(key) ? ks.filter((k) => k !== key) : [...ks, key]));
+      } else if (isFixedFolderKey(key, store.folders)) {
+        // A section folder can't be collapsed: a left click opens the same menu as a right click.
+        if (store.readOnly) return;
+        // Keep this click from reaching the document-level listener that closes the menu.
+        info.nativeEvent.stopPropagation();
+        setContextMenu({ x: info.nativeEvent.clientX, y: info.nativeEvent.clientY, nodeKey: key });
+      } else if (key.startsWith('folder:')) toggleFolder(key);
     },
-    [store],
+    [store, toggleFolder],
   );
-
-  const handleExpand = useCallback((keys: React.Key[]) => setExpandedKeys(keys), []);
 
   const resolveDropParent = useCallback(
     (dropKey: string, dropToGap: boolean): string | null => {
@@ -179,10 +163,7 @@ export const ProjectTree: React.FC = observer(() => {
       }
       if (newItem.type === 'folder') store.createFolder(name, newItem.parentId);
       else store.createDocument(newItem.type, name, newItem.parentId);
-      if (newItem.parentId) {
-        const key = `folder:${newItem.parentId}`;
-        setExpandedKeys((keys) => (keys.includes(key) ? keys : [...keys, key]));
-      }
+      if (newItem.parentId) expandFolder(newItem.parentId);
     }
     setNewItem(null);
   };
@@ -200,8 +181,7 @@ export const ProjectTree: React.FC = observer(() => {
     }
     const parentId = store.getSectionFolderId(key);
     setNewItem({ type: key as DocumentType, parentId, name: '' });
-    if (parentId)
-      setExpandedKeys((keys) => (keys.includes(`folder:${parentId}`) ? keys : [...keys, `folder:${parentId}`]));
+    if (parentId) expandFolder(parentId);
   };
 
   const handleCreateTrigger = (name: string, data: INewTriggerData) => {
@@ -218,10 +198,7 @@ export const ProjectTree: React.FC = observer(() => {
       },
       triggerTargetFolderId,
     );
-    if (triggerTargetFolderId) {
-      const key = `folder:${triggerTargetFolderId}`;
-      setExpandedKeys((keys) => (keys.includes(key) ? keys : [...keys, key]));
-    }
+    if (triggerTargetFolderId) expandFolder(triggerTargetFolderId);
   };
 
   return (

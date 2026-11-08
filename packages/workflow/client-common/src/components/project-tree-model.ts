@@ -119,6 +119,20 @@ export const canDropInProject = (
   return checkFolderPlacement(drag.id, targetParentId, folders) === null;
 };
 
+/** Tree keys of the section folders — they are always expanded and cannot be collapsed. */
+export const fixedFolderKeys = (folders: readonly WorkflowFolder[]): string[] =>
+  folders.filter((folder) => isFixedFolder(folder)).map((folder) => `folder:${folder.id}`);
+
+/** `keys` plus every section folder's key (order kept, no duplicates). */
+export const withFixedFoldersExpanded = (keys: readonly string[], folders: readonly WorkflowFolder[]): string[] => {
+  const present = new Set(keys);
+  return [...keys, ...fixedFolderKeys(folders).filter((key) => !present.has(key))];
+};
+
+/** Whether a tree key is a section folder (a left click on it opens its context menu). */
+export const isFixedFolderKey = (key: string, folders: readonly WorkflowFolder[]): boolean =>
+  key.startsWith('folder:') && folders.some((folder) => `folder:${folder.id}` === key && isFixedFolder(folder));
+
 const expandedStorageKey = (projectId: string): string => `falang:project-tree-expanded:${projectId}`;
 
 /** Expanded node keys remembered for a project (`null` = nothing stored yet). Storage may be unavailable. */
