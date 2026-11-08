@@ -14,6 +14,7 @@ export const DOC_ICONS: Record<string, string> = {
   function: '⚙',
   'objects-structure': '📦',
   integrations: '🔌',
+  constants: '🔤',
   'trigger-function': '⚡',
   'section:triggers': '⚡',
   'section:functions': '⚙',

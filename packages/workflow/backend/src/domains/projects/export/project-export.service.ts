@@ -5,7 +5,7 @@ import { BadRequestException, Inject, Injectable } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import type { INode } from '@falang/dto';
 import { INTEGRATIONS_DOCUMENT_TYPE, type IIntegrationsDocumentData } from '@falang/workflow-integrations-common';
-import { normalizeWorkflowProjectLayout } from '@falang/workflow-dto';
+import { CONSTANTS_DOCUMENT_TYPE, normalizeWorkflowProjectLayout } from '@falang/workflow-dto';
 import type { Repository } from 'typeorm';
 import { ActivepiecesCatalogService } from '../../integrations/activepieces-catalog.service.js';
 import {
@@ -165,15 +165,28 @@ export class ProjectExportService {
       }
     }
 
-    // Any other pinned singleton is skipped: the freshly created project already seeded its own,
-    // and there is currently no update path for a pinned document kind other than `integrations`.
+    // The pinned `constants` document is merged the same way (plain data, no secrets).
+    const constantsPayload = normalizedDocuments.find((document) => document.type === CONSTANTS_DOCUMENT_TYPE);
+    if (constantsPayload?.data) {
+      const constantsDocument = await this.documents.findOne({
+        where: { projectId: project.id, type: CONSTANTS_DOCUMENT_TYPE },
+      });
+      if (constantsDocument) {
+        await this.documentsService.update(project.id, ownerId, constantsDocument.id, { data: constantsPayload.data });
+      }
+    }
+
+    // Any other pinned singleton is skipped: the freshly created project already seeded its own.
     // Every remaining document is independent of its siblings, so all creates run in parallel.
     const seededDocuments = await this.documents.find({
       where: { projectId: project.id },
       select: { id: true, name: true },
     });
     const regularDocuments = dedupeDocumentNames(
-      normalizedDocuments.filter((document) => document.type !== INTEGRATIONS_DOCUMENT_TYPE && !document.pinned),
+      normalizedDocuments.filter(
+        (document) =>
+          document.type !== INTEGRATIONS_DOCUMENT_TYPE && document.type !== CONSTANTS_DOCUMENT_TYPE && !document.pinned,
+      ),
       seededDocuments.map((document) => document.name),
     );
     // Table documents are re-minted too, and `document-ref`/struct-id references to them follow (ADR 0075 (private)).

@@ -5,6 +5,7 @@
 // oxlint-disable prefer-global-this
 // oxlint-disable switch-case-braces
 import type * as monaco from 'monaco-editor';
+import { observable, runInAction } from 'mobx';
 import { lib } from './lib.js';
 import { libPortable } from './lib-portable.js';
 
@@ -63,6 +64,14 @@ let desiredExtraLibFiles: TMonacoExtraLibFiles = {};
 let extraLibFilesVersion = 0;
 let extraLibFileDisposables: IDisposable[] = [];
 
+// Declarations of the open project (e.g. the workflow product's constants), replaced whenever they change — unlike the
+// host-level slots above, which are set once per window/project type. Observable, so `getMonacoLibKey` read inside a
+// MobX reaction (background validation) re-runs it when the project's declarations change.
+let appliedProjectDeclarations: string | null = null;
+let projectDeclarations = '';
+const projectDeclarationsVersion = observable.box(0);
+let projectLibDisposable: IDisposable | null = null;
+
 const sameExtraLibFiles = (a: TMonacoExtraLibFiles, b: TMonacoExtraLibFiles): boolean => {
   const keys = Object.keys(a);
   return keys.length === Object.keys(b).length && keys.every((key) => b[key] === a[key]);
@@ -90,6 +99,13 @@ const applyLibVariant = (monaco: TMonacoApi): void => {
       monaco.typescript.typescriptDefaults.addExtraLib(content, path),
     );
     appliedExtraLibFiles = desiredExtraLibFiles;
+  }
+  if (appliedProjectDeclarations !== projectDeclarations) {
+    projectLibDisposable?.dispose();
+    projectLibDisposable = projectDeclarations
+      ? monaco.typescript.typescriptDefaults.addExtraLib(projectDeclarations, '@types/lib-project.d.ts')
+      : null;
+    appliedProjectDeclarations = projectDeclarations;
   }
 };
 
@@ -127,12 +143,26 @@ export const setMonacoLibVariant = (
 };
 
 /**
+ * Ambient declarations of the open project (one more extra lib, `@types/lib-project.d.ts`), on top of whatever
+ * `setMonacoLibVariant` selected — for things that belong to the project's own data and change while it is open, such
+ * as the workflow product's constants (`declare const API_URL: string;`). `''` removes them; call it again on every
+ * change and with `''` when the project closes. Every open model and the background validation see the change.
+ */
+export const setMonacoProjectDeclarations = (declarations: string): void => {
+  if (declarations === projectDeclarations) return;
+  projectDeclarations = declarations;
+  runInAction(() => projectDeclarationsVersion.set(projectDeclarationsVersion.get() + 1));
+  if (initialized && monacoNamespace) applyLibVariant(monacoNamespace);
+};
+
+/**
  * Identifies the lib every `'typescript'` model currently type-checks against (the variant plus the host's extra
- * declarations and extra lib files): a check result is only valid for the key it was computed under. Includes the *desired* state, which
- * `getMonaco()` applies before the next worker call.
+ * declarations, extra lib files and the project's declarations): a check result is only valid for the key it was
+ * computed under. Includes the *desired* state, which `getMonaco()` applies before the next worker call. Reading it
+ * inside a MobX reaction tracks the project's declarations.
  */
 export const getMonacoLibKey = (): string =>
-  `${desiredLibVariant}\u0000${desiredExtraDeclarations}\u0000${extraLibFilesVersion}`;
+  `${desiredLibVariant}\u0000${desiredExtraDeclarations}\u0000${extraLibFilesVersion}\u0000${projectDeclarationsVersion.get()}`;
 
 const THEME_CLASSES = ['vs', 'vs-dark', 'hc-black', 'hc-light'];
 

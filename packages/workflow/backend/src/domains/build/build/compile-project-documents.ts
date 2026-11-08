@@ -1,6 +1,7 @@
 import { BadRequestException } from '@nestjs/common';
 import type { IProjectDocument } from '@falang/dto';
 import { compileProject, ProjectCompileError, type ICompiledProject } from '@falang/workflow-compiler';
+import type { TConstantEnv } from '@falang/workflow-dto';
 import type { IWorkflowIntegration } from '@falang/workflow-integrations-common';
 import type { ActivepiecesCatalogService } from '../../integrations/activepieces-catalog.service.js';
 import { REGISTERED_INTEGRATIONS } from '../../integrations/registered-integrations.js';
@@ -33,9 +34,10 @@ const compileOrThrowBadRequest = (
   integrations: readonly IWorkflowIntegration[],
   trackPosition: boolean,
   debug: boolean,
+  env: TConstantEnv,
 ): ICompiledProject => {
   try {
-    return compileProject({ documents, integrations, trackPosition, debug });
+    return compileProject({ documents, integrations, trackPosition, debug, env });
   } catch (error) {
     if (error instanceof ProjectCompileError) {
       throw new BadRequestException({
@@ -47,6 +49,12 @@ const compileOrThrowBadRequest = (
     throw error;
   }
 };
+
+export interface ICompileProjectStructureOptions {
+  readonly trackPosition?: boolean;
+  readonly debug?: boolean;
+  readonly env?: TConstantEnv;
+}
 
 /**
  * `compileProjectStructure` + `compileProjectDocuments` below. Structurally compiles a project's documents (`compileOrThrowBadRequest`), then, only once that
@@ -66,13 +74,21 @@ const compileOrThrowBadRequest = (
  * (ADR 0022 (private)). `options.debug` (default off) instruments the output for breakpoint
  * debugging (ADR 0021 (private)) — `BuildService.build()` (dev only) turns it on; `publish()` and
  * `generateCode()` never do, per the ADR's "dev always instrumented, published never" rule.
+ * `options.env` (default `'dev'`) picks which values of the project's constants are compiled in — `publish()` passes
+ * `'prod'`.
  */
 export const compileProjectStructure = (
   documents: readonly IProjectDocument[],
   integrations: readonly IWorkflowIntegration[],
-  options: { readonly trackPosition?: boolean; readonly debug?: boolean } = {},
+  options: ICompileProjectStructureOptions = {},
 ): ICompiledProject => {
-  const compiled = compileOrThrowBadRequest(documents, integrations, options.trackPosition ?? true, options.debug ?? false);
+  const compiled = compileOrThrowBadRequest(
+    documents,
+    integrations,
+    options.trackPosition ?? true,
+    options.debug ?? false,
+    options.env ?? 'dev',
+  );
 
   // Before anything reads the generated modules (tsc, webpack): user text spliced into code must not
   // be able to load modules/files — see `assert-safe-generated-modules.ts` (security audit P0-7).
@@ -95,7 +111,7 @@ export const compileProjectStructure = (
 export const compileProjectDocuments = (
   documents: readonly IProjectDocument[],
   integrations: readonly IWorkflowIntegration[],
-  options: { readonly trackPosition?: boolean; readonly debug?: boolean } = {},
+  options: ICompileProjectStructureOptions = {},
 ): ICompiledProject => {
   const compiled = compileProjectStructure(documents, integrations, options);
 

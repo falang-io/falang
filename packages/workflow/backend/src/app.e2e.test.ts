@@ -117,14 +117,15 @@ describe('workflow-backend (e2e)', () => {
       .send({ name: 'p' });
     const project = createProjectResponse.body;
 
-    // Every project is seeded with one pinned `integrations` document at creation — see ADR 0006.
+    // Every project is seeded with two pinned documents at creation: `integrations` (ADR 0006) and `constants`.
     const initialTree = await request(app.getHttpServer()).get(`/projects/${project.id}/tree`).set(auth(token));
-    expect(initialTree.body.documents).toHaveLength(1);
+    expect(initialTree.body.documents).toHaveLength(2);
     // ...plus the three fixed section folders (ADR 0055 (private); asserted in fixed-folders.e2e.test.ts).
     const functionsSection: string = initialTree.body.folders.find(
       (f: { fixedKind: string }) => f.fixedKind === 'functions',
     ).id;
-    const integrationsDoc = initialTree.body.documents[0];
+    const integrationsDoc = initialTree.body.documents.find((d: { type: string }) => d.type === 'integrations');
+    const constantsDoc = initialTree.body.documents.find((d: { type: string }) => d.type === 'constants');
     expect(integrationsDoc).toMatchObject({ type: 'integrations', name: 'Integrations', folderId: null, pinned: true });
 
     const folderId = '3ad0f6d5-d449-4945-b5f4-9f8d7041a3e9';
@@ -153,16 +154,17 @@ describe('workflow-backend (e2e)', () => {
     expect(tree.body.documents).toEqual(
       expect.arrayContaining([integrationsDoc, { id: docId, type: 'function', name: 'run', folderId, pinned: false }]),
     );
-    expect(tree.body.documents).toHaveLength(2);
+    expect(tree.body.documents).toHaveLength(3);
 
     const documents = await request(app.getHttpServer()).get(`/projects/${project.id}/documents`).set(auth(token));
     expect(documents.body).toEqual(
       expect.arrayContaining([
         { id: integrationsDoc.id, type: 'integrations', name: 'Integrations', data: { instances: [] } },
+        { id: constantsDoc.id, type: 'constants', name: 'Constants', data: { constants: [] } },
         { id: docId, type: 'function', name: 'run', root: { id: docId, name: 'function', children: [] } },
       ]),
     );
-    expect(documents.body).toHaveLength(2);
+    expect(documents.body).toHaveLength(3);
 
     await request(app.getHttpServer())
       .delete(`/projects/${project.id}/folders/${folderId}`)
@@ -172,9 +174,9 @@ describe('workflow-backend (e2e)', () => {
     const documentsAfterFolderDelete = await request(app.getHttpServer())
       .get(`/projects/${project.id}/documents`)
       .set(auth(token));
-    expect(documentsAfterFolderDelete.body).toEqual([
-      { id: integrationsDoc.id, type: 'integrations', name: 'Integrations', data: { instances: [] } },
-    ]);
+    expect(documentsAfterFolderDelete.body.map((d: { id: string }) => d.id).toSorted()).toEqual(
+      [integrationsDoc.id, constantsDoc.id].toSorted(),
+    );
   });
 
   it('rejects deleting or moving the pinned integrations document', async () => {

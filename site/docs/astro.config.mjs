@@ -93,6 +93,7 @@ export default defineConfig({
             'workflow/integrations',
             'workflow/schedule-triggers',
             'workflow/dates',
+            'workflow/constants',
             'workflow/instances',
             'workflow/files',
             'workflow/databases',

@@ -53,12 +53,13 @@ const runAgent = async (store: HeadlessWorkflowStore): Promise<void> => {
         parentId: bodyIdOf(helper.id),
       });
     },
+    toolCall('set_constants', { set: [{ dev: 1, name: 'STEP', prod: 5, type: 'number' }] }),
     () => {
       const helper = store.documents.find((doc) => doc.name === 'helper');
       return toolCall('insert_nodes', {
         documentId: helper?.id,
         index: 1,
-        node: { data: 'counter = counter + 1', name: 'action' },
+        node: { data: 'counter = counter + STEP', name: 'action' },
         parentId: bodyIdOf(helper?.id ?? ''),
       });
     },
@@ -157,9 +158,15 @@ const main = async (): Promise<void> => {
   const store = new HeadlessWorkflowStore();
   try {
     await runAgent(store);
-    console.log('ok   agent session: get_node_kinds, create_document, insert_nodes, set_data + list_types, finish');
+    console.log(
+      'ok   agent session: get_node_kinds, create_document, insert_nodes, set_constants, set_data + list_types, finish',
+    );
     const afterAgent = compileAndTypeCheck(store);
-    assert(afterAgent.workflows.includes('counter = counter + 1'), 'compiled output misses the agent-inserted action');
+    assert(
+      afterAgent.workflows.includes('counter = counter + STEP'),
+      'compiled output misses the agent-inserted action',
+    );
+    assert(afterAgent.workflows.includes('const STEP: number = 1;'), 'compiled output misses the agent-made constant');
     console.log('ok   compile + type-check after the agent run');
     await runMagic(store);
     console.log('ok   magic run via createWorkflowMagicRunStore');

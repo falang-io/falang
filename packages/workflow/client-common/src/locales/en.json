@@ -734,6 +734,29 @@
       "op-deleted": "Deleted",
       "restore": "Restore this version",
       "restore-confirm": "Restore the row to this version?"
+    },
+    "constants-editor": {
+      "title": "Constants",
+      "intro": "Named values available by name in every code field of the project, for example API_URL. The dev value is used on the test stand, the prod value in published versions. A change takes effect after the next start of the test stand or the next publish.",
+      "add": "+ Add constant",
+      "empty": "No constants yet",
+      "name": "Name",
+      "type": "Type",
+      "dev": "dev",
+      "prod": "prod",
+      "edit": "Edit",
+      "view": "View",
+      "delete": "Delete",
+      "delete-confirm": "Delete this constant? Code that uses it will stop compiling.",
+      "modal-add-title": "Add constant",
+      "modal-edit-title": "Edit constant",
+      "name-help": "Capital letters, digits and \"_\", starting with a letter: SOME_CONSTANT_NAME.",
+      "name-taken": "A constant named {{name}} already exists",
+      "empty-value": "(empty)",
+      "type-string": "String",
+      "type-number": "Number",
+      "type-boolean": "Boolean",
+      "save-failed": "Could not save the constants"
     }
   },
   "version-history": {

@@ -123,10 +123,11 @@ describe('project export/import (e2e)', () => {
     expect(tree.body.documents).toEqual(
       expect.arrayContaining([
         expect.objectContaining({ type: 'integrations', pinned: true }),
+        expect.objectContaining({ type: 'constants', pinned: true }),
         expect.objectContaining({ type: 'function', name: 'run', folderId: helpers.id }),
       ]),
     );
-    expect(tree.body.documents).toHaveLength(2);
+    expect(tree.body.documents).toHaveLength(3);
 
     const documents = await request(app.getHttpServer()).get(`/projects/${newProjectId}/documents`).set(auth(token));
     const integrationsDoc = documents.body.find((doc: { type: string }) => doc.type === 'integrations');
@@ -136,7 +137,7 @@ describe('project export/import (e2e)', () => {
     const originalDocuments = await request(app.getHttpServer())
       .get(`/projects/${sourceProjectId}/documents`)
       .set(auth(token));
-    expect(originalDocuments.body).toHaveLength(2);
+    expect(originalDocuments.body).toHaveLength(3);
   });
 
   it('mints fresh credential ids on import and rewrites every reference to them', async () => {

@@ -7,6 +7,7 @@ import type { TypescriptProjectService } from '../typescript-project-service/typ
 import { getCodeFieldText, isCodeFieldSkipped, type ICheckedField } from './checked-field.js';
 import { describeCheckedFields } from './describe-checked-fields.js';
 import { createPortableTypesValidator } from '../portable-types/portable-types-validator.js';
+import { getMonacoLibKey } from '../monaco/get-monaco.js';
 import { MonacoCheckPool } from './monaco-check-pool.js';
 
 export const TYPESCRIPT_VALIDATION_SOURCE = 'typescript';
@@ -60,6 +61,9 @@ export const createTypescriptFieldsValidator = (
       );
       return relevant.length > 0 ? relevant : null;
     },
+    // The lib is part of the input: a field is checked again when the project's ambient declarations change (e.g. a
+    // workflow constant was added), even though its own text did not.
+    key: (fields) => `${getMonacoLibKey()}\u0000${JSON.stringify(fields)}`,
     async check(fields) {
       const pool = getPool();
       const drafts: TIssueDraft[] = [];

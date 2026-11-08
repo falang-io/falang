@@ -71,7 +71,7 @@ Don't guess an integration action's node name or fields from memory — look it 
 
 ## Project layout: fixed sections
 
-The project root holds the pinned `Integrations` document and three fixed section folders — **Triggers**
+The project root holds the pinned `Integrations` and `Constants` documents and three fixed section folders — **Triggers**
 (`trigger-function`), **Functions** (`function`), **Types** (`objects-structure`); `list_documents` marks them
 with `fixedKind` (`triggers`/`functions`/`types`) and pinned documents with `pinned`. Each document type lives
 only in its own section or a subfolder of it. Omit `folderId` on `create_document` (or pass `null` to
@@ -79,6 +79,15 @@ only in its own section or a subfolder of it. Omit `folderId` on `create_documen
 section and its folder id. `create_folder` needs a `parentId` inside a section (never the root), a folder can be
 moved only within its own section, and the section folders and pinned documents can't be renamed, moved or
 deleted. Nested folders inside a section are free.
+
+`Constants` holds the project's constants: `{ constants: [{ id, name, type, dev, prod }] }` with `name` in
+`UPPER_SNAKE_CASE` (capital letters, digits, `_`, starting with a letter) and `type` `string`/`number`/`boolean`.
+Every code field sees them as global read-only identifiers (`${API_URL}`, `LIMIT * 2`); a dev build runs with the
+`dev` values, a published version with the `prod` values. Use a constant for a value that differs between the test
+stand and production or that the user wants to change without touching the scheme. Read them with
+`list_constants`, change them with `set_constants` (`set`: upserts by `name` — a new one needs `type`, `newName`
+renames; `delete`: names; all or nothing) — not with `set_document`. Renaming or deleting one doesn't update the
+code that uses it. Never put secrets into constants: tokens and passwords belong in integration credentials.
 
 ## `call-function` across documents
 

@@ -10,7 +10,14 @@ import {
 import { ConfigService } from '@nestjs/config';
 import { InjectRepository } from '@nestjs/typeorm';
 import type { IProjectDocument, IProjectTreeDocument } from '@falang/dto';
-import { normalizeTableDocumentData, TABLE_DOCUMENT_TYPE, type ITableDocumentData } from '@falang/workflow-dto';
+import {
+  CONSTANTS_DOCUMENT_TYPE,
+  normalizeConstantsDocumentData,
+  normalizeTableDocumentData,
+  TABLE_DOCUMENT_TYPE,
+  type IConstantsDocumentData,
+  type ITableDocumentData,
+} from '@falang/workflow-dto';
 import {
   INTEGRATIONS_DOCUMENT_TYPE,
   type IIntegrationsDocumentData,
@@ -54,6 +61,15 @@ const isObjectOrNull = (value: unknown): boolean => value === null || typeof val
 /** The `id`s of an `integrations` document's configured instances — used to diff old vs. new on `update` (see `IntegrationVendorDataService.removeForInstance`). */
 const integrationInstanceIds = (data: IIntegrationsDocumentData | null): ReadonlySet<string> =>
   new Set((data?.instances ?? []).map((instance) => instance.id));
+
+/** Validated `constants` document data (400 listing every problem); `null` clears the list. */
+const prepareConstantsData = (incoming: unknown): IConstantsDocumentData => {
+  const normalized = normalizeConstantsDocumentData(incoming);
+  if (!normalized.ok) {
+    throw new BadRequestException({ message: 'Invalid constants', errors: normalized.errors });
+  }
+  return normalized.data;
+};
 
 const toProjectDocument = (
   document: Document,
@@ -147,6 +163,10 @@ export class DocumentsService {
   async create(projectId: string, ownerId: string, input: CreateDocumentDto): Promise<IProjectDocument> {
     await this.projectsService.getOwnedProject(projectId, ownerId);
     assertValidFunctionName(input.type, input.name);
+    // The pinned `constants` document is seeded with the project (`ProjectsService.create`) — one per project.
+    if (input.type === CONSTANTS_DOCUMENT_TYPE) {
+      throw new ConflictException('The project already has its constants document');
+    }
     await assertUniqueDocumentName(this.documents, projectId, input.name, null);
     const folderId = await resolveDocumentFolder(this.folders, projectId, input.type, input.folderId ?? null);
     const data = await this.prepareIncomingData(projectId, input);
@@ -246,7 +266,9 @@ export class DocumentsService {
       document.folderId = await resolveDocumentFolder(this.folders, projectId, document.type, requestedFolderId);
       await this.assertFolderInProject(projectId, document.folderId);
     }
-    if (isObjectOrNull(input.root) && document.type !== TABLE_DOCUMENT_TYPE) document.root = input.root ?? null;
+    // A `table` or `constants` document has no scheme tree, only `data`.
+    const hasRoot = document.type !== TABLE_DOCUMENT_TYPE && document.type !== CONSTANTS_DOCUMENT_TYPE;
+    if (isObjectOrNull(input.root) && hasRoot) document.root = input.root ?? null;
     let removedInstanceIds: readonly string[] = [];
     if (isObjectOrNull(input.data)) {
       if (document.type === INTEGRATIONS_DOCUMENT_TYPE) {
@@ -260,6 +282,8 @@ export class DocumentsService {
         removedInstanceIds = [...previousInstanceIds].filter((id) => !newInstanceIds.has(id));
       } else if (document.type === TABLE_DOCUMENT_TYPE) {
         document.data = await this.prepareUpdatedTableData(projectId, document, input.data);
+      } else if (document.type === CONSTANTS_DOCUMENT_TYPE) {
+        document.data = prepareConstantsData(input.data);
       } else {
         document.data = input.data;
       }

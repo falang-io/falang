@@ -1,6 +1,6 @@
 import type { Scheme } from '@falang/scheme';
 import type { TypesRegistryStore } from '@falang/typescript-scheme';
-import type { ITableDocumentData, TTriggerFunctionBodyData } from '@falang/workflow-dto';
+import type { ITableDocumentData, IWorkflowConstant, TTriggerFunctionBodyData } from '@falang/workflow-dto';
 import type { IIntegrationInstance } from '@falang/workflow-integrations-common';
 import type { IApiVendorData } from '../api-types.js';
 import type { IProjectTreeFolder } from '@falang/dto';
@@ -30,6 +30,11 @@ export interface IWorkflowAgentStore {
   updateTableFields(documentId: string, data: ITableDocumentData): void;
   /** Creates a trigger-bound `trigger-function` document, returns its id. */
   createTriggerFunctionDocument(name: string, bodyData: TTriggerFunctionBodyData, folderId?: string | null): string;
+  /**
+   * Replaces the project's constants (the pinned `constants` document; `ConstantsToolProvider` validates first, the
+   * store again). Optional: a host without it reads constants from `documents` but `set_constants` is refused.
+   */
+  saveConstants?(constants: readonly IWorkflowConstant[]): void;
   /** Creates or replaces an integration instance in the `integrations` document. */
   saveIntegrationInstance(instance: IIntegrationInstance): void;
   /** Vendors with a configured platform test bot on this deployment (ADR 0073 (private)); empty when none. */

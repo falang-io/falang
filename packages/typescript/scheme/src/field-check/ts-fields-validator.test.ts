@@ -15,6 +15,7 @@ import { afterEach, describe, expect, it, vi } from 'vitest';
 import { functionalSchemeFactory } from '../functional.js';
 import { registerTypescriptProjectService } from '../typescript-project-service/register-typescript-project-service.js';
 import type { MonacoCheckPool } from './monaco-check-pool.js';
+import { setMonacoProjectDeclarations } from '../monaco/get-monaco.js';
 import { createTypescriptFieldsValidator, HIDDEN_LINE_NOTE } from './ts-fields-validator.js';
 
 /** A pool that "finds" an error whenever the text mentions `undeclared`, as a value or as a hidden-line problem. */
@@ -110,6 +111,26 @@ describe('TypeScript fields validator', () => {
     await t.queue.idle();
     expect(checked.some((text) => text.includes('x = 2') && text.includes('declare var renamed'))).toBe(true);
     expect(checked.some((text) => text.includes('above = 1'))).toBe(false);
+  });
+
+  it("re-checks every code field when the project's ambient declarations change", async () => {
+    const { pool, checked } = fakePool();
+    const t = build(pool);
+    scheme = t.scheme;
+    t.add('a', 'action', 'API_URL', 0);
+    await t.queue.idle();
+    checked.length = 0;
+    try {
+      setMonacoProjectDeclarations('declare const API_URL: string;');
+      await t.queue.idle();
+      expect(checked).toEqual([expect.stringContaining('API_URL')]);
+      checked.length = 0;
+      setMonacoProjectDeclarations('declare const API_URL: string;');
+      await t.queue.idle();
+      expect(checked).toEqual([]);
+    } finally {
+      setMonacoProjectDeclarations('');
+    }
   });
 
   it('degrades to nothing when Monaco is not available, keeping identifier checks', async () => {

@@ -145,6 +145,8 @@ describe('/mcp (HTTP-level, PAT auth) (e2e)', () => {
           'list_integrations',
           'create_table',
           'set_table_fields',
+          'list_constants',
+          'set_constants',
         ].toSorted(),
       );
     } finally {
@@ -410,6 +412,54 @@ describe('/mcp (HTTP-level, PAT auth) (e2e)', () => {
         arguments: { projectId, name: 'Orders', fields: [] },
       });
       expect(duplicate.isError).toBe(true);
+    } finally {
+      await client.close();
+    }
+  });
+
+  it('list_constants / set_constants: upsert and delete all-or-nothing, the document is validated', async () => {
+    const rawToken = await createPat(harness, jwt);
+    const client = await connectClient(harness, rawToken);
+    try {
+      const empty = await client.callTool({ name: 'list_constants', arguments: { projectId } });
+      expect(JSON.parse(toolText(empty))).toEqual([]);
+
+      const created = await client.callTool({
+        name: 'set_constants',
+        arguments: {
+          projectId,
+          set: [
+            { name: 'API_URL', type: 'string', dev: 'https://dev.example', prod: 'https://example.com' },
+            { name: 'LIMIT', type: 'number', dev: 1 },
+          ],
+        },
+      });
+      expect(created.isError).not.toBe(true);
+      expect(JSON.parse(toolText(created))).toEqual([
+        { name: 'API_URL', type: 'string', dev: 'https://dev.example', prod: 'https://example.com' },
+        { name: 'LIMIT', type: 'number', dev: 1, prod: 0 },
+      ]);
+
+      const bad = await client.callTool({
+        name: 'set_constants',
+        arguments: {
+          projectId,
+          set: [
+            { name: 'LIMIT', prod: 5 },
+            { name: 'lower', type: 'string' },
+          ],
+        },
+      });
+      expect(bad.isError).toBe(true);
+      expect(toolText(bad)).toContain('Nothing changed');
+
+      const changed = await client.callTool({
+        name: 'set_constants',
+        arguments: { projectId, set: [{ name: 'LIMIT', prod: 5 }], delete: ['API_URL'] },
+      });
+      expect(changed.isError).not.toBe(true);
+      const listed = await client.callTool({ name: 'list_constants', arguments: { projectId } });
+      expect(JSON.parse(toolText(listed))).toEqual([{ name: 'LIMIT', type: 'number', dev: 1, prod: 5 }]);
     } finally {
       await client.close();
     }

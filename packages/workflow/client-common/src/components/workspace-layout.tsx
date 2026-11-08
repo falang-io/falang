@@ -3,7 +3,7 @@ import { observer } from 'mobx-react-lite';
 import { message } from 'antd';
 import { ContainerContext } from '@falang/scheme';
 import { ResizeHandle, useResizablePanelWidth } from '@falang/antd';
-import { TABLE_DOCUMENT_TYPE } from '@falang/workflow-dto';
+import { CONSTANTS_DOCUMENT_TYPE, TABLE_DOCUMENT_TYPE } from '@falang/workflow-dto';
 import { INTEGRATIONS_DOCUMENT_TYPE } from '@falang/workflow-integrations-common';
 import type { WorkflowStore } from '../workflow-store.js';
 import { WorkflowStoreContext } from '../workflow-store-context.js';
@@ -12,6 +12,7 @@ import { TabsBar } from './tabs-bar.js';
 import { SchemeView } from './scheme-view.js';
 import { AddressesTab } from './addresses-tab.js';
 import { FilesTab } from './files-tab.js';
+import { ConstantsEditor } from './constants-editor.js';
 import { IntegrationsEditor } from './integrations-editor.js';
 import { Sidebar } from './sidebar.js';
 import { TableEditor } from './table-editor/table-editor.js';
@@ -134,6 +135,7 @@ export const WorkspaceLayout: React.FC<IWorkspaceLayoutProps> = observer(({ stor
     if (store.activeView === 'tasks') return <TasksPage projectId={store.projectId} />;
     if (store.activeView === 'addresses') return <AddressesTab />;
     if (isIntegrationsDoc) return <IntegrationsEditor />;
+    if (activeDocument?.type === CONSTANTS_DOCUMENT_TYPE) return <ConstantsEditor />;
     if (tableDocument) {
       return (
         <TableEditor

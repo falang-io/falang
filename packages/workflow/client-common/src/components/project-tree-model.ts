@@ -33,8 +33,15 @@ const toDocNode = (doc: WorkflowDocument): IProjectTreeNode => ({
   disableDrag: doc.pinned === true,
 });
 
+/** Pinned documents in a fixed order: `Integrations`, then `Constants`, then anything else. */
+const PINNED_ORDER: readonly string[] = ['integrations', 'constants'];
+const pinnedOrder = (doc: Pick<WorkflowDocument, 'type'>): number => {
+  const index = PINNED_ORDER.indexOf(doc.type);
+  return index === -1 ? PINNED_ORDER.length : index;
+};
+
 /**
- * Tree of a workflow project (ADR 0055 (private)): at the root the pinned documents first, then the
+ * Tree of a workflow project (ADR 0055 (private)): at the root the pinned documents first (`Integrations`, `Constants`), then the
  * section folders in config order (anything else after them); inside a folder, folders then documents.
  */
 export const buildProjectTreeNodes = (
@@ -47,7 +54,12 @@ export const buildProjectTreeNodes = (
   const levelFolders = folders.filter((folder) => folder.parentId === parentId);
   const levelDocs = documents.filter((doc) => doc.folderId === parentId);
   if (parentId === null) {
-    nodes.push(...levelDocs.filter((doc) => doc.pinned).map((doc) => toDocNode(doc)));
+    nodes.push(
+      ...levelDocs
+        .filter((doc) => doc.pinned)
+        .toSorted((a, b) => pinnedOrder(a) - pinnedOrder(b))
+        .map((doc) => toDocNode(doc)),
+    );
     levelFolders.sort((a, b) => sectionOrder(a) - sectionOrder(b));
   }
   for (const folder of levelFolders) {

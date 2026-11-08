@@ -1,7 +1,8 @@
+// oxlint-disable max-lines -- the one place that assembles the workflows module; each concern lives in its own file.
 import type { IDebugMap, IDebugTracePoint } from '@falang/debug';
 import type { IProjectDocument } from '@falang/dto';
 import { registerContainerScopeContributor, registerScopeContributor } from '@falang/typescript-common';
-import { TRIGGER_FUNCTION_NAME, WAIT_NAME } from '@falang/workflow-dto';
+import { TRIGGER_FUNCTION_NAME, WAIT_NAME, type TConstantEnv } from '@falang/workflow-dto';
 import type { IWorkflowIntegration } from '@falang/workflow-integrations-common';
 import {
   registerIntegrationScopeContributors,
@@ -31,6 +32,7 @@ import { buildIntegrationEmitters } from './integration-emitters.js';
 import type { IDebugEmitOptions, TResolveFunctionName } from './node-emitters.js';
 import { NodeCompileError } from './node-compile-error.js';
 import { POSITION_RUNTIME_CODE, POSITION_RUNTIME_IMPORTS } from './position-runtime.js';
+import { buildProjectConstantsBlock } from './project-constants.js';
 import { buildQuestionEmitters } from './question-emitters.js';
 import { collectTableFields, TABLES_VENDOR_ID } from './table-fields.js';
 import { buildTableTriggerRuntime } from './table-trigger-project.js';
@@ -40,7 +42,8 @@ export interface ICompileProjectParams {
   /**
    * A project's full document set (see `@falang/dto`'s `IProjectDocument`) — `type === 'function'`
    * and `type === 'trigger-function'` documents are compiled; anything else (e.g. `objects-structure`,
-   * the pinned `integrations` document, local type metadata) is skipped.
+   * the pinned `integrations` document, local type metadata) is skipped; the pinned `constants` document becomes
+   * module-level `const`s (see `env`).
    */
   readonly documents: readonly IProjectDocument[];
   /**
@@ -64,6 +67,11 @@ export interface ICompileProjectParams {
    * artifacts (see the ADR §5).
    */
   readonly debug?: boolean;
+  /**
+   * Which values of the project's constants (the pinned `constants` document) are compiled in — `'dev'` (default) for
+   * dev builds, previews and checks, `'prod'` for a published version. See `project-constants.ts`.
+   */
+  readonly env?: TConstantEnv;
 }
 /**
  * `logActivity` (kept for versions published before `log` moved to the run-journal sink, ADR 0059
@@ -151,6 +159,7 @@ export const compileProject = ({
   integrations = [],
   trackPosition = false,
   debug = false,
+  env = 'dev',
 }: ICompileProjectParams): ICompiledProject => {
   // Same registration `@falang/workflow-scheme`'s `IntegrationsModule` does for the editor
   // (ADR 0039 (private) §3) — needed here too since `node-emitters.ts`'s debug instrumentation
@@ -224,7 +233,8 @@ export const compileProject = ({
   // Each document compiles independently — one broken document shouldn't hide errors in every
   // other one, so a failure here is recorded against its own document and compilation continues,
   // rather than aborting the whole project on the first throw.
-  const errors: ICompileError[] = [];
+  const constants = buildProjectConstantsBlock(documents, env);
+  const errors: ICompileError[] = [...constants.errors];
   const blocks: { documentId: string; documentName: string; code: string }[] = [];
   const toCompileError = (document: IProjectDocument, error: unknown): ICompileError => ({
     documentId: document.id,
@@ -290,7 +300,7 @@ export const compileProject = ({
   // Always assembled, even when `errors` isn't empty — the successfully-compiled blocks still form
   // valid partial output, carried on `ProjectCompileError` below so a caller can show the user their
   // code alongside the errors instead of nothing at all.
-  const workflows = `${buildWorkflowPreamble(used, trackPosition, debug, hasStartDeliveryTrigger, hasCloseableQuestion, hasWait, usesDayjs(content))}\n\n${buildTableTriggerRuntime(triggerFunctionDocuments, integrations, documents)}${content}`;
+  const workflows = `${buildWorkflowPreamble(used, trackPosition, debug, hasStartDeliveryTrigger, hasCloseableQuestion, hasWait, usesDayjs(content))}\n\n${constants.code}${buildTableTriggerRuntime(triggerFunctionDocuments, integrations, documents)}${content}`;
 
   if (errors.length > 0) {
     throw new ProjectCompileError(errors, workflows, activities);

@@ -59,11 +59,11 @@ describe('session-gap auto-versions (e2e)', () => {
     expect(commits).toHaveLength(1);
     expect(commits[0].kind).toBe('auto');
 
-    // The auto-commit snapshots the state *before* this write — the seeded integrations document
-    // only, not the function document the request itself was about to create.
+    // The auto-commit snapshots the state *before* this write — the seeded integrations and constants
+    // documents only, not the function document the request itself was about to create.
     const snapshot = await request(server()).get(`/projects/${projectId}/commits/${commits[0].id}`).set(auth(token));
     expect(snapshot.body.documents.map((doc: { id: string }) => doc.id)).not.toContain(FN_1);
-    expect(snapshot.body.documents).toHaveLength(1);
+    expect(snapshot.body.documents).toHaveLength(2);
   });
 
   it('(b) a second write right after the first does not create another auto commit', async () => {

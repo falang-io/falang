@@ -19,17 +19,26 @@ const folders: WorkflowFolder[] = [
 const documents: WorkflowDocument[] = [
   { id: 'a', name: 'fnA', type: 'function', folderId: 'sub' },
   { id: 'b', name: 'trgB', type: 'trigger-function', folderId: 't' },
+  { id: 'c', name: 'Constants', type: 'constants', folderId: null, pinned: true },
   { id: 'i', name: 'Integrations', type: 'integrations', folderId: null, pinned: true },
 ];
 const label = (kind: string): string => kind.toUpperCase();
 
 describe('project tree model', () => {
-  it('orders root: pinned doc, then sections in config order', () => {
+  it('orders root: pinned docs (Integrations, Constants), then sections in config order', () => {
     const nodes = buildProjectTreeNodes(folders, documents, label);
-    expect(nodes.map((n) => n.title)).toEqual(['Integrations', 'TRIGGERS', 'FUNCTIONS', 'TYPES', 'TABLES']);
+    expect(nodes.map((n) => n.title)).toEqual([
+      'Integrations',
+      'Constants',
+      'TRIGGERS',
+      'FUNCTIONS',
+      'TYPES',
+      'TABLES',
+    ]);
     expect(nodes[0]?.disableDrag).toBe(true);
     expect(nodes[1]?.disableDrag).toBe(true);
-    const functions = nodes[2];
+    expect(nodes[2]?.disableDrag).toBe(true);
+    const functions = nodes[3];
     expect(functions?.children?.map((n) => n.title)).toEqual(['Helpers']);
     expect(functions?.children?.[0]?.disableDrag).toBe(false);
   });

@@ -286,7 +286,7 @@ export class BuildService implements OnModuleInit, OnApplicationBootstrap {
     const { workflows, activities, debugMap } = compileProjectStructure(
       documents,
       await getIntegrationsForCompile(this.activepiecesCatalog),
-      { debug: true },
+      { debug: true, env: 'dev' },
     );
 
     const { workflowBundle, activitiesSource } = await buildArtifact(this.outputDir, workflows, activities);
@@ -492,9 +492,11 @@ export class BuildService implements OnModuleInit, OnApplicationBootstrap {
       (await this.versioning.headCommit(projectId, ownerId));
 
     const documents = await this.documentsService.listFull(projectId, ownerId);
+    // A published version carries the prod values of the project's constants.
     const { workflows, activities } = compileProjectStructure(
       documents,
       await getIntegrationsForCompile(this.activepiecesCatalog),
+      { env: 'prod' },
     );
 
     const { workflowBundle, activitiesSource } = await buildArtifact(this.outputDir, workflows, activities);

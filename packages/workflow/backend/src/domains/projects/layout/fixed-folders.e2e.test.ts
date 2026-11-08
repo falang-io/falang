@@ -26,12 +26,12 @@ describe('fixed workflow folders (e2e)', () => {
     () => token,
   );
 
-  it('seeds the four section folders next to Integrations', async () => {
+  it('seeds the four section folders next to Integrations and Constants', async () => {
     const projectId = await createProject();
     const tree = await getTree(projectId);
     expect(tree.folders.map((f) => f.fixedKind).toSorted()).toEqual(['functions', 'tables', 'triggers', 'types']);
     expect(tree.folders.every((f) => f.parentId === null)).toBe(true);
-    expect(tree.documents).toHaveLength(1);
+    expect(tree.documents.map((d) => d.type).toSorted()).toEqual(['constants', 'integrations']);
   });
 
   describe('defaulting', () => {

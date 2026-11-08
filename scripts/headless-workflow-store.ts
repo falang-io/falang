@@ -3,7 +3,15 @@ import { ScriptedLlmClient } from '@falang/agent';
 import { container as rootContainer, resolveService, type DependencyContainer } from '@falang/di';
 import { registerGlobalTokens, type Scheme } from '@falang/scheme';
 import { registerTypescriptProjectService, TOKEN_TYPESCRIPT_PROJECT_SERVICE } from '@falang/typescript-scheme';
-import { emptyTableData, normalizeTableDocumentData, type ITableDocumentData } from '@falang/workflow-dto';
+import {
+  CONSTANTS_DOCUMENT_TYPE,
+  emptyConstantsData,
+  emptyTableData,
+  normalizeConstantsDocumentData,
+  normalizeTableDocumentData,
+  type ITableDocumentData,
+  type IWorkflowConstant,
+} from '@falang/workflow-dto';
 import { compileProject, type ICompileProjectParams } from '@falang/workflow-compiler';
 import {
   INTEGRATIONS_DOCUMENT_TYPE,
@@ -56,6 +64,14 @@ export class HeadlessWorkflowStore implements IWorkflowAgentStore {
       pinned: true,
       type: INTEGRATIONS_DOCUMENT_TYPE,
     });
+    this.documents.push({
+      customData: emptyConstantsData(),
+      folderId: null,
+      id: 'constants',
+      name: 'Constants',
+      pinned: true,
+      type: CONSTANTS_DOCUMENT_TYPE,
+    });
   }
 
   get typesRegistry() {
@@ -97,6 +113,13 @@ export class HeadlessWorkflowStore implements IWorkflowAgentStore {
     const doc = buildTriggerFunctionDocument(name, bodyData, folderId);
     this.documents.push(doc);
     return doc.id;
+  }
+
+  saveConstants(constants: readonly IWorkflowConstant[]): void {
+    const normalized = normalizeConstantsDocumentData({ constants });
+    if (!normalized.ok) throw new Error(normalized.errors.join('\n'));
+    const doc = this.getDocument('constants');
+    if (doc) doc.customData = normalized.data;
   }
 
   saveIntegrationInstance(instance: IIntegrationInstance): void {
@@ -143,11 +166,19 @@ export const assert: (condition: unknown, message: string) => asserts condition 
   if (!condition) throw new Error(message);
 };
 
+/** What the compiler gets: every function/trigger document's tree, plus the constants document's data. */
+const compiledDocumentsOf = (store: HeadlessWorkflowStore) => [
+  ...store.documents
+    .filter((doc) => doc.type === 'function' || doc.type === 'trigger-function')
+    .map((doc) => ({ id: doc.id, name: doc.name, root: store.rootOf(doc), type: doc.type })),
+  ...store.documents
+    .filter((doc) => doc.type === CONSTANTS_DOCUMENT_TYPE)
+    .map((doc) => ({ data: doc.customData, id: doc.id, name: doc.name, type: doc.type })),
+];
+
 /** Compiles every function/trigger document with the real workflow compiler and type-checks the result. */
 export const compileAndTypeCheck = (store: HeadlessWorkflowStore): { workflows: string; activities: string } => {
-  const documents = store.documents
-    .filter((doc) => doc.type === 'function' || doc.type === 'trigger-function')
-    .map((doc) => ({ id: doc.id, name: doc.name, root: store.rootOf(doc), type: doc.type }));
+  const documents = compiledDocumentsOf(store);
   const compiled = compileProject({
     documents: documents as unknown as ICompileProjectParams['documents'],
     integrations: REGISTERED_INTEGRATIONS,
@@ -162,9 +193,7 @@ export const compileAndTypeCheck = (store: HeadlessWorkflowStore): { workflows: 
 export const checkProject = (
   store: HeadlessWorkflowStore,
 ): { documentId?: string; nodeId?: string; message: string }[] => {
-  const documents = store.documents
-    .filter((doc) => doc.type === 'function' || doc.type === 'trigger-function')
-    .map((doc) => ({ id: doc.id, name: doc.name, root: store.rootOf(doc), type: doc.type }));
+  const documents = compiledDocumentsOf(store);
   try {
     const compiled = compileProject({
       documents: documents as unknown as ICompileProjectParams['documents'],

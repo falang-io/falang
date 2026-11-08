@@ -1,0 +1,80 @@
+---
+title: Constants
+description: Project constants with separate values for the test stand and production, available by name in every code field
+head:
+  - tag: meta
+    attrs:
+      name: keywords
+      content: 'constants, configuration, dev, prod, environment, workflow'
+---
+
+<p>
+  Every project has a pinned <b>Constants</b> document next to <b>Integrations</b>. It is a table of named values: a
+  web address, a chat id, a price, a limit, a feature flag — anything that differs between the test stand and
+  production, or that you want to change without editing the scheme.
+</p>
+
+#### The table
+
+<p>Each constant has four columns:</p>
+
+<ul>
+  <li>
+    <b>Name</b> — capital Latin letters, digits and the underscore, starting with a letter:
+    <code>API_URL</code>, <code>MAX_RETRIES</code>, <code>SUPPORT_CHAT_ID</code>. Names are unique within a project.
+  </li>
+  <li>
+    <b>Type</b> — <i>String</i>, <i>Number</i> or <i>Boolean</i>.
+  </li>
+  <li>
+    <b>dev</b> — the value used on the test stand (Start, Run, Debug).
+  </li>
+  <li>
+    <b>prod</b> — the value used by published versions.
+  </li>
+</ul>
+
+<p>Open the document in the project tree, press <b>+ Add constant</b>, fill in the dialog and save.</p>
+
+#### Using a constant
+
+<p>
+  A constant is available by name in every code field of the project — actions, conditions, messages, integration
+  fields — with no import. The editor knows its type, so completion and error checking work:
+</p>
+
+```ts
+// a message field
+Order accepted, track it at ${SITE_URL}/orders/${orderId}
+// a condition
+attempts < MAX_RETRIES
+// an action
+discount = VIP_DISCOUNT_ENABLED ? price * 0.9 : price
+```
+
+<p>Constants are read-only: assigning to one is an error.</p>
+
+#### When a change takes effect
+
+<p>
+  The values are written into the build: the test stand gets the <b>dev</b> values when it is started, a version gets
+  the <b>prod</b> values when it is published. After changing a constant, restart the test stand or publish a new
+  version — already published versions keep the values they were built with, so rolling back to an older version
+  also brings back its constants.
+</p>
+
+#### Constants and agents
+
+<p>
+  The built-in AI agent sees the project's constants and can create, change and delete them itself — for example, when
+  you ask it to "take the support chat id out into a setting". Coding agents connected over MCP have the same two tools,
+  <code>list_constants</code> and <code>set_constants</code>.
+</p>
+
+#### What constants are not for
+
+<p>
+  Constants are stored as ordinary project data: they are visible to everyone with access to the project, end up in
+  version history and in a project export. Keep passwords, tokens and API keys in
+  <a href="../integrations/">integration credentials</a>, which are encrypted and never exported.
+</p>

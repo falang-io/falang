@@ -147,7 +147,12 @@ describe('fixed workflow folders: import, restore, migration (e2e)', () => {
           .map((f) => f.id)
           .toSorted(),
       ).toEqual(folders.map((f) => f.id).toSorted());
-      expect(tree.documents.map((d) => d.name).toSorted()).toEqual(['Integrations', 'onMessage', 'sendReply']);
+      expect(tree.documents.map((d) => d.name).toSorted()).toEqual([
+        'Constants',
+        'Integrations',
+        'onMessage',
+        'sendReply',
+      ]);
       const parentKind = (id: string | null) => {
         const folder = tree.folders.find((f) => f.id === id);
         return folder?.fixedKind ?? tree.folders.find((f) => f.id === folder?.parentId)?.fixedKind;

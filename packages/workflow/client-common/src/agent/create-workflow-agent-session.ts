@@ -28,7 +28,12 @@ import { CODE_SYSTEM_PROMPT } from './code/code-prompt.js';
 import { CodeFilesContextProvider, CodeToolProvider, describeInstanceForCode } from './code/code-tool-provider.js';
 import { WorkflowJsonFilesHost, type TWorkflowCheckProject } from './workflow-json-files-host.js';
 import { sandboxVendorsOf } from './sandbox-vendors.js';
-import { createSandboxContextProvider, WorkflowRuntimeContextProvider } from './workflow-runtime-context.js';
+import { ConstantsToolProvider } from './constants-tool-provider.js';
+import {
+  createSandboxContextProvider,
+  projectConstantsOf,
+  WorkflowRuntimeContextProvider,
+} from './workflow-runtime-context.js';
 
 /** How the agent edits documents: the node tools (the product default) or whole JSON files (ADR 0062). */
 export type TWorkflowAgentInterface = 'nodes' | 'code' | 'json';
@@ -125,7 +130,14 @@ const createJsonFilesSession = (
   return new AgentSession(
     null,
     deps.llmClient,
-    [new JsonFilesContextProvider(host), new WorkflowRuntimeContextProvider(() => sandboxVendorsOf(deps.store))],
+    [
+      new JsonFilesContextProvider(host),
+      new WorkflowRuntimeContextProvider(
+        () => sandboxVendorsOf(deps.store),
+        () => projectConstantsOf(deps.store),
+        true,
+      ),
+    ],
     {
       ...shared,
       coreTools: [],
@@ -136,6 +148,7 @@ const createJsonFilesSession = (
         new JsonFileToolProvider(host),
         new DocumentToolProvider(deps.store, ['create_trigger_document', 'list_types']),
         integrationTools,
+        new ConstantsToolProvider(deps.store),
       ],
     },
   );
@@ -173,13 +186,17 @@ export const createWorkflowAgentSession = (deps: ICreateWorkflowAgentSessionDeps
           [
             new ScopeVariablesContextProvider(),
             documentsContext(store),
-            new WorkflowRuntimeContextProvider(() => sandboxVendorsOf(store)),
+            new WorkflowRuntimeContextProvider(
+              () => sandboxVendorsOf(store),
+              () => projectConstantsOf(store),
+              true,
+            ),
           ],
           {
             ...shared,
             onOpenDocument: (target) => deps.onOpenDocument?.(target.id),
             onRunFinished: () => deps.onRunFinished?.(session),
-            toolProviders: [new DocumentToolProvider(store), integrationTools],
+            toolProviders: [new DocumentToolProvider(store), integrationTools, new ConstantsToolProvider(store)],
           },
         );
   return session;

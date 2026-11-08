@@ -1,7 +1,7 @@
 import { randomUUID } from 'node:crypto';
 import type { IProjectTreeFolder } from '@falang/dto';
 import type { IProjectSnapshot, ISnapshotDocument } from '@falang/versioning';
-import { normalizeWorkflowProjectLayout } from '@falang/workflow-dto';
+import { CONSTANTS_DOCUMENT_TYPE, normalizeWorkflowProjectLayout } from '@falang/workflow-dto';
 import {
   INTEGRATIONS_DOCUMENT_TYPE,
   type IIntegrationsDocumentData,
@@ -169,6 +169,16 @@ export const reconcileDocuments = async (
               data: document.data ?? null,
             }) as Parameters<Repository<Document>['insert']>[0],
           ));
+      continue;
+    }
+
+    if (document.type === CONSTANTS_DOCUMENT_TYPE) {
+      // The pinned `constants` document always exists (seeded, never deletable): only its values are restored, into
+      // the project's own document even when the snapshot's id differs (e.g. a snapshot of an imported project).
+      const target = current ?? currentDocuments.find((candidate) => candidate.type === CONSTANTS_DOCUMENT_TYPE);
+      if (target) snapshotIds.add(target.id);
+      // oxlint-disable-next-line no-await-in-loop
+      if (target) await deps.documentsService.update(projectId, ownerId, target.id, { data: document.data ?? null });
       continue;
     }
 

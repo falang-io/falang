@@ -82,7 +82,7 @@ describe('project templates (e2e)', () => {
     expect(response.body.name).toBe('Mine');
 
     const tree = await http().get(`/projects/${response.body.id}/tree`).set(auth(token));
-    expect(tree.body.documents.map((d: { type: string }) => d.type)).toEqual(['integrations']);
+    expect(tree.body.documents.map((d: { type: string }) => d.type).toSorted()).toEqual(['constants', 'integrations']);
     const projects = await http().get('/projects').set(auth(token));
     expect(projects.body.map((p: { name: string }) => p.name)).toContain('Mine');
   });
@@ -127,7 +127,7 @@ describe('project templates (e2e)', () => {
 
     const tree = await http().get(`/projects/${newProjectId}/tree`).set(auth(aliceToken));
     const types = tree.body.documents.map((d: { type: string }) => d.type).toSorted();
-    expect(types).toEqual(['function', 'integrations']);
+    expect(types).toEqual(['constants', 'function', 'integrations']);
     const withData = await http().get(`/projects/${newProjectId}/export`).set(auth(aliceToken));
     const raw = JSON.stringify(withData.body);
     // Import issues fresh instance ids (security P0), so the original id must not survive.

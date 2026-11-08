@@ -30,7 +30,7 @@ const bareTemplate: IApiProjectExport = {
 };
 
 describe('buildGuestProjectState', () => {
-  it('adds the fixed sections and an empty integrations document to a bare template', () => {
+  it('adds the fixed sections and empty integrations and constants documents to a bare template', () => {
     const state = buildGuestProjectState(bareTemplate, counterIds());
     expect(state.folders.map((folder) => folder.fixedKind).toSorted()).toEqual([
       'functions',
@@ -51,6 +51,13 @@ describe('buildGuestProjectState', () => {
       pinned: true,
       folderId: null,
       data: { instances: [] },
+    });
+    expect(state.documents[1]).toMatchObject({
+      type: 'constants',
+      name: 'Constants',
+      pinned: true,
+      folderId: null,
+      data: { constants: [] },
     });
   });
 
@@ -74,6 +81,14 @@ describe('buildGuestProjectState', () => {
           pinned: true,
           data: { instances: [{ id: 'c' }] },
         },
+        {
+          id: 'const',
+          type: 'constants',
+          name: 'Constants',
+          folderId: null,
+          pinned: true,
+          data: { constants: [{ id: 'k', name: 'A', type: 'string', dev: '', prod: '' }] },
+        },
         { id: 'trigger-1', type: 'trigger-function', name: 'onMessage', folderId: 'user', pinned: false, root: null },
       ],
     };
@@ -83,6 +98,11 @@ describe('buildGuestProjectState', () => {
     );
     expect(state.documents).toEqual([
       expect.objectContaining({ id: 'int', pinned: true, data: { instances: [{ id: 'c' }] } }),
+      expect.objectContaining({
+        id: 'const',
+        pinned: true,
+        data: { constants: [expect.objectContaining({ id: 'k' })] },
+      }),
       expect.objectContaining({ id: 'trigger-1', folderId: 'user' }),
     ]);
   });
@@ -108,7 +128,7 @@ describe('GuestProjectDataPort', () => {
   it('serves the tree and the documents without touching anything', async () => {
     const { port, changes } = setUp();
     const tree = await port.getTree();
-    expect(tree.documents.map((doc) => doc.id)).toEqual([expect.any(String), 'trigger-1', 'fn-1']);
+    expect(tree.documents.map((doc) => doc.id)).toEqual([expect.any(String), expect.any(String), 'trigger-1', 'fn-1']);
     const documents = await port.getDocuments();
     expect(documents.find((doc) => doc.id === 'fn-1')?.root).toEqual({ id: 'fn-1', name: 'function' });
     expect(documents.find((doc) => doc.id === 'trigger-1')).not.toHaveProperty('root');
@@ -136,7 +156,7 @@ describe('GuestProjectDataPort', () => {
     await port.deleteDocument('trigger-1');
     const final = port.snapshot();
     expect(final.folders.some((folder) => folder.id === 'sub')).toBe(false);
-    expect(final.documents.map((doc) => doc.id)).toEqual([expect.any(String), 'fn-1']);
+    expect(final.documents.map((doc) => doc.id)).toEqual([expect.any(String), expect.any(String), 'fn-1']);
     await expect(port.updateDocument('missing', { name: 'x' })).rejects.toThrow();
   });
 
@@ -147,6 +167,6 @@ describe('GuestProjectDataPort', () => {
     root.children.push({ id: 'x', name: 'action' } as never);
     expect(port.snapshot().documents.find((doc) => doc.id === 'fn-1')?.root?.children).toEqual([]);
     changes[0]?.documents.pop();
-    expect(port.snapshot().documents).toHaveLength(3);
+    expect(port.snapshot().documents).toHaveLength(4);
   });
 });

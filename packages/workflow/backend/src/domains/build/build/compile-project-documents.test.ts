@@ -217,4 +217,57 @@ describe('compileProjectDocuments', () => {
     expect(result.activities).not.toContain('runActivepiecesAction');
     expect(result.workflows).toContain('const { logActivity } = proxyLocalActivities<');
   });
+  it('compiles the project constants with the values of the requested environment, and they type-check', () => {
+    const constantsDocument: IProjectDocument = {
+      id: 'doc-constants',
+      type: 'constants',
+      name: 'Constants',
+      data: {
+        constants: [
+          { id: 'c1', name: 'API_URL', type: 'string', dev: 'https://dev.example', prod: 'https://example.com' },
+          { id: 'c2', name: 'MAX_RETRIES', type: 'number', dev: 1, prod: 5 },
+          { id: 'c3', name: 'VERBOSE', type: 'boolean', dev: true, prod: false },
+        ],
+      },
+    };
+    const document: IProjectDocument = {
+      id: 'doc-1',
+      type: 'function',
+      name: 'run',
+      root: functionNode('doc-1', [
+        { id: 'v1', name: 'create-var', data: { name: 'tries', variableType: { type: 'number', numberType: 'any' } } },
+        { id: 'a1', name: 'action', data: 'tries = MAX_RETRIES * 2' },
+        { id: 'l1', name: 'log', data: '${API_URL} ${VERBOSE ? "yes" : "no"} ${tries}' },
+      ]),
+    };
+
+    const dev = compileProjectDocuments([constantsDocument, document], []);
+    expect(dev.workflows).toContain('const API_URL: string = "https://dev.example";');
+    expect(dev.workflows).toContain('const MAX_RETRIES: number = 1;');
+    expect(dev.workflows).toContain('const VERBOSE: boolean = true;');
+    expect(dev.workflows).toContain('// doc-start:Constants:doc-constants');
+
+    const prod = compileProjectDocuments([constantsDocument, document], [], { env: 'prod' });
+    expect(prod.workflows).toContain('const API_URL: string = "https://example.com";');
+    expect(prod.workflows).toContain('const MAX_RETRIES: number = 5;');
+    expect(prod.workflows).toContain('const VERBOSE: boolean = false;');
+  });
+
+  it('rejects malformed constants against the constants document', () => {
+    const constantsDocument: IProjectDocument = {
+      id: 'doc-constants',
+      type: 'constants',
+      name: 'Constants',
+      data: { constants: [{ id: 'c1', name: 'bad name', type: 'string', dev: '', prod: '' }] },
+    };
+    expect.assertions(2);
+    try {
+      compileProjectDocuments([constantsDocument], []);
+    } catch (error) {
+      expect(error).toBeInstanceOf(BadRequestException);
+      expect((error as BadRequestException).getResponse()).toMatchObject({
+        errors: [{ documentId: 'doc-constants', message: expect.stringContaining('not a valid constant name') }],
+      });
+    }
+  });
 });

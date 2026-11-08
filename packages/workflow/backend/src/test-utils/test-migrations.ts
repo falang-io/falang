@@ -30,6 +30,7 @@ import { SandboxBotBlocks1790170000000 } from '../migrations/1790170000000-Sandb
 import { ProjectTables1790180000000 } from '../migrations/1790180000000-ProjectTables.js';
 import { TablesSectionFolder1790190000000 } from '../migrations/1790190000000-TablesSectionFolder.js';
 import { TableChangeRecordVersion1790200000000 } from '../migrations/1790200000000-TableChangeRecordVersion.js';
+import { ConstantsDocument1790240000000 } from '../migrations/1790240000000-ConstantsDocument.js';
 import { RunJournal1790070000000 } from '../migrations/1790070000000-RunJournal.js';
 import { InstanceRuntime1790090000000 } from '../migrations/1790090000000-InstanceRuntime.js';
 import { ProjectMembers1790100000000 } from '../migrations/1790100000000-ProjectMembers.js';
@@ -76,4 +77,5 @@ export const TEST_MIGRATIONS = [
   ProjectTables1790180000000,
   TablesSectionFolder1790190000000,
   TableChangeRecordVersion1790200000000,
+  ConstantsDocument1790240000000,
 ];

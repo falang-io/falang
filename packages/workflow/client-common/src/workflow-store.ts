@@ -3,6 +3,7 @@ import { eventTracker } from './analytics/event-tracker.js';
 import 'reflect-metadata';
 import {
   action,
+  computed,
   makeObservable,
   observable,
   ObservableMap,
@@ -33,6 +34,7 @@ import {
 import {
   createTypescriptValidationModule,
   registerTypescriptProjectService,
+  setMonacoProjectDeclarations,
   updateTypesRegistryFromINode,
   TOKEN_TYPESCRIPT_PROJECT_SERVICE,
   type TypesRegistryStore,
@@ -47,8 +49,12 @@ import type { IProjectTabs } from './project-tabs-storage.js';
 import { startWorkspaceSync } from './workspace-sync.js';
 import { createPrintExportHost } from './print/create-print-export-host.js';
 import {
+  buildConstantsDeclarations,
   checkDocumentPlacement,
   checkFolderPlacement,
+  CONSTANTS_DOCUMENT_TYPE,
+  normalizeConstantsDocumentData,
+  readConstants,
   findSectionFolder,
   emptyTableData,
   isFixedFolder,
@@ -58,6 +64,7 @@ import {
   TABLE_DOCUMENT_TYPE,
   TRIGGER_FUNCTION_NAME,
   type ITableDocumentData,
+  type IWorkflowConstant,
   type TTriggerFunctionBodyData,
 } from '@falang/workflow-dto';
 import type { IIntegrationInstance } from '@falang/workflow-integrations-common';
@@ -258,6 +265,7 @@ export class WorkflowStore implements IWorkflowAgentStore {
   private readonly sync: ProjectSync;
   private readonly workspaceSyncDisposer: () => void;
   private readonly keepAliveDisposer: IReactionDisposer;
+  private readonly constantsDeclarationsDisposer: IReactionDisposer;
   private readonly schemes = new Map<string, Scheme>();
   /** Background-validation modules of the built function/trigger schemes (their queue keys give the active tab priority). */
   private readonly validationModules = new Map<string, ValidationModule>();
@@ -403,6 +411,12 @@ export class WorkflowStore implements IWorkflowAgentStore {
         if (!this.isGuest) this.loadVendorData();
       },
       { readOnly: this.readOnly, dataPort: options.guest?.dataPort, offline: this.isGuest },
+    );
+    // Every code field (Monaco editors and the background validation) sees the project's constants as ambient globals.
+    this.constantsDeclarationsDisposer = reaction(
+      () => buildConstantsDeclarations(this.constants),
+      (declarations) => setMonacoProjectDeclarations(declarations),
+      { fireImmediately: true },
     );
     // Keep-alive bookkeeping: whenever the active tab is a scheme document, it becomes the most recent.
     this.keepAliveDisposer = reaction(
@@ -838,6 +852,30 @@ export class WorkflowStore implements IWorkflowAgentStore {
     return findIntegrationsDocument(this.documents);
   }
 
+  /** The pinned `constants` document (one per project). */
+  get constantsDocument(): WorkflowDocument | undefined {
+    return this.documents.find((doc) => doc.type === CONSTANTS_DOCUMENT_TYPE);
+  }
+
+  /** The project's constants (empty until the documents are loaded, or when the stored data is malformed). */
+  @computed get constants(): readonly IWorkflowConstant[] {
+    return readConstants(this.constantsDocument?.customData ?? null);
+  }
+
+  /**
+   * Replaces the project's constants and saves them (debounced, like the `integrations` document). Throws with every
+   * problem when the list is invalid — the editor validates first, the backend validates again.
+   */
+  @action saveConstants(constants: readonly IWorkflowConstant[]): void {
+    this.assertWritable();
+    const doc = this.constantsDocument;
+    if (!doc) throw new Error('The project has no constants document');
+    const normalized = normalizeConstantsDocumentData({ constants });
+    if (!normalized.ok) throw new Error(normalized.errors.join('\n'));
+    doc.customData = normalized.data;
+    this.sync.scheduleSaveCustomDocument(doc);
+  }
+
   getSandboxVendors(): readonly string[] {
     return this.sandboxBots.platforms.map((platform) => platform.vendor);
   }
@@ -1080,6 +1118,8 @@ export class WorkflowStore implements IWorkflowAgentStore {
   }
 
   dispose(): void {
+    this.constantsDeclarationsDisposer();
+    setMonacoProjectDeclarations('');
     this.agentAutoStartDisposer();
     this.workspaceSyncDisposer();
     this.keepAliveDisposer();

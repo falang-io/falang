@@ -1,6 +1,7 @@
 import { randomUUID } from 'node:crypto';
 import { ForbiddenException, Inject, Injectable, NotFoundException, Optional } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
+import { CONSTANTS_DOCUMENT_NAME, CONSTANTS_DOCUMENT_TYPE, emptyConstantsData } from '@falang/workflow-dto';
 import { INTEGRATIONS_DOCUMENT_TYPE } from '@falang/workflow-integrations-common';
 import { In, type Repository } from 'typeorm';
 import { UserLimitsService } from '../../admin/user-limits/user-limits.service.js';
@@ -137,28 +138,26 @@ export class ProjectsService {
     await this.assertUnderProjectLimit(ownerId);
     const project = this.projects.create({ name, ownerId });
     const savedProject = await this.projects.save(project);
-    await this.seedIntegrationsDocument(savedProject.id);
+    await this.seedPinnedDocuments(savedProject.id);
     await ensureFixedFolders(this.projects.manager, savedProject.id);
     return savedProject;
   }
 
   /**
-   * Every project gets one pinned, non-deletable, non-movable `integrations` document at its root —
-   * see ADR 0006. Not going through `DocumentsService` to avoid a circular module dependency between
-   * `ProjectsModule` and `DocumentsModule` (which already depends on `ProjectsModule` for ownership checks).
+   * Every project gets two pinned, non-deletable, non-movable documents at its root: `integrations` (ADR 0006) and
+   * `constants` (the project's dev/prod constants, `@falang/workflow-dto`'s `constants/`). Not going through
+   * `DocumentsService` to avoid a circular module dependency between `ProjectsModule` and `DocumentsModule` (which
+   * already depends on `ProjectsModule` for ownership checks).
    */
-  private async seedIntegrationsDocument(projectId: string): Promise<void> {
-    const document = this.documents.create({
-      id: randomUUID(),
-      type: INTEGRATIONS_DOCUMENT_TYPE,
-      name: 'Integrations',
-      folderId: null,
-      projectId,
-      pinned: true,
-      root: null,
-      data: { instances: [] },
-    });
-    await this.documents.save(document);
+  private async seedPinnedDocuments(projectId: string): Promise<void> {
+    const pinned = [
+      { type: INTEGRATIONS_DOCUMENT_TYPE, name: 'Integrations', data: { instances: [] } },
+      { type: CONSTANTS_DOCUMENT_TYPE, name: CONSTANTS_DOCUMENT_NAME, data: emptyConstantsData() },
+    ];
+    const rows = pinned.map((row) =>
+      this.documents.create({ ...row, id: randomUUID(), folderId: null, projectId, pinned: true, root: null }),
+    );
+    await this.documents.save(rows);
   }
 
   /**
