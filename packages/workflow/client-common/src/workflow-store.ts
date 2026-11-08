@@ -90,6 +90,7 @@ import { buildWorkflowDocumentScheme } from './build-workflow-document-scheme.js
 import type { INode, NodesStack } from '@falang/dto';
 
 type TAgentInterfaceSetting = 'json' | 'nodes';
+import { syncWorkflowFunctionsRegistry } from './sync-functions-registry.js';
 import { subscribeWorkflowDocumentSync } from './sync-document-from-scheme.js';
 import { findDocumentNameConflict } from './document-names.js';
 import { generateUuid } from './generate-uuid.js';
@@ -266,6 +267,7 @@ export class WorkflowStore implements IWorkflowAgentStore {
   private readonly workspaceSyncDisposer: () => void;
   private readonly keepAliveDisposer: IReactionDisposer;
   private readonly constantsDeclarationsDisposer: IReactionDisposer;
+  private readonly functionsRegistryDisposer: IReactionDisposer;
   private readonly schemes = new Map<string, Scheme>();
   /** Background-validation modules of the built function/trigger schemes (their queue keys give the active tab priority). */
   private readonly validationModules = new Map<string, ValidationModule>();
@@ -416,6 +418,17 @@ export class WorkflowStore implements IWorkflowAgentStore {
     this.constantsDeclarationsDisposer = reaction(
       () => buildConstantsDeclarations(this.constants),
       (declarations) => setMonacoProjectDeclarations(declarations),
+      { fireImmediately: true },
+    );
+    // `call-function`'s target picker and parameter fields read the project-wide functions registry (every `function`
+    // document, opened in a tab or not). `doc.data` is replaced on every scheme change, so a new parameter shows up too.
+    this.functionsRegistryDisposer = reaction(
+      () => this.documents.map((doc) => ({ id: doc.id, name: doc.name, type: doc.type, data: doc.data })),
+      (documents) =>
+        syncWorkflowFunctionsRegistry(
+          resolveService(TOKEN_TYPESCRIPT_PROJECT_SERVICE, this.container).functionsRegistry,
+          documents,
+        ),
       { fireImmediately: true },
     );
     // Keep-alive bookkeeping: whenever the active tab is a scheme document, it becomes the most recent.
@@ -1120,6 +1133,7 @@ export class WorkflowStore implements IWorkflowAgentStore {
   dispose(): void {
     this.constantsDeclarationsDisposer();
     setMonacoProjectDeclarations('');
+    this.functionsRegistryDisposer();
     this.agentAutoStartDisposer();
     this.workspaceSyncDisposer();
     this.keepAliveDisposer();
