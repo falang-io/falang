@@ -61,7 +61,20 @@ export interface IActivityOptions {
 
 export interface IFieldConfig {
   readonly name: string;
+  /** Short caption shown next to the value on the scheme — a word or two; details belong in `help`. */
   readonly label: string;
+  /**
+   * Optional explanation behind a "?" icon next to the label in the editors (block editor, sidebar,
+   * credential and trigger dialogs) — what to enter, defaults, examples. An i18n key (`ns:key`) or
+   * literal text; line breaks are kept and `` `…` `` marks code. Never shown on the scheme itself.
+   */
+  readonly help?: string;
+  /**
+   * Plain-English, LLM-only notes on what to enter (syntax, examples) — appended to the field's agent
+   * description by `describeFieldForAgent`, never shown in the UI and never translated. The agent's
+   * counterpart of `help`, which is an i18n key the schema builder can't resolve.
+   */
+  readonly agentNotes?: string;
   readonly kind: TIntegrationFieldKind;
   /** Only meaningful for `kind: 'select'`, when the option list doesn't depend on the credential — mutually exclusive with `loadOptions`. */
   readonly options?: readonly IFieldSelectOption[];

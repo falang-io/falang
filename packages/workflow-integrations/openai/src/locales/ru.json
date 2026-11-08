@@ -14,8 +14,8 @@
       "resultVariable": "Сохранить результат в",
       "size": "Размер",
       "file": "Аудиофайл",
-      "transcribeModel": "Модель (напр. whisper-1)",
-      "language": "Язык (опционально)"
+      "transcribeModel": "Модель",
+      "language": "Язык"
     },
     "action": {
       "callAiText": "Вызов AI (текст)",
@@ -24,6 +24,10 @@
     },
     "choice": {
       "callAiChoice": "Вопрос AI (выбор)"
+    },
+    "help": {
+      "transcribeModel": "Модель распознавания речи, например `whisper-1`.",
+      "language": "Необязательно. Язык записи кодом ISO-639-1, например `ru` или `en`. Пусто — определить автоматически."
     }
   }
 }

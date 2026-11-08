@@ -8,6 +8,7 @@ import {
 import type { IFieldConfig } from '@falang/workflow-integrations-common';
 import { Form, Input, Typography } from 'antd';
 import { observer } from 'mobx-react-lite';
+import { FieldLabel } from '../field-help/field-help.cmp.js';
 import {
   dynamicSelectPlaceholder,
   FieldSelectComponent,
@@ -204,7 +205,9 @@ const InlineActionEditorComponent: TBlockEditorView<IntegrationActionEditorStore
             {editor.action.fields.map((field) => (
               <tr key={field.name}>
                 <td>
-                  <div className="ts-label">{t(field.label)}</div>
+                  <div className="ts-label">
+                    <FieldLabel label={field.label} help={field.help} t={t} />
+                  </div>
                 </td>
                 <td>
                   <FieldEditorComponent editor={editor} field={field} />
@@ -228,7 +231,11 @@ const SidebarActionEditorComponent: TBlockEditorView<IntegrationActionEditorStor
       </Typography.Title>
       <Form layout="vertical">
         {editor.action.fields.map((field) => (
-          <Form.Item key={field.name} label={t(field.label)} style={{ marginBottom: 14 }}>
+          <Form.Item
+            key={field.name}
+            label={<FieldLabel label={field.label} help={field.help} t={t} />}
+            style={{ marginBottom: 14 }}
+          >
             <SidebarFieldEditorComponent editor={editor} field={field} />
           </Form.Item>
         ))}

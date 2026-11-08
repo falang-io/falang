@@ -46,9 +46,15 @@ export const filesActions: readonly IActionDescriptor[] = [
     editorType: 'sidebar',
     fields: [
       { name: 'url', label: 'files:field.url', kind: 'template-string' },
-      { name: 'headers', label: 'files:field.headers', kind: 'expression', expectedType: anyType },
-      { name: 'name', label: 'files:field.name', kind: 'template-string' },
-      { name: 'ttlHours', label: 'files:field.ttlHours', kind: 'text' },
+      {
+        name: 'headers',
+        label: 'files:field.headers',
+        help: 'files:help.headers',
+        kind: 'expression',
+        expectedType: anyType,
+      },
+      { name: 'name', label: 'files:field.name', help: 'files:help.name', kind: 'template-string' },
+      { name: 'ttlHours', label: 'files:field.ttlHours', help: 'files:help.ttlHours', kind: 'text' },
       { name: RESULT_VARIABLE_FIELD_NAME, label: 'files:field.result', kind: 'new-variable' },
     ],
     emit: (fields) => {
@@ -87,9 +93,9 @@ export const filesActions: readonly IActionDescriptor[] = [
     editorType: 'sidebar',
     fields: [
       { name: 'text', label: 'files:field.text', kind: 'expression', expectedType: { type: 'string' } },
-      { name: 'name', label: 'files:field.name', kind: 'template-string' },
-      { name: 'mime', label: 'files:field.mime', kind: 'text' },
-      { name: 'ttlHours', label: 'files:field.ttlHours', kind: 'text' },
+      { name: 'name', label: 'files:field.name', help: 'files:help.name', kind: 'template-string' },
+      { name: 'mime', label: 'files:field.mime', help: 'files:help.mime', kind: 'text' },
+      { name: 'ttlHours', label: 'files:field.ttlHours', help: 'files:help.ttlHours', kind: 'text' },
       { name: RESULT_VARIABLE_FIELD_NAME, label: 'files:field.result', kind: 'new-variable' },
     ],
     emit: (fields) => {
@@ -120,7 +126,7 @@ export const filesActions: readonly IActionDescriptor[] = [
     editorType: 'sidebar',
     fields: [
       { name: 'file', label: 'files:field.file', kind: 'expression', expectedType: fileTypeInfo() },
-      { name: 'maxBytes', label: 'files:field.maxBytes', kind: 'text' },
+      { name: 'maxBytes', label: 'files:field.maxBytes', help: 'files:help.maxBytes', kind: 'text' },
       { name: RESULT_VARIABLE_FIELD_NAME, label: 'files:field.result', kind: 'new-variable' },
     ],
     emit: (fields) => {

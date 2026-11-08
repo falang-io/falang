@@ -57,7 +57,7 @@ const describeSelectOptions = (field: IFieldConfig): string => {
  * escapes itself) — a real chat produced `"${message.chat.id}"` for Telegram's numeric `chatId` and
  * backtick-wrapped message texts that reached the user with the backticks still visible.
  */
-export const describeFieldForAgent = (field: IFieldConfig): string => {
+const describeFieldKind = (field: IFieldConfig): string => {
   switch (field.kind) {
     case 'expression': {
       return `${EXPRESSION_DESCRIPTION}${describeExpectedType(field)}`;
@@ -97,4 +97,10 @@ export const describeFieldForAgent = (field: IFieldConfig): string => {
       return 'A secret value, stored verbatim.';
     }
   }
+};
+
+/** The kind's description plus the field's own `agentNotes`, if any (see the doc comment above). */
+export const describeFieldForAgent = (field: IFieldConfig): string => {
+  const base = describeFieldKind(field);
+  return field.agentNotes ? `${base} ${field.agentNotes}` : base;
 };

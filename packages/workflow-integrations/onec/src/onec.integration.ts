@@ -31,7 +31,12 @@ export const onecIntegration: IWorkflowIntegration = {
   notes:
     '1C:Enterprise (1С, OData interface) — accounting / ERP database: read records (catalogs, documents, registers) from a 1C information base.',
   credentialFields: [
-    { name: 'base_url', label: 'OData base URL (…/odata/standard.odata)', kind: 'text' },
+    {
+      name: 'base_url',
+      label: 'OData base URL',
+      help: 'Адрес стандартного OData-интерфейса базы, заканчивается на `/odata/standard.odata`.',
+      kind: 'text',
+    },
     { name: 'username', label: 'Username', kind: 'text' },
     { name: 'password', label: 'Password', kind: 'secret' },
   ],
@@ -44,10 +49,16 @@ export const onecIntegration: IWorkflowIntegration = {
       editorType: 'sidebar',
       fields: [
         { name: 'credentialId', label: 'Информационная база', kind: 'credential-ref', vendor: ONEC_VENDOR },
-        { name: 'entity', label: 'Коллекция (напр. Catalog_Контрагенты)', kind: 'text' },
+        {
+          name: 'entity',
+          label: 'Коллекция',
+          help: 'Имя коллекции OData, например `Catalog_Контрагенты` или `Document_ЗаказКлиента`.',
+          kind: 'text',
+        },
         {
           name: 'filter',
-          label: 'OData $filter (необязательно, напр. Post eq true)',
+          label: 'Фильтр',
+          help: "Необязательно. Условие OData $filter, например `Post eq true` или `Description eq 'Иванов'`.",
           kind: 'template-string',
         },
         { name: 'resultVariable', label: 'Сохранить результат в', kind: 'new-variable' },

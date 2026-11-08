@@ -11,3 +11,4 @@ export * from './credential-resolution.js';
 export * from './ssl-field.js';
 export * from './instance-hooks.js';
 export * from './connection-string.js';
+export * from './agent-notes.js';

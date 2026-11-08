@@ -117,8 +117,8 @@ const callAiTranscribeAction: IActionDescriptor = {
   fields: [
     { name: 'integration', label: 'openai:field.integration', kind: 'credential-ref', vendor: OPENAI_VENDOR },
     { name: 'file', label: 'openai:field.file', kind: 'expression', expectedType: fileTypeInfo() },
-    { name: 'model', label: 'openai:field.transcribeModel', kind: 'text' },
-    { name: 'language', label: 'openai:field.language', kind: 'text' },
+    { name: 'model', label: 'openai:field.transcribeModel', help: 'openai:help.transcribeModel', kind: 'text' },
+    { name: 'language', label: 'openai:field.language', help: 'openai:help.language', kind: 'text' },
     { name: 'resultVariable', label: 'openai:field.resultVariable', kind: 'new-variable' },
   ],
   emit: (fields) =>

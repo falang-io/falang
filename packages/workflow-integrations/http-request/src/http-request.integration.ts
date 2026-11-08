@@ -67,11 +67,12 @@ export const httpRequestIntegration: IWorkflowIntegration = {
         // generic record/dictionary type to constrain an `expectedType` with — a plain, unconstrained
         // TS object-literal expression is the closest fit today. Left empty, both resolve to `undefined`
         // at the call site (see `emit` below).
-        { name: 'headers', label: 'http-request:field.headers', kind: 'expression' },
-        { name: 'body', label: 'http-request:field.body', kind: 'expression' },
+        { name: 'headers', label: 'http-request:field.headers', help: 'http-request:help.headers', kind: 'expression' },
+        { name: 'body', label: 'http-request:field.body', help: 'http-request:help.body', kind: 'expression' },
         {
           name: 'responseAs',
           label: 'http-request:field.responseAs',
+          help: 'http-request:help.responseAs',
           kind: 'select',
           options: HTTP_RESPONSE_AS_OPTIONS,
         },

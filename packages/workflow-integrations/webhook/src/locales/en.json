@@ -4,11 +4,14 @@
       "requireSignature": "Require signed calls",
       "requireSignatureNo": "No",
       "requireSignatureYes": "Yes",
-      "signatureVersion": "Secret version (increase to rotate)"
+      "signatureVersion": "Secret version"
     },
     "label": "Webhook",
     "trigger": {
       "incomingWebhook": "Incoming webhook"
+    },
+    "help": {
+      "signatureVersion": "Increase by 1 to rotate the secret: the old one stops being accepted."
     }
   }
 }

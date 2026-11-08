@@ -54,11 +54,22 @@ export const tbankIntegration: IWorkflowIntegration = {
       fields: [
         {
           name: 'accountNumber',
-          label: 'Номер счёта (20 цифр — в песочнице реальные данные не нужны)',
+          label: 'Номер счёта',
+          help: '20 цифр. В песочнице реальные данные не нужны.',
           kind: 'text',
         },
-        { name: 'from', label: 'Начало периода (ISO 8601, напр. 2026-01-01T00:00:00Z)', kind: 'text' },
-        { name: 'to', label: 'Конец периода (необязательно, ISO 8601)', kind: 'text' },
+        {
+          name: 'from',
+          label: 'Начало периода',
+          help: 'Дата и время в ISO 8601, например `2026-01-01T00:00:00Z`.',
+          kind: 'text',
+        },
+        {
+          name: 'to',
+          label: 'Конец периода',
+          help: 'Необязательно. Дата и время в ISO 8601, например `2026-01-31T23:59:59Z`.',
+          kind: 'text',
+        },
         { name: 'resultVariable', label: 'Сохранить результат в', kind: 'new-variable' },
       ],
       emit: (fields) => {

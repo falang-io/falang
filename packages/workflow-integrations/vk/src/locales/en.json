@@ -16,15 +16,15 @@
     "field": {
       "command": "Command",
       "bot": "Community",
-      "chatId": "Chat ID (peer_id)",
+      "chatId": "Chat ID",
       "text": "Text",
       "question": "Question",
-      "timeout": "Timeout (e.g. 10m, 48h) — leave empty for no timeout",
+      "timeout": "Timeout",
       "file": "File",
       "sendFileAs": "Send as",
       "caption": "Caption",
       "userId": "User ID",
-      "conversationMessageId": "Message ID in the conversation (conversationMessageId)",
+      "conversationMessageId": "Message ID",
       "chatType": "Chats",
       "conversation": "Conversation"
     },
@@ -51,6 +51,11 @@
       "perChat": "One per chat (a dialog)",
       "perUser": "One per user in the chat",
       "perEvent": "One per message (stateless)"
+    },
+    "help": {
+      "timeout": "How long to wait for an answer: `10m`, `2h`, `48h`, `7d`. Empty — no limit.\nWhen it runs out, the “timeout” branch runs.",
+      "chatId": "The recipient's peer_id — e.g. `message.chat.id` from the trigger.",
+      "conversationMessageId": "The message's conversationMessageId in the conversation — e.g. `message.conversationMessageId` from the trigger."
     }
   }
 }

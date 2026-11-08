@@ -4,15 +4,20 @@
     "field": {
       "method": "Метод",
       "url": "URL",
-      "headers": "Заголовки (выражение-объект, необязательно)",
-      "body": "Тело (выражение, необязательно)",
-      "responseAs": "Ответ как (auto/text/json/file)",
+      "headers": "Заголовки",
+      "body": "Тело",
+      "responseAs": "Ответ как",
       "result": "Сохранить результат в",
       "onNetworkError": "При ошибке сети"
     },
     "network-error": {
       "retry": "Повторять до успеха",
       "status": "Вернуть статус 0"
+    },
+    "help": {
+      "headers": "Необязательно. Объект с заголовками: `{ Authorization: 'Bearer ' + token, 'X-Id': id }`.",
+      "body": "Необязательно. Выражение: объект отправится как JSON (`{ name: user.name }`), строка — как есть, File — содержимым файла.",
+      "responseAs": "Как читать ответ: auto — по Content-Type, text — строкой, json — разобрать JSON, file — сохранить в File."
     }
   }
 }

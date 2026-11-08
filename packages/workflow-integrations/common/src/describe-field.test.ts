@@ -27,6 +27,12 @@ describe('describeFieldForAgent', () => {
     expect(description).toContain('the struct type "telegram/Message"');
   });
 
+  it("appends the field's agentNotes after the kind description", () => {
+    const description = describeFieldForAgent({ ...chatIdField, agentNotes: 'Example: `user.id`.' });
+    expect(description).toContain('Must evaluate to type `number`. Example: `user.id`.');
+    expect(describeFieldForAgent(chatIdField)).not.toContain('Example');
+  });
+
   it('tells a template-string field its backticks are added automatically', () => {
     expect(describeFieldForAgent(textField)).toContain('do NOT wrap the value in backticks or quotes');
   });

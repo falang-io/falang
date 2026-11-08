@@ -46,7 +46,12 @@ describe('onecIntegration', () => {
 
   it('credentialFields declares base_url/username/password, with only password hidden as a secret', () => {
     expect(onecIntegration.credentialFields).toEqual([
-      { name: 'base_url', label: 'OData base URL (…/odata/standard.odata)', kind: 'text' },
+      {
+        name: 'base_url',
+        label: 'OData base URL',
+        help: expect.stringContaining('/odata/standard.odata'),
+        kind: 'text',
+      },
       { name: 'username', label: 'Username', kind: 'text' },
       { name: 'password', label: 'Password', kind: 'secret' },
     ]);

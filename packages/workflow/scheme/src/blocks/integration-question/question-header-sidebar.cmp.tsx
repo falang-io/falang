@@ -8,6 +8,7 @@ import {
 } from '@falang/workflow-integrations-common';
 import { Button, Form, Input, Select, Space, Typography } from 'antd';
 import { observer } from 'mobx-react-lite';
+import { FieldLabel } from '../field-help/field-help.cmp.js';
 import { QUESTION_OPTION_DATA_TYPE_OPTIONS, type QuestionEditorStore } from './question-editor.store.js';
 
 const OPTION_DATA_TYPE_LABEL_KEYS: Record<string, string> = {
@@ -142,7 +143,11 @@ export const QuestionHeaderSidebarComponent: TBlockEditorView<QuestionEditorStor
       </Typography.Title>
       <Form layout="vertical">
         {getQuestionHeaderFields(editor.descriptor).map((field) => (
-          <Form.Item key={field.name} label={t(field.label)} style={{ marginBottom: 14 }}>
+          <Form.Item
+            key={field.name}
+            label={<FieldLabel label={field.label} help={field.help} t={t} />}
+            style={{ marginBottom: 14 }}
+          >
             <QuestionFieldEditorComponent editor={editor} field={field} />
           </Form.Item>
         ))}

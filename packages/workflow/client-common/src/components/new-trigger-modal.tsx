@@ -2,6 +2,7 @@ import type React from 'react';
 import { useEffect, useMemo } from 'react';
 import { observer } from 'mobx-react-lite';
 import { getGlobalI18n } from '@falang/scheme';
+import { FieldLabel } from '@falang/workflow-scheme';
 import { Alert, Form, Input, Modal, Select } from 'antd';
 import type { IFieldConfig, IIntegrationsDocumentData } from '@falang/workflow-integrations-common';
 import {
@@ -249,7 +250,7 @@ export const NewTriggerModal: React.FC<NewTriggerModalProps> = observer(({ open,
             <Form.Item
               key={field.name}
               name={['contextFields', field.name]}
-              label={t(field.label)}
+              label={<FieldLabel label={field.label} help={field.help} t={t} />}
               rules={[
                 { required: true, message: t('client:new-trigger-modal.field-required', { label: t(field.label) }) },
                 ...(field.validate

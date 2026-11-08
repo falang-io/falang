@@ -14,8 +14,8 @@
       "resultVariable": "Save result to",
       "size": "Size",
       "file": "Audio file",
-      "transcribeModel": "Model (e.g. whisper-1)",
-      "language": "Language (optional)"
+      "transcribeModel": "Model",
+      "language": "Language"
     },
     "action": {
       "callAiText": "Call AI (text)",
@@ -24,6 +24,10 @@
     },
     "choice": {
       "callAiChoice": "Ask AI (choice)"
+    },
+    "help": {
+      "transcribeModel": "The speech-to-text model, e.g. `whisper-1`.",
+      "language": "Optional. The recording's language as an ISO-639-1 code, e.g. `ru` or `en`. Empty — detect automatically."
     }
   }
 }

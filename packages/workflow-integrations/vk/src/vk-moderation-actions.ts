@@ -22,7 +22,7 @@ export const vkKickFromChatAction: IActionDescriptor = {
   label: 'vk:action.kickFromChat',
   fields: [
     { name: 'credentialId', label: 'vk:field.bot', kind: 'credential-ref', vendor: VK_VENDOR },
-    { name: 'chatId', label: 'vk:field.chatId', kind: 'expression', expectedType: anyNumber },
+    { name: 'chatId', label: 'vk:field.chatId', help: 'vk:help.chatId', kind: 'expression', expectedType: anyNumber },
     { name: 'userId', label: 'vk:field.userId', kind: 'expression', expectedType: anyNumber },
   ],
   emit: (fields) => `await vkKickFromChat(${fields.credentialId}, ${fields.chatId}, ${fields.userId});`,
@@ -53,8 +53,14 @@ export const vkDeleteMessageAction: IActionDescriptor = {
   label: 'vk:action.deleteMessage',
   fields: [
     { name: 'credentialId', label: 'vk:field.bot', kind: 'credential-ref', vendor: VK_VENDOR },
-    { name: 'chatId', label: 'vk:field.chatId', kind: 'expression', expectedType: anyNumber },
-    { name: 'messageId', label: 'vk:field.conversationMessageId', kind: 'expression', expectedType: anyNumber },
+    { name: 'chatId', label: 'vk:field.chatId', help: 'vk:help.chatId', kind: 'expression', expectedType: anyNumber },
+    {
+      name: 'messageId',
+      label: 'vk:field.conversationMessageId',
+      help: 'vk:help.conversationMessageId',
+      kind: 'expression',
+      expectedType: anyNumber,
+    },
   ],
   emit: (fields) => `await vkDeleteMessage(${fields.credentialId}, ${fields.chatId}, ${fields.messageId});`,
   activitySignature: 'vkDeleteMessage(credentialId: string, chatId: number, messageId: number): Promise<void>',

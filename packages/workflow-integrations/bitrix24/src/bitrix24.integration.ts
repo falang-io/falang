@@ -31,7 +31,8 @@ export const bitrix24Integration: IWorkflowIntegration = {
   credentialFields: [
     {
       name: 'application_token',
-      label: 'Outgoing webhook token (application_token)',
+      label: 'Outgoing webhook token',
+      help: 'application_token из настроек исходящего вебхука Bitrix24 — им проверяется, что событие пришло от вашего портала.',
       kind: 'secret',
     },
   ],

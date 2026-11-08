@@ -15,15 +15,25 @@
     },
     "field": {
       "table": "Table",
-      "where": "Filter (where)",
+      "where": "Filter",
       "whereRequired": "A filter is required — to touch every record, say so explicitly in the condition",
-      "orderBy": "Order by (e.g. name asc, createdAt desc)",
-      "limit": "Limit (default 100, max 1000)",
-      "offset": "Skip (offset)",
+      "orderBy": "Order by",
+      "limit": "Limit",
+      "offset": "Skip",
       "id": "Record id",
       "row": "New record",
       "set": "Fields to change",
       "result": "Save result to"
+    },
+    "help": {
+      "where": "Which records to take. An object: table field name → value or condition.\nEmpty — every record.\n\n`{ maxId: user.id }` — maxId equals user.id\n`{ age: { gt: 18 } }` — greater than 18 (also gte, lt, lte, ne)\n`{ status: { in: ['new', 'open'] } }` — one of the values (notIn — none of them)\n`{ name: { contains: 'Iv' } }` — text contains (also startsWith, like, ilike)\n`{ phone: { isNull: true } }` — the field is empty\n`{ maxId: user.id, gone: false }` — all conditions at once\n`{ or: [{ status: 'new' }, { status: 'open' }] }` — any of the conditions\n\nWritten as a JavaScript object: not `maxId = user.id` but `{ maxId: user.id }`.\nQuote a field name with a space or a dash: `{ 'order date': { gte: '2026-01-01' } }`.\nid, createdAt and updatedAt are available too.",
+      "whereRequired": "Which records to touch — required.\n`{ id: record.id }` — one record\n`{ status: 'new', age: { lt: 18 } }` — by conditions, same syntax as in “Select records”\n`{ id: record.id, version: record.version }` — only if nobody changed the record since it was read\nEvery record — only explicitly: `{ id: { isNull: false } }`.",
+      "orderBy": "Comma-separated field names, each optionally asc (default) or desc.\n`name`\n`createdAt desc`\n`status asc, createdAt desc`\nEmpty — in insertion order.",
+      "limit": "How many records to return: 100 by default, at most 1000.",
+      "offset": "How many leading records to skip — for paging: `0`, `100`, `200`…",
+      "id": "The record id (a string), e.g. `record.id` from another action's result.",
+      "row": "An object: field name → value.\n`{ maxId: user.id, created: new Date().toISOString(), joined: true }`\nThe table's required fields must be set.",
+      "set": "An object with only the fields that change.\n`{ gone: true }`\n`{ status: 'done', attempts: record.attempts + 1 }`"
     }
   }
 }

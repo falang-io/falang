@@ -57,7 +57,7 @@ export const diadocIntegration: IWorkflowIntegration = {
     // Not part of the OAuth2 handshake — Диадок has no equivalent of amoCRM's account-domain
     // callback param, so this is a plain user-entered field (same shape ЮKassa's shop_id or
     // Bitrix24's application_token already are), not `hidden`.
-    { name: 'box_id', label: 'Box ID (GUID Диадок-ящика организации)', kind: 'text' },
+    { name: 'box_id', label: 'Box ID', help: 'GUID Диадок-ящика организации.', kind: 'text' },
   ],
   triggers: [],
   actions: [

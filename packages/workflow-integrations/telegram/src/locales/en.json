@@ -17,7 +17,7 @@
       "chatId": "Chat ID",
       "text": "Text",
       "question": "Question",
-      "timeout": "Timeout (e.g. 10m, 48h) — leave empty for no timeout",
+      "timeout": "Timeout",
       "file": "File",
       "sendFileAs": "Send as",
       "caption": "Caption",
@@ -25,7 +25,7 @@
       "conversation": "Conversation",
       "userId": "User ID",
       "messageId": "Message ID",
-      "untilDate": "Ban until (Unix time, seconds; 0 = forever)",
+      "untilDate": "Ban until",
       "revokeMessages": "Delete all their messages",
       "resultVariable": "Result variable"
     },
@@ -59,6 +59,10 @@
       "perChat": "One execution per chat",
       "perUser": "One execution per user in a chat",
       "perEvent": "A new execution per message (stateless)"
+    },
+    "help": {
+      "timeout": "How long to wait for an answer: `10m`, `2h`, `48h`, `7d`. Empty — no limit.\nWhen it runs out, the “timeout” branch runs.",
+      "untilDate": "Unix time in seconds until which the ban lasts, e.g. `Math.floor(Date.now() / 1000) + 86400` — one day. `0` or empty — forever."
     }
   }
 }

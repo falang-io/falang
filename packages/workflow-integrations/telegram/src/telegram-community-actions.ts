@@ -84,6 +84,7 @@ const telegramBanMemberAction: IActionDescriptor = {
     {
       name: 'untilDate',
       label: 'telegram:field.untilDate',
+      help: 'telegram:help.untilDate',
       kind: 'expression',
       expectedType: anyNumber,
       defaultValue: '0',

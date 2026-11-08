@@ -75,7 +75,13 @@ const mediaAudioConvertAction: IActionDescriptor = {
     { name: 'format', label: 'media:field.audioFormat', kind: 'select', options: AUDIO_FORMAT_OPTIONS },
     { name: 'bitrate', label: 'media:field.bitrate', kind: 'select', options: BITRATE_OPTIONS },
     { name: 'mono', label: 'media:field.mono', kind: 'select', options: BOOLEAN_OPTIONS },
-    { name: 'sampleRate', label: 'media:field.sampleRate', kind: 'select', options: SAMPLE_RATE_OPTIONS },
+    {
+      name: 'sampleRate',
+      label: 'media:field.sampleRate',
+      help: 'media:help.sampleRate',
+      kind: 'select',
+      options: SAMPLE_RATE_OPTIONS,
+    },
     { name: RESULT_VARIABLE_FIELD_NAME, label: 'media:field.result', kind: 'new-variable' },
   ],
   emit: (fields) =>

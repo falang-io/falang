@@ -4,12 +4,17 @@
     "field": {
       "title": "Title",
       "description": "Description",
-      "payload": "Payload (optional)",
-      "attachments": "Attachments (optional)",
-      "timeout": "Timeout (e.g. 10m, 48h) — leave empty for no timeout"
+      "payload": "Payload",
+      "attachments": "Attachments",
+      "timeout": "Timeout"
     },
     "question": {
       "humanTask": "Ask the project owner"
+    },
+    "help": {
+      "timeout": "How long to wait for a decision: `10m`, `2h`, `48h`, `7d`. Empty — wait forever.\nWhen it runs out, the “timeout” branch runs.",
+      "payload": "Optional. An object shown in the task: `{ order: order.id, sum: order.total }`.",
+      "attachments": "Optional. An array of files (File) attached to the task."
     }
   }
 }

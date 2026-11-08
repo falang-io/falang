@@ -1,6 +1,7 @@
 // oxlint-disable no-undefined -- optional values are modelled with `undefined` throughout (absent filter/field).
 import type { TVariableInfo } from '@falang/typescript-dto';
 import type { IActionDescriptor, IActivityOptions, IFieldConfig } from '@falang/workflow-integrations-common';
+import { buildOrderByAgentNotes, buildWhereAgentNotes } from '@falang/workflow-integrations-sql-common';
 import {
   RESULT_VARIABLE_FIELD_NAME,
   TABLE_DELETE_ACTION_NAME,
@@ -11,6 +12,11 @@ import {
   TABLE_UPDATE_ACTION_NAME,
 } from './constants.js';
 import { tableInsertStructId, tablePatchStructId, tableRowStructId, tableWhereStructId } from './table-struct-ids.js';
+
+/** `agentNotes` extras on top of sql-common's shared `where`/`orderBy` notes. */
+const SYSTEM_FIELDS_NOTE = "Keys are the table's field names; id, version, createdAt and updatedAt are available too.";
+const VERSION_NOTE =
+  'Optimistic locking: `{ id: record.id, version: record.version }` matches only if nobody changed the record since it was read (0 rows otherwise).';
 
 const int32Type: TVariableInfo = { type: 'number', numberType: { type: 'integer', integerType: 'int32' } };
 
@@ -60,10 +66,37 @@ export const tablesActions: readonly IActionDescriptor[] = [
     editorType: 'sidebar',
     fields: [
       tableField,
-      { name: 'where', label: 'tables:field.where', kind: 'expression', expectedType: whereType },
-      { name: 'orderBy', label: 'tables:field.orderBy', kind: 'text' },
-      { name: 'limit', label: 'tables:field.limit', kind: 'text', defaultValue: '100' },
-      { name: 'offset', label: 'tables:field.offset', kind: 'text', defaultValue: '0' },
+      {
+        name: 'where',
+        label: 'tables:field.where',
+        help: 'tables:help.where',
+        agentNotes: `${buildWhereAgentNotes('field', { required: false })} ${SYSTEM_FIELDS_NOTE}`,
+        kind: 'expression',
+        expectedType: whereType,
+      },
+      {
+        name: 'orderBy',
+        label: 'tables:field.orderBy',
+        help: 'tables:help.orderBy',
+        agentNotes: `${buildOrderByAgentNotes('field')} ${SYSTEM_FIELDS_NOTE}`,
+        kind: 'text',
+      },
+      {
+        name: 'limit',
+        label: 'tables:field.limit',
+        help: 'tables:help.limit',
+        agentNotes: 'A whole number as plain text: 100 by default, at most 1000.',
+        kind: 'text',
+        defaultValue: '100',
+      },
+      {
+        name: 'offset',
+        label: 'tables:field.offset',
+        help: 'tables:help.offset',
+        agentNotes: 'How many leading records to skip (paging), a whole number as plain text, e.g. `0`, `100`.',
+        kind: 'text',
+        defaultValue: '0',
+      },
       resultField,
     ],
     emit: (fields) =>
@@ -92,7 +125,13 @@ export const tablesActions: readonly IActionDescriptor[] = [
     editorType: 'sidebar',
     fields: [
       tableField,
-      { name: 'id', label: 'tables:field.id', kind: 'expression', expectedType: { type: 'string' } },
+      {
+        name: 'id',
+        label: 'tables:field.id',
+        help: 'tables:help.id',
+        kind: 'expression',
+        expectedType: { type: 'string' },
+      },
       resultField,
     ],
     emit: (fields) =>
@@ -114,7 +153,15 @@ export const tablesActions: readonly IActionDescriptor[] = [
     editorType: 'sidebar',
     fields: [
       tableField,
-      { name: 'row', label: 'tables:field.row', kind: 'expression', expectedType: insertType },
+      {
+        name: 'row',
+        label: 'tables:field.row',
+        help: 'tables:help.row',
+        agentNotes:
+          'An object literal: field name → value, e.g. `{ maxId: user.id, joined: true }`. Required fields must be set.',
+        kind: 'expression',
+        expectedType: insertType,
+      },
       resultField,
     ],
     emit: (fields) =>
@@ -136,10 +183,19 @@ export const tablesActions: readonly IActionDescriptor[] = [
     editorType: 'sidebar',
     fields: [
       tableField,
-      { name: 'set', label: 'tables:field.set', kind: 'expression', expectedType: patchType },
+      {
+        name: 'set',
+        label: 'tables:field.set',
+        help: 'tables:help.set',
+        agentNotes: 'An object literal with only the fields that change, e.g. `{ gone: true }`.',
+        kind: 'expression',
+        expectedType: patchType,
+      },
       {
         name: 'where',
         label: 'tables:field.where',
+        help: 'tables:help.whereRequired',
+        agentNotes: `${buildWhereAgentNotes('field', { required: true })} ${SYSTEM_FIELDS_NOTE} ${VERSION_NOTE}`,
         kind: 'expression',
         expectedType: whereType,
         validate: requireNonBlankWhere,
@@ -168,6 +224,8 @@ export const tablesActions: readonly IActionDescriptor[] = [
       {
         name: 'where',
         label: 'tables:field.where',
+        help: 'tables:help.whereRequired',
+        agentNotes: `${buildWhereAgentNotes('field', { required: true })} ${SYSTEM_FIELDS_NOTE} ${VERSION_NOTE}`,
         kind: 'expression',
         expectedType: whereType,
         validate: requireNonBlankWhere,

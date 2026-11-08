@@ -64,11 +64,11 @@ const mediaImageResizeAction: IActionDescriptor = {
   editorType: 'sidebar',
   fields: [
     { name: 'file', label: 'media:field.file', kind: 'expression', expectedType: fileTypeInfo() },
-    { name: 'width', label: 'media:field.width', kind: 'text' },
-    { name: 'height', label: 'media:field.height', kind: 'text' },
+    { name: 'width', label: 'media:field.width', help: 'media:help.width', kind: 'text' },
+    { name: 'height', label: 'media:field.height', help: 'media:help.height', kind: 'text' },
     { name: 'fit', label: 'media:field.fit', kind: 'select', options: FIT_OPTIONS },
     { name: 'format', label: 'media:field.imageFormat', kind: 'select', options: IMAGE_FORMAT_OPTIONS },
-    { name: 'quality', label: 'media:field.quality', kind: 'text' },
+    { name: 'quality', label: 'media:field.quality', help: 'media:help.quality', kind: 'text' },
     { name: RESULT_VARIABLE_FIELD_NAME, label: 'media:field.result', kind: 'new-variable' },
   ],
   emit: (fields) =>
@@ -113,7 +113,7 @@ const mediaImageConvertAction: IActionDescriptor = {
   fields: [
     { name: 'file', label: 'media:field.file', kind: 'expression', expectedType: fileTypeInfo() },
     { name: 'format', label: 'media:field.imageFormat', kind: 'select', options: IMAGE_CONVERT_FORMAT_OPTIONS },
-    { name: 'quality', label: 'media:field.quality', kind: 'text' },
+    { name: 'quality', label: 'media:field.quality', help: 'media:help.quality', kind: 'text' },
     { name: RESULT_VARIABLE_FIELD_NAME, label: 'media:field.result', kind: 'new-variable' },
   ],
   emit: (fields) =>

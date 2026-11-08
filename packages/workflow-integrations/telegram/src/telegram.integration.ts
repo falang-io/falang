@@ -1,5 +1,6 @@
 // oxlint-disable max-lines -- over the cap only by the run-journal specs (ADR 0059 (private)).
 import type { TVariableInfo } from '@falang/typescript-dto';
+import { DURATION_FIELD_AGENT_NOTES } from '@falang/workflow-integrations-common';
 import type { IWorkflowIntegration } from '@falang/workflow-integrations-common';
 import {
   TELEGRAM_COMMAND_FIELD_NAME,
@@ -170,7 +171,13 @@ export const telegramIntegration: IWorkflowIntegration = {
       ],
       questionFields: [
         { name: 'question', label: 'telegram:field.question', kind: 'template-string' },
-        { name: 'timeout', label: 'telegram:field.timeout', kind: 'text' },
+        {
+          name: 'timeout',
+          label: 'telegram:field.timeout',
+          help: 'telegram:help.timeout',
+          agentNotes: DURATION_FIELD_AGENT_NOTES,
+          kind: 'text',
+        },
       ],
       // Empty (the default) means "wait forever", today's original behavior — see
       // `IQuestionDescriptorExtensions.timeoutField`'s doc. Added 2026-09-28 alongside `human-task`

@@ -3,6 +3,7 @@ import type React from 'react';
 import { useEffect, useMemo, useState } from 'react';
 import { observer } from 'mobx-react-lite';
 import { getGlobalI18n } from '@falang/scheme';
+import { FieldLabel } from '@falang/workflow-scheme';
 import { Button, Empty, Form, Input, Modal, Popconfirm, Select, Table, Tag, Typography, message } from 'antd';
 import { pieceToCredentialIntegration } from '@falang/workflow-integrations-activepieces';
 import type {
@@ -284,7 +285,11 @@ export const IntegrationsEditor: React.FC = observer(() => {
             .map((field) =>
               field.kind === 'secret' ? (
                 <div key={field.name} style={{ display: 'flex', gap: 12 }}>
-                  <Form.Item name={fieldKey(field, 'dev')} label={`${t(field.label)} (dev)`} style={{ flex: 1 }}>
+                  <Form.Item
+                    name={fieldKey(field, 'dev')}
+                    label={<FieldLabel label={`${t(field.label)} (dev)`} help={field.help} t={t} />}
+                    style={{ flex: 1 }}
+                  >
                     <Input.Password autoComplete="new-password" />
                   </Form.Item>
                   <Form.Item name={fieldKey(field, 'prod')} label={`${t(field.label)} (prod)`} style={{ flex: 1 }}>
@@ -292,7 +297,11 @@ export const IntegrationsEditor: React.FC = observer(() => {
                   </Form.Item>
                 </div>
               ) : (
-                <Form.Item key={field.name} name={fieldKey(field)} label={t(field.label)}>
+                <Form.Item
+                  key={field.name}
+                  name={fieldKey(field)}
+                  label={<FieldLabel label={field.label} help={field.help} t={t} />}
+                >
                   {field.kind === 'select' ? (
                     <Select
                       options={field.options?.map((option) => ({ value: option.value, label: t(option.label) }))}

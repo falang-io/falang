@@ -4,6 +4,7 @@ import { ExpressionEditorCellComponent, NewVariableEditingComponent } from '@fal
 import { getChoiceHeaderFields, type IFieldConfig } from '@falang/workflow-integrations-common';
 import { Button, Form, Input, Select, Space, Typography } from 'antd';
 import { observer } from 'mobx-react-lite';
+import { FieldLabel } from '../field-help/field-help.cmp.js';
 import { DATA_TYPE_OPTIONS, type ChoiceEditorStore } from './choice-editor.store.js';
 
 const SIDEBAR_EXPRESSION_MIN_HEIGHT = 160;
@@ -137,7 +138,11 @@ export const ChoiceHeaderSidebarComponent: TBlockEditorView<ChoiceEditorStore> =
       </Typography.Title>
       <Form layout="vertical">
         {getChoiceHeaderFields(editor.descriptor).map((field) => (
-          <Form.Item key={field.name} label={t(field.label)} style={{ marginBottom: 14 }}>
+          <Form.Item
+            key={field.name}
+            label={<FieldLabel label={field.label} help={field.help} t={t} />}
+            style={{ marginBottom: 14 }}
+          >
             <ChoiceFieldEditorComponent editor={editor} field={field} />
           </Form.Item>
         ))}

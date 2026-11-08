@@ -4,11 +4,14 @@
       "requireSignature": "Требовать подпись запросов",
       "requireSignatureNo": "Нет",
       "requireSignatureYes": "Да",
-      "signatureVersion": "Версия секрета (увеличьте для смены)"
+      "signatureVersion": "Версия секрета"
     },
     "label": "Webhook",
     "trigger": {
       "incomingWebhook": "Входящий webhook"
+    },
+    "help": {
+      "signatureVersion": "Увеличьте на 1, чтобы сменить секрет: старый перестанет приниматься."
     }
   }
 }

@@ -31,8 +31,8 @@ const mediaVideoTrimAction: IActionDescriptor = {
   editorType: 'sidebar',
   fields: [
     { name: 'file', label: 'media:field.file', kind: 'expression', expectedType: fileTypeInfo() },
-    { name: 'start', label: 'media:field.start', kind: 'text' },
-    { name: 'duration', label: 'media:field.duration', kind: 'text' },
+    { name: 'start', label: 'media:field.start', help: 'media:help.start', kind: 'text' },
+    { name: 'duration', label: 'media:field.duration', help: 'media:help.duration', kind: 'text' },
     { name: 'reencode', label: 'media:field.reencode', kind: 'select', options: BOOLEAN_OPTIONS },
     { name: RESULT_VARIABLE_FIELD_NAME, label: 'media:field.result', kind: 'new-variable' },
   ],
@@ -69,7 +69,13 @@ const mediaVideoConcatAction: IActionDescriptor = {
   label: 'media:action.videoConcat',
   editorType: 'sidebar',
   fields: [
-    { name: 'files', label: 'media:field.files', kind: 'expression', expectedType: fileArrayTypeInfo() },
+    {
+      name: 'files',
+      label: 'media:field.files',
+      help: 'media:help.files',
+      kind: 'expression',
+      expectedType: fileArrayTypeInfo(),
+    },
     { name: 'reencode', label: 'media:field.reencode', kind: 'select', options: BOOLEAN_OPTIONS },
     { name: RESULT_VARIABLE_FIELD_NAME, label: 'media:field.result', kind: 'new-variable' },
   ],
@@ -101,8 +107,8 @@ const mediaVideoThumbnailAction: IActionDescriptor = {
   editorType: 'sidebar',
   fields: [
     { name: 'file', label: 'media:field.file', kind: 'expression', expectedType: fileTypeInfo() },
-    { name: 'at', label: 'media:field.at', kind: 'text' },
-    { name: 'width', label: 'media:field.width', kind: 'text' },
+    { name: 'at', label: 'media:field.at', help: 'media:help.at', kind: 'text' },
+    { name: 'width', label: 'media:field.width', help: 'media:help.width', kind: 'text' },
     { name: RESULT_VARIABLE_FIELD_NAME, label: 'media:field.result', kind: 'new-variable' },
   ],
   emit: (fields) =>

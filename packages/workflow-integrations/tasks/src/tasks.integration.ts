@@ -1,4 +1,5 @@
 import type { TVariableInfo } from '@falang/typescript-dto';
+import { DURATION_FIELD_AGENT_NOTES } from '@falang/workflow-integrations-common';
 import type { IQuestionDescriptor, IWorkflowIntegration } from '@falang/workflow-integrations-common';
 import { fileArrayTypeInfo } from '@falang/workflow-integrations-files';
 import { HUMAN_TASK_ANSWER_SIGNAL_NAME, HUMAN_TASK_NAME, TASKS_VENDOR } from './constants.js';
@@ -37,9 +38,27 @@ export const humanTaskQuestion: IQuestionDescriptor = {
   questionFields: [
     { name: 'title', label: 'tasks:field.title', kind: 'template-string' },
     { name: 'description', label: 'tasks:field.description', kind: 'template-string' },
-    { name: 'payload', label: 'tasks:field.payload', kind: 'expression', expectedType: anyType },
-    { name: 'attachments', label: 'tasks:field.attachments', kind: 'expression', expectedType: fileArrayTypeInfo() },
-    { name: 'timeout', label: 'tasks:field.timeout', kind: 'text' },
+    {
+      name: 'payload',
+      label: 'tasks:field.payload',
+      help: 'tasks:help.payload',
+      kind: 'expression',
+      expectedType: anyType,
+    },
+    {
+      name: 'attachments',
+      label: 'tasks:field.attachments',
+      help: 'tasks:help.attachments',
+      kind: 'expression',
+      expectedType: fileArrayTypeInfo(),
+    },
+    {
+      name: 'timeout',
+      label: 'tasks:field.timeout',
+      help: 'tasks:help.timeout',
+      agentNotes: DURATION_FIELD_AGENT_NOTES,
+      kind: 'text',
+    },
   ],
   // On expiry the node takes its automatic `timeout` branch (ADR §1's table) — added in the same
   // pass `telegram-question` itself adopted this (ADR §4, "Decisions" item 4).

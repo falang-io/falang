@@ -15,7 +15,12 @@ describe('bitrix24Integration', () => {
 
   it('declares one credential field (application_token) and no actions — trigger-only', () => {
     expect(bitrix24Integration.credentialFields).toEqual([
-      { name: 'application_token', label: 'Outgoing webhook token (application_token)', kind: 'secret' },
+      {
+        name: 'application_token',
+        label: 'Outgoing webhook token',
+        help: expect.stringContaining('application_token'),
+        kind: 'secret',
+      },
     ]);
     expect(bitrix24Integration.actions).toEqual([]);
   });

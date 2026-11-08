@@ -4,15 +4,20 @@
     "field": {
       "method": "Method",
       "url": "URL",
-      "headers": "Headers (object expression, optional)",
-      "body": "Body (expression, optional)",
-      "responseAs": "Response as (auto/text/json/file)",
+      "headers": "Headers",
+      "body": "Body",
+      "responseAs": "Response as",
       "result": "Save result to",
       "onNetworkError": "On network error"
     },
     "network-error": {
       "retry": "Retry until it succeeds",
       "status": "Return status 0"
+    },
+    "help": {
+      "headers": "Optional. An object of headers: `{ Authorization: 'Bearer ' + token, 'X-Id': id }`.",
+      "body": "Optional. An expression: an object is sent as JSON (`{ name: user.name }`), a string as is, a File as its content.",
+      "responseAs": "How to read the response: auto — by Content-Type, text — as a string, json — parse JSON, file — save as a File."
     }
   }
 }

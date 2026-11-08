@@ -2,6 +2,7 @@ import type { TVariableInfo } from '@falang/typescript-dto';
 import {
   buildChatTypeContextField,
   buildConversationContextField,
+  DURATION_FIELD_AGENT_NOTES,
   type IWorkflowIntegration,
 } from '@falang/workflow-integrations-common';
 import {
@@ -137,7 +138,13 @@ export const vkIntegration: IWorkflowIntegration = {
       label: 'vk:action.sendMessage',
       fields: [
         { name: 'credentialId', label: 'vk:field.bot', kind: 'credential-ref', vendor: VK_VENDOR },
-        { name: 'chatId', label: 'vk:field.chatId', kind: 'expression', expectedType: anyNumber },
+        {
+          name: 'chatId',
+          label: 'vk:field.chatId',
+          help: 'vk:help.chatId',
+          kind: 'expression',
+          expectedType: anyNumber,
+        },
         { name: 'text', label: 'vk:field.text', kind: 'template-string' },
       ],
       emit: (fields) => `await vkSendMessage(${fields.credentialId}, ${fields.chatId}, ${fields.text});`,
@@ -161,11 +168,24 @@ export const vkIntegration: IWorkflowIntegration = {
       answerSignalName: VK_QUESTION_ANSWER_SIGNAL_NAME,
       contextFields: [
         { name: 'credentialId', label: 'vk:field.bot', kind: 'credential-ref', vendor: VK_VENDOR },
-        { name: 'chatId', label: 'vk:field.chatId', kind: 'expression', expectedType: anyNumber, fieldSize: 'small' },
+        {
+          name: 'chatId',
+          label: 'vk:field.chatId',
+          help: 'vk:help.chatId',
+          kind: 'expression',
+          expectedType: anyNumber,
+          fieldSize: 'small',
+        },
       ],
       questionFields: [
         { name: 'question', label: 'vk:field.question', kind: 'template-string' },
-        { name: 'timeout', label: 'vk:field.timeout', kind: 'text' },
+        {
+          name: 'timeout',
+          label: 'vk:field.timeout',
+          help: 'vk:help.timeout',
+          agentNotes: DURATION_FIELD_AGENT_NOTES,
+          kind: 'text',
+        },
       ],
       timeoutField: 'timeout',
       journal: { kind: 'message-out', args: ['chatId', 'question', 'options'] },

@@ -14,3 +14,5 @@ export * from './field-check/workflow-field-describers.js';
 export * from './field-check/describe-integration-fields.js';
 export * from './field-check/expression-field-prefix.js';
 export * from './wait/wait-icons-group.js';
+export * from './blocks/field-help/field-help.js';
+export * from './blocks/field-help/field-help.cmp.js';

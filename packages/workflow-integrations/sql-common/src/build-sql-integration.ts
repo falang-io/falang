@@ -1,6 +1,7 @@
 import { variableInfoToTsType } from '@falang/typescript-dto';
 import type { TVariableInfo } from '@falang/typescript-dto';
 import type { IActionDescriptor, IActivityOptions, IFieldSelectOption } from '@falang/workflow-integrations-common';
+import { buildOrderByAgentNotes, buildRawSqlAgentNotes, buildWhereAgentNotes } from './agent-notes.js';
 import { tableInsertStructId, tablePatchStructId, tableStructId, tableWhereStructId } from './struct-ids.js';
 import type { ISyncedSchema, TSqlDialectName } from './schema-types.js';
 
@@ -85,13 +86,13 @@ const loadTableOptions = (
  * dialect packages pass the dialect name itself for both.
  */
 export const buildSqlActions = (
-  // Not read today — kept for signature parity with `buildSqlSharedActivityCode(dialectName)` and as
-  // the seam a future dialect-specific field/validation difference would hang off, without changing
-  // every call site's shape again.
-  _dialectName: TSqlDialectName,
+  // Only the raw-query field notes depend on it today (placeholder syntax) — the seam a future
+  // dialect-specific field/validation difference hangs off.
+  dialectName: TSqlDialectName,
   opts: { readonly vendor: string; readonly activityPrefix: string },
 ): IActionDescriptor[] => {
   const { vendor, activityPrefix } = opts;
+  const rawSqlNotes = buildRawSqlAgentNotes(dialectName);
   const p = activityPrefix;
 
   const credentialField = {
@@ -107,6 +108,34 @@ export const buildSqlActions = (
     options: [],
     loadOptions: loadTableOptions,
   } as const;
+  const whereField = {
+    name: 'where',
+    label: 'sql:field.where',
+    help: 'sql:help.where',
+    agentNotes: buildWhereAgentNotes('column', { required: false }),
+    kind: 'expression',
+    expectedType: whereType,
+  } as const;
+  const requiredWhereField = {
+    ...whereField,
+    help: 'sql:help.whereRequired',
+    agentNotes: buildWhereAgentNotes('column', { required: true }),
+    validate: requireNonBlankWhere,
+  } as const;
+  const orderByField = {
+    name: 'orderBy',
+    label: 'sql:field.orderBy',
+    help: 'sql:help.orderBy',
+    agentNotes: buildOrderByAgentNotes('column'),
+    kind: 'text',
+  } as const;
+  const limitField = {
+    name: 'limit',
+    label: 'sql:field.limit',
+    help: 'sql:help.limit',
+    agentNotes: 'A whole number as plain text, e.g. `50`. Empty — no limit.',
+    kind: 'text',
+  } as const;
   const resultVariableField = {
     name: RESULT_VARIABLE_FIELD_NAME,
     label: 'sql:field.resultVariable',
@@ -118,14 +147,7 @@ export const buildSqlActions = (
       name: `${vendor}-select`,
       label: 'sql:action.select',
       editorType: 'sidebar',
-      fields: [
-        credentialField,
-        tableField,
-        { name: 'where', label: 'sql:field.where', kind: 'expression', expectedType: whereType },
-        { name: 'orderBy', label: 'sql:field.orderBy', kind: 'text' },
-        { name: 'limit', label: 'sql:field.limit', kind: 'text' },
-        resultVariableField,
-      ],
+      fields: [credentialField, tableField, whereField, orderByField, limitField, resultVariableField],
       emit: (fields) => {
         // `orderBy`/`limit` are `kind: 'text'`, so `resolveFieldExpression` (`@falang/workflow-compiler`)
         // always `JSON.stringify`s them into a quoted string literal — never empty/falsy source text,
@@ -147,12 +169,7 @@ export const buildSqlActions = (
       name: `${vendor}-select-one`,
       label: 'sql:action.selectOne',
       editorType: 'sidebar',
-      fields: [
-        credentialField,
-        tableField,
-        { name: 'where', label: 'sql:field.where', kind: 'expression', expectedType: whereType },
-        resultVariableField,
-      ],
+      fields: [credentialField, tableField, whereField, resultVariableField],
       emit: (fields) => {
         const call = `await ${p}SelectOne(${fields.credentialId}, ${fields.table}, ${fields.where || 'undefined'})`;
         return emitAssign(call, fields[RESULT_VARIABLE_FIELD_NAME]);
@@ -190,13 +207,7 @@ export const buildSqlActions = (
         credentialField,
         tableField,
         { name: 'set', label: 'sql:field.set', kind: 'expression', expectedType: patchType },
-        {
-          name: 'where',
-          label: 'sql:field.where',
-          kind: 'expression',
-          expectedType: whereType,
-          validate: requireNonBlankWhere,
-        },
+        requiredWhereField,
         resultVariableField,
       ],
       emit: (fields) =>
@@ -213,18 +224,7 @@ export const buildSqlActions = (
       name: `${vendor}-delete`,
       label: 'sql:action.delete',
       editorType: 'sidebar',
-      fields: [
-        credentialField,
-        tableField,
-        {
-          name: 'where',
-          label: 'sql:field.where',
-          kind: 'expression',
-          expectedType: whereType,
-          validate: requireNonBlankWhere,
-        },
-        resultVariableField,
-      ],
+      fields: [credentialField, tableField, requiredWhereField, resultVariableField],
       emit: (fields) =>
         emitAssign(
           `await ${p}Delete(${fields.credentialId}, ${fields.table}, ${fields.where || 'undefined'})`,
@@ -243,8 +243,15 @@ export const buildSqlActions = (
         credentialField,
         // Plain text, deliberately not `template-string` — `${}` interpolation in raw SQL is exactly
         // the injection shape this action must not offer (ADR 0039 (private) §6).
-        { name: 'sql', label: 'sql:field.sql', kind: 'text' },
-        { name: 'params', label: 'sql:field.params', kind: 'expression', expectedType: anyArrayType },
+        { name: 'sql', label: 'sql:field.sql', help: 'sql:help.sql', agentNotes: rawSqlNotes.sql, kind: 'text' },
+        {
+          name: 'params',
+          label: 'sql:field.params',
+          help: 'sql:help.params',
+          agentNotes: rawSqlNotes.params,
+          kind: 'expression',
+          expectedType: anyArrayType,
+        },
         { name: 'result', label: 'sql:field.result', kind: 'result-type' },
         resultVariableField,
       ],

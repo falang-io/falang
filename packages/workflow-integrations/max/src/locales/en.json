@@ -16,14 +16,14 @@
       "chatId": "Chat ID",
       "text": "Text",
       "question": "Question",
-      "timeout": "Timeout (e.g. 10m, 48h) — leave empty for no timeout",
+      "timeout": "Timeout",
       "file": "File",
       "sendFileAs": "Send as",
       "caption": "Caption",
       "chatType": "Chats",
       "conversation": "Conversation",
       "userId": "User ID",
-      "block": "Block the user (ban)",
+      "block": "Block",
       "messageId": "Message ID"
     },
     "action": {
@@ -51,6 +51,10 @@
       "perChat": "One per chat",
       "perUser": "One per user in a chat",
       "perEvent": "One per message (stateless)"
+    },
+    "help": {
+      "timeout": "How long to wait for an answer: `10m`, `2h`, `48h`, `7d`. Empty — no limit.\nWhen it runs out, the “timeout” branch runs.",
+      "block": "Yes — remove and block: they can't come back through the invite link. No — just remove."
     }
   }
 }

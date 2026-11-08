@@ -17,13 +17,13 @@
     "field": {
       "credentialId": "База данных",
       "table": "Таблица",
-      "where": "Условие where (необязательно)",
-      "orderBy": "Сортировка (например, created_at desc)",
-      "limit": "Лимит (необязательно)",
+      "where": "Фильтр",
+      "orderBy": "Сортировка",
+      "limit": "Лимит",
       "row": "Строка",
       "set": "Изменяемые поля",
       "sql": "SQL",
-      "params": "Параметры (выражение-массив)",
+      "params": "Параметры",
       "result": "Тип результата",
       "resultVariable": "Сохранить результат в",
       "whereRequired": "Условие where не должно быть пустым",
@@ -33,6 +33,14 @@
         "require": "Требовать (ошибка без TLS)",
         "disable": "Отключить"
       }
+    },
+    "help": {
+      "where": "Какие строки взять. Объект: имя колонки → значение или условие. Пусто — все строки.\n\n`{ user_id: user.id }` — колонка равна значению\n`{ age: { gt: 18 } }` — больше 18 (также gte, lt, lte, ne)\n`{ status: { in: ['new', 'open'] } }` — одно из значений (notIn — ни одно)\n`{ name: { contains: 'Ив' } }` — текст содержит (также startsWith, like, ilike)\n`{ deleted_at: { isNull: true } }` — значение NULL\n`{ or: [{ status: 'new' }, { status: 'open' }] }` — любое из условий\n\nПишется как объект JavaScript: не `user_id = user.id`, а `{ user_id: user.id }`.",
+      "whereRequired": "Какие строки затронуть — обязательно. Синтаксис как в «Выбрать строки»: `{ id: row.id }`, `{ status: 'new', age: { lt: 18 } }`.",
+      "orderBy": "Колонки через запятую, у каждой asc (по умолчанию) или desc.\n`created_at desc`\n`status, created_at desc`",
+      "limit": "Сколько строк вернуть. Пусто — без ограничения.",
+      "sql": "SQL-запрос. Значения передавайте через плейсхолдеры, а не склейкой строк: `$1`, `$2` в PostgreSQL, `?` в MySQL и SQLite.\n`select * from orders where user_id = $1`",
+      "params": "Значения плейсхолдеров по порядку: `[user.id, 'new']`. Пусто — без параметров."
     }
   }
 }

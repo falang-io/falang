@@ -59,6 +59,7 @@ export const maxRemoveMemberAction: IActionDescriptor = {
     {
       name: 'block',
       label: 'max:field.block',
+      help: 'max:help.block',
       kind: 'expression',
       expectedType: { type: 'boolean' },
       defaultValue: 'true',

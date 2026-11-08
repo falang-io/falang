@@ -25,7 +25,7 @@ export const vkSendFileAction: IActionDescriptor = {
   label: 'vk:action.sendFile',
   fields: [
     { name: 'credentialId', label: 'vk:field.bot', kind: 'credential-ref', vendor: VK_VENDOR },
-    { name: 'chatId', label: 'vk:field.chatId', kind: 'expression', expectedType: anyNumber },
+    { name: 'chatId', label: 'vk:field.chatId', help: 'vk:help.chatId', kind: 'expression', expectedType: anyNumber },
     { name: 'file', label: 'vk:field.file', kind: 'expression', expectedType: fileTypeInfo() },
     { name: 'as', label: 'vk:field.sendFileAs', kind: 'select', options: AS_OPTIONS },
     { name: 'caption', label: 'vk:field.caption', kind: 'template-string' },

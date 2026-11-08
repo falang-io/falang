@@ -14,23 +14,33 @@
     },
     "field": {
       "file": "File",
-      "files": "Files (2 or more)",
-      "width": "Width (px, optional)",
-      "height": "Height (px, optional)",
+      "files": "Files",
+      "width": "Width, px",
+      "height": "Height, px",
       "fit": "Fit",
       "imageFormat": "Format",
       "videoFormat": "Format",
       "audioFormat": "Format",
-      "quality": "Quality (1-100, default 85)",
-      "start": "Start (seconds)",
-      "duration": "Duration (seconds, optional)",
+      "quality": "Quality",
+      "start": "Start, s",
+      "duration": "Duration, s",
       "reencode": "Re-encode",
-      "at": "At (seconds)",
+      "at": "At, s",
       "preset": "Preset",
       "bitrate": "Bitrate",
       "mono": "Mono",
-      "sampleRate": "Sample rate (Hz)",
+      "sampleRate": "Sample rate, Hz",
       "result": "Save result to"
+    },
+    "help": {
+      "files": "An array of two or more files (File): `[intro, video]`.",
+      "width": "Optional. Empty — keep proportions.",
+      "height": "Optional. Empty — keep proportions.",
+      "quality": "From 1 to 100, 85 by default.",
+      "start": "Where to start, in seconds, e.g. `12.5`.",
+      "duration": "Optional. How many seconds to take. Empty — until the end.",
+      "at": "The second to take the frame from, e.g. `3`.",
+      "sampleRate": "The sample rate, e.g. `16000` or `44100`."
     }
   }
 }

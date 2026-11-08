@@ -12,15 +12,22 @@
     },
     "field": {
       "url": "URL",
-      "headers": "Headers (object expression, optional)",
-      "name": "File name (optional)",
-      "ttlHours": "Expires after (hours, optional)",
+      "headers": "Headers",
+      "name": "File name",
+      "ttlHours": "Expires after, h",
       "text": "Text",
-      "mime": "MIME type (default text/plain)",
+      "mime": "MIME type",
       "file": "File",
-      "maxBytes": "Max bytes to read (default 1048576)",
+      "maxBytes": "Max bytes",
       "fileId": "File id",
       "result": "Save result to"
+    },
+    "help": {
+      "headers": "Optional. Request HTTP headers as an object: `{ Authorization: 'Bearer ' + token }`.",
+      "name": "Optional. Empty — the name is taken from the URL (or “file”).",
+      "ttlHours": "After how many hours the file is deleted, e.g. `24`. Empty — the default lifetime.",
+      "mime": "Content type, e.g. `text/csv` or `application/json`. Empty — `text/plain`.",
+      "maxBytes": "Read at most this many bytes of the file. Empty — 1048576 (1 MB)."
     }
   }
 }

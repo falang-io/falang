@@ -24,3 +24,7 @@ export const parseDurationToMs = (text: string): number => {
   const [, amount, unit] = match;
   return Number(amount) * DURATION_UNIT_MS[unit];
 };
+
+/** `IFieldConfig.agentNotes` for a duration text field (`IQuestionDescriptor.timeoutField`). */
+export const DURATION_FIELD_AGENT_NOTES =
+  'A duration: a number followed by ms, s, m, h or d, e.g. `10m`, `2h`, `48h`, `7d`. Empty — no timeout.';

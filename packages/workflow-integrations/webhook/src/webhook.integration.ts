@@ -66,6 +66,7 @@ export const webhookIntegration: IWorkflowIntegration = {
         {
           name: WEBHOOK_SIGNATURE_VERSION_FIELD,
           label: 'webhook:field.signatureVersion',
+          help: 'webhook:help.signatureVersion',
           kind: 'text',
           defaultValue: '1',
           validate: validateWebhookSignatureVersion,

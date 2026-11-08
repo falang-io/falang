@@ -17,13 +17,13 @@
     "field": {
       "credentialId": "Database",
       "table": "Table",
-      "where": "Where (optional)",
-      "orderBy": "Order by (e.g. created_at desc)",
-      "limit": "Limit (optional)",
+      "where": "Filter",
+      "orderBy": "Order by",
+      "limit": "Limit",
       "row": "Row",
       "set": "Set",
       "sql": "SQL",
-      "params": "Parameters (array expression)",
+      "params": "Parameters",
       "result": "Result type",
       "resultVariable": "Save result to",
       "whereRequired": "Where must not be empty",
@@ -33,6 +33,14 @@
         "require": "Require (fail without TLS)",
         "disable": "Disable"
       }
+    },
+    "help": {
+      "where": "Which rows to take. An object: column name → value or condition. Empty — every row.\n\n`{ user_id: user.id }` — the column equals the value\n`{ age: { gt: 18 } }` — greater than 18 (also gte, lt, lte, ne)\n`{ status: { in: ['new', 'open'] } }` — one of the values (notIn — none of them)\n`{ name: { contains: 'Iv' } }` — text contains (also startsWith, like, ilike)\n`{ deleted_at: { isNull: true } }` — the value is NULL\n`{ or: [{ status: 'new' }, { status: 'open' }] }` — any of the conditions\n\nWritten as a JavaScript object: not `user_id = user.id` but `{ user_id: user.id }`.",
+      "whereRequired": "Which rows to touch — required. Same syntax as in “Select rows”: `{ id: row.id }`, `{ status: 'new', age: { lt: 18 } }`.",
+      "orderBy": "Comma-separated columns, each optionally asc (default) or desc.\n`created_at desc`\n`status, created_at desc`",
+      "limit": "How many rows to return. Empty — no limit.",
+      "sql": "An SQL query. Pass values through placeholders, never by string concatenation: `$1`, `$2` in PostgreSQL, `?` in MySQL and SQLite.\n`select * from orders where user_id = $1`",
+      "params": "Placeholder values in order: `[user.id, 'new']`. Empty — no parameters."
     }
   }
 }

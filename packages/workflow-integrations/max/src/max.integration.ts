@@ -2,6 +2,7 @@ import type { TVariableInfo } from '@falang/typescript-dto';
 import {
   buildChatTypeContextField,
   buildConversationContextField,
+  DURATION_FIELD_AGENT_NOTES,
   type IWorkflowIntegration,
 } from '@falang/workflow-integrations-common';
 import {
@@ -190,7 +191,13 @@ export const maxIntegration: IWorkflowIntegration = {
       ],
       questionFields: [
         { name: 'question', label: 'max:field.question', kind: 'template-string' },
-        { name: 'timeout', label: 'max:field.timeout', kind: 'text' },
+        {
+          name: 'timeout',
+          label: 'max:field.timeout',
+          help: 'max:help.timeout',
+          agentNotes: DURATION_FIELD_AGENT_NOTES,
+          kind: 'text',
+        },
       ],
       timeoutField: 'timeout',
       journal: { kind: 'message-out', args: ['chatId', 'question', 'options'] },
