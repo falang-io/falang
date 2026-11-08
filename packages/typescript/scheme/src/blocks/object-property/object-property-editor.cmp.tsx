@@ -8,7 +8,7 @@ export const ObjectPropertyBlockEditorComponent: TBlockEditorView<ObjectProperty
   ({ editor }) => {
     const { data, projectService } = editor;
     const typesRegistry = projectService?.typesRegistry;
-    const structTypes = typesRegistry ? [...typesRegistry.types.values()] : [];
+    const structTypes = typesRegistry ? typesRegistry.pickerTypes : [];
 
     return (
       <TypeScriptBlockContainer>

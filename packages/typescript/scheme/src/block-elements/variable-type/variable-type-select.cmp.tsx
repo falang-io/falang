@@ -22,6 +22,7 @@ import {
   type TTypeChoice,
 } from './variable-type-model.js';
 import { useTypeLabel } from './use-type-labels.js';
+import { StructTypeSelect } from './struct-type-select.cmp.js';
 
 const dimensionsOptions = [1, 2, 3, 4] as const;
 
@@ -230,11 +231,12 @@ export const VariableTypeSelect = observer((props: IVariableTypeSelectProps) => 
       row(
         `${prefix}struct`,
         isElement && !table ? tr('element-struct', 'Element struct') : tr('struct', table ? 'struct' : 'Struct'),
-        selectControl(
-          type.id,
-          [{ value: '', label: '—' }, ...structTypes.map((s) => ({ value: s.id, label: s.name || s.id }))],
-          (id) => onType({ type: 'struct', id }),
-        ),
+        <StructTypeSelect
+          value={type.id}
+          onChange={(id) => onType({ type: 'struct', id })}
+          structTypes={structTypes}
+          size={table ? 'small' : 'middle'}
+        />,
         last,
       );
     }

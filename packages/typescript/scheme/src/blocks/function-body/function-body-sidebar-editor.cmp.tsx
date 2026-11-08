@@ -13,7 +13,7 @@ export const FunctionBodySidebarEditorComponent: TBlockEditorView<FunctionBodyBl
     const { data, projectService } = editor;
     const scheme = useService(TOKEN_SCHEME);
     const typesRegistry = projectService?.typesRegistry;
-    const structTypes = typesRegistry ? [...typesRegistry.types.values()] : [];
+    const structTypes = typesRegistry ? typesRegistry.pickerTypes : [];
 
     return (
       <Form layout="vertical" style={{ padding: '8px' }}>

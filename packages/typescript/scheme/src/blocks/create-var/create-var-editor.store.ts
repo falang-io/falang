@@ -81,7 +81,7 @@ export class CreateVarBlockEditorStore extends ExpressionBlockEditorStore<ICreat
   }
 
   get structTypes() {
-    return this.projectService ? [...this.projectService.typesRegistry.types.values()] : [];
+    return this.projectService ? this.projectService.typesRegistry.pickerTypes : [];
   }
 
   /** Types the value field's editor as the variable's own declared type, e.g. `let x: string = ` for `x`. */

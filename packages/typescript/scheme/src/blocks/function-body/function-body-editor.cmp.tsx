@@ -10,7 +10,7 @@ export const FunctionBodyBlockEditorComponent: TBlockEditorView<FunctionBodyBloc
     const { data, projectService } = editor;
     const scheme = useService(TOKEN_SCHEME);
     const typesRegistry = projectService?.typesRegistry;
-    const structTypes = typesRegistry ? [...typesRegistry.types.values()] : [];
+    const structTypes = typesRegistry ? typesRegistry.pickerTypes : [];
 
     return (
       <TypeScriptBlockContainer>

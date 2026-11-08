@@ -260,7 +260,7 @@ export class IntegrationActionEditorStore extends ExpressionBlockEditorStore<TIn
 
   /** Project structs a `result-type` field can point at for "structured output" — same source `function-body`'s sidebar editor lists. */
   get structTypes(): readonly ITypeRegistryObjectItem[] {
-    return this.projectService ? [...this.projectService.typesRegistry.types.values()] : [];
+    return this.projectService ? this.projectService.typesRegistry.pickerTypes : [];
   }
 
   getData(): TIntegrationActionData {

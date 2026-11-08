@@ -1,5 +1,5 @@
 import { TOKEN_I18N, useService } from '@falang/scheme';
-import { TsSelect } from '@falang/typescript-scheme';
+import { StructTypeSelect, TsSelect } from '@falang/typescript-scheme';
 import type { IFieldConfig } from '@falang/workflow-integrations-common';
 import { Flex, Select } from 'antd';
 import { observer } from 'mobx-react-lite';
@@ -55,23 +55,13 @@ export const ResultTypeFieldComponent: React.FC<{ editor: IntegrationActionEdito
           </TsSelect>
         </div>
         {info.type === 'struct' && (
-          <div className="ts-select-wrapper">
-            <TsSelect
-              className="ts-select"
-              value={info.id}
-              onChange={(event) => editor.setResultStructId(field, event.currentTarget.value)}
-              style={{ width: '100%' }}
-            >
-              <option value="" disabled>
-                {t('integration-editor:select-struct-placeholder')}
-              </option>
-              {editor.structTypes.map((type) => (
-                <option key={type.id} value={type.id}>
-                  {type.name || type.id}
-                </option>
-              ))}
-            </TsSelect>
-          </div>
+          <StructTypeSelect
+            size="small"
+            value={info.id}
+            onChange={(id) => editor.setResultStructId(field, id)}
+            structTypes={editor.structTypes}
+            placeholder={t('integration-editor:select-struct-placeholder')}
+          />
         )}
       </div>
     );
@@ -130,13 +120,11 @@ export const SidebarResultTypeFieldComponent: React.FC<{ editor: IntegrationActi
           ]}
         />
         {info.type === 'struct' && (
-          <Select
-            style={{ width: '100%' }}
-            value={emptyToUnset(info.id)}
-            onChange={(value: string) => editor.setResultStructId(field, value ?? '')}
-            options={editor.structTypes.map((type) => ({ value: type.id, label: type.name || type.id }))}
+          <StructTypeSelect
+            value={info.id}
+            onChange={(id) => editor.setResultStructId(field, id)}
+            structTypes={editor.structTypes}
             placeholder={t('integration-editor:select-struct-placeholder')}
-            showSearch={{ optionFilterProp: 'label', filterOption: filterOptionByLabel }}
           />
         )}
       </Flex>

@@ -11,7 +11,7 @@ export const ExternalApiItemSidebarEditorComponent: TBlockEditorView<ExternalApi
   ({ editor }) => {
     const { data, projectService } = editor;
     const typesRegistry = projectService?.typesRegistry;
-    const structTypes = typesRegistry ? [...typesRegistry.types.values()] : [];
+    const structTypes = typesRegistry ? typesRegistry.pickerTypes : [];
 
     return (
       <Form layout="vertical" style={{ padding: '8px' }}>

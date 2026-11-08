@@ -86,7 +86,8 @@ type TAgentInterfaceSetting = 'json' | 'nodes';
 import { subscribeWorkflowDocumentSync } from './sync-document-from-scheme.js';
 import { findDocumentNameConflict } from './document-names.js';
 import { generateUuid } from './generate-uuid.js';
-import { loadDisabledVendors } from './disabled-vendors.js';
+import { getEnabledIntegrations, loadDisabledVendors } from './disabled-vendors.js';
+import { createStructPickerFilter } from './struct-picker-filter.js';
 import { REGISTERED_INTEGRATIONS } from './integrations-registry.js';
 import {
   createActivepiecesCatalogProvider,
@@ -283,6 +284,14 @@ export class WorkflowStore implements IWorkflowAgentStore {
     this.owner = options.owner ?? null;
     this.container = container.createChildContainer();
     registerTypescriptProjectService(this.container);
+    // Type pickers list a vendor's struct types only while the project has that integration connected.
+    this.typesRegistry.setPickerFilter(
+      createStructPickerFilter({
+        integrations: REGISTERED_INTEGRATIONS,
+        getEnabledIntegrations,
+        getInstances: () => getIntegrationInstances(this.documents),
+      }),
+    );
     // `this.documents` (the observable array field above) is already the live instance at this point
     // (class field initializers run before constructor-body code) — safe for `hasScheduleTrigger`'s
     // closure to read it here, even though it's still empty until `ProjectSync`'s first load resolves.

@@ -34,3 +34,4 @@ export * from './portable-types/portable-types-validator.js';
 export * from './block-elements/variable-type/variable-type-model.js';
 export * from './block-elements/variable-type/describe-variable-type.js';
 export * from './block-elements/variable-type/variable-type-select.cmp.js';
+export * from './block-elements/variable-type/struct-type-select.cmp.js';
