@@ -61,7 +61,7 @@ export const onecIntegration: IWorkflowIntegration = {
           help: "Необязательно. Условие OData $filter, например `Post eq true` или `Description eq 'Иванов'`.",
           kind: 'template-string',
         },
-        { name: 'resultVariable', label: 'Сохранить результат в', kind: 'new-variable' },
+        { name: 'resultVariable', label: 'Результат', kind: 'new-variable' },
       ],
       emit: (fields) => {
         const call = `await onecGetRecords(${fields.credentialId}, ${fields.entity}, ${fields.filter})`;

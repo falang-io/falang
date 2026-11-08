@@ -7,7 +7,7 @@
       "headers": "Headers",
       "body": "Body",
       "responseAs": "Response as",
-      "result": "Save result to",
+      "result": "Result",
       "onNetworkError": "On network error"
     },
     "network-error": {

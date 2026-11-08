@@ -20,7 +20,7 @@
       "file": "Файл",
       "maxBytes": "Максимум байт",
       "fileId": "Id файла",
-      "result": "Сохранить результат в"
+      "result": "Результат"
     },
     "help": {
       "headers": "Необязательно. HTTP-заголовки запроса объектом: `{ Authorization: 'Bearer ' + token }`.",

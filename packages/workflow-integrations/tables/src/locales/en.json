@@ -23,7 +23,7 @@
       "id": "Record id",
       "row": "New record",
       "set": "Fields to change",
-      "result": "Save result to"
+      "result": "Result"
     },
     "help": {
       "where": "Which records to take. An object: table field name → value or condition.\nEmpty — every record.\n\n`{ maxId: user.id }` — maxId equals user.id\n`{ age: { gt: 18 } }` — greater than 18 (also gte, lt, lte, ne)\n`{ status: { in: ['new', 'open'] } }` — one of the values (notIn — none of them)\n`{ name: { contains: 'Iv' } }` — text contains (also startsWith, like, ilike)\n`{ phone: { isNull: true } }` — the field is empty\n`{ maxId: user.id, gone: false }` — all conditions at once\n`{ or: [{ status: 'new' }, { status: 'open' }] }` — any of the conditions\n\nWritten as a JavaScript object: not `maxId = user.id` but `{ maxId: user.id }`.\nQuote a field name with a space or a dash: `{ 'order date': { gte: '2026-01-01' } }`.\nid, createdAt and updatedAt are available too.",

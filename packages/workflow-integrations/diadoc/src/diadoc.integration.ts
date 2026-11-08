@@ -66,7 +66,7 @@ export const diadocIntegration: IWorkflowIntegration = {
       label: 'Диадок: Получить документы',
       fields: [
         { name: 'credentialId', label: 'Ящик Диадок', kind: 'credential-ref', vendor: DIADOC_VENDOR },
-        { name: 'resultVariable', label: 'Сохранить результат в', kind: 'new-variable' },
+        { name: 'resultVariable', label: 'Результат', kind: 'new-variable' },
       ],
       emit: (fields) => {
         const call = `await diadocGetDocuments(${fields.credentialId})`;

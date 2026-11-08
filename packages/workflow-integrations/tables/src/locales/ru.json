@@ -23,7 +23,7 @@
       "id": "Id записи",
       "row": "Новая запись",
       "set": "Изменяемые поля",
-      "result": "Сохранить результат в"
+      "result": "Результат"
     },
     "help": {
       "where": "Какие записи взять. Объект: имя поля таблицы → значение или условие.\nПусто — все записи.\n\n`{ maxId: user.id }` — поле maxId равно user.id\n`{ age: { gt: 18 } }` — больше 18 (также gte, lt, lte, ne)\n`{ status: { in: ['new', 'open'] } }` — одно из значений (notIn — ни одно)\n`{ name: { contains: 'Ив' } }` — текст содержит (также startsWith, like, ilike)\n`{ phone: { isNull: true } }` — поле не заполнено\n`{ maxId: user.id, gone: false }` — все условия сразу\n`{ or: [{ status: 'new' }, { status: 'open' }] }` — любое из условий\n\nПишется как объект JavaScript: не `maxId = user.id`, а `{ maxId: user.id }`.\nИмя поля с пробелом или дефисом — в кавычках: `{ 'дата заказа': { gte: '2026-01-01' } }`.\nТакже доступны id, createdAt и updatedAt.",

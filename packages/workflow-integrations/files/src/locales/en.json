@@ -20,7 +20,7 @@
       "file": "File",
       "maxBytes": "Max bytes",
       "fileId": "File id",
-      "result": "Save result to"
+      "result": "Result"
     },
     "help": {
       "headers": "Optional. Request HTTP headers as an object: `{ Authorization: 'Bearer ' + token }`.",

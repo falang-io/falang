@@ -25,7 +25,7 @@
       "sql": "SQL",
       "params": "Parameters",
       "result": "Result type",
-      "resultVariable": "Save result to",
+      "resultVariable": "Result",
       "whereRequired": "Where must not be empty",
       "ssl": "SSL",
       "sslOption": {

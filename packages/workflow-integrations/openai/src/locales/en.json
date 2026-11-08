@@ -11,7 +11,7 @@
       "prompt": "Prompt",
       "attachments": "Attachments",
       "result": "Result",
-      "resultVariable": "Save result to",
+      "resultVariable": "Result",
       "size": "Size",
       "file": "Audio file",
       "transcribeModel": "Model",

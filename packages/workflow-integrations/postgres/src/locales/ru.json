@@ -25,7 +25,7 @@
       "sql": "SQL",
       "params": "Параметры",
       "result": "Тип результата",
-      "resultVariable": "Сохранить результат в",
+      "resultVariable": "Результат",
       "whereRequired": "Условие where не должно быть пустым",
       "ssl": "SSL",
       "sslOption": {

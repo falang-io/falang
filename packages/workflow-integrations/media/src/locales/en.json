@@ -30,7 +30,7 @@
       "bitrate": "Bitrate",
       "mono": "Mono",
       "sampleRate": "Sample rate, Hz",
-      "result": "Save result to"
+      "result": "Result"
     },
     "help": {
       "files": "An array of two or more files (File): `[intro, video]`.",

@@ -70,7 +70,7 @@ export const tbankIntegration: IWorkflowIntegration = {
           help: 'Необязательно. Дата и время в ISO 8601, например `2026-01-31T23:59:59Z`.',
           kind: 'text',
         },
-        { name: 'resultVariable', label: 'Сохранить результат в', kind: 'new-variable' },
+        { name: 'resultVariable', label: 'Результат', kind: 'new-variable' },
       ],
       emit: (fields) => {
         const call = `await tbankGetStatement(${fields.accountNumber}, ${fields.from}, ${fields.to})`;
