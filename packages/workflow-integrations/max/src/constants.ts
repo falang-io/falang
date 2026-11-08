@@ -5,6 +5,7 @@ export const MAX_ON_COMMAND_TRIGGER_NAME = 'max-on-command-trigger';
 export const MAX_COMMAND_FIELD_NAME = 'command';
 export const MAX_SEND_MESSAGE_NAME = 'max-send-message';
 export const MAX_SEND_FILE_NAME = 'max-send-file';
+export const MAX_SEND_BUTTONS_NAME = 'max-send-buttons';
 export const MAX_QUESTION_NAME = 'max-question';
 export const MAX_SIGNAL_NAME = 'maxMessage';
 /** Shared by every `max-question` node in a compiled workflow — button presses are correlated to a specific pending question by `messageId`, not by signal identity. */

@@ -320,6 +320,30 @@ describe('registerVkBackend', () => {
       expect(Object.fromEntries(answer.params)).toEqual({ event_id: 'ev-1', user_id: '42', peer_id: '42' });
     });
 
+    it('a command button press is answered and delivered as a /command message from the presser', async () => {
+      const ctx = await setup();
+      await ctx.webhook?.(
+        callbackRequest({
+          type: 'message_event',
+          secret: SECRET,
+          event_id: 'ev-cmd',
+          object: {
+            user_id: 42,
+            peer_id: 42,
+            event_id: 'ev-3',
+            payload: { falangCommand: 'start again' },
+            conversation_message_id: 9,
+          },
+        }),
+      );
+      expect(callsOf('messages.sendMessageEventAnswer')).toHaveLength(1);
+      expect(signalCall(ctx)).toMatchObject({
+        workflowId: 'vk-doc-start-42',
+        signalName: 'vkMessage',
+        signalArgs: [{ text: '/start again', chat: { id: 42 }, conversationMessageId: 9 }],
+      });
+    });
+
     it('answers a button press without a falang payload but signals nothing', async () => {
       const ctx = await setup();
       await ctx.webhook?.(

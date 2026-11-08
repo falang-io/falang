@@ -8,6 +8,7 @@ import {
   MAX_MESSAGE_TYPE_ID,
   MAX_ON_COMMAND_TRIGGER_NAME,
   MAX_QUESTION_NAME,
+  MAX_SEND_BUTTONS_NAME,
   MAX_SEND_FILE_NAME,
   MAX_SEND_MESSAGE_NAME,
   MAX_TRIGGER_NAME,
@@ -38,6 +39,7 @@ describe('maxIntegration', () => {
       'max-member-left',
       MAX_SEND_MESSAGE_NAME,
       MAX_SEND_FILE_NAME,
+      MAX_SEND_BUTTONS_NAME,
       'max-remove-member',
       'max-delete-message',
     ]);

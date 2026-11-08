@@ -31,7 +31,8 @@ export { taskOptionDataTypeToVariableInfo } from './question-extensions.js';
  * — e.g. `call-ai-text`'s `resultVariable` — and becomes visible to later sibling nodes' scope (see
  * `@falang/typescript-common`'s `getScopeContribution`). 'document-ref' is the id of another document of this
  * project (see `IFieldConfig.documentType`, e.g. a `table`), stored as a plain string and compiled to a string
- * literal like a 'text' field; ADR 0075 (private).
+ * literal like a 'text' field; ADR 0075 (private). 'buttons' is a JSON-encoded list of messenger buttons (open a URL
+ * or run a bot command) — see `message-buttons.ts`; its texts and values are template-literal bodies.
  */
 export type TIntegrationFieldKind =
   | 'text'
@@ -42,7 +43,8 @@ export type TIntegrationFieldKind =
   | 'credential-ref'
   | 'result-type'
   | 'new-variable'
-  | 'document-ref';
+  | 'document-ref'
+  | 'buttons';
 
 export interface IFieldSelectOption {
   readonly value: string;

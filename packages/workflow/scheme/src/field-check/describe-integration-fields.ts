@@ -7,7 +7,11 @@ import {
   type ICheckedField,
   type IFieldCheckContext,
 } from '@falang/typescript-scheme';
-import type { IFieldConfig, IIntegrationInstance } from '@falang/workflow-integrations-common';
+import {
+  parseMessageButtons,
+  type IFieldConfig,
+  type IIntegrationInstance,
+} from '@falang/workflow-integrations-common';
 import { initialFieldValue } from '../registry/initial-field-value.js';
 import { expressionFieldPrefix } from './expression-field-prefix.js';
 
@@ -37,8 +41,8 @@ export const isOptionalField = (field: IFieldConfig): boolean => typeof field.de
 
 /**
  * The checked fields of a descriptor-driven node (an integration action, or a question/choice header): `expression`
- * fields (typed by `expectedType` when set), `template-string` fields and `new-variable` fields. Other kinds
- * (`text`/`select`/`secret`/`credential-ref`/…) hold no code.
+ * fields (typed by `expectedType` when set), `template-string` fields, every text of a `buttons` field and
+ * `new-variable` fields. Other kinds (`text`/`select`/`secret`/`credential-ref`/…) hold no code.
  */
 export const describeIntegrationFields = (
   node: NodeStore,
@@ -65,6 +69,13 @@ export const describeIntegrationFields = (
       });
     } else if (field.kind === 'template-string') {
       result.push({ ...templateField(node, ctx, field.name, value), allowEmpty } as ICheckedField);
+    } else if (field.kind === 'buttons') {
+      // Every caption and URL/command is a template body, checked like a message text; a malformed list is left to
+      // the compiler, which names the node.
+      parseMessageButtons(value).buttons.forEach((button, index) => {
+        result.push(templateField(node, ctx, `${field.name}[${index}].text`, button.text));
+        result.push(templateField(node, ctx, `${field.name}[${index}].value`, button.value));
+      });
     } else if (field.kind === 'document-ref') {
       // A pick from a list, never code — but a required one left empty is an error: reuse the code check, whose
       // generated text (`_value = <empty>`) is invalid exactly then. A chosen value adds nothing to check.

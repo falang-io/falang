@@ -15,7 +15,18 @@
     "type-number": "Число",
     "type-boolean": "Логическое",
     "type-void": "Нет",
-    "prompt": "Подсказка"
+    "prompt": "Подсказка",
+    "add-button": "Добавить кнопку",
+    "remove-button": "Удалить кнопку",
+    "move-up": "Выше",
+    "move-down": "Ниже",
+    "button-kind-url": "Ссылка",
+    "button-kind-command": "Команда",
+    "button-text": "Текст",
+    "button-url": "Адрес",
+    "button-command": "Команда (например, /help)",
+    "buttons-invalid": "Сохранённые кнопки не читаются — добавление или изменение кнопки заменит их",
+    "buttons-limit": "Не больше {{count}} кнопок"
   },
   "activepieces-picker": {
     "title": "Добавить действие ActivePieces",

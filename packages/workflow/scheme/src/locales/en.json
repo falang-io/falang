@@ -15,7 +15,18 @@
     "type-number": "Number",
     "type-boolean": "Boolean",
     "type-void": "None",
-    "prompt": "Prompt"
+    "prompt": "Prompt",
+    "add-button": "Add button",
+    "remove-button": "Remove button",
+    "move-up": "Move up",
+    "move-down": "Move down",
+    "button-kind-url": "Link",
+    "button-kind-command": "Command",
+    "button-text": "Text",
+    "button-url": "URL",
+    "button-command": "Command (e.g. /help)",
+    "buttons-invalid": "The stored buttons can't be read — adding or changing a button replaces them",
+    "buttons-limit": "At most {{count}} buttons"
   },
   "activepieces-picker": {
     "title": "Add ActivePieces action",

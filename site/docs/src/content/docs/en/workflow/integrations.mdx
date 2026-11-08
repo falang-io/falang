@@ -21,7 +21,10 @@ head:
     command" trigger starts a separate trigger function for one command (<code>/start</code>, <code>/help</code>, …) —
     when both are bound, a matching command goes only to its own function. "Send message" replies on the bot's behalf,
     and "Ask question" sends a question with inline-keyboard buttons and waits until the user taps one (optionally with
-    a timeout branch), continuing down the branch of the pressed button. A photo, document, voice message, audio or
+    a timeout branch), continuing down the branch of the pressed button. "Send message with buttons" (edited in the side
+    panel) adds up to 10 buttons under a message and does not wait for a press: a "Link" button opens an address, a
+    "Command" button acts as if the user had sent that command (e.g. <code>/help</code>), so it is handled by the
+    "On command" trigger — handy for a menu whose buttons start other scenarios. A photo, document, voice message, audio or
     video attached to an incoming message is resolved into a <a href="../files/">File</a> automatically, and "Send file"
     delivers one back as an attachment. Credentials (the bot token) are stored separately for the dev and prod
     environments and encrypted at rest. Locally the engine long-polls Telegram; once a public address is configured it
@@ -30,8 +33,8 @@ head:
     <a href="../messenger-groups/">Groups and moderation in messenger bots</a>.
   </li>
   <li>
-    <b>MAX messenger</b>. The same as Telegram: "On message" and "On command" triggers, "Send message", "Send file" and
-    "Ask question" with buttons and an optional timeout. The bot token comes from the MAX partner platform
+    <b>MAX messenger</b>. The same as Telegram: "On message" and "On command" triggers, "Send message", "Send message with
+    buttons", "Send file" and "Ask question" with buttons and an optional timeout. The bot token comes from the MAX partner platform
     (business.max.ru). Pressing "Start" in a new dialog with the bot reaches the scenario as the message{' '}
     <code>/start</code> (and a link with a <code>start</code> parameter as <code>/start &lt;parameter&gt;</code>), so an
     "On command" trigger for <code>start</code> works just like in Telegram. Incoming images, files, audio and video
@@ -44,7 +47,8 @@ head:
   </li>
   <li>
     <b>VK (VKontakte) community bot</b>. The same as Telegram: "On message" and "On command" triggers, "Send message",
-    "Send file" and "Ask question" with callback buttons and an optional timeout. The key comes from the community:
+    "Send message with buttons" (VK shows at most 40 characters of a button caption), "Send file" and "Ask question"
+    with callback buttons and an optional timeout. The key comes from the community:
     Manage → API usage → Access tokens, with the rights "Community messages", "Photos", "Documents" and "Community
     management"; also turn on community messages and bot abilities in the messages settings. Pressing "Start" in a new
     dialog reaches the scenario as <code>/start</code>, and a <code>vk.me/&lt;community&gt;?ref=…</code> link as{' '}

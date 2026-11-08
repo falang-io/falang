@@ -1,3 +1,4 @@
+// oxlint-disable max-lines -- one store for every field kind of every vendor action; `buttons` pushed it over.
 import { resolveService } from '@falang/di';
 import type { IBlockEditorFactoryParams } from '@falang/scheme';
 import type { ITypeRegistryObjectItem } from '@falang/typescript-scheme';
@@ -20,6 +21,7 @@ import {
 import { expressionFieldPrefix } from '../../field-check/expression-field-prefix.js';
 import { isOptionalField, storedFieldValues } from '../../field-check/describe-integration-fields.js';
 import { initialFieldValue } from '../../registry/initial-field-value.js';
+import { ButtonsFieldStore } from './buttons-field.store.js';
 
 export type TIntegrationActionData = Readonly<Record<string, string>>;
 
@@ -64,6 +66,8 @@ export class IntegrationActionEditorStore extends ExpressionBlockEditorStore<TIn
   readonly codeStores = new Map<string, CodeModelStore>();
   readonly templateStringStores = new Map<string, TemplateStringStore>();
   readonly newVariableStores = new Map<string, NewVariableStore>();
+  /** `buttons` fields (messenger buttons under a message) — see `ButtonsFieldStore`. */
+  readonly buttonsStores = new Map<string, ButtonsFieldStore>();
   @observable.shallow dynamicOptions: readonly ISelectOption[] = [];
   @observable optionsLoading = false;
   private readonly credentialInstances: readonly IIntegrationInstance[];
@@ -119,6 +123,16 @@ export class IntegrationActionEditorStore extends ExpressionBlockEditorStore<TIn
             getScopeCode: () => this.hiddenScopeCode,
           }),
         );
+      } else if (field.kind === 'buttons') {
+        this.buttonsStores.set(
+          field.name,
+          new ButtonsFieldStore({
+            id: params.icon.id,
+            name: field.name,
+            value,
+            getScopeCode: () => this.hiddenScopeCode,
+          }),
+        );
       } else if (field.kind === 'new-variable') {
         this.newVariableStores.set(
           field.name,
@@ -160,6 +174,9 @@ export class IntegrationActionEditorStore extends ExpressionBlockEditorStore<TIn
       snapshot[name] = store.value;
     });
     this.newVariableStores.forEach((store, name) => {
+      snapshot[name] = store.value;
+    });
+    this.buttonsStores.forEach((store, name) => {
       snapshot[name] = store.value;
     });
     return snapshot;
@@ -274,11 +291,15 @@ export class IntegrationActionEditorStore extends ExpressionBlockEditorStore<TIn
     this.newVariableStores.forEach((store, name) => {
       data[name] = store.value;
     });
+    this.buttonsStores.forEach((store, name) => {
+      data[name] = store.value;
+    });
     return data;
   }
 
   override dispose(): void {
     this.codeStores.forEach((store) => store.dispose());
     this.templateStringStores.forEach((store) => store.dispose());
+    this.buttonsStores.forEach((store) => store.dispose());
   }
 }

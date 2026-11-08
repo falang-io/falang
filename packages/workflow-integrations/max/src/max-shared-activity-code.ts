@@ -1,5 +1,6 @@
 import { MAX_DEFAULT_API_BASE_URL } from './constants.js';
 import { MAX_MODERATION_SHARED_CODE } from './max-moderation-actions.js';
+import { MAX_PREPARE_BUTTONS_CODE } from './max-send-buttons-action.js';
 
 /**
  * Shared by every Max activity — emitted once into the generated `activities.ts` (see
@@ -79,6 +80,8 @@ export const MAX_SHARED_ACTIVITY_CODE = [
   '',
   'const maxSendText = async (bot: { token: string; apiBaseUrl: string }, chatId: number, text: string): Promise<any> =>',
   "  maxApiRequest(bot, 'POST', 'messages', { chat_id: chatId }, { text });",
+  '',
+  MAX_PREPARE_BUTTONS_CODE,
   '',
   MAX_MODERATION_SHARED_CODE,
 ].join('\n');

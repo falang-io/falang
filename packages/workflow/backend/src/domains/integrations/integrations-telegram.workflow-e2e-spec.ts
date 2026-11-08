@@ -1,3 +1,4 @@
+// oxlint-disable max-lines -- three end-to-end scenarios with their fixtures.
 import { telegramIntegration } from '@falang/workflow-integrations-telegram';
 import { getTelegramCalls, pushTelegramUpdate } from '@falang/workflow-mocks';
 import { beforeAll, describe, expect, it } from 'vitest';
@@ -242,6 +243,113 @@ describe('integrations (workflow tier): Telegram', () => {
         const calls = await getTelegramCalls(WORKFLOW_E2E_MOCKS_URL, botToken);
         return calls.find(
           (call) => call.method === 'sendMessage' && (call.body as { text?: string }).text === 'Chose B',
+        );
+      }, 60_000);
+
+      await workflowE2eApi().post(`/projects/${projectId}/stop`).set(workflowE2eAuth(token)).expect(204);
+      await waitForDevRunnerStatus(projectId, false, 20_000);
+    } finally {
+      await workflowE2eApi().delete(`/projects/${projectId}`).set(workflowE2eAuth(token));
+    }
+  }, 150_000);
+
+  it('telegram-send-buttons: a link + command keyboard, and a command press runs the on-command trigger', async () => {
+    const botToken = `e2e-${Date.now()}`;
+    const credentialId = `cred-${Date.now()}`;
+    const onMessage = telegramIntegration.triggers[0];
+    const onCommand = telegramIntegration.triggers[1];
+    const triggerFields = (trigger: typeof onMessage, triggerConfig?: Record<string, string>) => ({
+      vendor: telegramIntegration.vendor,
+      triggerName: trigger.name,
+      credentialId,
+      scopeVariableName: trigger.scopeVariableName,
+      scopeType: trigger.scopeType,
+      ...(triggerConfig ? { triggerConfig } : {}),
+    });
+    const buttons = JSON.stringify([
+      { kind: 'url', text: 'Site', value: 'https://example.com/?chat=${message.chat.id}' },
+      { kind: 'command', text: 'Help', value: 'help' },
+    ]);
+    const fixture: IProjectExportPayload = {
+      formatVersion: 1,
+      project: { id: '', name: `Workflow-tier TG Buttons ${Date.now()}` },
+      folders: [],
+      documents: [
+        buildIntegrationsDocument(credentialId, botToken),
+        {
+          id: 'menu',
+          type: 'trigger-function',
+          name: 'onMessage',
+          folderId: null,
+          pinned: false,
+          root: buildTriggerFunctionRootNode('menu', triggerFields(onMessage), [
+            {
+              id: 'menu-send',
+              name: 'telegram-send-buttons',
+              data: { credentialId, chatId: 'message.chat.id', text: 'Menu', buttons },
+            },
+          ]),
+          data: null,
+        },
+        {
+          id: 'help',
+          type: 'trigger-function',
+          name: 'onHelp',
+          folderId: null,
+          pinned: false,
+          root: buildTriggerFunctionRootNode('help', triggerFields(onCommand, { command: 'help' }), [
+            buildTelegramSendMessageNode('help-send', {
+              credentialId,
+              chatId: 'message.chat.id',
+              text: 'Help for ${message.from?.firstName}: ${message.text}',
+            }),
+          ]),
+          data: null,
+        },
+      ],
+    };
+
+    const projectId = await importFixture(fixture);
+    try {
+      const buildResponse = await workflowE2eApi().post(`/projects/${projectId}/build`).set(workflowE2eAuth(token));
+      expect(buildResponse.status).toBe(202);
+      await waitForDevRunnerStatus(projectId, true, 60_000);
+
+      await pushTelegramUpdate(WORKFLOW_E2E_MOCKS_URL, botToken, {
+        message: {
+          message_id: 100,
+          date: Math.floor(Date.now() / 1000),
+          chat: { id: 888, type: 'private' },
+          text: 'hi',
+        },
+      });
+      const menuCall = await workflowE2eWaitForValue(async () => {
+        const calls = await getTelegramCalls(WORKFLOW_E2E_MOCKS_URL, botToken);
+        return calls.find((call) => call.method === 'sendMessage');
+      }, 60_000);
+      expect(menuCall.body).toEqual({
+        chat_id: 888,
+        text: 'Menu',
+        reply_markup: {
+          inline_keyboard: [
+            [{ text: 'Site', url: 'https://example.com/?chat=888' }],
+            [{ text: 'Help', callback_data: 'falang-cmd:/help' }],
+          ],
+        },
+      });
+
+      await pushTelegramUpdate(WORKFLOW_E2E_MOCKS_URL, botToken, {
+        callback_query: {
+          id: 'cbq-help',
+          data: 'falang-cmd:/help',
+          from: { id: 5, is_bot: false, first_name: 'Ann' },
+          message: { message_id: 1, date: Math.floor(Date.now() / 1000), chat: { id: 888, type: 'private' } },
+        },
+      });
+      await workflowE2eWaitForValue(async () => {
+        const calls = await getTelegramCalls(WORKFLOW_E2E_MOCKS_URL, botToken);
+        return calls.find(
+          (call) => call.method === 'sendMessage' && (call.body as { text?: string }).text === 'Help for Ann: /help',
         );
       }, 60_000);
 

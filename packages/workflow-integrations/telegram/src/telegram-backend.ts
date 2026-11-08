@@ -4,6 +4,7 @@ import {
   buildConversationWorkflowId,
   chatTypeAdmits,
   constantTimeEqual,
+  decodeButtonCommand,
   resolveChatTypeFilter,
   resolveConversationMode,
   type IIntegrationBackendContext,
@@ -321,14 +322,40 @@ const routeCallback = (
 };
 
 /**
+ * A command button of `telegram-send-buttons` (`callback_data` = `falang-cmd:<command>`): delivered exactly like the
+ * presser typing that command in the chat — the same routing (an on-command trigger wins, conversation modes,
+ * `chatType`), so it also works in groups, where a question answer cannot be routed yet.
+ */
+const handleCommandButton = async (
+  ctx: IIntegrationBackendContext,
+  callbackQuery: ITelegramCallbackQuery,
+  command: string,
+  updateId: number,
+  chatTriggerFunctions: TChatTriggerMap,
+): Promise<void> => {
+  const source = callbackQuery.message;
+  if (!source) return;
+  const message: ITelegramRawMessage = {
+    message_id: source.message_id,
+    date: Math.floor(Date.now() / 1000),
+    chat: source.chat,
+    ...(callbackQuery.from ? { from: callbackQuery.from } : {}),
+    text: command,
+  };
+  await handleMessage(ctx, message, updateId, chatTriggerFunctions);
+};
+
+/**
  * Normalizes a button press into the fixed `{ messageId, value }` contract every vendor's
  * `IQuestionDescriptor.answerSignalName` payload uses (see `@falang/workflow-integrations-common`'s
  * `types.ts`) — the compiled workflow correlates this to a specific pending `telegram-question` node
- * by `messageId` alone, never by inspecting vendor-specific shape.
+ * by `messageId` alone, never by inspecting vendor-specific shape. A command button is a message instead, see
+ * `handleCommandButton`.
  */
 const handleCallbackQuery = async (
   ctx: IIntegrationBackendContext,
   callbackQuery: ITelegramCallbackQuery,
+  updateId: number,
   chatTriggerFunctions: TChatTriggerMap,
 ): Promise<void> => {
   const botToken = ctx.fields.botToken;
@@ -337,6 +364,12 @@ const handleCallbackQuery = async (
   const chatId = callbackQuery.message?.chat.id;
   // Telegram callback_data is always a non-empty string (1-64 bytes) when a button carries one — a falsy value here means there's nothing to correlate to a pending question.
   if (!chatId || !callbackQuery.data) return;
+
+  const command = decodeButtonCommand(callbackQuery.data);
+  if (command) {
+    await handleCommandButton(ctx, callbackQuery, command, updateId, chatTriggerFunctions);
+    return;
+  }
 
   const payload = { messageId: String(callbackQuery.message?.message_id), value: callbackQuery.data };
   const route = routeCallback(await findBoundTriggerFunctions(ctx), callbackQuery, chatId, chatTriggerFunctions);
@@ -389,7 +422,7 @@ const handleUpdate = async (
   state: ITelegramIngressState,
 ): Promise<void> => {
   if (update.callback_query) {
-    await handleCallbackQuery(ctx, update.callback_query, state.chatTriggerFunctions);
+    await handleCallbackQuery(ctx, update.callback_query, update.update_id, state.chatTriggerFunctions);
     return;
   }
   if (update.chat_member) {

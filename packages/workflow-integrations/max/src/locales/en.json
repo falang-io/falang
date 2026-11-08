@@ -24,13 +24,15 @@
       "conversation": "Conversation",
       "userId": "User ID",
       "block": "Block",
-      "messageId": "Message ID"
+      "messageId": "Message ID",
+      "buttons": "Buttons"
     },
     "action": {
       "sendMessage": "Send message",
       "sendFile": "Send file",
       "removeMember": "Remove member",
-      "deleteMessage": "Delete message"
+      "deleteMessage": "Delete message",
+      "sendButtons": "Send message with buttons"
     },
     "question": {
       "askQuestion": "Ask question"
@@ -54,7 +56,8 @@
     },
     "help": {
       "timeout": "How long to wait for an answer: `10m`, `2h`, `48h`, `7d`. Empty — no limit.\nWhen it runs out, the “timeout” branch runs.",
-      "block": "Yes — remove and block: they can't come back through the invite link. No — just remove."
+      "block": "Yes — remove and block: they can't come back through the invite link. No — just remove.",
+      "buttons": "Buttons under the message, one per row. **Link** opens the address. **Command** acts as if the user sent that command (e.g. `/help`) — it is handled by an “On command” trigger of the same bot.\nThe message doesn't wait for a press.\nTexts and values may contain `${…}`."
     }
   }
 }

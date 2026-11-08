@@ -70,6 +70,12 @@ const acme: IWorkflowIntegration = {
       ],
     },
     {
+      name: 'acme-buttons',
+      label: 'Buttons',
+      ...noop,
+      fields: [{ name: 'buttons', label: 'Buttons', kind: 'buttons', defaultValue: '[]' }],
+    },
+    {
       name: 'acme-table',
       label: 'Pick',
       ...noop,
@@ -238,6 +244,32 @@ describe('workflow field describers — the editor and the background check buil
       (f) => f.field === 'chatId',
     ) as any;
     expect(isCodeFieldSkipped(chat)).toBe(false);
+  });
+
+  it('buttons: every caption and URL/command is a template field, equal to the editor rows', async () => {
+    const h = build();
+    scheme = h.scheme;
+    const buttons = JSON.stringify([
+      { kind: 'url', text: 'Open ${a}', value: 'https://x/${a}' },
+      { kind: 'command', text: 'Help', value: '/help' },
+    ]);
+    const node = h.add('nb', 'acme-buttons', { buttons });
+    const fields = describeCheckedFields(node, await resolveCtx(h));
+    const editor = new IntegrationActionEditorStore(paramsFor(node, h.scheme));
+    const rows = editor.buttonsStores.get('buttons')?.rows ?? [];
+    expect(codeTexts(fields)).toEqual(
+      Object.fromEntries(
+        rows.flatMap((row, index) => [
+          [`buttons[${index}].text`, full(row.text.codeStore)],
+          [`buttons[${index}].value`, full(row.value.codeStore)],
+        ]),
+      ),
+    );
+    expect(Object.keys(codeTexts(fields))).toHaveLength(4);
+    expect(editor.getData()['buttons']).toBe(buttons);
+    editor.dispose();
+    // A malformed list is left to the compiler; nothing to check here.
+    expect(describeCheckedFields(h.add('nb2', 'acme-buttons', { buttons: '{oops' }), await resolveCtx(h))).toEqual([]);
   });
 
   it('document-ref: an empty required pick is an error, a chosen or optional one is not checked', async () => {

@@ -27,7 +27,8 @@
       "messageId": "Message ID",
       "untilDate": "Ban until",
       "revokeMessages": "Delete all their messages",
-      "resultVariable": "Result variable"
+      "resultVariable": "Result variable",
+      "buttons": "Buttons"
     },
     "action": {
       "sendMessage": "Send message",
@@ -37,7 +38,8 @@
       "deleteMessage": "Delete message",
       "approveJoinRequest": "Approve join request",
       "declineJoinRequest": "Decline join request",
-      "getMember": "Get member"
+      "getMember": "Get member",
+      "sendButtons": "Send message with buttons"
     },
     "question": {
       "askQuestion": "Ask question"
@@ -62,7 +64,8 @@
     },
     "help": {
       "timeout": "How long to wait for an answer: `10m`, `2h`, `48h`, `7d`. Empty — no limit.\nWhen it runs out, the “timeout” branch runs.",
-      "untilDate": "Unix time in seconds until which the ban lasts, e.g. `Math.floor(Date.now() / 1000) + 86400` — one day. `0` or empty — forever."
+      "untilDate": "Unix time in seconds until which the ban lasts, e.g. `Math.floor(Date.now() / 1000) + 86400` — one day. `0` or empty — forever.",
+      "buttons": "Buttons under the message, one per row. **Link** opens the address. **Command** acts as if the user sent that command (e.g. `/help`) — it is handled by an “On command” trigger of the same bot.\nThe message doesn't wait for a press.\nTexts and values may contain `${…}`."
     }
   }
 }

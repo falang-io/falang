@@ -3,6 +3,7 @@ import {
   buildConversationWorkflowId,
   chatTypeAdmits,
   constantTimeEqual,
+  decodeButtonCommand,
   resolveChatTypeFilter,
   resolveConversationMode,
   type IIntegrationBackendContext,
@@ -35,6 +36,7 @@ import {
   botStartedToMaxMessage,
   maxChatIdOf,
   toMaxMessage,
+  toMaxUser,
   type IMaxMessage,
   type IMaxRawMessage,
   type IMaxRawUser,
@@ -281,15 +283,43 @@ const rejectUnroutableGroupAnswer = async (
   return true;
 };
 
-/** Normalizes a button press into the fixed `{ messageId, value }` answer contract every question vendor uses. */
+/**
+ * A command button of `max-send-buttons` (payload `falang-cmd:<command>`): delivered exactly like the presser typing
+ * that command in the chat — same routing as any message, so it also works in group chats.
+ */
+const handleCommandButton = async (
+  ctx: IIntegrationBackendContext,
+  update: IMaxMessageCallbackUpdate,
+  command: string,
+  chatTriggerFunctions: TChatTriggerMap,
+): Promise<void> => {
+  if (!update.message) return;
+  const message: IMaxMessage = {
+    ...toMaxMessage(update.message),
+    timestamp: update.timestamp,
+    text: command,
+    from: toMaxUser(update.callback.user),
+  };
+  await signalIncomingMessage(ctx, message, null, chatTriggerFunctions);
+};
+
+/**
+ * Normalizes a button press into the fixed `{ messageId, value }` answer contract every question vendor uses; a
+ * command button is a message instead, see `handleCommandButton`.
+ */
 const handleCallback = async (
   ctx: IIntegrationBackendContext,
   update: IMaxMessageCallbackUpdate,
   chatTriggerFunctions: TChatTriggerMap,
 ): Promise<void> => {
   const value = update.callback.payload;
+  const command = decodeButtonCommand(value);
   const botToken = ctx.fields.botToken;
-  if (botToken) await answerCallback(botToken, update.callback.callback_id, value || '✓');
+  if (botToken) await answerCallback(botToken, update.callback.callback_id, command ? '✓' : value || '✓');
+  if (command) {
+    await handleCommandButton(ctx, update, command, chatTriggerFunctions);
+    return;
+  }
 
   const chatId = update.message ? maxChatIdOf(update.message) : 0;
   const messageId = update.message?.body?.mid;

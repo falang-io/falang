@@ -5,6 +5,7 @@ export const TELEGRAM_ON_COMMAND_TRIGGER_NAME = 'telegram-on-command-trigger';
 export const TELEGRAM_COMMAND_FIELD_NAME = 'command';
 export const TELEGRAM_SEND_MESSAGE_NAME = 'telegram-send-message';
 export const TELEGRAM_SEND_FILE_NAME = 'telegram-send-file';
+export const TELEGRAM_SEND_BUTTONS_NAME = 'telegram-send-buttons';
 export const TELEGRAM_QUESTION_NAME = 'telegram-question';
 export const TELEGRAM_SIGNAL_NAME = 'telegramMessage';
 /** Shared by every `telegram-question` node in a compiled workflow — button presses are correlated to a specific pending question by `messageId`, not by signal identity. */

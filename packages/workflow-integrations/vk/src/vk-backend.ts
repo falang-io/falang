@@ -3,6 +3,7 @@ import {
   buildConversationWorkflowId,
   chatTypeAdmits,
   constantTimeEqual,
+  normalizeButtonCommand,
   resolveChatTypeFilter,
   resolveConversationMode,
   type IIntegrationBackendContext,
@@ -17,6 +18,7 @@ import {
   VK_DEFAULT_API_BASE_URL,
   VK_ON_COMMAND_TRIGGER_NAME,
   VK_QUESTION_ANSWER_SIGNAL_NAME,
+  VK_BUTTON_COMMAND_PAYLOAD_KEY,
   VK_SIGNAL_NAME,
   VK_TRIGGER_NAME,
 } from './constants.js';
@@ -342,10 +344,15 @@ const resolveCallbackTarget = (
   };
 };
 
-/** Normalizes a button press into the fixed `{ messageId, value }` answer contract every question vendor uses. */
+/**
+ * Normalizes a button press into the fixed `{ messageId, value }` answer contract every question vendor uses. A
+ * command button of `vk-send-buttons` (payload `{"falangCommand":"/help"}`) is delivered instead exactly like the
+ * presser typing that command — same routing as any message, so it also works in conversations.
+ */
 const handleMessageEvent = async (
   ctx: IIntegrationBackendContext,
   event: IVkMessageEventObject,
+  update: IVkUpdate,
   state: IVkTargetState,
 ): Promise<void> => {
   const accessToken = ctx.fields.accessToken;
@@ -364,6 +371,18 @@ const handleMessageEvent = async (
     typeof event.payload === 'string'
       ? parseVkPayload(event.payload)
       : ((event.payload as Record<string, unknown> | null | undefined) ?? null);
+  const command = payload?.[VK_BUTTON_COMMAND_PAYLOAD_KEY];
+  if (typeof command === 'string' && normalizeButtonCommand(command) && event.peer_id) {
+    const raw: IVkRawMessage = {
+      peer_id: event.peer_id,
+      from_id: event.user_id,
+      text: normalizeButtonCommand(command),
+      date: Math.floor(Date.now() / 1000),
+      ...(event.conversation_message_id ? { conversation_message_id: event.conversation_message_id } : {}),
+    };
+    await signalIncomingMessage(ctx, raw, update, state);
+    return;
+  }
   const value = payload?.falang;
   const chatId = event.peer_id;
   const messageId = event.conversation_message_id;
@@ -443,7 +462,7 @@ export const handleVkUpdate = async (
     return;
   }
   if (update.type === 'message_event') {
-    await handleMessageEvent(ctx, update.object as IVkMessageEventObject, targetState);
+    await handleMessageEvent(ctx, update.object as IVkMessageEventObject, update, targetState);
     return;
   }
   if (update.type === 'group_join' || update.type === 'group_leave') {

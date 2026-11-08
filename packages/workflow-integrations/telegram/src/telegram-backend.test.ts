@@ -264,6 +264,67 @@ describe('registerTelegramBackend', () => {
       );
     });
 
+    it('turns a command button press into a /command message from the presser', async () => {
+      const commandDoc: IIntegrationDocumentRecord = {
+        id: 'doc-help',
+        name: 'onHelp',
+        data: null,
+        root: {
+          ...triggerFunctionRoot('cred-1'),
+          children: [
+            { id: 'header-2', name: 'function-header', data: '' },
+            {
+              id: 'body-2',
+              name: 'trigger-function-body',
+              children: [],
+              data: {
+                vendor: 'telegram',
+                triggerName: 'telegram-on-command-trigger',
+                credentialId: 'cred-1',
+                triggerConfig: { command: 'help' },
+              },
+            },
+            { id: 'footer-2', name: 'function-footer', data: '' },
+          ],
+        },
+      };
+      const ctx = buildCtx({
+        webhookUrl: 'https://bots.example.com/webhooks/telegram/p/cred-1/prod',
+        getDocumentsByType: vi.fn().mockResolvedValue([triggerFunctionDoc('cred-1'), commandDoc]),
+      });
+      await registerTelegramBackend(ctx);
+
+      const update = {
+        update_id: 7,
+        callback_query: {
+          id: 'cbq-3',
+          data: 'falang-cmd:/help me',
+          from: { id: 5, is_bot: false, first_name: 'Ann' },
+          message: { message_id: 99, date: 0, chat: { id: 42, type: 'private' } },
+        },
+      };
+      await ctx.registeredWebhook?.(new Request('http://localhost', { method: 'POST', body: JSON.stringify(update) }));
+
+      expect(ctx.signalWorkflow).toHaveBeenCalledTimes(1);
+      expect(ctx.signalWorkflow).toHaveBeenCalledWith({
+        workflowId: 'tg-doc-help-42',
+        workflowType: 'onHelp',
+        signalName: 'telegramMessage',
+        signalArgs: [
+          expect.objectContaining({
+            messageId: 99,
+            text: '/help me',
+            chat: expect.objectContaining({ id: 42 }),
+            from: expect.objectContaining({ id: 5, firstName: 'Ann' }),
+          }),
+        ],
+      });
+      expect(fetchMock).toHaveBeenCalledWith(
+        'https://api.telegram.org/botbot-token/answerCallbackQuery',
+        expect.objectContaining({ body: JSON.stringify({ callback_query_id: 'cbq-3' }) }),
+      );
+    });
+
     it('does not signal when the callback has no chat/message', async () => {
       const ctx = buildCtx({ webhookUrl: 'https://bots.example.com/webhooks/telegram/p/cred-1/prod' });
       await registerTelegramBackend(ctx);

@@ -3,6 +3,7 @@ import type { INode } from '@falang/dto';
 import {
   VK_ON_COMMAND_TRIGGER_NAME,
   VK_QUESTION_NAME,
+  VK_SEND_BUTTONS_NAME,
   VK_SEND_FILE_NAME,
   VK_SEND_MESSAGE_NAME,
   vkIntegration,
@@ -255,6 +256,63 @@ describe('integrations (workflow tier): VK', () => {
         expect(JSON.parse(edit.params.keyboard)).toEqual({ buttons: [], inline: true });
         await waitForCall(botToken, isText('Выбрано B'));
         await waitForCall(botToken, isText('Chose B'));
+      },
+    );
+  }, 180_000);
+
+  it('vk-send-buttons: open_link + callback keyboard, a command press runs the on-command trigger', async () => {
+    await withRunningProject(
+      'Workflow-tier VK buttons',
+      (credentialId) => [
+        triggerDocument('on-message', 'onMessage', credentialId, vkIntegration.triggers[0].name, [
+          {
+            id: 'menu',
+            name: VK_SEND_BUTTONS_NAME,
+            data: {
+              credentialId,
+              chatId: 'message.chat.id',
+              text: 'Menu',
+              buttons: JSON.stringify([
+                { kind: 'url', text: 'Site', value: 'https://example.com' },
+                { kind: 'command', text: 'Help', value: 'help' },
+              ]),
+            },
+          },
+        ]),
+        triggerDocument(
+          'on-help',
+          'onHelp',
+          credentialId,
+          VK_ON_COMMAND_TRIGGER_NAME,
+          [sendMessageNode('help', credentialId, 'Help: ${message.text}')],
+          { command: 'help' },
+        ),
+      ],
+      async (botToken) => {
+        await pushVkUpdate(WORKFLOW_E2E_MOCKS_URL, botToken, [incoming(779, 'hi bot')]);
+        const menu = await waitForCall(botToken, isText('Menu'));
+        expect(JSON.parse(menu.params.keyboard)).toEqual({
+          inline: true,
+          buttons: [
+            [{ action: { type: 'open_link', link: 'https://example.com', label: 'Site' } }],
+            [{ action: { type: 'callback', label: 'Help', payload: JSON.stringify({ falangCommand: '/help' }) } }],
+          ],
+        });
+
+        await pushVkUpdate(WORKFLOW_E2E_MOCKS_URL, botToken, [
+          {
+            type: 'message_event',
+            object: {
+              user_id: 779,
+              peer_id: 779,
+              event_id: 'ev-help',
+              payload: { falangCommand: '/help' },
+              conversation_message_id: menu.conversationMessageId,
+            },
+          },
+        ]);
+        await waitForCall(botToken, (call) => call.method === 'messages.sendMessageEventAnswer');
+        await waitForCall(botToken, isText('Help: /help'));
       },
     );
   }, 180_000);

@@ -7,7 +7,7 @@ import {
   TOKEN_TYPESCRIPT_PROJECT_SERVICE,
   TypeScriptBlockContainer,
 } from '@falang/typescript-scheme';
-import type { IFieldConfig } from '@falang/workflow-integrations-common';
+import { parseMessageButtons, type IFieldConfig } from '@falang/workflow-integrations-common';
 import { observer } from 'mobx-react-lite';
 import {
   TOKEN_CREDENTIALS_PROVIDER,
@@ -16,6 +16,27 @@ import {
 } from '../../registry/di-tokens.js';
 import type { TIntegrationActionData } from './integration-action-editor.store.js';
 import { describeResultType } from './describe-result-type.js';
+
+/** A `buttons` field on the scheme: one line per button — its caption, then the link or the command. */
+const ButtonsValueComponent: React.FC<{ value: string }> = ({ value }) => {
+  const t = useService(TOKEN_I18N).t;
+  const { buttons, error } = parseMessageButtons(value);
+  if (error) return <>{t('integration-editor:buttons-invalid')}</>;
+  if (buttons.length === 0) return <>—</>;
+  return (
+    <div className="workflow-message-buttons" style={{ overflowWrap: 'anywhere' }}>
+      {buttons.map((button, index) => (
+        <div key={index} className="workflow-message-button" data-testid="message-button-view">
+          <span className="workflow-message-button__text">[{button.text}]</span>{' '}
+          <span className="workflow-message-button__value">
+            {button.kind === 'url' ? '↗ ' : ''}
+            {button.value}
+          </span>
+        </div>
+      ))}
+    </div>
+  );
+};
 
 /** Read-only counterpart to `FieldEditorComponent`/`SidebarFieldEditorComponent` — same per-kind split, Prism-highlighted for code-shaped kinds. */
 const FieldValueComponent: React.FC<{
@@ -31,6 +52,7 @@ const FieldValueComponent: React.FC<{
   if (field.kind === 'document-ref') return <>{documentNames.get(value) ?? value}</>;
   if (field.kind === 'template-string') return <TemplateStringViewComponent value={value} />;
   if (field.kind === 'expression') return <CodeViewComponent value={value} />;
+  if (field.kind === 'buttons') return <ButtonsValueComponent value={value} />;
   return <>{value}</>;
 };
 

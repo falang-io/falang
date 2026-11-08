@@ -9,6 +9,19 @@
  */
 
 /** Telegram/AI/files/HTTP entries, moved verbatim from `node-kinds.ts` (2026-09-22/2026-09-27 findings — see ADR 0009 (private)'s own "Found and fixed" sections for the real chats that prompted each one). */
+/**
+ * The "send message with buttons" actions of the three messengers: a plain leaf that sends and goes on — unlike the
+ * vendor's question node it never waits for a press and has no branches.
+ */
+const SEND_BUTTONS_NOTE = (questionKind: string, onCommandTrigger: string): string =>
+  [
+    'Sends a text message with buttons under it and goes on at once — it does NOT wait for a press and has no',
+    `branches (use \`${questionKind}\` to ask and branch on the answer). A "url" button opens a link; a "command"`,
+    'button acts as if the user had sent that command, so it is handled by a separate trigger-function document',
+    `bound to \`${onCommandTrigger}\` with that command (create one per command) — e.g. a main menu whose buttons`,
+    'start other flows. See the `buttons` field for the JSON format.',
+  ].join(' ');
+
 export const VENDOR_NODE_KIND_NOTES: Record<string, string> = {
   'telegram-question': [
     'Sends the message with real, tappable Telegram inline-keyboard buttons — one per',
@@ -58,6 +71,9 @@ export const VENDOR_NODE_KIND_NOTES: Record<string, string> = {
     '"creator", "administrator", "member", "restricted", "left", "kicked"; `isAdmin` is true for the first two.',
     'Use it to skip admins in a moderation flow. Reliable only when the bot is an administrator of the chat.',
   ].join(' '),
+  'telegram-send-buttons': SEND_BUTTONS_NOTE('telegram-question', 'telegram-on-command-trigger'),
+  'max-send-buttons': SEND_BUTTONS_NOTE('max-question', 'max-on-command-trigger'),
+  'vk-send-buttons': SEND_BUTTONS_NOTE('vk-question', 'vk-on-command-trigger'),
   'telegram-question-option': [
     "One button of the enclosing `telegram-question`'s inline keyboard, in the order its siblings",
     "appear — `data.label` is both that button's visible text and the value used to confirm the user's",

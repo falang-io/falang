@@ -3,6 +3,7 @@ import type { INode } from '@falang/dto';
 import {
   MAX_ON_COMMAND_TRIGGER_NAME,
   MAX_QUESTION_NAME,
+  MAX_SEND_BUTTONS_NAME,
   MAX_SEND_FILE_NAME,
   MAX_SEND_MESSAGE_NAME,
   maxIntegration,
@@ -242,6 +243,63 @@ describe('integrations (workflow tier): MAX', () => {
         });
         await waitForCall(botToken, isTextMessage('Выбрано B'));
         await waitForCall(botToken, isTextMessage('Chose B'));
+      },
+    );
+  }, 150_000);
+
+  it('max-send-buttons: link + callback keyboard, a command press runs the on-command trigger', async () => {
+    await withRunningProject(
+      'Workflow-tier MAX buttons',
+      (credentialId) => [
+        triggerDocument('on-message', 'onMessage', credentialId, maxIntegration.triggers[0].name, [
+          {
+            id: 'menu',
+            name: MAX_SEND_BUTTONS_NAME,
+            data: {
+              credentialId,
+              chatId: 'message.chat.id',
+              text: 'Menu',
+              buttons: JSON.stringify([
+                { kind: 'url', text: 'Site', value: 'https://example.com' },
+                { kind: 'command', text: 'Help', value: '/help' },
+              ]),
+            },
+          },
+        ]),
+        triggerDocument(
+          'on-help',
+          'onHelp',
+          credentialId,
+          MAX_ON_COMMAND_TRIGGER_NAME,
+          [sendMessageNode('help', credentialId, 'Help for ${message.from?.firstName}: ${message.text}')],
+          { command: 'help' },
+        ),
+      ],
+      async (botToken) => {
+        await pushMaxUpdate(WORKFLOW_E2E_MOCKS_URL, botToken, incomingMessage(778, 'in.1', 'hi bot'));
+        const menu = await waitForCall(botToken, isTextMessage('Menu'));
+        expect((menu.body as { attachments?: unknown }).attachments).toEqual([
+          {
+            type: 'inline_keyboard',
+            payload: {
+              buttons: [
+                [{ type: 'link', text: 'Site', url: 'https://example.com' }],
+                [{ type: 'callback', text: 'Help', payload: 'falang-cmd:/help' }],
+              ],
+            },
+          },
+        ]);
+
+        await pushMaxUpdate(WORKFLOW_E2E_MOCKS_URL, botToken, {
+          update_type: 'message_callback',
+          callback: { callback_id: 'cb-help', payload: 'falang-cmd:/help', user: sender },
+          message: {
+            recipient: { chat_id: 778, chat_type: 'dialog', user_id: 1 },
+            timestamp: Date.now(),
+            body: { mid: menu.mid ?? '', seq: 2, text: 'Menu' },
+          },
+        });
+        await waitForCall(botToken, isTextMessage('Help for Ann: /help'));
       },
     );
   }, 150_000);

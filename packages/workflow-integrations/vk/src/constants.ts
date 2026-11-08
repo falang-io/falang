@@ -5,6 +5,9 @@ export const VK_ON_COMMAND_TRIGGER_NAME = 'vk-on-command-trigger';
 export const VK_COMMAND_FIELD_NAME = 'command';
 export const VK_SEND_MESSAGE_NAME = 'vk-send-message';
 export const VK_SEND_FILE_NAME = 'vk-send-file';
+export const VK_SEND_BUTTONS_NAME = 'vk-send-buttons';
+/** Key of a `vk-send-buttons` command button's callback payload (`{"falangCommand":"/help"}`); a question uses `falang`. */
+export const VK_BUTTON_COMMAND_PAYLOAD_KEY = 'falangCommand';
 export const VK_QUESTION_NAME = 'vk-question';
 export const VK_SIGNAL_NAME = 'vkMessage';
 /** Shared by every `vk-question` node in a compiled workflow — button presses are correlated to a pending question by `messageId`. */

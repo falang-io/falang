@@ -26,13 +26,15 @@
       "userId": "ID пользователя",
       "conversationMessageId": "ID сообщения",
       "chatType": "Чаты",
-      "conversation": "Диалог"
+      "conversation": "Диалог",
+      "buttons": "Кнопки"
     },
     "action": {
       "sendMessage": "Отправить сообщение",
       "sendFile": "Отправить файл",
       "kickFromChat": "Исключить участника из беседы",
-      "deleteMessage": "Удалить сообщение"
+      "deleteMessage": "Удалить сообщение",
+      "sendButtons": "Отправить сообщение с кнопками"
     },
     "question": {
       "askQuestion": "Задать вопрос"
@@ -55,7 +57,8 @@
     "help": {
       "timeout": "Сколько ждать ответа: `10m`, `2h`, `48h`, `7d`. Пусто — без ограничения.\nПо истечении срока сработает ветка «таймаут».",
       "chatId": "peer_id получателя — например `message.chat.id` из триггера.",
-      "conversationMessageId": "conversationMessageId сообщения в беседе — например `message.conversationMessageId` из триггера."
+      "conversationMessageId": "conversationMessageId сообщения в беседе — например `message.conversationMessageId` из триггера.",
+      "buttons": "Кнопки под сообщением. **Ссылка** открывает адрес. **Команда** — как если бы пользователь отправил эту команду (например, `/help`): её обработает триггер «При команде» этого же сообщества.\nСообщение не ждёт нажатия. ВКонтакте показывает не больше 40 символов подписи.\nВ текстах и значениях можно использовать `${…}`."
     }
   }
 }

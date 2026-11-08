@@ -11,6 +11,7 @@ import {
   VK_MESSAGE_TYPE_ID,
   VK_ON_COMMAND_TRIGGER_NAME,
   VK_QUESTION_NAME,
+  VK_SEND_BUTTONS_NAME,
   VK_SEND_FILE_NAME,
   VK_SEND_MESSAGE_NAME,
   VK_TRIGGER_NAME,
@@ -42,6 +43,7 @@ describe('vkIntegration', () => {
       'vk-chat-member-left',
       VK_SEND_MESSAGE_NAME,
       VK_SEND_FILE_NAME,
+      VK_SEND_BUTTONS_NAME,
       'vk-kick-from-chat',
       'vk-delete-message',
     ]);

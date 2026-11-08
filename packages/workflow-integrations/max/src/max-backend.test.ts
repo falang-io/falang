@@ -237,6 +237,31 @@ describe('registerMaxBackend', () => {
       expect(JSON.parse(String(answerInit.body))).toEqual({ notification: 'Yes' });
     });
 
+    it('turns a command button press into a /command message from the presser', async () => {
+      const ctx = buildCtx({ webhookUrl: 'https://x/y', getDocumentsByType: vi.fn().mockResolvedValue(docs) });
+      await registerMaxBackend(ctx);
+      await ctx.webhook?.(
+        webhookRequest({
+          update_type: 'message_callback',
+          timestamp: 9,
+          callback: {
+            callback_id: 'cb-2',
+            payload: 'falang-cmd:/start again',
+            user: { user_id: 8, first_name: 'Bob', is_bot: false },
+          },
+          message: { ...rawMessage('Menu'), body: { mid: 'mid.menu', text: 'Menu' } },
+        }),
+      );
+      expect(signalCall(ctx)).toMatchObject({
+        workflowId: 'max-doc-start-42',
+        signalName: 'maxMessage',
+        signalArgs: [{ text: '/start again', timestamp: 9, chat: { id: 42 }, from: { id: 8, firstName: 'Bob' } }],
+      });
+      const answer = fetchMock.mock.calls.find((call) => String(call[0]).includes('/answers'));
+      const answerInit = answer ? (answer[1] as RequestInit) : {};
+      expect(JSON.parse(String(answerInit.body))).toEqual({ notification: '✓' });
+    });
+
     it('journals a message no trigger function takes', async () => {
       const ctx = buildCtx({ webhookUrl: 'https://x/y', getDocumentsByType: vi.fn().mockResolvedValue([]) });
       await deliver(ctx, { update_type: 'message_created', timestamp: 1, message: rawMessage('hi', 5) });

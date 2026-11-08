@@ -1,4 +1,5 @@
 import type { INode } from '@falang/dto';
+import { parseMessageButtons } from '@falang/workflow-integrations-common';
 import type { IActionDescriptor, IFieldConfig, IWorkflowIntegration } from '@falang/workflow-integrations-common';
 import { escapeTemplateLiteralBody } from './escape-template-literal.js';
 import type { TIntegrationEmitters } from './node-emitters.js';
@@ -16,11 +17,26 @@ import { asExpression } from './raw-code.js';
  * it's passed through raw so `IActionDescriptor.emit` can `JSON.parse` it itself to decide what to
  * build (see `call-ai-text`'s `emit`). `'new-variable'` is a bare identifier (e.g. `call-ai-text`'s
  * `resultVariable`) that must appear unquoted on the left of a `const` declaration, so it's passed
- * through raw too, same as `'result-type'`.
+ * through raw too, same as `'result-type'`. `'buttons'` holds a JSON list of messenger buttons whose texts/values are
+ * template-literal bodies — it compiles to an array literal of `{ kind, text, value }` objects (see
+ * `@falang/workflow-integrations-common`'s `message-buttons.ts`); a malformed list is a compile error of the node.
  */
+const templateLiteral = (body: string): string => `\`${escapeTemplateLiteralBody(body)}\``;
+
+const compileButtons = (field: IFieldConfig, rawValue: string): string => {
+  const { buttons, error } = parseMessageButtons(rawValue);
+  if (error) throw new Error(`Field "${field.name}": ${error}`);
+  const items = buttons.map(
+    (button) =>
+      `{ kind: ${JSON.stringify(button.kind)}, text: ${templateLiteral(button.text)}, value: ${templateLiteral(button.value)} }`,
+  );
+  return `[${items.join(', ')}]`;
+};
+
 export const resolveFieldExpression = (field: IFieldConfig, rawValue: string): string => {
   if (field.kind === 'expression') return asExpression(rawValue);
-  if (field.kind === 'template-string') return `\`${escapeTemplateLiteralBody(rawValue)}\``;
+  if (field.kind === 'template-string') return templateLiteral(rawValue);
+  if (field.kind === 'buttons') return compileButtons(field, rawValue);
   if (field.kind === 'result-type' || field.kind === 'new-variable') return rawValue;
   return JSON.stringify(rawValue);
 };

@@ -9,6 +9,7 @@ import type { IFieldConfig } from '@falang/workflow-integrations-common';
 import { Form, Input, Typography } from 'antd';
 import { observer } from 'mobx-react-lite';
 import { FieldLabel } from '../field-help/field-help.cmp.js';
+import { ButtonsFieldEditorComponent } from './buttons-field-editor.cmp.js';
 import {
   dynamicSelectPlaceholder,
   FieldSelectComponent,
@@ -77,6 +78,10 @@ const SidebarFieldEditorComponent: React.FC<{ editor: IntegrationActionEditorSto
     }
     if (field.kind === 'result-type') {
       return <SidebarResultTypeFieldComponent editor={editor} field={field} />;
+    }
+    if (field.kind === 'buttons') {
+      const store = editor.buttonsStores.get(field.name);
+      return store ? <ButtonsFieldEditorComponent store={store} /> : null;
     }
     if (field.kind === 'new-variable') {
       const store = editor.newVariableStores.get(field.name);
@@ -163,6 +168,10 @@ const FieldEditorComponent: React.FC<{
   }
   if (field.kind === 'result-type') {
     return <ResultTypeFieldComponent editor={editor} field={field} />;
+  }
+  if (field.kind === 'buttons') {
+    const store = editor.buttonsStores.get(field.name);
+    return store ? <ButtonsFieldEditorComponent store={store} /> : null;
   }
   if (field.kind === 'new-variable') {
     const store = editor.newVariableStores.get(field.name);

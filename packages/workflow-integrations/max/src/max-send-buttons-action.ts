@@ -1,0 +1,57 @@
+import type { TVariableInfo } from '@falang/typescript-dto';
+import {
+  buildPrepareButtonsActivityCode,
+  MESSAGE_BUTTON_COMMAND_PREFIX,
+  MESSAGE_BUTTON_TS_TYPE,
+  type IActionDescriptor,
+} from '@falang/workflow-integrations-common';
+import { MAX_SEND_BUTTONS_NAME, MAX_VENDOR } from './constants.js';
+
+const anyNumber: TVariableInfo = { type: 'number', numberType: { type: 'any' } };
+
+/** MAX's limit on a callback button's `payload`, in characters — the command prefix counts too. */
+const CALLBACK_PAYLOAD_MAX_LENGTH = 1024;
+
+/** Shared activity helper (see `MAX_SHARED_ACTIVITY_CODE`). */
+export const MAX_PREPARE_BUTTONS_CODE = buildPrepareButtonsActivityCode('maxPrepareButtons');
+
+/**
+ * "Send message with buttons": a text message with an `inline_keyboard` attachment, one button per row — a `url`
+ * button is a `link` button, a `command` button a `callback` button whose payload is `falang-cmd:<command>`, which
+ * `max-backend.ts` turns into a `/command` message from the presser. Never waits for a press, unlike `max-question`.
+ */
+export const maxSendButtonsAction: IActionDescriptor = {
+  name: MAX_SEND_BUTTONS_NAME,
+  label: 'max:action.sendButtons',
+  editorType: 'sidebar',
+  fields: [
+    { name: 'credentialId', label: 'max:field.bot', kind: 'credential-ref', vendor: MAX_VENDOR },
+    { name: 'chatId', label: 'max:field.chatId', kind: 'expression', expectedType: anyNumber, fieldSize: 'small' },
+    { name: 'text', label: 'max:field.text', kind: 'template-string' },
+    { name: 'buttons', label: 'max:field.buttons', help: 'max:help.buttons', kind: 'buttons', defaultValue: '[]' },
+  ],
+  emit: (fields) =>
+    `await maxSendButtons(${fields.credentialId}, ${fields.chatId}, ${fields.text}, ${fields.buttons});`,
+  activitySignature: `maxSendButtons(credentialId: string, chatId: number, text: string, buttons: readonly ${MESSAGE_BUTTON_TS_TYPE}[]): Promise<void>`,
+  journal: { kind: 'message-out', args: ['chatId', 'text', 'buttons'], result: false },
+  activityCode: [
+    'export const maxSendButtons = async (',
+    '  credentialId: string,',
+    '  chatId: number,',
+    '  text: string,',
+    `  buttons: readonly ${MESSAGE_BUTTON_TS_TYPE}[],`,
+    '): Promise<void> => {',
+    '  const rows = maxPrepareButtons(buttons).map((button) => {',
+    "    if (button.kind === 'url') return [{ type: 'link', text: button.text, url: button.value }];",
+    `    const payload = ${JSON.stringify(MESSAGE_BUTTON_COMMAND_PREFIX)} + button.value;`,
+    `    if (payload.length > ${CALLBACK_PAYLOAD_MAX_LENGTH}) {`,
+    `      throw new Error(\`The command of button "\${button.text}" is too long for MAX (at most ${CALLBACK_PAYLOAD_MAX_LENGTH - MESSAGE_BUTTON_COMMAND_PREFIX.length} characters)\`);`,
+    '    }',
+    "    return [{ type: 'callback', text: button.text, payload }];",
+    '  });',
+    '  const bot = await resolveMaxBotToken(credentialId);',
+    "  const attachments = rows.length > 0 ? [{ type: 'inline_keyboard', payload: { buttons: rows } }] : [];",
+    "  await maxApiRequest(bot, 'POST', 'messages', { chat_id: chatId }, { text, attachments });",
+    '};',
+  ].join('\n'),
+};

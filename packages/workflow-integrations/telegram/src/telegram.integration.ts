@@ -22,6 +22,7 @@ import {
   TELEGRAM_ROUTING_NOTES,
 } from './telegram-community-triggers.js';
 import { telegramSandboxAdapter } from './telegram-sandbox.js';
+import { TELEGRAM_PREPARE_BUTTONS_CODE, telegramSendButtonsAction } from './telegram-send-buttons-action.js';
 import { telegramSendFileAction } from './telegram-send-file-action.js';
 import { telegramStructTypes } from './telegram-struct-types.js';
 
@@ -47,7 +48,7 @@ export const telegramIntegration: IWorkflowIntegration = {
   vendor: TELEGRAM_VENDOR,
   label: 'telegram:label',
   notes:
-    'Telegram messenger bots (chat bot): receive incoming messages and /commands, send text messages, and ask questions with inline-keyboard buttons (yes/no, multiple choice) that pause the workflow until the user taps one. Also community management for groups and channels (moderation): triggers for a member joining or leaving and for a join request, and actions to ban (kick) or unban a member, delete a message, approve or decline a join request and look up a member (admin or not).',
+    'Telegram messenger bots (chat bot): receive incoming messages and /commands, send text messages (optionally with link or command buttons that do not wait for a press), and ask questions with inline-keyboard buttons (yes/no, multiple choice) that pause the workflow until the user taps one. Also community management for groups and channels (moderation): triggers for a member joining or leaving and for a join request, and actions to ban (kick) or unban a member, delete a message, approve or decline a join request and look up a member (admin or not).',
   locales: {
     en: () => import('./locales/en.json'),
     ru: () => import('./locales/ru.json'),
@@ -152,6 +153,7 @@ export const telegramIntegration: IWorkflowIntegration = {
       ].join('\n'),
     },
     telegramSendFileAction,
+    telegramSendButtonsAction,
     ...telegramCommunityActions,
   ],
   questions: [
@@ -324,6 +326,8 @@ export const telegramIntegration: IWorkflowIntegration = {
     '  const data = (await response.json()) as { value: string; apiBaseUrl?: string };',
     '  return { token: data.value, apiBaseUrl: data.apiBaseUrl ?? TELEGRAM_API_BASE_URL };',
     '};',
+    '',
+    TELEGRAM_PREPARE_BUTTONS_CODE,
     '',
     TELEGRAM_MODERATION_SHARED_CODE,
   ].join('\n'),

@@ -93,6 +93,17 @@ const describeFieldKind = (field: IFieldConfig): string => {
         'identifier (e.g. `answer`), unique in scope, no quotes. Later sibling nodes can reference it.'
       );
     }
+    case 'buttons': {
+      return (
+        'A JSON-encoded array (the value is a JSON string) of at most 10 buttons shown under the message, one per ' +
+        'row: `[{"kind":"url","text":"Open site","value":"https://example.com"},{"kind":"command","text":"Help",' +
+        '"value":"/help"}]`. `kind` "url" opens `value` as a link; `kind` "command" runs the bot command in `value` ' +
+        '(e.g. `/help`, `/buy 42`; the leading slash is optional) — pressing it acts exactly as if the user had sent ' +
+        'that command, so it is handled by an on-command trigger-function bound to the same bot (create one per ' +
+        'command). `text` and `value` are template-literal bodies: insert runtime values with `${expr}`, no ' +
+        'backticks. Use `[]` for no buttons.'
+      );
+    }
     default: {
       return 'A secret value, stored verbatim.';
     }
