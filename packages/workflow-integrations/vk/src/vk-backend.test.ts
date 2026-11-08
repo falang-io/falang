@@ -267,6 +267,19 @@ describe('registerVkBackend', () => {
       expect(signalCall(ctx).workflowId).toBe('vk-doc-start-42');
     });
 
+    it('hands a plain message to a waiting run (ADR 0079), but a bound command still goes to its trigger', async () => {
+      const ctx = await setup();
+      const deliverToMessageWait = vi.fn().mockResolvedValue(true);
+      ctx.deliverToMessageWait = deliverToMessageWait;
+      await ctx.webhook?.(callbackRequest(messageNew(rawMessage('Ann'))));
+      expect(deliverToMessageWait).toHaveBeenCalledWith(expect.objectContaining({ chatId: 42, signalName: 'vkReply' }));
+      expect(ctx.signalWorkflow).not.toHaveBeenCalled();
+
+      await ctx.webhook?.(callbackRequest(messageNew(rawMessage('/start'))));
+      expect(deliverToMessageWait).toHaveBeenCalledTimes(1);
+      expect(signalCall(ctx).workflowId).toBe('vk-doc-start-42');
+    });
+
     it('a "Start" press is delivered as /start', async () => {
       const ctx = await setup();
       await ctx.webhook?.(callbackRequest(messageNew(rawMessage('Начать', { payload: '{"command":"start"}' }))));

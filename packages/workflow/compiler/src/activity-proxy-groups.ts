@@ -42,7 +42,7 @@ export const collectActivityProxyEntries = (
       options: action.activityOptions,
     })),
     // Ask, resolve, and (when set) close share one question's `activityOptions` — see its own doc
-    // comment; `closeActivitySignature` is optional (ADR 0040 (private) §4), unlike the other two.
+    // comment; `closeActivitySignature` is optional (ADR 0040 (private) §4), and so is `resolveActivitySignature` (a reply wait has none).
     ...(integration.questions ?? []).flatMap((question) => {
       const entries: IActivityProxyEntry[] = [
         {
@@ -50,12 +50,15 @@ export const collectActivityProxyEntries = (
           signature: question.askActivitySignature,
           options: question.activityOptions,
         },
-        {
+      ];
+      // Absent only for a reply wait (ADR 0079 (private)) — nothing to resolve there.
+      if (question.resolveActivitySignature) {
+        entries.push({
           name: parseActivityName(question.resolveActivitySignature),
           signature: question.resolveActivitySignature,
           options: question.activityOptions,
-        },
-      ];
+        });
+      }
       if (question.closeActivitySignature) {
         entries.push({
           name: parseActivityName(question.closeActivitySignature),

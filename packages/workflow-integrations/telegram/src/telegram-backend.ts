@@ -1,6 +1,7 @@
 // oxlint-disable max-lines -- over the default cap by the run-journal reports for unroutable input (ADR 0059 (private) §2c).
 import { TRIGGER_FUNCTION_BODY_NAME, TRIGGER_FUNCTION_NAME } from '@falang/workflow-dto';
 import {
+  memoizeAsync,
   buildConversationWorkflowId,
   chatTypeAdmits,
   constantTimeEqual,
@@ -20,6 +21,7 @@ import {
   TELEGRAM_QUESTION_ANSWER_SIGNAL_NAME,
   TELEGRAM_SIGNAL_NAME,
   TELEGRAM_TRIGGER_NAME,
+  TELEGRAM_REPLY_SIGNAL_NAME,
 } from './constants.js';
 import { resolveIncomingMedia } from './telegram-media.js';
 import {
@@ -208,6 +210,36 @@ const handleMessage = async (
 
   const triggerFunctionDocuments = await findBoundTriggerFunctions(ctx);
   const triggerFunction = selectTriggerFunctionForMessage(triggerFunctionDocuments, message);
+
+  // Resolved eagerly, before signalling, so the compiled workflow just reads `message.photo`/etc. and
+  // gets a ready-to-use `files/File` — see `telegram-media.ts`'s `resolveIncomingMedia` and
+  // ADR 0038 (private) §5. Once per message, whichever run receives it.
+  const media = memoizeAsync(() =>
+    resolveIncomingMedia(message, {
+      botToken: ctx.fields.botToken,
+      apiBaseUrl: TELEGRAM_API_BASE_URL,
+      uploadFile: ctx.uploadFile,
+    }),
+  );
+  const buildPayload = async () => ({ ...toTelegramMessage(message), ...(await media()) });
+
+  // A run waiting for this chat's next message (ADR 0079 (private)) takes it — unless it is a command
+  // a bound on-command trigger handles, which wins over the wait.
+  const isCommandMatch = triggerFunction
+    ? getTriggerFunctionBodyData(triggerFunction)?.triggerName === TELEGRAM_ON_COMMAND_TRIGGER_NAME
+    : false;
+  if (
+    !isCommandMatch &&
+    (await ctx.deliverToMessageWait?.({
+      chatId,
+      userId: message.from?.id ?? null,
+      signalName: TELEGRAM_REPLY_SIGNAL_NAME,
+      buildMessage: buildPayload,
+    }))
+  ) {
+    return;
+  }
+
   if (!triggerFunction) {
     await ctx.reportJournalProblem?.({
       workflowId: unboundWorkflowId(chatId),
@@ -229,20 +261,11 @@ const handleMessage = async (
   });
   chatTriggerFunctions.set(chatId, { documentId: triggerFunction.id, workflowId, mode });
 
-  // Resolved eagerly, before signalling, so the compiled workflow just reads `message.photo`/etc. and
-  // gets a ready-to-use `files/File` — see `telegram-media.ts`'s `resolveIncomingMedia` and
-  // ADR 0038 (private) §5.
-  const media = await resolveIncomingMedia(message, {
-    botToken: ctx.fields.botToken,
-    apiBaseUrl: TELEGRAM_API_BASE_URL,
-    uploadFile: ctx.uploadFile,
-  });
-
   await ctx.signalWorkflow({
     workflowId,
     workflowType: triggerFunction.name,
     signalName: TELEGRAM_SIGNAL_NAME,
-    signalArgs: [{ ...toTelegramMessage(message), ...media }],
+    signalArgs: [await buildPayload()],
   });
 };
 

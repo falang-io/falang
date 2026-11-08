@@ -2,6 +2,7 @@ import type { TVariableInfo } from '@falang/typescript-dto';
 import {
   buildChatTypeContextField,
   buildConversationContextField,
+  buildMessageWaitQuestion,
   DURATION_FIELD_AGENT_NOTES,
   type IWorkflowIntegration,
 } from '@falang/workflow-integrations-common';
@@ -11,11 +12,13 @@ import {
   VK_ON_COMMAND_TRIGGER_NAME,
   VK_QUESTION_ANSWER_SIGNAL_NAME,
   VK_QUESTION_NAME,
+  VK_REPLY_SIGNAL_NAME,
   VK_SCOPE_VARIABLE_NAME,
   VK_SEND_MESSAGE_NAME,
   VK_SIGNAL_NAME,
   VK_TRIGGER_NAME,
   VK_VENDOR,
+  VK_WAIT_MESSAGE_NAME,
 } from './constants.js';
 import { registerVkBackend } from './vk-backend.js';
 import { vkMemberTriggers } from './vk-member-triggers.js';
@@ -258,6 +261,20 @@ export const vkIntegration: IWorkflowIntegration = {
         '};',
       ].join('\n'),
     },
+    buildMessageWaitQuestion({
+      vendor: VK_VENDOR,
+      name: VK_WAIT_MESSAGE_NAME,
+      label: 'vk:question.waitMessage',
+      prefix: 'vk',
+      signalName: VK_REPLY_SIGNAL_NAME,
+      messageType: vkMessageScopeType,
+      credentialField: { name: 'credentialId', label: 'vk:field.bot', kind: 'credential-ref', vendor: VK_VENDOR },
+      chatIdField: { name: 'chatId', label: 'vk:field.chatId', kind: 'expression', expectedType: anyNumber },
+      fromUserLabel: 'vk:field.fromUser',
+      fromUserHelp: 'vk:help.fromUser',
+      timeoutLabel: 'vk:field.timeout',
+      timeoutHelp: 'vk:help.waitTimeout',
+    }),
   ],
   sharedActivityCode: VK_SHARED_ACTIVITY_CODE,
   registerBackend: registerVkBackend,

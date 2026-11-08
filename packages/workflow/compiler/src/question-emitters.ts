@@ -7,6 +7,7 @@ import {
 } from '@falang/workflow-integrations-common';
 import { JOURNAL_FN } from './journal-runtime.js';
 import { indentLines } from './indent.js';
+import { buildReplyWaitEmitter } from './reply-wait-emitters.js';
 import { resolveFieldExpression } from './integration-emitters.js';
 import type { TQuestionEmitters } from './node-emitters.js';
 import { buildSwitchCases, type TCompileChildren } from './switch-cases.js';
@@ -46,8 +47,11 @@ const TIMEOUT_CASE_VALUE = "'__timeout__'";
 const buildQuestionEmitter = (
   descriptor: IQuestionDescriptor,
 ): ((node: INode, compile: TCompileChildren) => string) => {
+  if (descriptor.replyWait) return buildReplyWaitEmitter(descriptor);
+  const resolveSignature = descriptor.resolveActivitySignature;
+  if (!resolveSignature) throw new Error(`Question "${descriptor.name}" has no resolveActivitySignature`);
   const askFnName = parseActivityName(descriptor.askActivitySignature);
-  const resolveFnName = parseActivityName(descriptor.resolveActivitySignature);
+  const resolveFnName = parseActivityName(resolveSignature);
   const closeFnName = descriptor.closeActivitySignature && parseActivityName(descriptor.closeActivitySignature);
   const fieldsByName = new Map(
     [...descriptor.contextFields, ...descriptor.questionFields].map((field) => [field.name, field]),

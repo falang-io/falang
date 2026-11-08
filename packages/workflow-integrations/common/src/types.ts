@@ -256,9 +256,9 @@ export interface IQuestionDescriptor extends IQuestionDescriptorExtensions {
   /** Sends the question with inline buttons and returns an id identifying the sent message, e.g. `'telegramAskQuestion(credentialId: string, chatId: number, question: string, options: readonly string[]): Promise<{ messageId: string }>'`. */
   readonly askActivitySignature: string;
   readonly askActivityCode: string;
-  /** Strips the buttons from the asked message and sends the "you picked X" confirmation, e.g. `'telegramResolveQuestionAnswer(credentialId: string, chatId: number, messageId: string, selectedLabel: string): Promise<void>'`. */
-  readonly resolveActivitySignature: string;
-  readonly resolveActivityCode: string;
+  /** Absent only for a reply wait (`replyWait`, nothing to resolve: the ingress already claimed the wait). Strips the buttons from the asked message and sends the "you picked X" confirmation, e.g. `'telegramResolveQuestionAnswer(credentialId: string, chatId: number, messageId: string, selectedLabel: string): Promise<void>'`. */
+  readonly resolveActivitySignature?: string;
+  readonly resolveActivityCode?: string;
   /** Temporal registration/retry options applied to both the ask and resolve activities of this question — see `IActivityOptions`. Absent = today's local-activity/10s/SDK-default behavior. */
   readonly activityOptions?: IActivityOptions;
   /** Run-journal spec for the ASK activity (the question as the bot said it) — see `IActivityJournalSpec`. */

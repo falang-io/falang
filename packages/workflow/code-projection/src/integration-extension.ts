@@ -140,6 +140,9 @@ export class IntegrationExtension implements IStatementExtension {
       return variable === '' ? `${call};` : `const ${variable} = ${call};`;
     }
     if (entry.kind === 'choice') return this.projectChoice(node, entry, projector);
+    if (entry.descriptor.replyWait) {
+      throw new UnsupportedNodeError(node, `"${node.name}" (wait for a message) is not projected yet`);
+    }
     if (entry.descriptor.optionDataTypes || entry.descriptor.answerScope) {
       throw new UnsupportedNodeError(node, `"${node.name}" options with typed data are not projected yet`);
     }
@@ -367,6 +370,9 @@ export class IntegrationExtension implements IStatementExtension {
       parser.fail(statement.expression, 'Only questions (`ask…` methods) can be switched on.');
     }
     const descriptor = read.entry.descriptor;
+    if (descriptor.replyWait) {
+      parser.fail(statement, `\`${descriptor.name}\` (wait for a message) is not supported in code yet.`);
+    }
     if (descriptor.optionDataTypes || descriptor.answerScope) {
       parser.fail(statement, `\`${descriptor.name}\` options with typed data are not supported in code yet.`);
     }

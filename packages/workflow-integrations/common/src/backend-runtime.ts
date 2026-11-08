@@ -213,10 +213,31 @@ export interface IIntegrationBackendContext {
    */
   reportJournalProblem?(report: IJournalProblemReport): Promise<void>;
   /**
+   * Hands an incoming chat message to a run that is waiting for one in this chat — a vendor's "wait for message" node
+   * (`IQuestionDescriptorExtensions.replyWait`, ADR 0079 (private)). The host claims the matching wait (this sender's
+   * own, else one open to anyone in the chat), wakes the runner and signals that run — a plain signal, never
+   * `signalWithStart` — with `{ waitId, message: await buildMessage() }` (`buildMessage` runs only after a claim, so
+   * media is resolved only when the message is delivered). Resolves `true` when delivered; `false` when nobody waits or
+   * the waiting run is gone — the vendor then routes the message as usual. Call it after the command check (a bound
+   * on-command trigger wins over a wait). Optional: absent on a host without the registry.
+   */
+  deliverToMessageWait?(params: IMessageWaitDelivery): Promise<boolean>;
+  /**
    * Present only on a dev target of an instance in sandbox mode (`IIntegrationInstance.devSandbox`) while the host has a
    * test bot configured for this vendor — subscribe instead of polling or registering a webhook. See `ISharedIngress`.
    */
   readonly sharedIngress?: ISharedIngress;
+}
+
+/** Params of `IIntegrationBackendContext.deliverToMessageWait`. */
+export interface IMessageWaitDelivery {
+  readonly chatId: string | number;
+  /** The sender; `null`/absent when the message has none (a channel post) — then only a wait open to anyone matches. */
+  readonly userId?: string | number | null;
+  /** The vendor's reply signal (the descriptor's `answerSignalName`). */
+  readonly signalName: string;
+  /** The message as the workflow sees it (the trigger payload shape, media resolved). */
+  buildMessage(): Promise<unknown>;
 }
 
 /** Params of `IIntegrationBackendContext.reportJournalProblem`. */

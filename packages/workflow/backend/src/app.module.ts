@@ -46,6 +46,7 @@ import { TreeModule } from './domains/projects/tree/tree.module.js';
 import { VersioningModule } from './domains/projects/versioning/versioning.module.js';
 import { RunsModule } from './domains/runs/runs.module.js';
 import { RunJournalModule } from './domains/run-journal/run-journal.module.js';
+import { MessageWaitsModule } from './domains/message-waits/message-waits.module.js';
 import { TasksModule } from './domains/tasks/tasks.module.js';
 import { TemporalModule } from './domains/temporal/temporal.module.js';
 import { UsersModule } from './domains/users/users/users.module.js';
@@ -135,6 +136,7 @@ const buildBuiltInImports = (
   RunsModule,
   TasksModule,
   RunJournalModule,
+  MessageWaitsModule,
   // Namespace-per-project tenant isolation (global — `TEMPORAL_TENANCY` for every Temporal-touching domain), ADR 0057 (private).
   TemporalModule,
   McpModule,

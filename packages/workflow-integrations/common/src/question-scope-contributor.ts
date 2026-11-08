@@ -1,5 +1,9 @@
 import type { TVariableInfo } from '@falang/typescript-dto';
-import { taskOptionDataTypeToVariableInfo, type IQuestionOptionDataWithType } from './question-extensions.js';
+import {
+  REPLY_WAIT_MESSAGE_LABEL,
+  taskOptionDataTypeToVariableInfo,
+  type IQuestionOptionDataWithType,
+} from './question-extensions.js';
 import type { IWorkflowIntegration } from './types.js';
 
 /**
@@ -31,7 +35,16 @@ export const registerQuestionScopeContributors = (
 ): void => {
   for (const integration of integrations) {
     for (const question of integration.questions ?? []) {
-      const { answerScope } = question;
+      const { answerScope, replyWait } = question;
+      if (replyWait) {
+        // The reply exists in the `message` branch only — the `timeout` branch has none.
+        register(`${question.name}-option`, (data) =>
+          (data as { label?: string } | undefined)?.label === REPLY_WAIT_MESSAGE_LABEL
+            ? [{ name: replyWait.variableName, type: { ...replyWait.messageType, constant: true } as TVariableInfo }]
+            : [],
+        );
+        continue;
+      }
       if (!answerScope) continue;
       const optionNodeName = `${question.name}-option`;
       register(optionNodeName, (data) => {

@@ -27,7 +27,8 @@
       "conversationMessageId": "Message ID",
       "chatType": "Chats",
       "conversation": "Conversation",
-      "buttons": "Buttons"
+      "buttons": "Buttons",
+      "fromUser": "From user"
     },
     "action": {
       "sendMessage": "Send message",
@@ -37,7 +38,8 @@
       "sendButtons": "Send message with buttons"
     },
     "question": {
-      "askQuestion": "Ask question"
+      "askQuestion": "Ask question",
+      "waitMessage": "Wait for a message"
     },
     "sendFileAs": {
       "auto": "Auto (by file type)",
@@ -58,7 +60,9 @@
       "timeout": "How long to wait for an answer: `10m`, `2h`, `48h`, `7d`. Empty — no limit.\nWhen it runs out, the “timeout” branch runs.",
       "chatId": "The recipient's peer_id — e.g. `message.chat.id` from the trigger.",
       "conversationMessageId": "The message's conversationMessageId in the conversation — e.g. `message.conversationMessageId` from the trigger.",
-      "buttons": "Buttons under the message. **Link** opens the address. **Command** acts as if the user sent that command (e.g. `/help`) — it is handled by an “On command” trigger of the same community.\nThe message doesn't wait for a press. VK shows at most 40 characters of a caption.\nTexts and values may contain `${…}`."
+      "buttons": "Buttons under the message. **Link** opens the address. **Command** acts as if the user sent that command (e.g. `/help`) — it is handled by an “On command” trigger of the same community.\nThe message doesn't wait for a press. VK shows at most 40 characters of a caption.\nTexts and values may contain `${…}`.",
+      "fromUser": "Id of the user to wait for, e.g. `message.from.id`. Empty — anyone in the chat.",
+      "waitTimeout": "How long to wait for the message: `10m`, `2h`, `1d`. Required.\nIf a message arrives, the “message” branch runs with the reply as `reply`; otherwise the “timeout” branch.\nA command that has an “On command” trigger goes to that trigger and does not end the wait."
     }
   }
 }

@@ -1,6 +1,6 @@
 // oxlint-disable max-lines -- over the cap only by the run-journal specs (ADR 0059 (private)).
 import type { TVariableInfo } from '@falang/typescript-dto';
-import { DURATION_FIELD_AGENT_NOTES } from '@falang/workflow-integrations-common';
+import { buildMessageWaitQuestion, DURATION_FIELD_AGENT_NOTES } from '@falang/workflow-integrations-common';
 import type { IWorkflowIntegration } from '@falang/workflow-integrations-common';
 import {
   TELEGRAM_COMMAND_FIELD_NAME,
@@ -8,11 +8,13 @@ import {
   TELEGRAM_ON_COMMAND_TRIGGER_NAME,
   TELEGRAM_QUESTION_ANSWER_SIGNAL_NAME,
   TELEGRAM_QUESTION_NAME,
+  TELEGRAM_REPLY_SIGNAL_NAME,
   TELEGRAM_SCOPE_VARIABLE_NAME,
   TELEGRAM_SEND_MESSAGE_NAME,
   TELEGRAM_SIGNAL_NAME,
   TELEGRAM_TRIGGER_NAME,
   TELEGRAM_VENDOR,
+  TELEGRAM_WAIT_MESSAGE_NAME,
 } from './constants.js';
 import { registerTelegramBackend } from './telegram-backend.js';
 import { telegramCommunityActions, TELEGRAM_MODERATION_SHARED_CODE } from './telegram-community-actions.js';
@@ -75,8 +77,9 @@ export const telegramIntegration: IWorkflowIntegration = {
         'command (e.g. /start, /help), do NOT read `message.text` and check it for a leading slash',
         'inside this handler — create a separate trigger-function document bound to the',
         `"${TELEGRAM_ON_COMMAND_TRIGGER_NAME}" trigger instead, one such document per command, and let`,
-        'this onMessage trigger handle only genuinely free-text input (e.g. an answer to a question this',
-        'bot itself asked). `message.photo`/`.document`/`.voice`/`.audio`/`.video` are `File`s (see the',
+        'this onMessage trigger handle only genuinely free-text input. To read the answer to something the',
+        `bot itself just asked, use the "${TELEGRAM_WAIT_MESSAGE_NAME}" node inside the same run instead.`,
+        '`message.photo`/`.document`/`.voice`/`.audio`/`.video` are `File`s (see the',
         '`files` vendor), already resolved — `null`, not absent, when Telegram had media but it could not',
         'be fetched (over 20 MB, or a download error); always check for `null` before using one.',
         '`message.entities` lists links/mentions (type "url", "text_link" with `url`, "mention", …) — use it',
@@ -282,6 +285,25 @@ export const telegramIntegration: IWorkflowIntegration = {
         '};',
       ].join('\n'),
     },
+    buildMessageWaitQuestion({
+      vendor: TELEGRAM_VENDOR,
+      name: TELEGRAM_WAIT_MESSAGE_NAME,
+      label: 'telegram:question.waitMessage',
+      prefix: 'telegram',
+      signalName: TELEGRAM_REPLY_SIGNAL_NAME,
+      messageType: telegramMessageScopeType,
+      credentialField: {
+        name: 'credentialId',
+        label: 'telegram:field.bot',
+        kind: 'credential-ref',
+        vendor: TELEGRAM_VENDOR,
+      },
+      chatIdField: { name: 'chatId', label: 'telegram:field.chatId', kind: 'expression', expectedType: anyNumber },
+      fromUserLabel: 'telegram:field.fromUser',
+      fromUserHelp: 'telegram:help.fromUser',
+      timeoutLabel: 'telegram:field.timeout',
+      timeoutHelp: 'telegram:help.waitTimeout',
+    }),
   ],
   // Shared by `telegramSendMessage`/`telegramAskQuestion`/`telegramResolveQuestionAnswer` — emitted
   // once by `compileActivities` (see `IWorkflowIntegration.sharedActivityCode`) so this isn't

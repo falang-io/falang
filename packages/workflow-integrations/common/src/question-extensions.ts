@@ -52,7 +52,24 @@ export interface IQuestionDescriptorExtensions {
    * `build-question-node-config.ts`.
    */
   readonly optionDataTypes?: boolean;
+  /**
+   * Turns the node into "wait for the user's next message" (ADR 0079 (private)): no buttons and no `options`
+   * — exactly two fixed branches, `message` (`REPLY_WAIT_MESSAGE_LABEL`, the reply bound as `variableName`,
+   * typed `messageType`, in that branch only) and `timeout` (`TIMEOUT_OPTION_LABEL`). The ask activity
+   * registers the wait with the backend (`'<name>(...contextArgs, ...questionArgs, timeoutMs: number):
+   * Promise<{ messageId: string }>'`, `messageId` = the wait id), the ingress claims it and signals
+   * `answerSignalName` with `{ waitId, message }`, the close activity releases it on timeout/cancel, and
+   * `timeoutField` is mandatory. Compiled by `@falang/workflow-compiler`'s `reply-wait-emitters.ts`. Built by
+   * `buildMessageWaitQuestion` (`message-wait.ts`).
+   */
+  readonly replyWait?: {
+    readonly variableName: string;
+    readonly messageType: TVariableInfo;
+  };
 }
+
+/** Label (and discriminant) of a reply wait's `message` branch — see `IQuestionDescriptorExtensions.replyWait`. */
+export const REPLY_WAIT_MESSAGE_LABEL = 'message';
 
 /** The three scalar-or-void types a `human-task`/similar option's resolution value may have — see `optionDataTypes` above. `'void'` is a bare button, no value collected. */
 export type TTaskOptionDataType = 'void' | 'string' | 'number' | 'boolean';

@@ -14,9 +14,13 @@ describe('run journal specs of every registered vendor (ADR 0059)', () => {
     for (const integration of REGISTERED_INTEGRATIONS) {
       const signatures = [
         ...integration.actions.map((action) => action.activitySignature),
-        ...(integration.questions ?? []).flatMap((q) => [q.askActivitySignature, q.resolveActivitySignature]),
+        ...(integration.questions ?? []).flatMap((q) => [
+          q.askActivitySignature,
+          q.resolveActivitySignature,
+          q.closeActivitySignature,
+        ]),
         ...(integration.choices ?? []).map((choice) => choice.activitySignature),
-      ];
+      ].filter((signature): signature is string => typeof signature === 'string');
       for (const signature of signatures) expect(() => parseActivityParamNames(signature), signature).not.toThrow();
     }
   });

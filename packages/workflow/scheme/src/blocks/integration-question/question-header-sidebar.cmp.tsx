@@ -151,9 +151,11 @@ export const QuestionHeaderSidebarComponent: TBlockEditorView<QuestionEditorStor
             <QuestionFieldEditorComponent editor={editor} field={field} />
           </Form.Item>
         ))}
-        <Form.Item label={t('integration-editor:options')} style={{ marginBottom: 14 }}>
-          <QuestionOptionsEditorComponent editor={editor} />
-        </Form.Item>
+        {!editor.descriptor.replyWait && (
+          <Form.Item label={t('integration-editor:options')} style={{ marginBottom: 14 }}>
+            <QuestionOptionsEditorComponent editor={editor} />
+          </Form.Item>
+        )}
       </Form>
     </div>
   );

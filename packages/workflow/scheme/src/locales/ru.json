@@ -26,7 +26,8 @@
     "button-url": "Адрес",
     "button-command": "Команда (например, /help)",
     "buttons-invalid": "Сохранённые кнопки не читаются — добавление или изменение кнопки заменит их",
-    "buttons-limit": "Не больше {{count}} кнопок"
+    "buttons-limit": "Не больше {{count}} кнопок",
+    "wait-timeout": "Ждёт сообщение: {{timeout}}"
   },
   "activepieces-picker": {
     "title": "Добавить действие ActivePieces",

@@ -38,6 +38,8 @@ import { Folder } from '../domains/projects/folders/folder.entity.js';
 import { FoldersModule } from '../domains/projects/folders/folders.module.js';
 import { RunJournalEntry } from '../domains/run-journal/run-journal-entry.entity.js';
 import { RunJournalModule } from '../domains/run-journal/run-journal.module.js';
+import { MessageWait } from '../domains/message-waits/message-wait.entity.js';
+import { MessageWaitsModule } from '../domains/message-waits/message-waits.module.js';
 import { AgentUsage } from '../domains/agent-chat/agent-usage.entity.js';
 import { Project } from '../domains/projects/projects/project.entity.js';
 import { ProjectMember } from '../domains/projects/members/project-member.entity.js';
@@ -109,6 +111,7 @@ export const buildTestAppImports = (extraModules: TAppImport[] = []) => [
       SandboxBotBlock,
       TableRecord,
       TableRecordChange,
+      MessageWait,
     ],
   }),
   UsersModule,
@@ -127,6 +130,7 @@ export const buildTestAppImports = (extraModules: TAppImport[] = []) => [
   SupportModule,
   FilesModule,
   RunJournalModule,
+  MessageWaitsModule,
   RunnerSessionsModule,
   ProjectRuntimeSettingsModule,
   TemporalModule,

@@ -1,7 +1,11 @@
 import { zod, type INodeConfig } from '@falang/dto';
 import { nanoid } from 'nanoid';
 import { buildActionDataSchema, defaultFieldValue } from './build-node-config.js';
-import type { IQuestionOptionDataWithType, TTaskOptionDataType } from './question-extensions.js';
+import {
+  REPLY_WAIT_MESSAGE_LABEL,
+  type IQuestionOptionDataWithType,
+  type TTaskOptionDataType,
+} from './question-extensions.js';
 import type { IQuestionDescriptor } from './types.js';
 
 /**
@@ -27,6 +31,12 @@ const DEFAULT_OPTION_LABELS: readonly string[] = ['Вариант 1', 'Вари�
 
 /** Label of the automatic option `timeoutField` adds — see `IQuestionDescriptorExtensions.timeoutField`. */
 export const TIMEOUT_OPTION_LABEL = 'timeout';
+
+/** A reply wait's two branches, in order — both fixed, never edited by hand (see `IQuestionDescriptorExtensions.replyWait`). */
+export const REPLY_WAIT_BRANCHES: readonly IQuestionOptionData[] = [
+  { label: REPLY_WAIT_MESSAGE_LABEL, fixed: true },
+  { label: TIMEOUT_OPTION_LABEL, fixed: true },
+];
 
 /**
  * A question header's `data` is its descriptor's own fields (same field-driven schema `IActionDescriptor`
@@ -78,15 +88,17 @@ export const buildQuestionNodeConfig = (descriptor: IQuestionDescriptor): readon
     descriptor.optionDataTypes ? { label, dataType: 'void' } : { label };
   const defaultData = (): TQuestionHeaderData => ({
     ...Object.fromEntries(getQuestionHeaderFields(descriptor).map((field) => [field.name, defaultFieldValue(field)])),
-    options: DEFAULT_OPTION_LABELS,
+    options: descriptor.replyWait ? [] : DEFAULT_OPTION_LABELS,
   });
   const buildDefaultChildren = () =>
-    DEFAULT_OPTION_LABELS.map((label) => ({
-      id: nanoid(),
-      name: optionNodeName,
-      data: buildOptionData(label),
-      children: [],
-    }));
+    descriptor.replyWait
+      ? REPLY_WAIT_BRANCHES.map((data) => ({ id: nanoid(), name: optionNodeName, data, children: [] }))
+      : DEFAULT_OPTION_LABELS.map((label) => ({
+          id: nanoid(),
+          name: optionNodeName,
+          data: buildOptionData(label),
+          children: [],
+        }));
 
   return [
     {

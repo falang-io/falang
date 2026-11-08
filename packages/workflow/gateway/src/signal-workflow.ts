@@ -1,5 +1,6 @@
+import { WorkflowNotFoundError } from '@temporalio/client';
 import type { Duration } from '@temporalio/common';
-import type { ITemporalTenancy } from './temporal-tenancy.js';
+import { isNamespaceNotFoundError, type ITemporalTenancy } from './temporal-tenancy.js';
 import { executionTimeoutOptions } from './workflow-execution-timeout.js';
 
 export interface ISignalWorkflowWithStartParams {
@@ -43,4 +44,32 @@ export const createSignalWorkflowWithStart =
       args: [],
       ...executionTimeoutOptions(workflowExecutionTimeout),
     });
+  };
+
+export interface ISignalWorkflowRunParams {
+  readonly projectId: string;
+  readonly workflowId: string;
+  readonly runId: string;
+  readonly signalName: string;
+  readonly signalArgs: readonly unknown[];
+}
+
+/**
+ * A plain signal on one known run — never `signalWithStart` — for input addressed to a run that registered itself
+ * (a reply wait, ADR 0079 (private)). `'gone'` when that run no longer exists (finished, terminated, namespace gone).
+ */
+export type TSignalWorkflowRun = (params: ISignalWorkflowRunParams) => Promise<'delivered' | 'gone'>;
+
+/** The real `TSignalWorkflowRun`, over the project's own namespace through `ITemporalTenancy` (ADR 0057 (private)). */
+export const createSignalWorkflowRun =
+  (tenancy: Pick<ITemporalTenancy, 'namespaceFor' | 'getClientForNamespace'>): TSignalWorkflowRun =>
+  async ({ projectId, workflowId, runId, signalName, signalArgs }) => {
+    try {
+      const client = await tenancy.getClientForNamespace(tenancy.namespaceFor(projectId));
+      await client.workflow.getHandle(workflowId, runId).signal(signalName, ...signalArgs);
+      return 'delivered';
+    } catch (error) {
+      if (error instanceof WorkflowNotFoundError || isNamespaceNotFoundError(error)) return 'gone';
+      throw error;
+    }
   };

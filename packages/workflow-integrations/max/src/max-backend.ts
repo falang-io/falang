@@ -1,5 +1,6 @@
 // oxlint-disable max-lines -- mirrors telegram-backend.ts: routing, both delivery modes and the run-journal reports.
 import {
+  memoizeAsync,
   buildConversationWorkflowId,
   chatTypeAdmits,
   constantTimeEqual,
@@ -16,6 +17,7 @@ import {
   MAX_DEFAULT_API_BASE_URL,
   MAX_ON_COMMAND_TRIGGER_NAME,
   MAX_QUESTION_ANSWER_SIGNAL_NAME,
+  MAX_REPLY_SIGNAL_NAME,
   MAX_SIGNAL_NAME,
   MAX_TRIGGER_NAME,
 } from './constants.js';
@@ -218,6 +220,36 @@ const signalIncomingMessage = async (
     message.text ?? '',
     maxChatKindOf(message.chat.type),
   );
+
+  // Once per message, whichever run receives it.
+  const media = memoizeAsync(() =>
+    raw
+      ? resolveIncomingMedia(raw, {
+          botToken: ctx.fields.botToken,
+          apiBaseUrl: MAX_API_BASE_URL,
+          uploadFile: ctx.uploadFile,
+        })
+      : Promise.resolve({}),
+  );
+  const buildPayload = async () => ({ ...message, ...(await media()) });
+
+  // A run waiting for this chat's next message (ADR 0079 (private)) takes it — unless a bound on-command trigger
+  // handles it, which wins over the wait.
+  const isCommandMatch = triggerFunction
+    ? getTriggerFunctionBodyData(triggerFunction)?.triggerName === MAX_ON_COMMAND_TRIGGER_NAME
+    : false;
+  if (
+    !isCommandMatch &&
+    (await ctx.deliverToMessageWait?.({
+      chatId,
+      userId: message.from?.id ?? null,
+      signalName: MAX_REPLY_SIGNAL_NAME,
+      buildMessage: buildPayload,
+    }))
+  ) {
+    return;
+  }
+
   if (!triggerFunction) {
     await ctx.reportJournalProblem?.({
       workflowId: unboundWorkflowId(chatId),
@@ -237,19 +269,11 @@ const signalIncomingMessage = async (
   });
   chatTriggerFunctions.set(chatId, { documentId: triggerFunction.id, workflowId });
 
-  const media = raw
-    ? await resolveIncomingMedia(raw, {
-        botToken: ctx.fields.botToken,
-        apiBaseUrl: MAX_API_BASE_URL,
-        uploadFile: ctx.uploadFile,
-      })
-    : {};
-
   await ctx.signalWorkflow({
     workflowId,
     workflowType: triggerFunction.name,
     signalName: MAX_SIGNAL_NAME,
-    signalArgs: [{ ...message, ...media }],
+    signalArgs: [await buildPayload()],
   });
 };
 

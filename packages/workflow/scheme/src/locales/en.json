@@ -26,7 +26,8 @@
     "button-url": "URL",
     "button-command": "Command (e.g. /help)",
     "buttons-invalid": "The stored buttons can't be read — adding or changing a button replaces them",
-    "buttons-limit": "At most {{count}} buttons"
+    "buttons-limit": "At most {{count}} buttons",
+    "wait-timeout": "Waits for a message: {{timeout}}"
   },
   "activepieces-picker": {
     "title": "Add ActivePieces action",

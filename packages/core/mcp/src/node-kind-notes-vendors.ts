@@ -22,7 +22,28 @@ const SEND_BUTTONS_NOTE = (questionKind: string, onCommandTrigger: string): stri
     'start other flows. See the `buttons` field for the JSON format.',
   ].join(' ');
 
+/**
+ * `<vendor>-wait-message` (ADR 0079): pauses until the chat's next message. The vendor's question node's own notes
+ * forbid reading free text through the trigger; this is the node for that.
+ */
+const WAIT_MESSAGE_NOTE = (vendor: string, onCommandTrigger: string): string =>
+  [
+    `Pauses the run until the user writes the next message in the chat (\`chatId\`), then branches like a \`switch\`.`,
+    `It always has exactly two \`${vendor}-wait-message-option\` children, both fixed (never add, remove or rename`,
+    'them): `data.label` "message" — runs when a message arrived, with it bound as `reply` (same type as the',
+    'trigger\'s `message`: `reply.text`, `reply.from`, media) — and "timeout" — runs when `timeout` (required, e.g.',
+    '`10m`, `2h`, `1d`) passed first. Use it to collect a free-text answer (a name, a phone number, an address) right',
+    'after asking for it with a send-message node; for a fixed set of choices use the question node with buttons',
+    `instead. \`fromUserId\` (optional) waits for one person in a group — empty means anyone in the chat. A /command`,
+    `that has its own \`${onCommandTrigger}\` document goes to that trigger and does not end the wait. Works in any`,
+    'trigger or function, whatever trigger started the run. A `while` loop around it with `continue` in the message',
+    'branch re-asks after an invalid answer.',
+  ].join(' ');
+
 export const VENDOR_NODE_KIND_NOTES: Record<string, string> = {
+  'telegram-wait-message': WAIT_MESSAGE_NOTE('telegram', 'telegram-on-command-trigger'),
+  'max-wait-message': WAIT_MESSAGE_NOTE('max', 'max-on-command-trigger'),
+  'vk-wait-message': WAIT_MESSAGE_NOTE('vk', 'vk-on-command-trigger'),
   'telegram-question': [
     'Sends the message with real, tappable Telegram inline-keyboard buttons — one per',
     "`telegram-question-option` child, in order, each child's `data.label` becoming that button's",
@@ -31,7 +52,7 @@ export const VENDOR_NODE_KIND_NOTES: Record<string, string> = {
     "matching the *next* incoming message's text (e.g. comparing `message.text.toLowerCase()` against",
     '`"да"`/`"нет"` in a `switch`) — the user is expected to tap a button, not type a reply, and a',
     'plain trigger has no way to correlate a later free-text message back to this particular question',
-    'anyway. Each option child runs when its button is tapped; give it an `out` the same way a',
+    'anyway — for a typed free-text answer use `telegram-wait-message` instead. Each option child runs when its button is tapped; give it an `out` the same way a',
     "`switch-option`'s branch would, to control a surrounding loop or end the function — see",
     "`telegram-question-option`'s notes for which out to pick. In a GROUP chat the buttons are only",
     'routed back to the asking run when the trigger is "per-chat"; with conversation "per-user"/"per-event"',

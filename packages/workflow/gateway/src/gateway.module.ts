@@ -9,7 +9,7 @@ import { IntegrationsRuntimeService } from './integrations-runtime.service.js';
 import { createTemporalScheduleClient, SCHEDULE_CLIENT_PORT, type IScheduleClientPort } from './schedule-client.js';
 import { parseScheduleCatchupWindow } from './schedule-guard.js';
 import { parseWorkflowExecutionTimeout } from './workflow-execution-timeout.js';
-import { createSignalWorkflowWithStart } from './signal-workflow.js';
+import { createSignalWorkflowRun, createSignalWorkflowWithStart } from './signal-workflow.js';
 import { TEMPORAL_TENANCY, type ITemporalTenancy } from './temporal-tenancy.js';
 
 // Registered once, real and identical for every host (unlike `resolveDiscoveryPort`/
@@ -122,6 +122,7 @@ const buildIntegrationsRuntimeServiceProvider = (
       fileUpload,
       oauth2AccessToken,
       webhookSecretKey: resolveWebhookSecretKey(config),
+      signalWorkflowRun: createSignalWorkflowRun(tenancy),
     });
   },
   inject: [

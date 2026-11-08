@@ -7,6 +7,10 @@ export const MAX_SEND_MESSAGE_NAME = 'max-send-message';
 export const MAX_SEND_FILE_NAME = 'max-send-file';
 export const MAX_SEND_BUTTONS_NAME = 'max-send-buttons';
 export const MAX_QUESTION_NAME = 'max-question';
+/** "Wait for the user's message" (ADR 0079 (private)) — see `buildMessageWaitQuestion`. */
+export const MAX_WAIT_MESSAGE_NAME = 'max-wait-message';
+/** What the ingress signals a run waiting for a message with: `{ waitId, message }`. */
+export const MAX_REPLY_SIGNAL_NAME = 'maxReply';
 export const MAX_SIGNAL_NAME = 'maxMessage';
 /** Shared by every `max-question` node in a compiled workflow — button presses are correlated to a specific pending question by `messageId`, not by signal identity. */
 export const MAX_QUESTION_ANSWER_SIGNAL_NAME = 'maxQuestionAnswer';

@@ -3,6 +3,7 @@ import { TOKEN_SCHEME, type IBlockEditorFactoryParams } from '@falang/scheme';
 import { CodeModelStore, ExpressionBlockEditorStore, TemplateStringStore } from '@falang/typescript-scheme';
 import {
   getQuestionHeaderFields,
+  REPLY_WAIT_BRANCHES,
   TIMEOUT_OPTION_LABEL,
   type IFieldConfig,
   type IIntegrationInstance,
@@ -225,6 +226,12 @@ export class QuestionEditorStore extends ExpressionBlockEditorStore<TQuestionHea
     this.templateStringStores.forEach((store, name) => {
       data[name] = store.value;
     });
+    const scheme = resolveService(TOKEN_SCHEME, this.container);
+    // A reply wait (ADR 0079 (private)) has no buttons: its two branches are fixed, only re-established here.
+    if (this.descriptor.replyWait) {
+      syncIndexedChildren(scheme, this.iconId, `${this.descriptor.name}-option`, REPLY_WAIT_BRANCHES, (item) => item);
+      return { ...data, options: [] } as TQuestionHeaderData;
+    }
     const options = [...this.options];
     const items: (IQuestionOptionData | IQuestionOptionDataWithType)[] = options.map((label, index) =>
       this.buildOptionData(label, this.optionMeta[index]),
@@ -240,7 +247,6 @@ export class QuestionEditorStore extends ExpressionBlockEditorStore<TQuestionHea
     // Runs once, only on save — see `syncIndexedChildren`'s doc for why this is a safe place for the
     // one-time child-sync side effect (`EditorService.stopEdit` only calls `getData()` when the
     // sidebar's save actually commits, before disposing this store).
-    const scheme = resolveService(TOKEN_SCHEME, this.container);
     syncIndexedChildren(scheme, this.iconId, `${this.descriptor.name}-option`, items, (item) => item);
     return { ...data, options } as TQuestionHeaderData;
   }

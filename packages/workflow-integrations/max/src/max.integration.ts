@@ -2,6 +2,7 @@ import type { TVariableInfo } from '@falang/typescript-dto';
 import {
   buildChatTypeContextField,
   buildConversationContextField,
+  buildMessageWaitQuestion,
   DURATION_FIELD_AGENT_NOTES,
   type IWorkflowIntegration,
 } from '@falang/workflow-integrations-common';
@@ -17,11 +18,13 @@ import {
   MAX_ON_COMMAND_TRIGGER_NAME,
   MAX_QUESTION_ANSWER_SIGNAL_NAME,
   MAX_QUESTION_NAME,
+  MAX_REPLY_SIGNAL_NAME,
   MAX_SCOPE_VARIABLE_NAME,
   MAX_SEND_MESSAGE_NAME,
   MAX_SIGNAL_NAME,
   MAX_TRIGGER_NAME,
   MAX_VENDOR,
+  MAX_WAIT_MESSAGE_NAME,
 } from './constants.js';
 import { registerMaxBackend } from './max-backend.js';
 import { maxDeleteMessageAction, maxRemoveMemberAction } from './max-moderation-actions.js';
@@ -258,6 +261,20 @@ export const maxIntegration: IWorkflowIntegration = {
         '};',
       ].join('\n'),
     },
+    buildMessageWaitQuestion({
+      vendor: MAX_VENDOR,
+      name: MAX_WAIT_MESSAGE_NAME,
+      label: 'max:question.waitMessage',
+      prefix: 'max',
+      signalName: MAX_REPLY_SIGNAL_NAME,
+      messageType: maxMessageScopeType,
+      credentialField: { name: 'credentialId', label: 'max:field.bot', kind: 'credential-ref', vendor: MAX_VENDOR },
+      chatIdField: { name: 'chatId', label: 'max:field.chatId', kind: 'expression', expectedType: anyNumber },
+      fromUserLabel: 'max:field.fromUser',
+      fromUserHelp: 'max:help.fromUser',
+      timeoutLabel: 'max:field.timeout',
+      timeoutHelp: 'max:help.waitTimeout',
+    }),
   ],
   sharedActivityCode: MAX_SHARED_ACTIVITY_CODE,
   registerBackend: registerMaxBackend,

@@ -6,6 +6,7 @@ import { RunnerStartRefusedError } from './runner-start-refused-error.js';
 import { runWithEgressVendor } from '@falang/workflow-egress';
 import { Logger, type OnModuleDestroy, type OnModuleInit } from '@nestjs/common';
 import type {
+  IMessageWaitDelivery,
   IIntegrationBackendHandle,
   IWorkflowIntegration,
   TWebhookHandler,
@@ -17,7 +18,8 @@ import type { ISandboxIngressPort } from './sandbox-ingress-port.js';
 import type { IScheduleGuard } from './schedule-guard.js';
 import type { IRunJournalProblemPort } from './run-journal-problem-port.js';
 import type { IScheduleClientPort } from './schedule-client.js';
-import type { TSignalWorkflowWithStart } from './signal-workflow.js';
+import type { IMessageWaitPort } from './message-wait-port.js';
+import type { TSignalWorkflowRun, TSignalWorkflowWithStart } from './signal-workflow.js';
 
 /** How often the discovery loop re-lists credential instances to pick up newly configured/removed ones. */
 const DISCOVERY_INTERVAL_MS = 30_000;
@@ -134,6 +136,8 @@ export interface IIntegrationsRuntimeParams {
    * already have to be identical on every replica and stable across restarts). Without it `deriveSecret` throws.
    */
   readonly webhookSecretKey?: string;
+  /** Backs `ctx.deliverToMessageWait` together with `setMessageWaits` (ADR 0079 (private)) — a plain signal on a known run. Without it the ctx method is absent. */
+  readonly signalWorkflowRun?: TSignalWorkflowRun;
 }
 
 /**
@@ -162,6 +166,8 @@ export class IntegrationsRuntimeService implements OnModuleInit, OnModuleDestroy
   private readonly fileUpload: IFileUploadPort | undefined;
   private readonly oauth2AccessToken: IOAuth2AccessTokenPort | undefined;
   private readonly webhookSecretKey: string | undefined;
+  private readonly signalWorkflowRun: TSignalWorkflowRun | undefined;
+  private messageWaits: IMessageWaitPort | undefined;
 
   private readonly webhookHandlers = new Map<string, TWebhookHandler>();
   private readonly activeTargets = new Map<string, IActiveTarget>();
@@ -194,6 +200,7 @@ export class IntegrationsRuntimeService implements OnModuleInit, OnModuleDestroy
     this.scheduleClient = params.scheduleClient;
     this.fileUpload = params.fileUpload;
     this.oauth2AccessToken = params.oauth2AccessToken;
+    this.signalWorkflowRun = params.signalWorkflowRun;
   }
 
   onModuleInit(): void {
@@ -290,6 +297,14 @@ export class IntegrationsRuntimeService implements OnModuleInit, OnModuleDestroy
    */
   setSandboxIngress(port: ISandboxIngressPort): void {
     this.sandboxIngress = port;
+  }
+
+  /**
+   * Installs the registry of runs waiting for a chat message (ADR 0079 (private)) — a post-construction setter like
+   * `setRunJournal`. Without it `ctx.deliverToMessageWait` always answers `false` (messages route as usual).
+   */
+  setMessageWaits(port: IMessageWaitPort): void {
+    this.messageWaits = port;
   }
 
   /**
@@ -568,6 +583,12 @@ export class IntegrationsRuntimeService implements OnModuleInit, OnModuleDestroy
           intervalHandles.push(handle);
         },
         signalWorkflow,
+        ...(this.signalWorkflowRun
+          ? {
+              deliverToMessageWait: (delivery: IMessageWaitDelivery) =>
+                this.deliverToMessageWait(target, taskQueue, delivery),
+            }
+          : {}),
         reportJournalProblem: (report) =>
           this.recordJournalProblem({
             ...report,
@@ -681,6 +702,60 @@ export class IntegrationsRuntimeService implements OnModuleInit, OnModuleDestroy
     if (!active) return 'inactive';
     await active.signalWorkflow(signal);
     return 'delivered';
+  }
+
+  /**
+   * `ctx.deliverToMessageWait` (ADR 0079 (private)): claim the wait, wake the runner, plain-signal the run with
+   * `{ waitId, message }`. `false` when nobody waits or the run is gone — the vendor then routes the message as usual.
+   * A refused wake (suspended project, no balance) is journaled and rethrown like `ctx.signalWorkflow`; any other
+   * failure after the claim is journaled and answers `false`.
+   */
+  private async deliverToMessageWait(
+    target: IKnownTarget,
+    taskQueue: string,
+    delivery: IMessageWaitDelivery,
+  ): Promise<boolean> {
+    const port = this.messageWaits;
+    const signalRun = this.signalWorkflowRun;
+    if (!port || !signalRun) return false;
+    const claim = await port.claim({
+      projectId: target.projectId,
+      env: target.env,
+      vendor: target.vendor,
+      credentialId: target.credentialId,
+      chatId: String(delivery.chatId),
+      userId: delivery.userId === null || delivery.userId === undefined ? null : String(delivery.userId),
+    });
+    if (!claim) return false;
+    const wake: { error?: unknown } = {};
+    const message = await delivery.buildMessage();
+    const signal = {
+      workflowId: claim.workflowId,
+      signalName: delivery.signalName,
+      signalArgs: [{ waitId: claim.waitId, message }],
+    };
+    if (this.ensureRunnerRunning) {
+      try {
+        await this.ensureRunnerRunning({ projectId: target.projectId, env: target.env, taskQueue });
+      } catch (error) {
+        wake.error = error;
+        if (error instanceof RunnerStartRefusedError) {
+          await this.reportUndeliverable(target, signal, error, wake);
+          throw error;
+        }
+        this.logger.error(
+          `ensureRunnerRunning failed for ${target.vendor}/${target.credentialId}/${target.env}`,
+          error instanceof Error ? error.stack : error,
+        );
+      }
+    }
+    try {
+      const outcome = await signalRun({ ...signal, projectId: target.projectId, runId: claim.runId });
+      return outcome === 'delivered';
+    } catch (error) {
+      await this.reportUndeliverable(target, signal, error, wake);
+      return false;
+    }
   }
 
   /** Never throws — a broken journal must not change what the caller sees. */

@@ -9,6 +9,10 @@ export const VK_SEND_BUTTONS_NAME = 'vk-send-buttons';
 /** Key of a `vk-send-buttons` command button's callback payload (`{"falangCommand":"/help"}`); a question uses `falang`. */
 export const VK_BUTTON_COMMAND_PAYLOAD_KEY = 'falangCommand';
 export const VK_QUESTION_NAME = 'vk-question';
+/** "Wait for the user's message" (ADR 0079 (private)) — see `buildMessageWaitQuestion`. */
+export const VK_WAIT_MESSAGE_NAME = 'vk-wait-message';
+/** What the ingress signals a run waiting for a message with: `{ waitId, message }`. */
+export const VK_REPLY_SIGNAL_NAME = 'vkReply';
 export const VK_SIGNAL_NAME = 'vkMessage';
 /** Shared by every `vk-question` node in a compiled workflow — button presses are correlated to a pending question by `messageId`. */
 export const VK_QUESTION_ANSWER_SIGNAL_NAME = 'vkQuestionAnswer';

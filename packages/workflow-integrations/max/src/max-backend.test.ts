@@ -195,6 +195,26 @@ describe('registerMaxBackend', () => {
       expect(signalCall(ctx).workflowId).toBe('max-doc-start-42');
     });
 
+    it('hands a plain message to a waiting run (ADR 0079), but a bound command still goes to its trigger', async () => {
+      const deliverToMessageWait = vi.fn().mockResolvedValue(true);
+      const ctx = buildCtx({
+        webhookUrl: 'https://x/y',
+        getDocumentsByType: vi.fn().mockResolvedValue(docs),
+        deliverToMessageWait,
+      });
+      await deliver(ctx, { update_type: 'message_created', timestamp: 1, message: rawMessage('Ann') });
+      expect(deliverToMessageWait).toHaveBeenCalledWith(
+        expect.objectContaining({ chatId: 42, signalName: 'maxReply' }),
+      );
+      expect(ctx.signalWorkflow).not.toHaveBeenCalled();
+
+      await ctx.webhook?.(
+        webhookRequest({ update_type: 'message_created', timestamp: 2, message: rawMessage('/start') }),
+      );
+      expect(deliverToMessageWait).toHaveBeenCalledTimes(1);
+      expect(signalCall(ctx).workflowId).toBe('max-doc-start-42');
+    });
+
     it('bot_started is delivered as a /start message carrying the deep-link payload', async () => {
       const ctx = buildCtx({ webhookUrl: 'https://x/y', getDocumentsByType: vi.fn().mockResolvedValue(docs) });
       await deliver(ctx, {
