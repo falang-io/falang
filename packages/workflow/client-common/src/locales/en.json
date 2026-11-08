@@ -293,7 +293,12 @@
       "pinned-constants": "Constants",
       "add-table": "Table",
       "new-table-here": "New table here",
-      "table-placeholder": "Table name..."
+      "table-placeholder": "Table name...",
+      "new-folder-title": "New folder",
+      "new-function-title": "New function",
+      "new-object-title": "New object",
+      "new-table-title": "New table",
+      "create-ok": "Create"
     },
     "runs-page": {
       "title": "Runs",

@@ -4,7 +4,7 @@ import { getGlobalI18n } from '@falang/scheme';
 import { validateDocumentName, type TDocumentNameError } from '../document-names.js';
 import type { WorkflowStore } from '../workflow-store.js';
 import { idOf } from './project-tree-helpers.js';
-import { RenameModal } from './rename-modal.js';
+import { NameModal } from '@falang/antd';
 
 interface IRenameTarget {
   kind: 'doc' | 'folder';
@@ -58,10 +58,12 @@ export const useProjectTreeRename = (
   };
 
   const renameModal = (
-    <RenameModal
+    <NameModal
       open={target !== null}
       title={t(target?.kind === 'folder' ? 'client:project-tree.rename-folder' : 'client:project-tree.rename-document')}
       initialName={target?.name ?? ''}
+      okText={t('client:project-tree.rename-ok')}
+      inputTestId="rename-input"
       validate={validate}
       onSubmit={submit}
       onClose={() => setTarget(null)}

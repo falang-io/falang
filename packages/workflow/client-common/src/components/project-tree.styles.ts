@@ -27,18 +27,6 @@ export const S: Record<string, React.CSSProperties> = {
   },
   list: { flex: 1, overflowY: 'auto', padding: '4px 0', minHeight: 0 },
   empty: { padding: '12px', color: '#6c7086', fontSize: 12, textAlign: 'center' },
-  newRow: { padding: '4px 12px', display: 'flex', alignItems: 'center', gap: 6, borderBottom: '1px solid #313244' },
-  newInput: {
-    flex: 1,
-    background: '#313244',
-    border: '1px solid #cba6f7',
-    borderRadius: 3,
-    color: '#cdd6f4',
-    padding: '2px 6px',
-    fontSize: 13,
-    outline: 'none',
-  },
-  hint: { fontSize: 10, color: '#6c7086', whiteSpace: 'nowrap' },
   addBtn: {
     padding: '3px 10px',
     background: '#313244',

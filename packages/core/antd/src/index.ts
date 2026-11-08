@@ -12,3 +12,4 @@ export * from './modules/ant-resizable-panel/use-resizable-panel-width.js';
 export * from './modules/ant-resizable-panel/resize-handle.cmp.js';
 export * from './modules/ant-print-export/index.js';
 export * from './modules/ant-generated-code/generated-code-view.cmp.js';
+export * from './modules/ant-name-modal/name-modal.cmp.js';

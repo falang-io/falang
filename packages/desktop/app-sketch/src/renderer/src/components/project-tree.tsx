@@ -1,71 +1,26 @@
-// oxlint-disable max-lines -- crossed 300 lines with the new function-name-format guard in
-// `handleCreateItem`; not accumulated complexity worth splitting the file over.
 import type React from 'react';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { observer } from 'mobx-react-lite';
-import { isValidFunctionName } from '@falang/dto';
-import { ConfigProvider, Menu, message, Tree } from 'antd';
+import { ConfigProvider, Menu, Tree } from 'antd';
+import { NameModal } from '@falang/antd';
 import type { MenuProps, TreeDataNode } from 'antd';
 import { useDesktopProjectStore } from '../desktop-project-store-context.js';
 import { DOCUMENT_TYPES, type DesktopProjectStore, type DocumentType } from '../desktop-project-store.js';
+import {
+  DOC_ICONS,
+  DOC_TYPE_ORDER,
+  PLACEHOLDERS,
+  newItemTitle,
+  validateNewItemName,
+  type NewItem,
+} from './project-tree-items.js';
 import { S } from './project-tree.styles.js';
 import { reportError } from '../../../shared/report-error.js';
-
-const DOC_ICONS: Record<DocumentType, string> = {
-  contour: '⚙',
-  'text-function': 'ƒ',
-  'mind-tree': '🌳',
-  function: 'ƒ',
-  'objects-structure': '▤',
-  'enum-structure': '☰',
-  'external-api-structure': '☁',
-  'simple-code-cpp': 'C',
-  'simple-code-js': 'J',
-  'simple-code-ts': 'T',
-  'simple-code-php': 'P',
-  'simple-code-rust': '🦀',
-};
-const ITEM_ICONS: Record<DocumentType | 'folder', string> = { folder: '📁', ...DOC_ICONS };
-const PLACEHOLDERS: Record<DocumentType | 'folder', string> = {
-  folder: 'Folder name...',
-  contour: 'Contour name...',
-  'text-function': 'Function name...',
-  'mind-tree': 'Tree name...',
-  function: 'Logic function name...',
-  'objects-structure': 'Structure name...',
-  'enum-structure': 'Enum name...',
-  'external-api-structure': 'External API name...',
-  'simple-code-cpp': 'C++ file name...',
-  'simple-code-js': 'JavaScript file name...',
-  'simple-code-ts': 'TypeScript file name...',
-  'simple-code-php': 'PHP file name...',
-  'simple-code-rust': 'Rust file name...',
-};
-const DOC_TYPE_ORDER: DocumentType[] = [
-  'text-function',
-  'contour',
-  'mind-tree',
-  'function',
-  'objects-structure',
-  'enum-structure',
-  'external-api-structure',
-  'simple-code-cpp',
-  'simple-code-js',
-  'simple-code-ts',
-  'simple-code-php',
-  'simple-code-rust',
-];
 
 interface ContextMenuState {
   x: number;
   y: number;
   nodeKey: string;
-}
-
-interface NewItem {
-  type: DocumentType | 'folder';
-  parentId: string | null;
-  name: string;
 }
 
 const idOf = (k: string) => k.slice(k.indexOf(':') + 1);
@@ -195,9 +150,9 @@ export const ProjectTree: React.FC = observer(() => {
         if (nodeKey.startsWith('folder:')) store.deleteFolder(idOf(nodeKey));
         else store.deleteDocument(idOf(nodeKey));
       } else if (key === 'new-subfolder') {
-        setNewItem({ type: 'folder', parentId: idOf(nodeKey), name: '' });
+        setNewItem({ type: 'folder', parentId: idOf(nodeKey) });
       } else if (docType) {
-        setNewItem({ type: docType, parentId, name: '' });
+        setNewItem({ type: docType, parentId });
       }
     },
     [contextMenu, store],
@@ -218,50 +173,20 @@ export const ProjectTree: React.FC = observer(() => {
     [store],
   );
 
-  const handleCreateItem = () => {
+  const handleCreateItem = (name: string) => {
     if (!newItem) return;
-    const name = newItem.name.trim();
-    if (name) {
-      if (newItem.type === 'function' && !isValidFunctionName(name)) {
-        message.warning(
-          'Function name must be English, camelCase (e.g. myFunctionName) — no spaces, punctuation, or a leading digit',
-        );
-        return;
-      }
-      if (newItem.type === 'folder')
-        store
-          .createFolder(name, newItem.parentId)
-          .catch((error: unknown) => reportError('Failed to create folder', error));
-      else store.createDocument(newItem.type, name, newItem.parentId);
-    }
+    if (newItem.type === 'folder')
+      store
+        .createFolder(name, newItem.parentId)
+        .catch((error: unknown) => reportError('Failed to create folder', error));
+    else store.createDocument(newItem.type, name, newItem.parentId);
     setNewItem(null);
-  };
-
-  const handleNewItemKeyDown = (e: React.KeyboardEvent) => {
-    if (e.key === 'Enter') handleCreateItem();
-    if (e.key === 'Escape') setNewItem(null);
   };
 
   return (
     <div style={S.root}>
       <style>{'.ant-tree-switcher{display:none!important}'}</style>
       <div style={S.header}>Project</div>
-
-      {newItem && (
-        <div style={S.newRow}>
-          <span>{ITEM_ICONS[newItem.type]}</span>
-          <input
-            autoFocus
-            style={S.newInput}
-            value={newItem.name}
-            placeholder={PLACEHOLDERS[newItem.type]}
-            onChange={(e) => setNewItem((item) => (item ? { ...item, name: e.target.value } : null))}
-            onKeyDown={handleNewItemKeyDown}
-            onBlur={handleCreateItem}
-          />
-          <span style={S.hint}>in {getFolderLabel(store, newItem.parentId)}</span>
-        </div>
-      )}
 
       <div style={S.list}>
         <ConfigProvider theme={{ token: { colorBgContainer: 'transparent', fontSize: 13 } }}>
@@ -281,19 +206,32 @@ export const ProjectTree: React.FC = observer(() => {
             style={{ background: 'transparent' }}
           />
         </ConfigProvider>
-        {treeData.length === 0 && !newItem && <div style={S.empty}>No documents yet</div>}
+        {treeData.length === 0 && <div style={S.empty}>No documents yet</div>}
       </div>
 
       <div style={S.actions}>
         {DOC_TYPE_ORDER.filter((type) => store.allowedDocumentTypes.includes(type)).map((type) => (
-          <button key={type} style={S.btn} onClick={() => setNewItem({ type, parentId: null, name: '' })}>
+          <button key={type} style={S.btn} onClick={() => setNewItem({ type, parentId: null })}>
             + {DOCUMENT_TYPES[type].label}
           </button>
         ))}
-        <button style={S.btn} onClick={() => setNewItem({ type: 'folder', parentId: null, name: '' })}>
+        <button style={S.btn} onClick={() => setNewItem({ type: 'folder', parentId: null })}>
           + Folder
         </button>
       </div>
+
+      <NameModal
+        open={newItem !== null}
+        title={newItem && newItemTitle(newItem.type)}
+        initialName=""
+        okText="Create"
+        {...(newItem ? { placeholder: PLACEHOLDERS[newItem.type] } : {})}
+        hint={newItem && `in ${getFolderLabel(store, newItem.parentId)}`}
+        inputTestId="new-item-name-input"
+        validate={(name) => (newItem ? validateNewItemName(newItem.type, name) : null)}
+        onSubmit={handleCreateItem}
+        onClose={() => setNewItem(null)}
+      />
 
       {contextMenu && (
         <div style={{ ...S.ctxWrap, top: contextMenu.y, left: contextMenu.x }} onClick={(e) => e.stopPropagation()}>

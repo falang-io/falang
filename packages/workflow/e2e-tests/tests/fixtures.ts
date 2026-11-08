@@ -204,8 +204,8 @@ const MENU_ITEM_LABEL_BY_KIND = {
 
 /**
  * Creates a function/object document (placed in its fixed section) via the tree's single "+ Add"
- * dropdown (`ProjectTree`'s `ADD_MENU_ITEMS`) — picking a menu item reveals an inline name input,
- * not a modal. Returns the created id (folders and documents share the same create response shape:
+ * dropdown (`ProjectTree`'s `ADD_MENU_ITEMS`) — picking a menu item opens a name dialog
+ * (`NameModal`; Enter in its input creates the item). Returns the created id (folders and documents share the same create response shape:
  * `{ id, ... }`).
  */
 export const createTreeItemViaUI = async (page: Page, kind: TRootItemKind, name: string): Promise<string> => {

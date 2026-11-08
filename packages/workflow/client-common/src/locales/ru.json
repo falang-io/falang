@@ -299,7 +299,12 @@
       "pinned-constants": "Константы",
       "add-table": "Таблица",
       "new-table-here": "Новая таблица здесь",
-      "table-placeholder": "Название таблицы..."
+      "table-placeholder": "Название таблицы...",
+      "new-folder-title": "Новая папка",
+      "new-function-title": "Новая функция",
+      "new-object-title": "Новый объект",
+      "new-table-title": "Новая таблица",
+      "create-ok": "Создать"
     },
     "runs-page": {
       "title": "Запуски",

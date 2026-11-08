@@ -2,7 +2,8 @@ import type React from 'react';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { observer } from 'mobx-react-lite';
 import { isValidFunctionName } from '@falang/dto';
-import { ConfigProvider, Menu, Tree, message } from 'antd';
+import { ConfigProvider, Menu, Tree } from 'antd';
+import { NameModal } from '@falang/antd';
 import type { MenuProps, TreeDataNode } from 'antd';
 import { useArduinoProjectStore } from '../arduino-project-store-context.js';
 import type { ArduinoProjectStore, DesktopDocument } from '../arduino-project-store.js';
@@ -23,8 +24,21 @@ interface ContextMenuState {
 interface NewItem {
   type: 'function' | 'folder';
   parentId: string | null;
-  name: string;
 }
+
+const validateNewItemName = (item: NewItem, rawName: string): string | null => {
+  const name = rawName.trim();
+  if (!name) return 'Name is required';
+  if (item.type === 'folder') return null;
+  if (!isValidFunctionName(name))
+    return 'Function name must be English, camelCase (e.g. myFunctionName) — no spaces, punctuation, or a leading digit';
+  // `setup`/`loop` are scaffolded once and pinned for the life of the project (see
+  // `pinned-documents.ts`) — a second root-level document with the same name would just shadow
+  // the real one in the tree while `compileArduinoProject` keeps using whichever it finds first.
+  if (item.parentId === null && (REQUIRED_ROOT_DOCUMENT_NAMES as readonly string[]).includes(name))
+    return `"${name}" is a reserved document name at the project root`;
+  return null;
+};
 
 const idOf = (k: string) => k.slice(k.indexOf(':') + 1);
 
@@ -171,9 +185,9 @@ export const ProjectTree: React.FC = observer(() => {
         // menu can't fire a delete on a document that became pinned between right-click and click.
         else if (!store.isPinned(idOf(nodeKey))) store.deleteDocument(idOf(nodeKey));
       } else if (key === 'new-subfolder') {
-        setNewItem({ type: 'folder', parentId: idOf(nodeKey), name: '' });
+        setNewItem({ type: 'folder', parentId: idOf(nodeKey) });
       } else if (key === 'new-function') {
-        setNewItem({ type: 'function', parentId, name: '' });
+        setNewItem({ type: 'function', parentId });
       }
     },
     [contextMenu, store],
@@ -206,55 +220,20 @@ export const ProjectTree: React.FC = observer(() => {
     [store],
   );
 
-  const handleCreateItem = () => {
+  const handleCreateItem = (name: string) => {
     if (!newItem) return;
-    const name = newItem.name.trim();
-    if (name) {
-      if (newItem.type === 'folder') {
-        store
-          .createFolder(name, newItem.parentId)
-          .catch((error: unknown) => reportError('Failed to create folder', error));
-      } else if (!isValidFunctionName(name)) {
-        message.warning(
-          'Function name must be English, camelCase (e.g. myFunctionName) — no spaces, punctuation, or a leading digit',
-        );
-      } else if (newItem.parentId === null && (REQUIRED_ROOT_DOCUMENT_NAMES as readonly string[]).includes(name)) {
-        // `setup`/`loop` are scaffolded once and pinned for the life of the project (see
-        // `pinned-documents.ts`) — a second root-level document with the same name would just shadow
-        // the real one in the tree while `compileArduinoProject` keeps using whichever it finds first.
-        message.warning(`"${name}" is a reserved document name at the project root`);
-      } else {
-        store.createDocument(name, newItem.parentId);
-      }
-    }
+    if (newItem.type === 'folder')
+      store
+        .createFolder(name, newItem.parentId)
+        .catch((error: unknown) => reportError('Failed to create folder', error));
+    else store.createDocument(name, newItem.parentId);
     setNewItem(null);
-  };
-
-  const handleNewItemKeyDown = (e: React.KeyboardEvent) => {
-    if (e.key === 'Enter') handleCreateItem();
-    if (e.key === 'Escape') setNewItem(null);
   };
 
   return (
     <div style={S.root}>
       <style>{'.ant-tree-switcher{display:none!important}'}</style>
       <div style={S.header}>Project</div>
-
-      {newItem && (
-        <div style={S.newRow}>
-          <span>{newItem.type === 'folder' ? '📁' : FUNCTION_ICON}</span>
-          <input
-            autoFocus
-            style={S.newInput}
-            value={newItem.name}
-            placeholder={newItem.type === 'folder' ? 'Folder name...' : 'Function name...'}
-            onChange={(e) => setNewItem((item) => (item ? { ...item, name: e.target.value } : null))}
-            onKeyDown={handleNewItemKeyDown}
-            onBlur={handleCreateItem}
-          />
-          <span style={S.hint}>in {getFolderLabel(store, newItem.parentId)}</span>
-        </div>
-      )}
 
       <div style={S.list}>
         <ConfigProvider theme={{ token: { colorBgContainer: 'transparent', fontSize: 13 } }}>
@@ -274,17 +253,30 @@ export const ProjectTree: React.FC = observer(() => {
             style={{ background: 'transparent' }}
           />
         </ConfigProvider>
-        {treeData.length === 0 && !newItem && <div style={S.empty}>No documents yet</div>}
+        {treeData.length === 0 && <div style={S.empty}>No documents yet</div>}
       </div>
 
       <div style={S.actions}>
-        <button style={S.btn} onClick={() => setNewItem({ type: 'function', parentId: null, name: '' })}>
+        <button style={S.btn} onClick={() => setNewItem({ type: 'function', parentId: null })}>
           + Function
         </button>
-        <button style={S.btn} onClick={() => setNewItem({ type: 'folder', parentId: null, name: '' })}>
+        <button style={S.btn} onClick={() => setNewItem({ type: 'folder', parentId: null })}>
           + Folder
         </button>
       </div>
+
+      <NameModal
+        open={newItem !== null}
+        title={newItem && (newItem.type === 'folder' ? '📁 New folder' : `${FUNCTION_ICON} New function`)}
+        initialName=""
+        okText="Create"
+        {...(newItem ? { placeholder: newItem.type === 'folder' ? 'Folder name...' : 'Function name...' } : {})}
+        hint={newItem && `in ${getFolderLabel(store, newItem.parentId)}`}
+        inputTestId="new-item-name-input"
+        validate={(name) => (newItem ? validateNewItemName(newItem, name) : null)}
+        onSubmit={handleCreateItem}
+        onClose={() => setNewItem(null)}
+      />
 
       {contextMenu && (
         <div style={{ ...S.ctxWrap, top: contextMenu.y, left: contextMenu.x }} onClick={(e) => e.stopPropagation()}>

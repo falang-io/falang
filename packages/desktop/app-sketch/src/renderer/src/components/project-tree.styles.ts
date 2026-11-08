@@ -23,24 +23,6 @@ export const S: Record<string, React.CSSProperties> = {
   },
   list: { flex: 1, overflowY: 'auto', padding: '4px 0', minHeight: 0 },
   empty: { padding: '12px', color: appTheme.textMuted, fontSize: 12, textAlign: 'center' },
-  newRow: {
-    padding: '4px 12px',
-    display: 'flex',
-    alignItems: 'center',
-    gap: 6,
-    borderBottom: `1px solid ${appTheme.border}`,
-  },
-  newInput: {
-    flex: 1,
-    background: '#ffffff',
-    border: `1px solid ${appTheme.accentBorder}`,
-    borderRadius: 3,
-    color: appTheme.text,
-    padding: '2px 6px',
-    fontSize: 13,
-    outline: 'none',
-  },
-  hint: { fontSize: 10, color: appTheme.textMuted, whiteSpace: 'nowrap' },
   // `flexWrap: 'wrap'`: with the `code` domain's 5 document types added, `DOC_TYPE_ORDER` now
   // renders 12 buttons total (6 pre-existing types + 5 `code-*` + Folder) — too many to fit one
   // row at the sidebar's width without wrapping.
