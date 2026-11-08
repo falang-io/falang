@@ -99,7 +99,9 @@ export const buildHiddenScopeCode = (variables: IScopeVariable[], typesRegistry:
     if (!item) return;
     lines.push(`interface ${name} {`);
     Object.entries(item.properties).forEach(([propName, propType]) => {
-      lines.push(`  ${formatPropertyKey(propName)}: ${variableInfoToTsType(propType, structNames)};`);
+      // An `optional` property may be left out of an object literal (a vendor's `Where`/`Patch`/`*Input` struct).
+      const marker = propType.optional ? '?' : '';
+      lines.push(`  ${formatPropertyKey(propName)}${marker}: ${variableInfoToTsType(propType, structNames)};`);
     });
     lines.push('}');
   });

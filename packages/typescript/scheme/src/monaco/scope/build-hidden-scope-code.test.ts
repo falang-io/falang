@@ -52,6 +52,26 @@ describe('buildHiddenScopeCode', () => {
     expect(code).toContain('declare var people: Person[];');
   });
 
+  it('marks an optional struct property with `?`, so an object literal may leave it out', () => {
+    const registry = new TypesRegistryStore();
+    registry.updateTypesByParent('vendor', [
+      {
+        type: 'object',
+        id: 'where-id',
+        parentId: 'vendor',
+        name: 'ClientsWhere',
+        properties: {
+          id: { type: 'string' },
+          maxId: { type: 'number', numberType: { type: 'any' }, optional: true },
+        },
+      },
+    ]);
+
+    const code = buildHiddenScopeCode([{ name: '_value', type: { type: 'struct', id: 'where-id' } }], registry);
+
+    expect(code).toContain('interface ClientsWhere {\n  id: string;\n  maxId?: number;\n}');
+  });
+
   it('declares a raw-typed variable using its type query verbatim, without touching the struct registry', () => {
     const variables: IScopeVariable[] = [
       { name: 'popped', type: { type: 'raw', expression: "typeof items[number]['values'][number]", constant: true } },
