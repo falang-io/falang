@@ -5,6 +5,7 @@ import { CarryOutOutlined, FolderOutlined, LinkOutlined } from '@ant-design/icon
 import { getGlobalI18n } from '@falang/scheme';
 import { useWorkflowStore } from '../workflow-store-context.js';
 import type { TSystemTab } from '../workflow-store.js';
+import { getDocumentDisplayName } from './project-tree-helpers.js';
 
 /** The error/warning count of a tab's document (ADR 0068 (private)); nothing while there are none or its scheme isn't built. */
 const TabIssues: React.FC<{ docId: string }> = observer(({ docId }) => {
@@ -62,6 +63,7 @@ export const TabsBar: React.FC = observer(() => {
   const store = useWorkflowStore();
   if (store.openTabIds.length === 0 && store.systemTabs.length === 0) return null;
 
+  const t = getGlobalI18n().t;
   const documentItems = store.openTabIds
     .map((id) => {
       const doc = store.getDocument(id);
@@ -70,7 +72,7 @@ export const TabsBar: React.FC = observer(() => {
         key: id,
         label: (
           <span>
-            {doc.name}
+            {getDocumentDisplayName(t, doc)}
             <TabIssues docId={id} />
           </span>
         ),

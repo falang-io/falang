@@ -25,13 +25,16 @@ const sectionOrder = (folder: WorkflowFolder): number => {
   return index === -1 ? WORKFLOW_FIXED_FOLDER_KINDS.length : index;
 };
 
-const toDocNode = (doc: WorkflowDocument): IProjectTreeNode => ({
+const toDocNode = (doc: WorkflowDocument, pinnedLabel: TLabel): IProjectTreeNode => ({
   key: `doc:${doc.id}`,
-  title: doc.name,
+  title: doc.pinned ? pinnedLabel(doc.type, doc.name) : doc.name,
   iconKind: doc.type,
   isLeaf: true,
   disableDrag: doc.pinned === true,
 });
+
+/** `(kind or document type, stored name) → display name`; the stored name is the fallback. */
+type TLabel = (kind: string, fallback: string) => string;
 
 /** Pinned documents in a fixed order: `Integrations`, then `Constants`, then anything else. */
 const PINNED_ORDER: readonly string[] = ['integrations', 'constants'];
@@ -42,12 +45,14 @@ const pinnedOrder = (doc: Pick<WorkflowDocument, 'type'>): number => {
 
 /**
  * Tree of a workflow project (ADR 0055 (private)): at the root the pinned documents first (`Integrations`, `Constants`), then the
- * section folders in config order (anything else after them); inside a folder, folders then documents.
+ * section folders in config order (anything else after them); inside a folder, folders then documents. Section folders and
+ * pinned documents are shown under their localised names (`sectionLabel`/`pinnedLabel`).
  */
 export const buildProjectTreeNodes = (
   folders: readonly WorkflowFolder[],
   documents: readonly WorkflowDocument[],
-  sectionLabel: (kind: string, fallback: string) => string,
+  sectionLabel: TLabel,
+  pinnedLabel: TLabel = (_type, name) => name,
   parentId: string | null = null,
 ): IProjectTreeNode[] => {
   const nodes: IProjectTreeNode[] = [];
@@ -58,7 +63,7 @@ export const buildProjectTreeNodes = (
       ...levelDocs
         .filter((doc) => doc.pinned)
         .toSorted((a, b) => pinnedOrder(a) - pinnedOrder(b))
-        .map((doc) => toDocNode(doc)),
+        .map((doc) => toDocNode(doc, pinnedLabel)),
     );
     levelFolders.sort((a, b) => sectionOrder(a) - sectionOrder(b));
   }
@@ -70,10 +75,10 @@ export const buildProjectTreeNodes = (
       iconKind: fixed ? `section:${folder.fixedKind}` : 'folder',
       isLeaf: false,
       disableDrag: fixed,
-      children: buildProjectTreeNodes(folders, documents, sectionLabel, folder.id),
+      children: buildProjectTreeNodes(folders, documents, sectionLabel, pinnedLabel, folder.id),
     });
   }
-  nodes.push(...levelDocs.filter((doc) => parentId !== null || !doc.pinned).map((doc) => toDocNode(doc)));
+  nodes.push(...levelDocs.filter((doc) => parentId !== null || !doc.pinned).map((doc) => toDocNode(doc, pinnedLabel)));
   return nodes;
 };
 

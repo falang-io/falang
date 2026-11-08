@@ -23,6 +23,7 @@ const documents: WorkflowDocument[] = [
   { id: 'i', name: 'Integrations', type: 'integrations', folderId: null, pinned: true },
 ];
 const label = (kind: string): string => kind.toUpperCase();
+const pinned = (type: string, fallback: string): string => (type === 'integrations' ? 'Интеграции' : fallback);
 
 describe('project tree model', () => {
   it('orders root: pinned docs (Integrations, Constants), then sections in config order', () => {
@@ -41,6 +42,11 @@ describe('project tree model', () => {
     const functions = nodes[3];
     expect(functions?.children?.map((n) => n.title)).toEqual(['Helpers']);
     expect(functions?.children?.[0]?.disableDrag).toBe(false);
+  });
+
+  it('shows pinned documents under their localised names', () => {
+    const nodes = buildProjectTreeNodes(folders, documents, label, pinned);
+    expect(nodes.slice(0, 2).map((n) => n.title)).toEqual(['Интеграции', 'Constants']);
   });
 
   it('builds menus per section', () => {

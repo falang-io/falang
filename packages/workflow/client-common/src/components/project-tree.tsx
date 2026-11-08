@@ -12,6 +12,7 @@ import { useProjectTreeRename } from './project-tree-rename.js';
 import { NewTriggerModal, type INewTriggerData } from './new-trigger-modal.js';
 import {
   idOf,
+  getPinnedDocumentLabel,
   getSectionLabel,
   toTreeData,
   getFolderLabel,
@@ -54,7 +55,7 @@ export const ProjectTree: React.FC = observer(() => {
   }, [contextMenu]);
 
   const treeData = toTreeData(
-    buildProjectTreeNodes(store.folders, store.documents, getSectionLabel(t)),
+    buildProjectTreeNodes(store.folders, store.documents, getSectionLabel(t), getPinnedDocumentLabel(t)),
     new Set(expandedKeys),
   );
   const selectedKeys = store.activeTabId ? [`doc:${store.activeTabId}`] : [];

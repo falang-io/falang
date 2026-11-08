@@ -50,6 +50,17 @@ export const getSectionLabel = (t: TFunction) => (kind: string, fallback: string
   return label === key ? fallback : label;
 };
 
+/** Display name of a pinned document (`Integrations`, `Constants`): `client:project-tree.pinned-<type>`, else its stored name. */
+export const getPinnedDocumentLabel = (t: TFunction) => (type: string, fallback: string) => {
+  const key = `client:project-tree.pinned-${type}`;
+  const label = t(key);
+  return label === key ? fallback : label;
+};
+
+/** What a document is called in the tree and the tabs: the localised name for a pinned one, else its own name. */
+export const getDocumentDisplayName = (t: TFunction, doc: { type: string; name: string; pinned?: boolean }): string =>
+  doc.pinned ? getPinnedDocumentLabel(t)(doc.type, doc.name) : doc.name;
+
 export const nodeIcon = (node: IProjectTreeNode, expandedKeys: Set<React.Key>): string | undefined => {
   if (node.isLeaf || node.iconKind.startsWith('section:')) return DOC_ICONS[node.iconKind];
   return expandedKeys.has(node.key) ? '📂' : '📁';

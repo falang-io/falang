@@ -289,6 +289,8 @@
       "name-required": "Name is required",
       "name-taken": "A document with this name already exists in the project (names are case-insensitive)",
       "section-tables": "Tables",
+      "pinned-integrations": "Integrations",
+      "pinned-constants": "Constants",
       "add-table": "Table",
       "new-table-here": "New table here",
       "table-placeholder": "Table name..."
