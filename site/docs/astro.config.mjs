@@ -104,7 +104,7 @@ export default defineConfig({
             'workflow/messenger-groups',
             'workflow/media',
             'workflow/ai-agent',
-            'workflow/magic-node',
+            // 'workflow/magic-node', — the magic node is hidden in the product for now
             'workflow/administration',
             'workflow/integration-proxy',
             'workflow/debugging',

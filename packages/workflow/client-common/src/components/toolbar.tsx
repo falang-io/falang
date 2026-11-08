@@ -4,7 +4,8 @@ import type React from 'react';
 import { useEffect, useState } from 'react';
 import { observer } from 'mobx-react-lite';
 import { Button, Dropdown, notification, Tag, Tooltip, type MenuProps } from 'antd';
-import { DownOutlined, EyeOutlined, RobotOutlined, ThunderboltFilled, ThunderboltOutlined } from '@ant-design/icons';
+import { DownOutlined, EyeOutlined, RobotOutlined } from '@ant-design/icons';
+// import { ThunderboltFilled, ThunderboltOutlined } from '@ant-design/icons'; — magic insert button, hidden for now
 import { getGlobalI18n, type TFunction } from '@falang/scheme';
 import { useClientExtensions } from '../extensions/client-extensions.js';
 import { navigationStore } from '../navigation-store.js';
@@ -73,14 +74,14 @@ const S: Record<string, React.CSSProperties> = {
 /** An on/off toolbar button's "on" look — `S.btn`'s inline background would otherwise hide antd's `primary`. */
 const btnActive: React.CSSProperties = { ...S.btn, background: '#89b4fa', color: '#11111b', fontWeight: 600 };
 
-/** "Magic insert" on: a filled, glowing mauve button, so a plain click on a valence point visibly means magic. */
-const btnMagicActive: React.CSSProperties = {
-  ...S.btn,
-  background: 'linear-gradient(135deg, #cba6f7, #f5c2e7)',
-  color: '#11111b',
-  fontWeight: 600,
-  boxShadow: '0 0 0 1px #cba6f7, 0 0 10px rgba(203, 166, 247, 0.65)',
-};
+// /** "Magic insert" on: a filled, glowing mauve button, so a plain click on a valence point visibly means magic. */
+// const btnMagicActive: React.CSSProperties = {
+//   ...S.btn,
+//   background: 'linear-gradient(135deg, #cba6f7, #f5c2e7)',
+//   color: '#11111b',
+//   fontWeight: 600,
+//   boxShadow: '0 0 0 1px #cba6f7, 0 0 10px rgba(203, 166, 247, 0.65)',
+// };
 
 interface IDevMenuState {
   readonly devRunning: boolean;
@@ -154,28 +155,29 @@ const buildProdMenuItems = (
   },
 ];
 
-/** The per-user "Magic insert" toggle (ADR 0046 (private)); disabled until an admin configured the agent. */
-const MagicInsertButton: React.FC = observer(() => {
-  const t = getGlobalI18n().t;
-  const store = useWorkflowStore();
-  const configured = store.agentSettings.configured;
-  const active = configured && store.magicInsert.enabled;
-  return (
-    <Tooltip title={t(configured ? 'client:toolbar.magic-insert-tooltip' : 'client:toolbar.magic-insert-disabled')}>
-      <Button
-        icon={active ? <ThunderboltFilled /> : <ThunderboltOutlined />}
-        style={active ? btnMagicActive : S.btn}
-        data-testid="toolbar-magic-insert"
-        aria-pressed={active}
-        disabled={!configured}
-        type={active ? 'primary' : 'default'}
-        onClick={() => store.magicInsert.setEnabled(!store.magicInsert.enabled)}
-      >
-        {t('client:toolbar.magic-insert')}
-      </Button>
-    </Tooltip>
-  );
-});
+// The magic node is hidden until it is thought through (ADR 0046 (private)) — restore together with the button below.
+// /** The per-user "Magic insert" toggle (ADR 0046 (private)); disabled until an admin configured the agent. */
+// const MagicInsertButton: React.FC = observer(() => {
+//   const t = getGlobalI18n().t;
+//   const store = useWorkflowStore();
+//   const configured = store.agentSettings.configured;
+//   const active = configured && store.magicInsert.enabled;
+//   return (
+//     <Tooltip title={t(configured ? 'client:toolbar.magic-insert-tooltip' : 'client:toolbar.magic-insert-disabled')}>
+//       <Button
+//         icon={active ? <ThunderboltFilled /> : <ThunderboltOutlined />}
+//         style={active ? btnMagicActive : S.btn}
+//         data-testid="toolbar-magic-insert"
+//         aria-pressed={active}
+//         disabled={!configured}
+//         type={active ? 'primary' : 'default'}
+//         onClick={() => store.magicInsert.setEnabled(!store.magicInsert.enabled)}
+//       >
+//         {t('client:toolbar.magic-insert')}
+//       </Button>
+//     </Tooltip>
+//   );
+// });
 
 /** Toggles the agent chat in the project-level right sidebar. */
 const AgentPanelButton: React.FC = observer(() => {
@@ -208,7 +210,7 @@ const WritableControls: React.FC<IWritableControlsProps> = observer(({ devRunnin
   return (
     <>
       <AgentPanelButton />
-      <MagicInsertButton />
+      {/* Magic node hidden for now (ADR 0046 (private)): <MagicInsertButton /> */}
       <Dropdown menu={{ items: devMenuItems }} trigger={['click']}>
         <Button style={S.btn}>
           <span style={{ ...S.dot, background: devRunning ? RUNNING_COLOR : STOPPED_COLOR }} />

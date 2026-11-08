@@ -58,7 +58,7 @@ import {
   findSectionFolder,
   emptyTableData,
   isFixedFolder,
-  MAGIC_NAME,
+  // MAGIC_NAME, — magic insert hidden for now (ADR 0046 (private))
   normalizeTableDocumentData,
   sectionForDocumentType,
   TABLE_DOCUMENT_TYPE,
@@ -1191,7 +1191,9 @@ export class WorkflowStore implements IWorkflowAgentStore {
             getActivepiecesFieldOptionsProvider: () => createActivepiecesFieldOptionsProvider(this.projectId),
           }),
       ...(isFunctionDoc ? { validationModule: this.createValidationModule(doc.id) } : {}),
-      defaultInsertNodeName: () => (this.agentSettings.configured && this.magicInsert.enabled ? MAGIC_NAME : 'action'),
+      // The magic node is hidden until it is thought through (ADR 0046 (private)): a plain click always inserts an action.
+      // defaultInsertNodeName: () => (this.agentSettings.configured && this.magicInsert.enabled ? MAGIC_NAME : 'action'),
+      defaultInsertNodeName: () => 'action',
       onSchemeCreated: (created) => {
         if (isFunctionDoc && !this.readOnly && !this.isGuest) this.magicRuns.registerHost(doc.id, created);
       },

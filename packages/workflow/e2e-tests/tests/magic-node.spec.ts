@@ -76,7 +76,9 @@ const queueFill = async (apiKey: string, nodeId: string, messages: readonly stri
  */
 test.describe.configure({ mode: 'serial' });
 
-test.describe('magic node', () => {
+// The magic node is hidden in the UI for now (ADR 0046 (private)): no toolbar toggle, a click inserts an action.
+// Un-skip together with the toolbar button and `defaultInsertNodeName` in workflow-store.ts.
+test.describe.skip('magic node', () => {
   const apiKey = `magic-${uniqueSuffix()}`;
   const holder: { api: APIRequestContext | null } = { api: null };
   const getApi = (): APIRequestContext => {
