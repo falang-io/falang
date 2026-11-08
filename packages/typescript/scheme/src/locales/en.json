@@ -30,5 +30,8 @@
     "number-any": "Choose integer, float or decimal — `number` without a kind can't be compiled to C++, Go, Rust or C#.",
     "any": "The `any` type can't be compiled to C++, Go, Rust or C# — choose a concrete type.",
     "enum": "The `enum` type isn't supported by the C++, Go, Rust and C# targets — choose another type."
+  },
+  "function-footer": {
+    "end": "End"
   }
 }

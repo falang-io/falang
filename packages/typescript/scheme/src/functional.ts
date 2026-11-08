@@ -25,6 +25,7 @@ import {
   getWhileIconNodeConfig,
   IconsTransferModule,
   getPseudoBlockConfig,
+  rectangleRoundedShape,
   CELL_SIZE_4,
   outIconConfig,
   emptyShape,
@@ -63,6 +64,10 @@ import { logBlockConfig } from './blocks/log/log.block.config.js';
 import { ifBlockConfig } from './blocks/if/if.block.config.js';
 import { expressionBlockConfig } from './blocks/expression/expression.block.config.js';
 import { returnBlockConfig, returnIconConfig, returnShape } from './blocks/return/return.block.config.js';
+import {
+  functionFooterBlockConfig,
+  functionFooterIconConfig,
+} from './blocks/function-footer/function-footer.block.config.js';
 import { isInValueReturningFunction, RETURN_VALUE_NAME } from './blocks/return/return-value.js';
 
 const getFunctionIconsGroup = () => {
@@ -75,8 +80,14 @@ const getFunctionIconsGroup = () => {
       name: 'function',
       header: block,
       body: functionBodyBlockConfig,
-      footer: block,
+      footer: functionFooterBlockConfig,
     }),
+    // A fixed "End" label instead of an editable text block, always `CELL_SIZE_4` wide.
+    'function-footer': {
+      shape: rectangleRoundedShape,
+      block: functionFooterBlockConfig,
+      icon: functionFooterIconConfig,
+    },
     ...getIfIconConfig({
       name: 'if',
       block: ifBlockConfig,
