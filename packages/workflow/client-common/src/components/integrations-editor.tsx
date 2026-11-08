@@ -285,10 +285,10 @@ export const IntegrationsEditor: React.FC = observer(() => {
               field.kind === 'secret' ? (
                 <div key={field.name} style={{ display: 'flex', gap: 12 }}>
                   <Form.Item name={fieldKey(field, 'dev')} label={`${t(field.label)} (dev)`} style={{ flex: 1 }}>
-                    <Input.Password autoComplete="off" />
+                    <Input.Password autoComplete="new-password" />
                   </Form.Item>
                   <Form.Item name={fieldKey(field, 'prod')} label={`${t(field.label)} (prod)`} style={{ flex: 1 }}>
-                    <Input.Password autoComplete="off" />
+                    <Input.Password autoComplete="new-password" />
                   </Form.Item>
                 </div>
               ) : (

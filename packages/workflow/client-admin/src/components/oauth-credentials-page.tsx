@@ -199,14 +199,14 @@ export const OAuthCredentialsPage: React.FC = observer(() => {
             label={t('workflow-client-admin:oauth-credentials-page.client-id-label')}
             rules={[{ required: true }]}
           >
-            <Input autoFocus />
+            <Input autoFocus autoComplete="off" />
           </Form.Item>
           <Form.Item
             name="clientSecret"
             label={t('workflow-client-admin:oauth-credentials-page.client-secret-label')}
             rules={[{ required: true }]}
           >
-            <Input.Password />
+            <Input.Password autoComplete="new-password" />
           </Form.Item>
         </Form>
       </Modal>
