@@ -375,6 +375,8 @@ export class ProjectSync {
     this.isPublishing = true;
     this.connectionError = null;
     try {
+      // The backend publishes what it has stored — same reason as `buildProject`.
+      await this.flushPendingSaves();
       const version = await workflowApi.publish(this.projectId);
       runInAction(() => {
         this.isPublishing = false;

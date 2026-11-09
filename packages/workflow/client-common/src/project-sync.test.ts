@@ -630,6 +630,23 @@ describe('ProjectSync', () => {
     const suspended = (reason?: string) =>
       new ApiCodedError('suspended', 'project_suspended', reason ? { code: 'project_suspended', reason } : undefined);
 
+    it('publish flushes pending saves first, then publishes', async () => {
+      const order: string[] = [];
+      api.updateDocument.mockImplementation(() => {
+        order.push('save');
+        return Promise.resolve(null);
+      });
+      api.publish.mockImplementation(() => {
+        order.push('publish');
+        return Promise.resolve({ id: 'v1', version: 1 });
+      });
+      const { sync } = makeSync();
+      await settle();
+      sync.scheduleSaveDocument(doc({ v: 1 }));
+      await sync.publishProject();
+      expect(order).toEqual(['save', 'publish']);
+    });
+
     it('publishProject success records the version and tracks the event', async () => {
       const handler = { track: vi.fn() };
       eventTracker.setHandler(handler);

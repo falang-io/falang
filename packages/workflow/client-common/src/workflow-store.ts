@@ -15,6 +15,7 @@ import {
 import { readSchemeTree, type AgentSession, type IJsonFilesDiagnostic } from '@falang/agent';
 import {
   type Scheme,
+  commitInlineEdit,
   defaultValidationQueue,
   DebugSessionStore,
   DebuggerModule,
@@ -588,7 +589,17 @@ export class WorkflowStore implements IWorkflowAgentStore {
   }
 
   buildProject(): Promise<void> {
+    this.commitOpenEdits();
     return this.sync.buildProject();
+  }
+
+  /**
+   * Writes every open block editor's data into its document (the editor stays open). A block editor keeps its
+   * edits to itself until editing ends, and build/publish compile what the backend has stored — without this a
+   * publish right after typing in a block shipped the previous value.
+   */
+  commitOpenEdits(): void {
+    for (const scheme of this.schemes.values()) commitInlineEdit(scheme);
   }
 
   /** Whether the dev build (if any) still reflects the documents — see `ProjectSync.changedSinceBuild`. */
@@ -604,6 +615,7 @@ export class WorkflowStore implements IWorkflowAgentStore {
    * compile errors are already in `buildErrors` for the toolbar to show.
    */
   async ensureDevBuilt(): Promise<boolean> {
+    this.commitOpenEdits();
     if (this.buildStatus === 'running' && !this.sync.changedSinceBuild) return true;
     await this.sync.buildProject();
     return this.buildStatus === 'running';
@@ -614,10 +626,12 @@ export class WorkflowStore implements IWorkflowAgentStore {
   }
 
   restartProject(): Promise<void> {
+    this.commitOpenEdits();
     return this.sync.restartProject();
   }
 
   publishProject(): Promise<void> {
+    this.commitOpenEdits();
     return this.sync.publishProject();
   }
 
