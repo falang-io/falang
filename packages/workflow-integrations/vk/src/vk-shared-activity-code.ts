@@ -1,5 +1,6 @@
 import { VK_API_VERSION, VK_DEFAULT_API_BASE_URL } from './constants.js';
 import { VK_PREPARE_BUTTONS_CODE } from './vk-send-buttons-action.js';
+import { VK_SEND_GUARD_CODE } from './vk-send-result.js';
 
 /**
  * Shared by every VK activity — emitted once into the generated `activities.ts` (see
@@ -68,6 +69,8 @@ export const VK_SHARED_ACTIVITY_CODE = [
   String.raw`  const match = /^VK \S+ failed: (\d+) /.exec(error instanceof Error ? error.message : '');`,
   '  return match ? Number(match[1]) : undefined;',
   '};',
+  '',
+  VK_SEND_GUARD_CODE,
   '',
   '// The community id the access key belongs to (`groups.getById` without parameters; v >= 5.139 wraps the list).',
   'const vkCommunityId = async (bot: { token: string; apiBaseUrl: string }): Promise<number> => {',

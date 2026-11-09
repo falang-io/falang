@@ -1,5 +1,6 @@
 import { randomBytes } from 'node:crypto';
 import express, { Router, type Request, type Response } from 'express';
+import { answeredBlocked } from './blocked-chats.js';
 import { parseMultipart } from './multipart.js';
 
 /** One outbound call recorded for a given bot token — inspectable via the admin `/calls` route. */
@@ -110,6 +111,7 @@ export const createMaxMockRouter = (): Router => {
     const state = authorized(req, res);
     if (!state) return;
     const body = req.body as { text?: string | null };
+    if (answeredBlocked(res, 'max', req.header('authorization') ?? '', req.query.chat_id ?? req.query.user_id)) return;
     const mid = `mid.${state.midPrefix}.${state.nextMessageId}`;
     state.calls.push({ method: 'sendMessage', query: queryOf(req), body, mid });
     state.nextMessageId += 1;

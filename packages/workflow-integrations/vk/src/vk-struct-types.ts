@@ -1,5 +1,5 @@
 import type { TVariableInfo } from '@falang/typescript-dto';
-import type { IIntegrationStructType } from '@falang/workflow-integrations-common';
+import { buildMessageSendResultStructType, type IIntegrationStructType } from '@falang/workflow-integrations-common';
 import { FILE_TYPE_ID } from '@falang/workflow-integrations-files';
 import {
   VK_CHAT_MEMBER_EVENT_TYPE_ID,
@@ -7,6 +7,7 @@ import {
   VK_GROUP_MEMBER_EVENT_TYPE_ID,
   VK_MESSAGE_TYPE_ID,
   VK_USER_TYPE_ID,
+  VK_SEND_RESULT_TYPE_ID,
 } from './constants.js';
 
 const anyNumber: TVariableInfo = { type: 'number', numberType: { type: 'any' } };
@@ -84,4 +85,6 @@ export const vkStructTypes: readonly IIntegrationStructType[] = [
       date: anyNumber,
     },
   },
+  // What the send actions return (`vk-send-message`/`-send-buttons`/`-send-file`, see `vk-send-result.ts`).
+  buildMessageSendResultStructType(VK_SEND_RESULT_TYPE_ID, 'VkSendResult'),
 ];

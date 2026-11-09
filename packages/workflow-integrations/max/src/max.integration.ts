@@ -20,7 +20,6 @@ import {
   MAX_QUESTION_NAME,
   MAX_REPLY_SIGNAL_NAME,
   MAX_SCOPE_VARIABLE_NAME,
-  MAX_SEND_MESSAGE_NAME,
   MAX_SIGNAL_NAME,
   MAX_TRIGGER_NAME,
   MAX_VENDOR,
@@ -31,9 +30,10 @@ import { maxDeleteMessageAction, maxRemoveMemberAction } from './max-moderation-
 import { maxSandboxAdapter } from './max-sandbox.js';
 import { maxSendButtonsAction } from './max-send-buttons-action.js';
 import { maxSendFileAction } from './max-send-file-action.js';
+import { maxSendMessageAction } from './max-send-message-action.js';
 import { MAX_SHARED_ACTIVITY_CODE } from './max-shared-activity-code.js';
 import { maxStructTypes } from './max-struct-types.js';
-import { MAX_RECIPIENT_FIELD, emitMaxRecipient } from './max-recipient.js';
+import { MAX_RECIPIENT_FIELD } from './max-recipient.js';
 
 export * from './constants.js';
 export { maxStructTypes } from './max-struct-types.js';
@@ -163,32 +163,7 @@ export const maxIntegration: IWorkflowIntegration = {
     },
   ],
   actions: [
-    {
-      name: MAX_SEND_MESSAGE_NAME,
-      label: 'max:action.sendMessage',
-      fields: [
-        { name: 'credentialId', label: 'max:field.bot', kind: 'credential-ref', vendor: MAX_VENDOR },
-        MAX_RECIPIENT_FIELD,
-        { name: 'chatId', label: 'max:field.recipientId', kind: 'expression', expectedType: anyNumber },
-        { name: 'text', label: 'max:field.text', kind: 'template-string' },
-      ],
-      emit: (fields) =>
-        `await maxSendMessage(${fields.credentialId}, ${fields.chatId}, ${fields.text}, ${emitMaxRecipient(fields.recipient)});`,
-      activitySignature:
-        'maxSendMessage(credentialId: string, chatId: number, text: string, recipient: string): Promise<void>',
-      journal: { kind: 'message-out', args: ['chatId', 'recipient', 'text'], result: false },
-      activityCode: [
-        'export const maxSendMessage = async (',
-        '  credentialId: string,',
-        '  chatId: number,',
-        '  text: string,',
-        "  recipient: string = 'chat',",
-        '): Promise<void> => {',
-        '  const bot = await resolveMaxBotToken(credentialId);',
-        "  await maxApiRequest(bot, 'POST', 'messages', maxRecipientQuery(recipient, chatId), { text });",
-        '};',
-      ].join('\n'),
-    },
+    maxSendMessageAction,
     maxSendFileAction,
     maxSendButtonsAction,
     maxRemoveMemberAction,

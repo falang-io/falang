@@ -1,4 +1,5 @@
 import express, { type Express } from 'express';
+import { createBlockedChatsRouter, resetAllBlockedChats } from './blocked-chats.js';
 import { createMaxMockRouter, resetAllMaxMockState } from './max-mock.js';
 import { createOpenAiMockRouter, resetAllOpenAiMockState } from './openai-mock.js';
 import { createVkMockRouter, resetAllVkMockState } from './vk-mock.js';
@@ -47,6 +48,9 @@ export const createMocksApp = (options: ICreateMocksAppOptions = {}): Express =>
   app.get('/', (_req, res) => res.json({ ok: true }));
   const resetHooks: (() => void)[] = [];
   const ctx: IMockContext = { reset: (fn) => resetHooks.push(fn) };
+  // Shared by the messenger mocks: chats whose user "blocked the bot" (see blocked-chats.ts).
+  app.use(createBlockedChatsRouter());
+  ctx.reset(resetAllBlockedChats);
   for (const register of [...BUILTIN_MOCKS, ...(options.extraMocks ?? [])]) {
     register(app, ctx);
   }

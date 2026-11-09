@@ -52,7 +52,7 @@ describe('vkIntegration', () => {
   it('vk-send-message data schema accepts the declared fields and emits a plain activity call', () => {
     const config = buildActionNodeConfig(vkIntegration.actions[0]);
     const data = { credentialId: 'cred-1', chatId: 'message.chat.id', text: 'hi' };
-    expect(config.data?.type.parse(data)).toEqual(data);
+    expect(config.data?.type.parse(data)).toEqual({ ...data, resultVariable: '' });
     expect(vkIntegration.actions[0].emit({ credentialId: "'cred-1'", chatId: 'message.chat.id', text: '`hi`' })).toBe(
       "await vkSendMessage('cred-1', message.chat.id, `hi`);",
     );

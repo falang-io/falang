@@ -1,5 +1,5 @@
 import type { TVariableInfo } from '@falang/typescript-dto';
-import type { IIntegrationStructType } from '@falang/workflow-integrations-common';
+import { buildMessageSendResultStructType, type IIntegrationStructType } from '@falang/workflow-integrations-common';
 import { FILE_TYPE_ID } from '@falang/workflow-integrations-files';
 import {
   TELEGRAM_CHAT_TYPE_ID,
@@ -9,6 +9,7 @@ import {
   TELEGRAM_MESSAGE_ENTITY_TYPE_ID,
   TELEGRAM_MESSAGE_TYPE_ID,
   TELEGRAM_USER_TYPE_ID,
+  TELEGRAM_SEND_RESULT_TYPE_ID,
 } from './constants.js';
 
 const anyNumber: TVariableInfo = { type: 'number', numberType: { type: 'any' } };
@@ -110,4 +111,6 @@ export const telegramStructTypes: readonly IIntegrationStructType[] = [
       isAdmin: { type: 'boolean' },
     },
   },
+  // What the send actions return (`telegram-send-message`/`-send-buttons`/`-send-file`, see `telegram-send-result.ts`).
+  buildMessageSendResultStructType(TELEGRAM_SEND_RESULT_TYPE_ID, 'TelegramSendResult'),
 ];

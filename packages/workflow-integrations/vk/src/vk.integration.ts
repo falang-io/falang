@@ -5,6 +5,8 @@ import {
   buildMessageWaitQuestion,
   DURATION_FIELD_AGENT_NOTES,
   type IWorkflowIntegration,
+  emitMessageSend,
+  MESSAGE_SEND_RESULT_TS_TYPE,
 } from '@falang/workflow-integrations-common';
 import {
   VK_COMMAND_FIELD_NAME,
@@ -20,6 +22,7 @@ import {
   VK_VENDOR,
   VK_WAIT_MESSAGE_NAME,
 } from './constants.js';
+import { VK_SEND_RESULT_FIELD, VK_SEND_RESULT_TYPE } from './vk-send-result.js';
 import { registerVkBackend } from './vk-backend.js';
 import { vkMemberTriggers } from './vk-member-triggers.js';
 import { vkDeleteMessageAction, vkKickFromChatAction } from './vk-moderation-actions.js';
@@ -150,15 +153,23 @@ export const vkIntegration: IWorkflowIntegration = {
           expectedType: anyNumber,
         },
         { name: 'text', label: 'vk:field.text', kind: 'template-string' },
+        VK_SEND_RESULT_FIELD,
       ],
-      emit: (fields) => `await vkSendMessage(${fields.credentialId}, ${fields.chatId}, ${fields.text});`,
-      activitySignature: 'vkSendMessage(credentialId: string, chatId: number, text: string): Promise<void>',
-      journal: { kind: 'message-out', args: ['chatId', 'text'], result: false },
+      resultType: VK_SEND_RESULT_TYPE,
+      emit: (fields) =>
+        emitMessageSend(fields, `await vkSendMessage(${fields.credentialId}, ${fields.chatId}, ${fields.text})`),
+      activitySignature: `vkSendMessage(credentialId: string, chatId: number, text: string): Promise<${MESSAGE_SEND_RESULT_TS_TYPE}>`,
+      journal: { kind: 'message-out', args: ['chatId', 'text'] },
       activityCode: [
-        'export const vkSendMessage = async (credentialId: string, chatId: number, text: string): Promise<void> => {',
-        '  const bot = await resolveVkAccessToken(credentialId);',
-        '  await vkSendText(bot, chatId, text);',
-        '};',
+        'export const vkSendMessage = async (',
+        '  credentialId: string,',
+        '  chatId: number,',
+        '  text: string,',
+        `): Promise<${MESSAGE_SEND_RESULT_TS_TYPE}> =>`,
+        '  vkSendGuarded(async () => {',
+        '    const bot = await resolveVkAccessToken(credentialId);',
+        '    await vkSendText(bot, chatId, text);',
+        '  });',
       ].join('\n'),
     },
     vkSendFileAction,

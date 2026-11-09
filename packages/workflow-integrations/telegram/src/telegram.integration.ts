@@ -1,6 +1,11 @@
 // oxlint-disable max-lines -- over the cap only by the run-journal specs (ADR 0059 (private)).
 import type { TVariableInfo } from '@falang/typescript-dto';
-import { buildMessageWaitQuestion, DURATION_FIELD_AGENT_NOTES } from '@falang/workflow-integrations-common';
+import {
+  buildMessageWaitQuestion,
+  DURATION_FIELD_AGENT_NOTES,
+  emitMessageSend,
+  MESSAGE_SEND_RESULT_TS_TYPE,
+} from '@falang/workflow-integrations-common';
 import type { IWorkflowIntegration } from '@falang/workflow-integrations-common';
 import {
   TELEGRAM_COMMAND_FIELD_NAME,
@@ -26,6 +31,11 @@ import {
 import { telegramSandboxAdapter } from './telegram-sandbox.js';
 import { TELEGRAM_PREPARE_BUTTONS_CODE, telegramSendButtonsAction } from './telegram-send-buttons-action.js';
 import { telegramSendFileAction } from './telegram-send-file-action.js';
+import {
+  TELEGRAM_SEND_GUARD_CODE,
+  TELEGRAM_SEND_RESULT_FIELD,
+  TELEGRAM_SEND_RESULT_TYPE,
+} from './telegram-send-result.js';
 import { telegramStructTypes } from './telegram-struct-types.js';
 
 export * from './constants.js';
@@ -134,25 +144,33 @@ export const telegramIntegration: IWorkflowIntegration = {
         { name: 'credentialId', label: 'telegram:field.bot', kind: 'credential-ref', vendor: TELEGRAM_VENDOR },
         { name: 'chatId', label: 'telegram:field.chatId', kind: 'expression', expectedType: anyNumber },
         { name: 'text', label: 'telegram:field.text', kind: 'template-string' },
+        TELEGRAM_SEND_RESULT_FIELD,
       ],
-      emit: (fields) => `await telegramSendMessage(${fields.credentialId}, ${fields.chatId}, ${fields.text});`,
-      activitySignature: 'telegramSendMessage(credentialId: string, chatId: number, text: string): Promise<void>',
-      journal: { kind: 'message-out', args: ['chatId', 'text'], result: false },
+      resultType: TELEGRAM_SEND_RESULT_TYPE,
+      emit: (fields) =>
+        emitMessageSend(fields, `await telegramSendMessage(${fields.credentialId}, ${fields.chatId}, ${fields.text})`),
+      activitySignature: `telegramSendMessage(credentialId: string, chatId: number, text: string): Promise<${MESSAGE_SEND_RESULT_TS_TYPE}>`,
+      journal: { kind: 'message-out', args: ['chatId', 'text'] },
       // These strings are TypeScript source emitted verbatim into activities.ts, not code executed
       // here — the `${...}` template placeholders below are meant to survive as literal text and
       // interpolate when that emitted file runs, not now.
       activityCode: [
-        'export const telegramSendMessage = async (credentialId: string, chatId: number, text: string): Promise<void> => {',
-        '  const { token: botToken, apiBaseUrl } = await resolveTelegramBotToken(credentialId);',
-        '  const response = await fetch(`${apiBaseUrl}/bot${botToken}/sendMessage`, {',
-        "    method: 'POST',",
-        "    headers: { 'Content-Type': 'application/json' },",
-        '    body: JSON.stringify({ chat_id: chatId, text }),',
+        'export const telegramSendMessage = async (',
+        '  credentialId: string,',
+        '  chatId: number,',
+        '  text: string,',
+        `): Promise<${MESSAGE_SEND_RESULT_TS_TYPE}> =>`,
+        '  telegramSendGuarded(async () => {',
+        '    const { token: botToken, apiBaseUrl } = await resolveTelegramBotToken(credentialId);',
+        '    const response = await fetch(`${apiBaseUrl}/bot${botToken}/sendMessage`, {',
+        "      method: 'POST',",
+        "      headers: { 'Content-Type': 'application/json' },",
+        '      body: JSON.stringify({ chat_id: chatId, text }),',
+        '    });',
+        '    if (!response.ok) {',
+        '      throw new Error(`Telegram sendMessage failed: ${response.status} ${await response.text()}`);',
+        '    }',
         '  });',
-        '  if (!response.ok) {',
-        '    throw new Error(`Telegram sendMessage failed: ${response.status} ${await response.text()}`);',
-        '  }',
-        '};',
       ].join('\n'),
     },
     telegramSendFileAction,
@@ -350,6 +368,8 @@ export const telegramIntegration: IWorkflowIntegration = {
     '};',
     '',
     TELEGRAM_PREPARE_BUTTONS_CODE,
+    '',
+    TELEGRAM_SEND_GUARD_CODE,
     '',
     TELEGRAM_MODERATION_SHARED_CODE,
   ].join('\n'),

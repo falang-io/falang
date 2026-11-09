@@ -49,7 +49,7 @@ describe('maxIntegration', () => {
     const config = buildActionNodeConfig(maxIntegration.actions[0]);
     const data = { credentialId: 'cred-1', chatId: 'message.chat.id', text: 'hi' };
     // A node saved before `recipient` existed gets the default — it keeps sending to the chat.
-    expect(config.data?.type.parse(data)).toEqual({ ...data, recipient: 'chat' });
+    expect(config.data?.type.parse(data)).toEqual({ ...data, recipient: 'chat', resultVariable: '' });
     expect(maxIntegration.actions[0].emit({ credentialId: "'cred-1'", chatId: 'message.chat.id', text: '`hi`' })).toBe(
       "await maxSendMessage('cred-1', message.chat.id, `hi`, 'chat');",
     );
@@ -59,7 +59,7 @@ describe('maxIntegration', () => {
     for (const action of maxIntegration.actions.filter((item) => item.fields.some((f) => f.name === 'recipient'))) {
       const config = buildActionNodeConfig(action);
       expect(config.data?.default()).toMatchObject({ recipient: 'user' });
-      const { recipient: _omitted, ...saved } = config.data?.default() as Record<string, string>;
+      const { recipient: _omitted, ...saved } = (config.data?.default() ?? {}) as Record<string, string>;
       expect(config.data?.type.parse(saved)).toMatchObject({ recipient: 'chat' });
     }
     const question = maxIntegration.questions?.[0];

@@ -35,3 +35,4 @@ export const MAX_DELETE_MESSAGE_NAME = 'max-delete-message';
 
 export const MAX_MEMBER_EVENT_TYPE_ID = 'max/MemberEvent';
 export const MAX_MEMBER_EVENT_CHAT_TYPE_ID = 'max/MemberEventChat';
+export const MAX_SEND_RESULT_TYPE_ID = 'max/SendResult';

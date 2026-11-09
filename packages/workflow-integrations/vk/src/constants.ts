@@ -47,3 +47,4 @@ export const VK_DELETE_MESSAGE_NAME = 'vk-delete-message';
 
 export const VK_GROUP_MEMBER_EVENT_TYPE_ID = 'vk/GroupMemberEvent';
 export const VK_CHAT_MEMBER_EVENT_TYPE_ID = 'vk/ChatMemberEvent';
+export const VK_SEND_RESULT_TYPE_ID = 'vk/SendResult';

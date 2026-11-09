@@ -1,4 +1,5 @@
 import express, { Router, type Request, type Response } from 'express';
+import { answeredBlocked } from './blocked-chats.js';
 import { parseMultipart } from './multipart.js';
 import { registerModerationRoutes } from './telegram-mock-moderation.js';
 
@@ -104,8 +105,10 @@ export const createTelegramMockRouter = (): Router => {
   const rawBody = express.raw({ type: () => true, limit: '30mb' });
 
   router.post('/telegram/:botSegment/sendMessage', (req: Request, res: Response) => {
-    const state = getState(tokenFromSegment(req.params.botSegment));
+    const token = tokenFromSegment(req.params.botSegment);
+    const state = getState(token);
     state.calls.push({ method: 'sendMessage', body: req.body });
+    if (answeredBlocked(res, 'telegram', token, req.body.chat_id)) return;
     const messageId = state.nextMessageId;
     state.nextMessageId += 1;
     okResult(res, {

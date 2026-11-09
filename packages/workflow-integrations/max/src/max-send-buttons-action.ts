@@ -4,8 +4,11 @@ import {
   MESSAGE_BUTTON_COMMAND_PREFIX,
   MESSAGE_BUTTON_TS_TYPE,
   type IActionDescriptor,
+  emitMessageSend,
+  MESSAGE_SEND_RESULT_TS_TYPE,
 } from '@falang/workflow-integrations-common';
 import { MAX_SEND_BUTTONS_NAME, MAX_VENDOR } from './constants.js';
+import { MAX_SEND_RESULT_FIELD, MAX_SEND_RESULT_TYPE } from './max-send-result.js';
 import { MAX_RECIPIENT_FIELD, emitMaxRecipient } from './max-recipient.js';
 
 const anyNumber: TVariableInfo = { type: 'number', numberType: { type: 'any' } };
@@ -31,11 +34,16 @@ export const maxSendButtonsAction: IActionDescriptor = {
     { name: 'chatId', label: 'max:field.recipientId', kind: 'expression', expectedType: anyNumber, fieldSize: 'small' },
     { name: 'text', label: 'max:field.text', kind: 'template-string' },
     { name: 'buttons', label: 'max:field.buttons', help: 'max:help.buttons', kind: 'buttons', defaultValue: '[]' },
+    MAX_SEND_RESULT_FIELD,
   ],
+  resultType: MAX_SEND_RESULT_TYPE,
   emit: (fields) =>
-    `await maxSendButtons(${fields.credentialId}, ${fields.chatId}, ${fields.text}, ${fields.buttons}, ${emitMaxRecipient(fields.recipient)});`,
-  activitySignature: `maxSendButtons(credentialId: string, chatId: number, text: string, buttons: readonly ${MESSAGE_BUTTON_TS_TYPE}[], recipient: string): Promise<void>`,
-  journal: { kind: 'message-out', args: ['chatId', 'recipient', 'text', 'buttons'], result: false },
+    emitMessageSend(
+      fields,
+      `await maxSendButtons(${fields.credentialId}, ${fields.chatId}, ${fields.text}, ${fields.buttons}, ${emitMaxRecipient(fields.recipient)})`,
+    ),
+  activitySignature: `maxSendButtons(credentialId: string, chatId: number, text: string, buttons: readonly ${MESSAGE_BUTTON_TS_TYPE}[], recipient: string): Promise<${MESSAGE_SEND_RESULT_TS_TYPE}>`,
+  journal: { kind: 'message-out', args: ['chatId', 'recipient', 'text', 'buttons'] },
   activityCode: [
     'export const maxSendButtons = async (',
     '  credentialId: string,',
@@ -43,18 +51,19 @@ export const maxSendButtonsAction: IActionDescriptor = {
     '  text: string,',
     `  buttons: readonly ${MESSAGE_BUTTON_TS_TYPE}[],`,
     "  recipient: string = 'chat',",
-    '): Promise<void> => {',
-    '  const rows = maxPrepareButtons(buttons).map((button) => {',
-    "    if (button.kind === 'url') return [{ type: 'link', text: button.text, url: button.value }];",
-    `    const payload = ${JSON.stringify(MESSAGE_BUTTON_COMMAND_PREFIX)} + button.value;`,
-    `    if (payload.length > ${CALLBACK_PAYLOAD_MAX_LENGTH}) {`,
-    `      throw new Error(\`The command of button "\${button.text}" is too long for MAX (at most ${CALLBACK_PAYLOAD_MAX_LENGTH - MESSAGE_BUTTON_COMMAND_PREFIX.length} characters)\`);`,
-    '    }',
-    "    return [{ type: 'callback', text: button.text, payload }];",
+    `): Promise<${MESSAGE_SEND_RESULT_TS_TYPE}> =>`,
+    '  maxSendGuarded(async () => {',
+    '    const rows = maxPrepareButtons(buttons).map((button) => {',
+    "      if (button.kind === 'url') return [{ type: 'link', text: button.text, url: button.value }];",
+    `      const payload = ${JSON.stringify(MESSAGE_BUTTON_COMMAND_PREFIX)} + button.value;`,
+    `      if (payload.length > ${CALLBACK_PAYLOAD_MAX_LENGTH}) {`,
+    `        throw new Error(\`The command of button "\${button.text}" is too long for MAX (at most ${CALLBACK_PAYLOAD_MAX_LENGTH - MESSAGE_BUTTON_COMMAND_PREFIX.length} characters)\`);`,
+    '      }',
+    "      return [{ type: 'callback', text: button.text, payload }];",
+    '    });',
+    '    const bot = await resolveMaxBotToken(credentialId);',
+    "    const attachments = rows.length > 0 ? [{ type: 'inline_keyboard', payload: { buttons: rows } }] : [];",
+    "    await maxApiRequest(bot, 'POST', 'messages', maxRecipientQuery(recipient, chatId), { text, attachments });",
     '  });',
-    '  const bot = await resolveMaxBotToken(credentialId);',
-    "  const attachments = rows.length > 0 ? [{ type: 'inline_keyboard', payload: { buttons: rows } }] : [];",
-    "  await maxApiRequest(bot, 'POST', 'messages', maxRecipientQuery(recipient, chatId), { text, attachments });",
-    '};',
   ].join('\n'),
 };

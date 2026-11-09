@@ -38,7 +38,12 @@ head:
     "Command" button acts as if the user had sent that command (e.g. <code>/help</code>), so it is handled by the
     "On command" trigger — handy for a menu whose buttons start other scenarios. A photo, document, voice message, audio or
     video attached to an incoming message is resolved into a <a href="../files/">File</a> automatically, and "Send file"
-    delivers one back as an attachment. Credentials (the bot token) are stored separately for the dev and prod
+    delivers one back as an attachment. "Send message", "Send message with buttons" and "Send file" can keep their result
+    in a variable ("Result variable", optional): <code>{'{ success, disabled }'}</code>. <code>disabled</code> is{' '}
+    <code>true</code> when the bot can no longer write to that chat — the user blocked the bot or deleted the account,
+    the bot was removed from the group or never started — and then <code>success</code> is <code>false</code> and the
+    scenario goes on instead of failing; check <code>disabled</code> to, for example, mark a subscriber inactive in a
+    table and stop a mailing to them. Any other error still stops the block. Credentials (the bot token) are stored separately for the dev and prod
     environments and encrypted at rest. Locally the engine long-polls Telegram; once a public address is configured it
     switches to webhooks automatically.
     Groups and channels: member triggers, moderation actions and the <code>Chats</code> / <code>Conversation</code> settings — see{' '}
@@ -46,7 +51,9 @@ head:
   </li>
   <li>
     <b>MAX messenger</b>. The same as Telegram: "On message" and "On command" triggers, "Send message", "Send message with
-    buttons", "Send file", "Ask question" with buttons and an optional timeout, and "Wait for a message". The bot token comes from the MAX partner platform
+    buttons", "Send file" (all three return <code>{'{ success, disabled }'}</code> like in Telegram; MAX reports a bot
+    the user blocked only through the error text, which says <code>suspended</code>), "Ask question" with buttons and an
+    optional timeout, and "Wait for a message". The bot token comes from the MAX partner platform
     (business.max.ru). Pressing "Start" in a new dialog with the bot reaches the scenario as the message{' '}
     <code>/start</code> (and a link with a <code>start</code> parameter as <code>/start &lt;parameter&gt;</code>), so an
     "On command" trigger for <code>start</code> works just like in Telegram. Incoming images, files, audio and video
@@ -69,7 +76,10 @@ head:
     dialog reaches the scenario as <code>/start</code>, and a <code>vk.me/&lt;community&gt;?ref=…</code> link as{' '}
     <code>/start &lt;ref&gt;</code>. Without a public address the engine uses Bots Long Poll; with one it registers a
     Callback API server. <code>message.chat.id</code> is the VK <code>peer_id</code> (reply to it); incoming photos,
-    documents and voice messages become <a href="../files/">File</a>s (video is not supported).
+    documents and voice messages become <a href="../files/">File</a>s (video is not supported). The send actions return{' '}
+    <code>{'{ success, disabled }'}</code> like in Telegram: <code>disabled</code> is <code>true</code> for VK errors
+    900, 901, 902 (the user blacklisted the community, forbade its messages, or the privacy settings forbid them) and
+    917 (the community was removed from the conversation).
   </li>
   <li>
     <b>OpenAI-compatible models</b>. The "Call AI" action sends a chat-completion request to the selected model and

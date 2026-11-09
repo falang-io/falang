@@ -1,4 +1,5 @@
 import { randomBytes } from 'node:crypto';
+import { assertVkPeerNotBlocked } from './blocked-chats.js';
 import {
   VkApiError,
   messageItem,
@@ -29,7 +30,8 @@ type TMethodHandler = (context: IMethodContext) => IMethodResult;
 
 const ok = (): IMethodResult => ({ response: 1 });
 
-const sendMessages = ({ state, params }: IMethodContext): IMethodResult => {
+const sendMessages = ({ state, params, token }: IMethodContext): IMethodResult => {
+  assertVkPeerNotBlocked(token, params.peer_id);
   const text = params.message ?? '';
   const keyboard = parseKeyboard(params.keyboard ?? null);
   const single = Boolean(params.peer_id);

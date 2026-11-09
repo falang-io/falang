@@ -1,5 +1,5 @@
 import type { TVariableInfo } from '@falang/typescript-dto';
-import type { IIntegrationStructType } from '@falang/workflow-integrations-common';
+import { buildMessageSendResultStructType, type IIntegrationStructType } from '@falang/workflow-integrations-common';
 import { FILE_TYPE_ID } from '@falang/workflow-integrations-files';
 import {
   MAX_CHAT_TYPE_ID,
@@ -7,6 +7,7 @@ import {
   MAX_MEMBER_EVENT_TYPE_ID,
   MAX_MESSAGE_TYPE_ID,
   MAX_USER_TYPE_ID,
+  MAX_SEND_RESULT_TYPE_ID,
 } from './constants.js';
 
 const anyNumber: TVariableInfo = { type: 'number', numberType: { type: 'any' } };
@@ -78,4 +79,6 @@ export const maxStructTypes: readonly IIntegrationStructType[] = [
       date: anyNumber,
     },
   },
+  // What the send actions return (`max-send-message`/`-send-buttons`/`-send-file`, see `max-send-result.ts`).
+  buildMessageSendResultStructType(MAX_SEND_RESULT_TYPE_ID, 'MaxSendResult'),
 ];

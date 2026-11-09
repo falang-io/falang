@@ -90,6 +90,19 @@ export const resetVkMock = async (mocksUrl: string, token: string): Promise<void
   await fetch(`${mocksUrl}/__mock__/vk/${encodeURIComponent(token)}/reset`, { method: 'POST' });
 };
 
+/**
+ * Marks chats whose user "blocked the bot" for one messenger's bot token (replaces the list): sends there get the
+ * messenger's own error — Telegram 403 `Forbidden: bot was blocked by the user`, MAX `…suspended`, VK error 901.
+ */
+export const setBlockedChats = async (
+  mocksUrl: string,
+  vendor: 'telegram' | 'max' | 'vk',
+  token: string,
+  chatIds: readonly (string | number)[],
+): Promise<void> => {
+  await postJson(`${mocksUrl}/__mock__/${vendor}/${encodeURIComponent(token)}/blocked-chats`, { chatIds });
+};
+
 /** Queues the next `/chat/completions` response's `content` string for this `apiKey` — consumed once, in order. */
 export const queueOpenAiResponse = async (mocksUrl: string, apiKey: string, content: string): Promise<void> => {
   await postJson(`${mocksUrl}/__mock__/openai/response`, { apiKey, content });

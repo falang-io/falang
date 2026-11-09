@@ -24,6 +24,7 @@ export const TELEGRAM_MESSAGE_ENTITY_TYPE_ID = 'telegram/MessageEntity';
 export const TELEGRAM_MEMBER_EVENT_TYPE_ID = 'telegram/MemberEvent';
 export const TELEGRAM_JOIN_REQUEST_TYPE_ID = 'telegram/JoinRequest';
 export const TELEGRAM_MEMBER_INFO_TYPE_ID = 'telegram/MemberInfo';
+export const TELEGRAM_SEND_RESULT_TYPE_ID = 'telegram/SendResult';
 
 /** Member triggers (ADR 0076 (private) §1): always one execution per event, see `buildMemberEventWorkflowId`. */
 export const TELEGRAM_MEMBER_JOINED_TRIGGER_NAME = 'telegram-member-joined';

@@ -42,7 +42,8 @@ describe('telegramIntegration', () => {
   it('telegram-send-message data schema accepts the declared fields', () => {
     const config = buildActionNodeConfig(telegramIntegration.actions[0]);
     const parsed = config.data?.type.parse({ credentialId: 'cred-1', chatId: 'message.chat.id', text: '`hi`' });
-    expect(parsed).toEqual({ credentialId: 'cred-1', chatId: 'message.chat.id', text: '`hi`' });
+    // A node saved before the result variable existed parses to an empty one — no variable declared.
+    expect(parsed).toEqual({ credentialId: 'cred-1', chatId: 'message.chat.id', text: '`hi`', resultVariable: '' });
   });
 
   it('telegram-trigger has no editable data', () => {
@@ -57,6 +58,17 @@ describe('telegramIntegration', () => {
       text: '`hello`',
     });
     expect(emitted).toBe("await telegramSendMessage('cred-1', message.chat.id, `hello`);");
+  });
+
+  it('emit() assigns { success, disabled } to the result variable when one is set', () => {
+    const emitted = telegramIntegration.actions[0].emit({
+      credentialId: "'cred-1'",
+      chatId: 'message.chat.id',
+      text: '`hello`',
+      resultVariable: 'sent',
+    });
+    expect(emitted).toBe("const sent = await telegramSendMessage('cred-1', message.chat.id, `hello`);");
+    expect(telegramIntegration.actions[0].resultType).toEqual({ type: 'struct', id: 'telegram/SendResult' });
   });
 
   it('activityCode is a self-contained, parseable TS module fragment', () => {
@@ -159,7 +171,14 @@ describe('telegramIntegration', () => {
     if (!action) throw new Error('expected telegram-send-file to be registered');
 
     it('has the declared fields, "file" typed as the files/File struct', () => {
-      expect(action.fields.map((field) => field.name)).toEqual(['credentialId', 'chatId', 'file', 'as', 'caption']);
+      expect(action.fields.map((field) => field.name)).toEqual([
+        'credentialId',
+        'chatId',
+        'file',
+        'as',
+        'caption',
+        'resultVariable',
+      ]);
       const fileField = action.fields.find((field) => field.name === 'file');
       expect(fileField?.expectedType).toEqual({ type: 'struct', id: FILE_TYPE_ID });
     });
