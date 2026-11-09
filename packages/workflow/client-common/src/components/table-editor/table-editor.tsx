@@ -90,8 +90,8 @@ export const TableEditor: React.FC<ITableEditorProps> = observer(
               data-testid="table-env"
               value={store.env}
               options={[
-                { value: 'dev', label: t('client:table-editor.env-dev') },
                 { value: 'prod', label: t('client:table-editor.env-prod') },
+                { value: 'dev', label: t('client:table-editor.env-dev') },
               ]}
               onChange={(env) => run(() => store.setEnv(env))}
             />

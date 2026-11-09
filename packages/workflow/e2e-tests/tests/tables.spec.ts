@@ -40,6 +40,9 @@ test.describe('project tables', () => {
     await createTableViaUI(page, 'Clients');
     await expect(page.getByRole('treeitem', { name: 'Clients' })).toBeVisible();
     await expect(page.getByTestId('table-editor')).toBeVisible();
+    // The grid opens on production records; the rest of the test starts in dev.
+    await expect(page.getByTestId('table-env').locator('.ant-segmented-item-selected')).toHaveText('Prod');
+    await page.getByTestId('table-env').getByText('Dev', { exact: true }).click();
 
     await addTextFieldsViaUI(page, ['Name', 'City']);
     await expect(page.getByRole('columnheader', { name: 'Name' })).toBeVisible();

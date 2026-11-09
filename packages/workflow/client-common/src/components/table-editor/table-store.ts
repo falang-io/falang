@@ -60,7 +60,8 @@ const isVersionConflict = (error: unknown): boolean =>
 
 /** MobX state of one table's grid: environment, paging, sorting, search and the optimistic-lock cell saves. */
 export class TableStore {
-  @observable env: TTableEnv = 'dev';
+  /** Production records by default: those are the ones people come to look at; dev is one click away. */
+  @observable env: TTableEnv = 'prod';
   @observable page = 1;
   @observable search = '';
   @observable sortField: string | null = null;

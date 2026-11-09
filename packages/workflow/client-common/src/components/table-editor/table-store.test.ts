@@ -30,7 +30,7 @@ describe('TableStore', () => {
     const api = makeApi();
     const store = new TableStore('p', 't', api as unknown as ITableApi);
     await store.load();
-    expect(api.listTableRecords).toHaveBeenCalledWith('p', 't', { env: 'dev', limit: 50, offset: 0 });
+    expect(api.listTableRecords).toHaveBeenCalledWith('p', 't', { env: 'prod', limit: 50, offset: 0 });
     expect(store.records).toHaveLength(2);
     expect(store.total).toBe(120);
   });
@@ -39,17 +39,17 @@ describe('TableStore', () => {
     const api = makeApi();
     const store = new TableStore('p', 't', api as unknown as ITableApi);
     await store.setPage(3);
-    expect(api.listTableRecords).toHaveBeenLastCalledWith('p', 't', { env: 'dev', limit: 50, offset: 100 });
+    expect(api.listTableRecords).toHaveBeenLastCalledWith('p', 't', { env: 'prod', limit: 50, offset: 100 });
     await store.setSearch(' bob ');
     expect(api.listTableRecords).toHaveBeenLastCalledWith('p', 't', {
-      env: 'dev',
+      env: 'prod',
       limit: 50,
       offset: 0,
       search: 'bob',
     });
     await store.toggleSort('f1');
     expect(api.listTableRecords).toHaveBeenLastCalledWith('p', 't', {
-      env: 'dev',
+      env: 'prod',
       limit: 50,
       offset: 0,
       search: 'bob',
@@ -69,8 +69,8 @@ describe('TableStore', () => {
     const api = makeApi();
     const store = new TableStore('p', 't', api as unknown as ITableApi);
     await store.setPage(2);
-    await store.setEnv('prod');
-    expect(api.listTableRecords).toHaveBeenLastCalledWith('p', 't', { env: 'prod', limit: 50, offset: 0 });
+    await store.setEnv('dev');
+    expect(api.listTableRecords).toHaveBeenLastCalledWith('p', 't', { env: 'dev', limit: 50, offset: 0 });
     expect(store.page).toBe(1);
   });
 
@@ -99,7 +99,7 @@ describe('TableStore', () => {
     await store.load();
     const saved = await store.patchRecord(record('a', 1), { f1: 'x' });
     expect(saved).toBe(true);
-    expect(api.patchTableRecord).toHaveBeenCalledWith('p', 't', 'a', 'dev', { f1: 'x' }, 1);
+    expect(api.patchTableRecord).toHaveBeenCalledWith('p', 't', 'a', 'prod', { f1: 'x' }, 1);
     expect(store.records.find((r) => r.id === 'a')?.version).toBe(2);
   });
 
@@ -135,6 +135,8 @@ describe('TableStore', () => {
   it('copy to prod reloads only while viewing prod', async () => {
     const api = makeApi();
     const store = new TableStore('p', 't', api as unknown as ITableApi);
+    await store.setEnv('dev');
+    api.listTableRecords.mockClear();
     expect(await store.copyToProd()).toBe(2);
     expect(api.listTableRecords).not.toHaveBeenCalled();
     await store.setEnv('prod');
