@@ -92,6 +92,12 @@ export interface IFieldConfig {
   /** Initial value of this field on a freshly inserted node (and what the editor shows for a stored-empty one), e.g. `'[]'` for an optional array expression. Defaults to `''`. */
   readonly defaultValue?: string;
   /**
+   * The value a freshly inserted node starts with, when it must differ from `defaultValue` — which stays what a node
+   * saved before the field existed means (it parses to `defaultValue`). E.g. MAX's "Send to": old nodes keep sending
+   * to the chat, new ones start on "User".
+   */
+  readonly newNodeValue?: string;
+  /**
    * Only meaningful for `kind: 'expression'`. When set, the editor forces the field to type-check
    * against this type (hidden `let _value: T =` prefix) instead of only the bare enclosing scope —
    * same mechanism `@falang/typescript-scheme`'s `arr-op-input`/`arr-insert` use for their typed fields.

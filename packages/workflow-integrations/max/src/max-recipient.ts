@@ -16,9 +16,11 @@ export const MAX_RECIPIENT_FIELD: IFieldConfig = {
     { value: 'chat', label: 'max:recipient.chat' },
     { value: 'user', label: 'max:recipient.user' },
   ],
+  // A node saved before this field existed has no value and keeps sending to the chat; a new node starts on "user".
   defaultValue: 'chat',
+  newNodeValue: 'user',
   agentNotes:
-    '"chat" (default): `chatId` is a chat id (`message.chat.id`). "user": `chatId` is a user id (`message.from.id`, `event.user.id`) — MAX sends to that user\'s dialog with the bot, no chat id needed.',
+    'Always set it. "user": `chatId` is a user id (`message.from.id`, `event.user.id`, a user id stored in a table) — MAX sends to that user\'s dialog with the bot. "chat": `chatId` is a chat id (`message.chat.id`, a group or channel id); an omitted value means "chat".',
 };
 
 /**

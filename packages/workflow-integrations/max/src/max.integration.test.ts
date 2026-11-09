@@ -55,6 +55,18 @@ describe('maxIntegration', () => {
     );
   });
 
+  it('a new send/question node starts on "user", a node saved before "Send to" existed parses to "chat"', () => {
+    for (const action of maxIntegration.actions.filter((item) => item.fields.some((f) => f.name === 'recipient'))) {
+      const config = buildActionNodeConfig(action);
+      expect(config.data?.default()).toMatchObject({ recipient: 'user' });
+      const { recipient: _omitted, ...saved } = config.data?.default() as Record<string, string>;
+      expect(config.data?.type.parse(saved)).toMatchObject({ recipient: 'chat' });
+    }
+    const question = maxIntegration.questions?.[0];
+    const [header] = question ? buildQuestionNodeConfig(question) : [];
+    expect(header?.data?.default()).toMatchObject({ recipient: 'user' });
+  });
+
   it('every send action can address a user instead of a chat', () => {
     const sends = maxIntegration.actions.filter((action) =>
       ['max-send-message', 'max-send-file', 'max-send-buttons'].includes(action.name),

@@ -4,7 +4,8 @@ import type { IActionDescriptor, IFieldConfig, ITriggerDescriptor, IWorkflowInte
 
 export type TIntegrationActionData = Readonly<Record<string, string>>;
 
-export const defaultFieldValue = (field: IFieldConfig): string => field.defaultValue ?? '';
+/** What a freshly inserted node stores for `field` (see `IFieldConfig.newNodeValue`). */
+export const defaultFieldValue = (field: IFieldConfig): string => field.newNodeValue ?? field.defaultValue ?? '';
 
 type TFieldSchema = zod.ZodString | zod.ZodDefault<zod.ZodString>;
 
