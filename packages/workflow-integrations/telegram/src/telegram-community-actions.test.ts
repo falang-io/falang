@@ -129,6 +129,15 @@ describe('telegram community descriptors', () => {
     expect(member.map((trigger) => trigger.scopeVariableName)).toEqual(['event', 'event', 'request']);
   });
 
+  it('telegram-get-member keeps its result only when a variable name is given', () => {
+    const action = telegramCommunityActions.find((candidate) => candidate.name === 'telegram-get-member');
+    const fields = { credentialId: "'c1'", chatId: '1', userId: '2' };
+    expect(action?.emit({ ...fields, resultVariable: 'member' })).toBe(
+      "const member = await telegramGetMember('c1', 1, 2);",
+    );
+    expect(action?.emit({ ...fields, resultVariable: '' })).toBe("await telegramGetMember('c1', 1, 2);");
+  });
+
   it('gives both on-message triggers the chatType and conversation select fields', () => {
     for (const name of ['telegram-trigger', 'telegram-on-command-trigger']) {
       const trigger = (telegramIntegration.triggers ?? []).find((candidate) => candidate.name === name);

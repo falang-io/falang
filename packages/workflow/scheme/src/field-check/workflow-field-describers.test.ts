@@ -66,7 +66,8 @@ const acme: IWorkflowIntegration = {
         { name: 'chatId', label: 'Chat', kind: 'expression', expectedType: numberType },
         { name: 'text', label: 'Text', kind: 'template-string' },
         { name: 'optional', label: 'Optional', kind: 'expression', defaultValue: '' },
-        { name: 'result', label: 'Result', kind: 'new-variable', defaultValue: '' },
+        // no `defaultValue`: a `new-variable` field is optional anyway (an empty one keeps no result)
+        { name: 'result', label: 'Result', kind: 'new-variable' },
       ],
     },
     {
@@ -237,8 +238,11 @@ describe('workflow field describers — the editor and the background check buil
     const optional = fields.find((f) => f.field === 'optional') as any;
     expect(optional.allowEmpty).toBe(true);
     expect(isCodeFieldSkipped(optional)).toBe(true);
-    // the empty optional new-variable produces no identifier field at all
+    // the empty new-variable (optional without a `defaultValue`) produces no identifier field at all
     expect(fields.some((f) => f.kind === 'identifier')).toBe(false);
+    const editor = new IntegrationActionEditorStore(paramsFor(node, h.scheme));
+    expect(editor.newVariableStores.get('result')?.error).toBeNull();
+    editor.dispose();
     // a required field is checked as it stands, even when empty
     const chat = describeCheckedFields(h.add('n3', 'acme-call', { ...ACTION_DATA, chatId: '' }), ctx).find(
       (f) => f.field === 'chatId',

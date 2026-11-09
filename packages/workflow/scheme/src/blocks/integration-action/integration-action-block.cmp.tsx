@@ -56,6 +56,10 @@ const FieldValueComponent: React.FC<{
   return <>{value}</>;
 };
 
+/** An empty `new-variable` field means the result isn't kept — nothing to show for it on the scheme. */
+const isFieldShown = (field: IFieldConfig, value: string): boolean =>
+  field.kind !== 'new-variable' || value.trim() !== '';
+
 /** Project struct display names for a `result-type` field; empty lookup when the scheme has no TypeScript project service. */
 const useStructNameGetter = (): ((id: string) => string | null | undefined) => {
   const scheme = useService(TOKEN_SCHEME);
@@ -90,22 +94,24 @@ export const IntegrationActionBlockComponent: IBlockView<TIntegrationActionData>
       <div className="workflow-integration-block">
         <table className="ts-table">
           <tbody>
-            {descriptor.fields.map((field) => (
-              <tr key={field.name}>
-                <td>
-                  <div className="ts-label">{t(field.label)}</div>
-                </td>
-                <td>
-                  <FieldValueComponent
-                    field={field}
-                    value={data[field.name] ?? ''}
-                    credentialNames={credentialNames}
-                    documentNames={documentNames}
-                    getStructName={getStructName}
-                  />
-                </td>
-              </tr>
-            ))}
+            {descriptor.fields
+              .filter((field) => isFieldShown(field, data[field.name] ?? ''))
+              .map((field) => (
+                <tr key={field.name}>
+                  <td>
+                    <div className="ts-label">{t(field.label)}</div>
+                  </td>
+                  <td>
+                    <FieldValueComponent
+                      field={field}
+                      value={data[field.name] ?? ''}
+                      credentialNames={credentialNames}
+                      documentNames={documentNames}
+                      getStructName={getStructName}
+                    />
+                  </td>
+                </tr>
+              ))}
           </tbody>
         </table>
       </div>

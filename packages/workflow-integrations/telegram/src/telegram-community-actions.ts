@@ -200,8 +200,10 @@ const telegramGetMemberAction: IActionDescriptor = {
     { name: 'resultVariable', label: 'telegram:field.resultVariable', kind: 'new-variable' },
   ],
   resultType: MEMBER_INFO_TYPE,
-  emit: (fields) =>
-    `const ${fields.resultVariable} = await telegramGetMember(${fields.credentialId}, ${fields.chatId}, ${fields.userId});`,
+  emit: (fields) => {
+    const call = `await telegramGetMember(${fields.credentialId}, ${fields.chatId}, ${fields.userId})`;
+    return fields.resultVariable ? `const ${fields.resultVariable} = ${call};` : `${call};`;
+  },
   activitySignature:
     'telegramGetMember(credentialId: string, chatId: number, userId: number): Promise<{ status: string; user: { id: number; isBot: boolean; firstName: string; username?: string }; isAdmin: boolean }>',
   activityCode: [

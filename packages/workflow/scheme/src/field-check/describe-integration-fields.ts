@@ -35,9 +35,11 @@ export const storedFieldValues = (
 
 /**
  * A field that declares a `defaultValue` is optional: the editor fills it in, and when the default itself is empty an
- * empty value is legitimate, so it isn't checked. A field without one is checked as it stands.
+ * empty value is legitimate, so it isn't checked. A `new-variable` field is always optional — left empty, the call's
+ * result is simply not kept (no variable is declared). Any other field is checked as it stands.
  */
-export const isOptionalField = (field: IFieldConfig): boolean => typeof field.defaultValue === 'string';
+export const isOptionalField = (field: IFieldConfig): boolean =>
+  field.kind === 'new-variable' || typeof field.defaultValue === 'string';
 
 /**
  * The checked fields of a descriptor-driven node (an integration action, or a question/choice header): `expression`

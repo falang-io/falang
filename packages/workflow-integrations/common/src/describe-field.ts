@@ -90,7 +90,8 @@ const describeFieldKind = (field: IFieldConfig): string => {
     case 'new-variable': {
       return (
         'The name of a NEW variable this node declares and assigns its result to — a bare TypeScript ' +
-        'identifier (e.g. `answer`), unique in scope, no quotes. Later sibling nodes can reference it.'
+        'identifier (e.g. `answer`), unique in scope, no quotes. Later sibling nodes can reference it. ' +
+        'Optional: use "" when the result is not needed — the call still runs, no variable is declared.'
       );
     }
     case 'buttons': {

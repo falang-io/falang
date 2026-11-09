@@ -37,13 +37,13 @@ export const CallFunctionBlockComponent: IBlockView<ICallFunction> = observer(({
             </td>
           </tr>
           <DynamicTypedFieldsViewComponent fields={fields} />
-          {targetReturnsValue && (
+          {targetReturnsValue && data.returnVariable.trim() !== '' && (
             <tr>
               <td>
                 <div className="ts-label">result</div>
               </td>
               <td>
-                <div className="ts-input-value">{data.returnVariable || <>&nbsp;</>}</div>
+                <div className="ts-input-value">{data.returnVariable}</div>
               </td>
             </tr>
           )}
