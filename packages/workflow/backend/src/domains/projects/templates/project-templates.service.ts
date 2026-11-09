@@ -1,10 +1,15 @@
-import { Inject, Injectable, NotFoundException, type OnModuleInit } from '@nestjs/common';
+import { Inject, Injectable, NotFoundException, Optional, type OnModuleInit } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import type { Repository } from 'typeorm';
 import { ProjectExportService, type IProjectExportPayload } from '../export/project-export.service.js';
 import type { ImportProjectDto } from '../export/dto/import-project.dto.js';
 import type { Project } from '../projects/project.entity.js';
 import { ProjectTemplate } from './project-template.entity.js';
+import {
+  PROJECT_TEMPLATE_SOURCE,
+  type IExternalProjectTemplate,
+  type IProjectTemplateSource,
+} from './project-template-source.js';
 
 export interface IProjectTemplateSummary {
   readonly id: string;
@@ -46,13 +51,17 @@ export const BLANK_TEMPLATE_NAME = 'Blank project';
 export class ProjectTemplatesService implements OnModuleInit {
   private readonly templates: Repository<ProjectTemplate>;
   private readonly exportService: ProjectExportService;
+  private readonly source: IProjectTemplateSource | null;
 
   constructor(
     @InjectRepository(ProjectTemplate) templates: Repository<ProjectTemplate>,
     @Inject(ProjectExportService) exportService: ProjectExportService,
+    // A provided PROJECT_TEMPLATE_SOURCE (the hosted edition's, from a @Global() module) adds templates beyond the table.
+    @Optional() @Inject(PROJECT_TEMPLATE_SOURCE) source?: IProjectTemplateSource,
   ) {
     this.templates = templates;
     this.exportService = exportService;
+    this.source = source ?? null;
   }
 
   async onModuleInit(): Promise<void> {
@@ -84,13 +93,14 @@ export class ProjectTemplatesService implements OnModuleInit {
 
   /** One enabled template by id or slug — what the client's `#/templates/<key>` route shows before creating. */
   async getEnabled(key: string): Promise<IProjectTemplateSummary> {
-    return this.toSummary(await this.findEnabled(key));
+    const template = await this.resolveEnabled(key);
+    return template.summary;
   }
 
   /** The payload of one enabled template by id or slug — the public guest view of a template. */
   async getEnabledPayload(key: string): Promise<IProjectExportPayload> {
-    const template = await this.findEnabled(key);
-    return template.payload;
+    const template = await this.resolveEnabled(key);
+    return template.loadPayload();
   }
 
   async listAll(): Promise<IAdminProjectTemplate[]> {
@@ -102,9 +112,10 @@ export class ProjectTemplatesService implements OnModuleInit {
 
   /** `templateKey` is the template's id or its slug. */
   async createProjectFromTemplate(ownerId: string, templateKey: string, name: string): Promise<Project> {
-    const template = await this.findEnabled(templateKey);
+    const template = await this.resolveEnabled(templateKey);
+    const payload = await template.loadPayload();
     return this.exportService.importProject(ownerId, {
-      ...template.payload,
+      ...payload,
       project: { id: '', name },
     } as ImportProjectDto);
   }
@@ -193,11 +204,17 @@ export class ProjectTemplatesService implements OnModuleInit {
     return template;
   }
 
-  private async findEnabled(key: string): Promise<ProjectTemplate> {
+  /** An enabled stored template by id or slug, else whatever `PROJECT_TEMPLATE_SOURCE` finds for the key. */
+  private async resolveEnabled(key: string): Promise<IExternalProjectTemplate> {
     const where = UUID_PATTERN.test(key) ? { id: key, enabled: true } : { slug: key, enabled: true };
     const template = await this.templates.findOne({ where });
-    if (!template) throw new NotFoundException('Project template not found');
-    return template;
+    if (template) {
+      const payload = template.payload;
+      return { loadPayload: () => Promise.resolve(payload), summary: this.toSummary(template) };
+    }
+    const external = await this.source?.find(key);
+    if (!external) throw new NotFoundException('Project template not found');
+    return external;
   }
 
   private toSummary(row: ProjectTemplate): IProjectTemplateSummary {

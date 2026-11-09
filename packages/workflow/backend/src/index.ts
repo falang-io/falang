@@ -59,6 +59,18 @@ export { ProjectSuspensionService, type TSuspendedReason } from './domains/build
 export { BuildModule } from './domains/build/build/build.module.js';
 export { ProjectsModule } from './domains/projects/projects/projects.module.js';
 export { ProjectsService } from './domains/projects/projects/projects.service.js';
+// Project templates beyond the `project_templates` table (the hosted edition's predefined projects): provide
+// `PROJECT_TEMPLATE_SOURCE` from a `@Global()` module. A source builds payloads with `ProjectExportService`
+// (`ProjectExportModule`) and resolves logins with `ProjectMembersService.findByLogin` (`ProjectsModule`).
+export {
+  PROJECT_TEMPLATE_SOURCE,
+  type IExternalProjectTemplate,
+  type IProjectTemplateSource,
+} from './domains/projects/templates/project-template-source.js';
+export type { IProjectTemplateSummary } from './domains/projects/templates/project-templates.service.js';
+export { ProjectExportModule } from './domains/projects/export/project-export.module.js';
+export { ProjectExportService, type IProjectExportPayload } from './domains/projects/export/project-export.service.js';
+export { ProjectMembersService } from './domains/projects/members/project-members.service.js';
 // Mail for overlay modules (e.g. the cloud balance watch): `send` never throws, `buildClientLink` builds a client URL.
 export { MailModule } from './domains/mail/mail.module.js';
 export { MailService, type ISendMailInput } from './domains/mail/mail.service.js';

@@ -160,6 +160,7 @@ export const buildTestAppImports = (extraModules: TAppImport[] = []) => [
  */
 export const createTestApp = async (
   beforeInit?: (app: INestApplication) => void | Promise<void>,
+  extraModules: TAppImport[] = [],
 ): Promise<INestApplication> => {
   // `SIGNUP_MODE` (per-test via `vi.stubEnv` before this call) wins over this legacy flag.
   // Signup is off by default in production; most suites register users through the API, so the
@@ -168,7 +169,7 @@ export const createTestApp = async (
   // The default admin seed is off by default (P0-12); the specs log in as admin/admin.
   process.env.SEED_DEFAULT_ADMIN ??= 'true';
   const moduleRef = await Test.createTestingModule({
-    imports: buildTestAppImports(),
+    imports: buildTestAppImports(extraModules),
     providers: [{ provide: APP_GUARD, useClass: JwtAuthGuard }],
   })
     // `FilesModule`'s real `FILE_STORAGE` provider is `S3FileStorage`, which needs a real bucket —
