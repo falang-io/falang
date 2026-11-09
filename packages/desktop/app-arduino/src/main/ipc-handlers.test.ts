@@ -41,6 +41,8 @@ vi.mock('electron', () => ({
 // The Electron-bound arduino-cli handlers (net.fetch, settings file, startup update check) have their own tests.
 vi.mock('./arduino-cli-ipc.js', () => ({ registerArduinoCliIpcHandlers: vi.fn() }));
 vi.mock('./arduino-build.js', () => h.build);
+// The core check runs the host's real arduino-cli (seconds under load, and host-dependent); it has its own tests.
+vi.mock('./core-gate.js', () => ({ checkCoreGate: vi.fn(() => Promise.resolve(null)) }));
 vi.mock('./debug-session-registry.js', () => h.debug);
 // A real fs watcher per test would exhaust the host's inotify limit when the suite runs next to others;
 // only the tests that assert on watcher behaviour switch it on.
