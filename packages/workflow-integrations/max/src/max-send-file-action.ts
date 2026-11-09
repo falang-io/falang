@@ -2,6 +2,7 @@ import type { TVariableInfo } from '@falang/typescript-dto';
 import type { IActionDescriptor } from '@falang/workflow-integrations-common';
 import { fileTypeInfo } from '@falang/workflow-integrations-files';
 import { MAX_SEND_FILE_NAME, MAX_VENDOR } from './constants.js';
+import { MAX_RECIPIENT_FIELD, emitMaxRecipient } from './max-recipient.js';
 
 const anyNumber: TVariableInfo = { type: 'number', numberType: { type: 'any' } };
 
@@ -26,15 +27,16 @@ export const maxSendFileAction: IActionDescriptor = {
   label: 'max:action.sendFile',
   fields: [
     { name: 'credentialId', label: 'max:field.bot', kind: 'credential-ref', vendor: MAX_VENDOR },
-    { name: 'chatId', label: 'max:field.chatId', kind: 'expression', expectedType: anyNumber },
+    MAX_RECIPIENT_FIELD,
+    { name: 'chatId', label: 'max:field.recipientId', kind: 'expression', expectedType: anyNumber },
     { name: 'file', label: 'max:field.file', kind: 'expression', expectedType: fileTypeInfo() },
     { name: 'as', label: 'max:field.sendFileAs', kind: 'select', options: AS_OPTIONS },
     { name: 'caption', label: 'max:field.caption', kind: 'template-string' },
   ],
   emit: (fields) =>
-    `await maxSendFile(${fields.credentialId}, ${fields.chatId}, ${fields.file}, ${fields.as}, ${fields.caption});`,
-  activitySignature: `maxSendFile(credentialId: string, chatId: number, file: ${FILE_REF_TYPE}, as: string, caption: string): Promise<void>`,
-  journal: { kind: 'message-out', args: ['chatId', 'file', 'as', 'caption'], result: false },
+    `await maxSendFile(${fields.credentialId}, ${fields.chatId}, ${fields.file}, ${fields.as}, ${fields.caption}, ${emitMaxRecipient(fields.recipient)});`,
+  activitySignature: `maxSendFile(credentialId: string, chatId: number, file: ${FILE_REF_TYPE}, as: string, caption: string, recipient: string): Promise<void>`,
+  journal: { kind: 'message-out', args: ['chatId', 'recipient', 'file', 'as', 'caption'], result: false },
   activityCode: [
     'export const maxSendFile = async (',
     '  credentialId: string,',
@@ -42,6 +44,7 @@ export const maxSendFileAction: IActionDescriptor = {
     '  file: IFileRef,',
     '  as: string,',
     '  caption: string,',
+    "  recipient: string = 'chat',",
     '): Promise<void> => {',
     '  const bot = await resolveMaxBotToken(credentialId);',
     "  const mime = file.mime || '';",
@@ -69,7 +72,7 @@ export const maxSendFileAction: IActionDescriptor = {
     '    bot,',
     "    'POST',",
     "    'messages',",
-    '    { chat_id: chatId },',
+    '    maxRecipientQuery(recipient, chatId),',
     '    { text: caption || undefined, attachments: [{ type, payload }] },',
     '  );',
     '};',

@@ -114,7 +114,11 @@ export const createMaxMockRouter = (): Router => {
     state.calls.push({ method: 'sendMessage', query: queryOf(req), body, mid });
     state.nextMessageId += 1;
     const message = {
-      recipient: { chat_id: Number(req.query.chat_id), chat_type: 'dialog', user_id: null },
+      recipient: {
+        chat_id: 'chat_id' in req.query ? Number(req.query.chat_id) : null,
+        chat_type: 'dialog',
+        user_id: 'user_id' in req.query ? Number(req.query.user_id) : null,
+      },
       timestamp: Date.now(),
       body: { mid, seq: state.nextMessageId, text: body.text ?? null },
     };

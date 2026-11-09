@@ -33,6 +33,7 @@ import { maxSendButtonsAction } from './max-send-buttons-action.js';
 import { maxSendFileAction } from './max-send-file-action.js';
 import { MAX_SHARED_ACTIVITY_CODE } from './max-shared-activity-code.js';
 import { maxStructTypes } from './max-struct-types.js';
+import { MAX_RECIPIENT_FIELD, emitMaxRecipient } from './max-recipient.js';
 
 export * from './constants.js';
 export { maxStructTypes } from './max-struct-types.js';
@@ -167,16 +168,24 @@ export const maxIntegration: IWorkflowIntegration = {
       label: 'max:action.sendMessage',
       fields: [
         { name: 'credentialId', label: 'max:field.bot', kind: 'credential-ref', vendor: MAX_VENDOR },
-        { name: 'chatId', label: 'max:field.chatId', kind: 'expression', expectedType: anyNumber },
+        MAX_RECIPIENT_FIELD,
+        { name: 'chatId', label: 'max:field.recipientId', kind: 'expression', expectedType: anyNumber },
         { name: 'text', label: 'max:field.text', kind: 'template-string' },
       ],
-      emit: (fields) => `await maxSendMessage(${fields.credentialId}, ${fields.chatId}, ${fields.text});`,
-      activitySignature: 'maxSendMessage(credentialId: string, chatId: number, text: string): Promise<void>',
-      journal: { kind: 'message-out', args: ['chatId', 'text'], result: false },
+      emit: (fields) =>
+        `await maxSendMessage(${fields.credentialId}, ${fields.chatId}, ${fields.text}, ${emitMaxRecipient(fields.recipient)});`,
+      activitySignature:
+        'maxSendMessage(credentialId: string, chatId: number, text: string, recipient: string): Promise<void>',
+      journal: { kind: 'message-out', args: ['chatId', 'recipient', 'text'], result: false },
       activityCode: [
-        'export const maxSendMessage = async (credentialId: string, chatId: number, text: string): Promise<void> => {',
+        'export const maxSendMessage = async (',
+        '  credentialId: string,',
+        '  chatId: number,',
+        '  text: string,',
+        "  recipient: string = 'chat',",
+        '): Promise<void> => {',
         '  const bot = await resolveMaxBotToken(credentialId);',
-        '  await maxSendText(bot, chatId, text);',
+        "  await maxApiRequest(bot, 'POST', 'messages', maxRecipientQuery(recipient, chatId), { text });",
         '};',
       ].join('\n'),
     },

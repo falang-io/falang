@@ -48,10 +48,26 @@ describe('maxIntegration', () => {
   it('max-send-message data schema accepts the declared fields and emits a plain activity call', () => {
     const config = buildActionNodeConfig(maxIntegration.actions[0]);
     const data = { credentialId: 'cred-1', chatId: 'message.chat.id', text: 'hi' };
-    expect(config.data?.type.parse(data)).toEqual(data);
+    // A node saved before `recipient` existed gets the default — it keeps sending to the chat.
+    expect(config.data?.type.parse(data)).toEqual({ ...data, recipient: 'chat' });
     expect(maxIntegration.actions[0].emit({ credentialId: "'cred-1'", chatId: 'message.chat.id', text: '`hi`' })).toBe(
-      "await maxSendMessage('cred-1', message.chat.id, `hi`);",
+      "await maxSendMessage('cred-1', message.chat.id, `hi`, 'chat');",
     );
+  });
+
+  it('every send action can address a user instead of a chat', () => {
+    const sends = maxIntegration.actions.filter((action) =>
+      ['max-send-message', 'max-send-file', 'max-send-buttons'].includes(action.name),
+    );
+    expect(sends).toHaveLength(3);
+    for (const action of sends) {
+      expect(action.fields.map((field) => field.name)).toContain('recipient');
+      expect(action.emit({ chatId: 'user.maxId', recipient: '"user"' })).toContain("'user');");
+      expect(action.emit({ chatId: 'message.chat.id', recipient: '""' })).toContain("'chat');");
+      expect(action.activityCode).toContain('maxRecipientQuery(recipient, chatId)');
+      expect(action.activityCode).not.toContain('{ chat_id: chatId }');
+    }
+    expect(maxIntegration.sharedActivityCode).toContain("recipient === 'user' ? { user_id: id } : { chat_id: id }");
   });
 
   it('builds a question node kind with the declared fields', () => {

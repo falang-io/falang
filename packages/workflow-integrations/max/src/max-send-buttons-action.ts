@@ -6,6 +6,7 @@ import {
   type IActionDescriptor,
 } from '@falang/workflow-integrations-common';
 import { MAX_SEND_BUTTONS_NAME, MAX_VENDOR } from './constants.js';
+import { MAX_RECIPIENT_FIELD, emitMaxRecipient } from './max-recipient.js';
 
 const anyNumber: TVariableInfo = { type: 'number', numberType: { type: 'any' } };
 
@@ -26,20 +27,22 @@ export const maxSendButtonsAction: IActionDescriptor = {
   editorType: 'sidebar',
   fields: [
     { name: 'credentialId', label: 'max:field.bot', kind: 'credential-ref', vendor: MAX_VENDOR },
-    { name: 'chatId', label: 'max:field.chatId', kind: 'expression', expectedType: anyNumber, fieldSize: 'small' },
+    MAX_RECIPIENT_FIELD,
+    { name: 'chatId', label: 'max:field.recipientId', kind: 'expression', expectedType: anyNumber, fieldSize: 'small' },
     { name: 'text', label: 'max:field.text', kind: 'template-string' },
     { name: 'buttons', label: 'max:field.buttons', help: 'max:help.buttons', kind: 'buttons', defaultValue: '[]' },
   ],
   emit: (fields) =>
-    `await maxSendButtons(${fields.credentialId}, ${fields.chatId}, ${fields.text}, ${fields.buttons});`,
-  activitySignature: `maxSendButtons(credentialId: string, chatId: number, text: string, buttons: readonly ${MESSAGE_BUTTON_TS_TYPE}[]): Promise<void>`,
-  journal: { kind: 'message-out', args: ['chatId', 'text', 'buttons'], result: false },
+    `await maxSendButtons(${fields.credentialId}, ${fields.chatId}, ${fields.text}, ${fields.buttons}, ${emitMaxRecipient(fields.recipient)});`,
+  activitySignature: `maxSendButtons(credentialId: string, chatId: number, text: string, buttons: readonly ${MESSAGE_BUTTON_TS_TYPE}[], recipient: string): Promise<void>`,
+  journal: { kind: 'message-out', args: ['chatId', 'recipient', 'text', 'buttons'], result: false },
   activityCode: [
     'export const maxSendButtons = async (',
     '  credentialId: string,',
     '  chatId: number,',
     '  text: string,',
     `  buttons: readonly ${MESSAGE_BUTTON_TS_TYPE}[],`,
+    "  recipient: string = 'chat',",
     '): Promise<void> => {',
     '  const rows = maxPrepareButtons(buttons).map((button) => {',
     "    if (button.kind === 'url') return [{ type: 'link', text: button.text, url: button.value }];",
@@ -51,7 +54,7 @@ export const maxSendButtonsAction: IActionDescriptor = {
     '  });',
     '  const bot = await resolveMaxBotToken(credentialId);',
     "  const attachments = rows.length > 0 ? [{ type: 'inline_keyboard', payload: { buttons: rows } }] : [];",
-    "  await maxApiRequest(bot, 'POST', 'messages', { chat_id: chatId }, { text, attachments });",
+    "  await maxApiRequest(bot, 'POST', 'messages', maxRecipientQuery(recipient, chatId), { text, attachments });",
     '};',
   ].join('\n'),
 };

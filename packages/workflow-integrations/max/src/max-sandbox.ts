@@ -135,8 +135,10 @@ const inspect = async (request: Request, path: string): Promise<TSandboxRelayDec
 
   if (path === '/messages' && verb === 'POST') {
     const chatIds = search.getAll('chat_id');
-    if (search.has('user_id') || chatIds.length !== 1 || !chatIds[0])
-      return { error: 'Exactly one chat_id is required' };
+    // Bindings are per chat, so a send by user id can't be checked against them.
+    if (search.has('user_id'))
+      return { error: 'The test bot sends to chats only: set "Send to" to "Chat" (message.chat.id)' };
+    if (chatIds.length !== 1 || !chatIds[0]) return { error: 'Exactly one chat_id is required' };
     return { method: POST_MESSAGES, recipients: [chatIds[0]], relayToken, sendsMessage: true };
   }
   if (path === '/messages' && verb === 'PUT') {

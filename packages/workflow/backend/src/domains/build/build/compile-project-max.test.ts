@@ -40,6 +40,11 @@ const maxBotDocument = (timeout: string): IProjectDocument => ({
             data: { credentialId: 'cred-1', chatId: 'message.chat.id', text: 'Hi, ${message.from?.firstName}' },
           },
           {
+            id: 'send-user',
+            name: MAX_SEND_MESSAGE_NAME,
+            data: { credentialId: 'cred-1', recipient: 'user', chatId: 'message.from!.id', text: 'Hi' },
+          },
+          {
             id: 'file',
             name: MAX_SEND_FILE_NAME,
             data: { credentialId: 'cred-1', chatId: 'message.chat.id', file: 'message.photo', as: 'auto', caption: '' },
@@ -64,6 +69,8 @@ describe('compileProjectDocuments — a MAX bot', () => {
     expect(result.workflows).toContain("condition(() => q_q1HasAnswer");
     expect(result.workflows).toContain('maxAskQuestion(');
     expect(result.activities).toContain('export const maxSendMessage');
+    expect(result.workflows).toContain("maxSendMessage(\"cred-1\", message.from!.id, `Hi`, 'user')");
+    expect(result.activities).toContain('maxRecipientQuery(recipient, chatId)');
     expect(result.activities).toContain('export const maxSendFile');
     expect(result.activities).toContain('export const maxCloseQuestion');
     expect(result.activities).not.toContain('export const telegramSendMessage');
