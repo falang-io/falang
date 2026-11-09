@@ -30,6 +30,8 @@ export interface IFakeUpdate {
   payload?: string;
   text?: string;
   title?: string;
+  /** The private chat's user, when it differs from `chat` (MAX). */
+  user?: string;
 }
 
 export interface IUpstreamCall {
@@ -95,6 +97,7 @@ export const createFakeMessenger = async () => {
         startPayload: u.payload ?? null,
         text: u.text ?? null,
         chatTitle: u.title ?? null,
+        userId: u.user ?? null,
       };
     },
     sendText: (token, chatId, text) => {
@@ -121,9 +124,12 @@ export const createFakeMessenger = async () => {
         if (!match) return { error: 'unrecognised path' };
         const relayToken = match[1] ?? '';
         const method = match[2] ?? '';
-        const body = (await req.json()) as { chat_id?: string | number; message_id?: string };
+        const body = (await req.json()) as { chat_id?: string | number; user_id?: string; message_id?: string };
         if (method === 'sendMessage') {
           return { method, recipients: [String(body.chat_id)], relayToken, sendsMessage: true };
+        }
+        if (method === 'sendToUser') {
+          return { method, recipients: [], recipientUsers: [String(body.user_id)], relayToken, sendsMessage: true };
         }
         // Id-only edit (MAX `PUT /messages`), an upload (nothing addressed), and two malformed decisions.
         if (method === 'editMessage')

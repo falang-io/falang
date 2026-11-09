@@ -179,12 +179,13 @@ export class SandboxRelayService implements OnApplicationBootstrap, OnModuleDest
     projectId: string,
     relay: ISandboxRelay,
     call: ISandboxRelayCall,
+    recipients: readonly string[],
     status: number,
     parsed: unknown,
   ): Promise<void> {
     try {
       if (!relay.isChatUnreachable?.(call, status, parsed)) return;
-      await this.abuse.recordUnreachable(vendor, ownerId, { projectId, chatId: call.recipients[0] ?? null });
+      await this.abuse.recordUnreachable(vendor, ownerId, { projectId, chatId: recipients[0] ?? null });
     } catch (error) {
       this.logger.warn(
         `Could not count an undeliverable sandbox message: ${error instanceof Error ? error.message : error}`,
@@ -224,7 +225,14 @@ export class SandboxRelayService implements OnApplicationBootstrap, OnModuleDest
     if (!this.tokens.verify(projectId, decision.relayToken))
       return errorResponse(403, 'Forbidden: invalid relay token');
 
-    const recipients = [...new Set(decision.recipients)];
+    const recipientUsers = [...new Set(decision.recipientUsers)];
+    const userBindings = await this.bindings.findLiveForUsers(vendor, projectId, recipientUsers);
+    const userChats = new Map(userBindings.map((binding) => [binding.userId, binding.chatId]));
+    for (const user of recipientUsers) {
+      if (!userChats.has(user)) return errorResponse(403, 'Forbidden: the user is not connected to the test bot');
+    }
+    // A send by user id is checked, limited and recorded as a send to the user's bound chat.
+    const recipients = [...new Set([...decision.recipients, ...userChats.values()])];
     const messageIds = [...new Set(decision.messageIds)];
     const unaddressed = decision.unaddressed === true;
     if (unaddressed && (recipients.length > 0 || messageIds.length > 0)) {
@@ -295,7 +303,16 @@ export class SandboxRelayService implements OnApplicationBootstrap, OnModuleDest
       await this.bindings.touch(live.filter((binding) => allowed.has(binding.chatId)).map((b) => b.id));
       await this.recordSentMessages(vendor, projectId, adapter.relay, decision, recipients, parsed);
     }
-    await this.countUnreachable(vendor, ownerId, projectId, adapter.relay, decision, upstream.status, parsed);
+    await this.countUnreachable(
+      vendor,
+      ownerId,
+      projectId,
+      adapter.relay,
+      decision,
+      recipients,
+      upstream.status,
+      parsed,
+    );
     return { status: upstream.status, contentType: upstream.headers.get('content-type') ?? undefined, body };
   }
 }

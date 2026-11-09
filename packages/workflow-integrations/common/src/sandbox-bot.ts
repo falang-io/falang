@@ -41,6 +41,11 @@ export interface ISandboxUpdateInfo {
   readonly text: string | null;
   /** A human-readable name of the chat/user for the editor's "connected chats" list, if the update carries one. */
   readonly chatTitle: string | null;
+  /**
+   * The user of a private chat, when it differs from `chatId` and the messenger lets a bot send by user id (MAX: a
+   * dialog has its own chat id). The host stores it on the binding so `ISandboxRelayCall.recipientUsers` can be checked.
+   */
+  readonly userId?: string | null;
 }
 
 /** An allowed outbound call: what it addresses and the relay token it carries. */
@@ -56,6 +61,12 @@ export interface ISandboxRelayCall {
    * a recipient for rate limits and the binding's activity.
    */
   readonly messageIds?: readonly string[];
+  /**
+   * Users the call addresses by user id instead of a chat (MAX `POST /messages?user_id=…`). The host resolves each to
+   * the chat live-bound to the calling project for that user (`ISandboxUpdateInfo.userId`) and refuses the call when
+   * there is none; that chat then counts as a recipient.
+   */
+  readonly recipientUsers?: readonly string[];
   /**
    * The call addresses no chat and no message (MAX `POST /uploads`, which only hands out an upload URL). Only the
    * project rate limit applies. Without this flag a call with no `recipients` and no `messageIds` is refused.

@@ -32,6 +32,7 @@ import { TablesSectionFolder1790190000000 } from '../migrations/1790190000000-Ta
 import { TableChangeRecordVersion1790200000000 } from '../migrations/1790200000000-TableChangeRecordVersion.js';
 import { ConstantsDocument1790240000000 } from '../migrations/1790240000000-ConstantsDocument.js';
 import { MessageWaits1790250000000 } from '../migrations/1790250000000-MessageWaits.js';
+import { SandboxBindingUserId1790260000000 } from '../migrations/1790260000000-SandboxBindingUserId.js';
 import { RunJournal1790070000000 } from '../migrations/1790070000000-RunJournal.js';
 import { InstanceRuntime1790090000000 } from '../migrations/1790090000000-InstanceRuntime.js';
 import { ProjectMembers1790100000000 } from '../migrations/1790100000000-ProjectMembers.js';
@@ -80,4 +81,5 @@ export const TEST_MIGRATIONS = [
   TableChangeRecordVersion1790200000000,
   ConstantsDocument1790240000000,
   MessageWaits1790250000000,
+  SandboxBindingUserId1790260000000,
 ];

@@ -201,7 +201,14 @@ export const maxIntegration: IWorkflowIntegration = {
       answerSignalName: MAX_QUESTION_ANSWER_SIGNAL_NAME,
       contextFields: [
         { name: 'credentialId', label: 'max:field.bot', kind: 'credential-ref', vendor: MAX_VENDOR },
-        { name: 'chatId', label: 'max:field.chatId', kind: 'expression', expectedType: anyNumber, fieldSize: 'small' },
+        MAX_RECIPIENT_FIELD,
+        {
+          name: 'chatId',
+          label: 'max:field.recipientId',
+          kind: 'expression',
+          expectedType: anyNumber,
+          fieldSize: 'small',
+        },
       ],
       questionFields: [
         { name: 'question', label: 'max:field.question', kind: 'template-string' },
@@ -214,12 +221,13 @@ export const maxIntegration: IWorkflowIntegration = {
         },
       ],
       timeoutField: 'timeout',
-      journal: { kind: 'message-out', args: ['chatId', 'question', 'options'] },
+      journal: { kind: 'message-out', args: ['chatId', 'recipient', 'question', 'options'] },
       askActivitySignature:
-        'maxAskQuestion(credentialId: string, chatId: number, question: string, options: readonly string[]): Promise<{ messageId: string }>',
+        'maxAskQuestion(credentialId: string, recipient: string, chatId: number, question: string, options: readonly string[]): Promise<{ messageId: string }>',
       askActivityCode: [
         'export const maxAskQuestion = async (',
         '  credentialId: string,',
+        '  recipient: string,',
         '  chatId: number,',
         '  question: string,',
         '  options: readonly string[],',
@@ -231,7 +239,7 @@ export const maxIntegration: IWorkflowIntegration = {
         '    bot,',
         "    'POST',",
         "    'messages',",
-        '    { chat_id: chatId },',
+        '    maxRecipientQuery(recipient, chatId),',
         "    { text: question, attachments: [{ type: 'inline_keyboard', payload: { buttons } }] },",
         '  );',
         '  return { messageId: String(data.message.body.mid) };',
@@ -240,33 +248,35 @@ export const maxIntegration: IWorkflowIntegration = {
       // Same two-step "update message" as Telegram: remove the buttons from the question, then confirm the pick in a
       // separate new message.
       resolveActivitySignature:
-        'maxResolveQuestionAnswer(credentialId: string, chatId: number, messageId: string, selectedLabel: string): Promise<void>',
+        'maxResolveQuestionAnswer(credentialId: string, recipient: string, chatId: number, messageId: string, selectedLabel: string): Promise<void>',
       resolveActivityCode: [
         'export const maxResolveQuestionAnswer = async (',
         '  credentialId: string,',
+        '  recipient: string,',
         '  chatId: number,',
         '  messageId: string,',
         '  selectedLabel: string,',
         '): Promise<void> => {',
         '  const bot = await resolveMaxBotToken(credentialId);',
         '  await maxStripButtons(bot, messageId);',
-        '  await maxSendText(bot, chatId, `Выбрано ${selectedLabel}`);',
+        '  await maxSendText(bot, chatId, `Выбрано ${selectedLabel}`, recipient);',
         '};',
       ].join('\n'),
       // Called instead of the resolve activity when the wait ends without an answer — timeout (`expired`) or a
       // cancelled workflow (`cancelled`).
       closeActivitySignature:
-        'maxCloseQuestion(credentialId: string, chatId: number, messageId: string, reason: string): Promise<void>',
+        'maxCloseQuestion(credentialId: string, recipient: string, chatId: number, messageId: string, reason: string): Promise<void>',
       closeActivityCode: [
         'export const maxCloseQuestion = async (',
         '  credentialId: string,',
+        '  recipient: string,',
         '  chatId: number,',
         '  messageId: string,',
         '  reason: string,',
         '): Promise<void> => {',
         '  const bot = await resolveMaxBotToken(credentialId);',
         '  await maxStripButtons(bot, messageId);',
-        "  await maxSendText(bot, chatId, reason === 'cancelled' ? 'Отменено' : 'Время истекло');",
+        "  await maxSendText(bot, chatId, reason === 'cancelled' ? 'Отменено' : 'Время истекло', recipient);",
         '};',
       ].join('\n'),
     },

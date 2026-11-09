@@ -68,6 +68,12 @@ describe('maxIntegration', () => {
       expect(action.activityCode).not.toContain('{ chat_id: chatId }');
     }
     expect(maxIntegration.sharedActivityCode).toContain("recipient === 'user' ? { user_id: id } : { chat_id: id }");
+    const question = maxIntegration.questions?.[0];
+    expect(question?.contextFields.map((field) => field.name)).toEqual(['credentialId', 'recipient', 'chatId']);
+    for (const code of [question?.askActivityCode, question?.resolveActivityCode, question?.closeActivityCode]) {
+      expect(code).toContain('  recipient: string,');
+    }
+    expect(question?.askActivityCode).toContain('maxRecipientQuery(recipient, chatId)');
   });
 
   it('builds a question node kind with the declared fields', () => {

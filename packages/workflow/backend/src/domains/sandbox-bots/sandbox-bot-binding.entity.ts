@@ -23,6 +23,10 @@ export class SandboxBotBinding {
   @Column({ name: 'credential_id', type: 'varchar' })
   credentialId!: string;
 
+  /** The private chat's user when the messenger sends by user id too (MAX) — lets the relay accept `user_id`. */
+  @Column({ name: 'user_id', type: 'varchar', nullable: true })
+  userId!: string | null;
+
   @Column({ name: 'chat_title', type: 'varchar', nullable: true })
   chatTitle!: string | null;
 

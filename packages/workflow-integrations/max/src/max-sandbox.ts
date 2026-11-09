@@ -39,6 +39,8 @@ const chatTitleOf = (user: IMaxRawUser | null | undefined): string | null => {
   return [name, username].filter(Boolean).join(' ') || null;
 };
 
+const userIdOf = (user: IMaxRawUser | null | undefined): string | null => (user?.user_id ? String(user.user_id) : null);
+
 const describeMessage = (message: IMaxRawMessage, text: string | null, user: IMaxRawUser | null | undefined) => {
   const chatId = message.recipient?.chat_id;
   if (!chatId) return null;
@@ -48,6 +50,7 @@ const describeMessage = (message: IMaxRawMessage, text: string | null, user: IMa
     startPayload: null,
     text,
     chatTitle: chatTitleOf(user),
+    userId: userIdOf(message.recipient.chat_type === 'dialog' ? user : null),
   } satisfies ISandboxUpdateInfo;
 };
 
@@ -62,6 +65,7 @@ const describeUpdate = (raw: unknown): ISandboxUpdateInfo | null => {
       startPayload: update.payload || null,
       text: null,
       chatTitle: chatTitleOf(update.user),
+      userId: userIdOf(update.user),
     };
   }
   if (update.update_type === 'message_created' && update.message) {
@@ -135,10 +139,14 @@ const inspect = async (request: Request, path: string): Promise<TSandboxRelayDec
 
   if (path === '/messages' && verb === 'POST') {
     const chatIds = search.getAll('chat_id');
-    // Bindings are per chat, so a send by user id can't be checked against them.
-    if (search.has('user_id'))
-      return { error: 'The test bot sends to chats only: set "Send to" to "Chat" (message.chat.id)' };
-    if (chatIds.length !== 1 || !chatIds[0]) return { error: 'Exactly one chat_id is required' };
+    const userIds = search.getAll('user_id');
+    if (chatIds.length + userIds.length !== 1 || !(chatIds[0] ?? userIds[0])) {
+      return { error: 'Exactly one chat_id or user_id is required' };
+    }
+    // A send by user id: the host resolves the user to the chat bound to the project (`recipientUsers`).
+    if (userIds[0]) {
+      return { method: POST_MESSAGES, recipients: [], recipientUsers: [userIds[0]], relayToken, sendsMessage: true };
+    }
     return { method: POST_MESSAGES, recipients: [chatIds[0]], relayToken, sendsMessage: true };
   }
   if (path === '/messages' && verb === 'PUT') {

@@ -110,6 +110,24 @@ export class SandboxBindingsService {
     return live;
   }
 
+  /** For each of `userIds`, the live binding of `projectId` whose private chat belongs to that user (missing users are absent). */
+  async findLiveForUsers(vendor: string, projectId: string, userIds: readonly string[]): Promise<SandboxBotBinding[]> {
+    if (userIds.length === 0) return [];
+    const rows = await this.bindings.find({ where: { vendor, projectId, userId: In([...userIds]) } });
+    const live: SandboxBotBinding[] = [];
+    for (const row of rows) {
+      if (await this.isLive(row)) live.push(row);
+    }
+    return live;
+  }
+
+  /** Records the chat's user on a binding made before the user was known (bindings older than the column). */
+  async rememberUser(binding: SandboxBotBinding, userId: string | null | undefined): Promise<void> {
+    if (!userId || binding.userId === userId) return;
+    await this.bindings.update({ id: binding.id }, { userId });
+    binding.userId = userId;
+  }
+
   /** Creates a one-time code; the raw `fl_`-less code is returned once, only its hash is stored. */
   async createLinkCode(params: {
     vendor: string;
@@ -133,7 +151,7 @@ export class SandboxBindingsService {
   async redeem(
     vendor: string,
     code: string,
-    chat: { chatId: string; chatTitle: string | null },
+    chat: { chatId: string; chatTitle: string | null; userId?: string | null },
   ): Promise<TRedeemResult> {
     const row = await this.codes.findOneBy({ codeHash: hashLinkCode(code) });
     const now = this.now();
@@ -156,6 +174,7 @@ export class SandboxBindingsService {
       projectId: row.projectId,
       credentialId: row.credentialId,
       chatTitle: chat.chatTitle ?? existing?.chatTitle ?? null,
+      userId: chat.userId ?? existing?.userId ?? null,
       createdBy: row.createdBy,
       lastActivityAt: now,
     });

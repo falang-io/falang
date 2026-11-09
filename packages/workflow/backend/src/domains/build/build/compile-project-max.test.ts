@@ -68,6 +68,8 @@ describe('compileProjectDocuments — a MAX bot', () => {
     const result = compileProjectDocuments([maxBotDocument('10m')], REGISTERED_INTEGRATIONS);
     expect(result.workflows).toContain("condition(() => q_q1HasAnswer");
     expect(result.workflows).toContain('maxAskQuestion(');
+    // A question saved before "Send to" existed sends to its chat: the select resolves to an empty string.
+    expect(result.workflows).toContain('maxAskQuestion("cred-1", "", message.chat.id,');
     expect(result.activities).toContain('export const maxSendMessage');
     expect(result.workflows).toContain("maxSendMessage(\"cred-1\", message.from!.id, `Hi`, 'user')");
     expect(result.activities).toContain('maxRecipientQuery(recipient, chatId)');

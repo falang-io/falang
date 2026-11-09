@@ -371,7 +371,11 @@ export class SandboxBotsService implements ISandboxIngressPort, OnApplicationBoo
     const redeemed =
       code === null
         ? null
-        : await this.bindings.redeem(vendor, code, { chatId: info.chatId, chatTitle: info.chatTitle });
+        : await this.bindings.redeem(vendor, code, {
+            chatId: info.chatId,
+            chatTitle: info.chatTitle,
+            userId: info.userId,
+          });
     if (redeemed && !redeemed.ok && redeemed.reason !== 'already-bound-here') return reply(texts.linkInvalid());
     if (redeemed?.ok) {
       const project = await this.projects.findOneBy({ id: redeemed.binding.projectId });
@@ -400,6 +404,7 @@ export class SandboxBotsService implements ISandboxIngressPort, OnApplicationBoo
     const binding = await this.bindings.findBinding(vendor, info.chatId);
     if (!binding) return reply(texts.notConnected());
     if (!(await this.bindings.isLive(binding))) return reply(texts.expired());
+    await this.bindings.rememberUser(binding, info.isPrivateChat ? info.userId : null);
     const owner = await this.projects.findOneBy({ id: binding.projectId });
     if (owner && (await this.abuse.isBlocked(vendor, owner.ownerId))) return reply(texts.blocked());
 

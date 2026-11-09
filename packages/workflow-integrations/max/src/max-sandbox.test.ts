@@ -41,7 +41,14 @@ describe('max sandbox adapter', () => {
     it('describes bot_started with its payload', () => {
       expect(
         adapter.describeUpdate({ update_type: 'bot_started', chat_id: 42, user: ann, payload: 'fl_abc', timestamp: 1 }),
-      ).toEqual({ chatId: '42', isPrivateChat: true, startPayload: 'fl_abc', text: null, chatTitle: 'Ann Lee @ann' });
+      ).toEqual({
+        chatId: '42',
+        isPrivateChat: true,
+        startPayload: 'fl_abc',
+        text: null,
+        chatTitle: 'Ann Lee @ann',
+        userId: '7',
+      });
     });
 
     it('describes a private message and takes no payload from a typed /start text', () => {
@@ -51,11 +58,12 @@ describe('max sandbox adapter', () => {
         startPayload: null,
         text: '/start fl_abc',
         chatTitle: 'Ann Lee @ann',
+        userId: '7',
       });
     });
 
     it('marks a group chat as not private', () => {
-      expect(adapter.describeUpdate(created('hi', 'chat'))).toMatchObject({ isPrivateChat: false });
+      expect(adapter.describeUpdate(created('hi', 'chat'))).toMatchObject({ isPrivateChat: false, userId: null });
     });
 
     it('describes a callback by its message, without text', () => {
@@ -66,7 +74,14 @@ describe('max sandbox adapter', () => {
           callback: { callback_id: 'c', payload: 'Yes', user: ann },
           message: rawMessage('Q?'),
         }),
-      ).toEqual({ chatId: '42', isPrivateChat: true, startPayload: null, text: null, chatTitle: 'Ann Lee @ann' });
+      ).toEqual({
+        chatId: '42',
+        isPrivateChat: true,
+        startPayload: null,
+        text: null,
+        chatTitle: 'Ann Lee @ann',
+        userId: '7',
+      });
     });
 
     it("ignores member and bot-chat events (a test bot is not an admin of anyone's chat)", () => {
@@ -129,10 +144,18 @@ describe('max sandbox adapter', () => {
       expect(await relay.inspect(req(method, query), path)).toHaveProperty('error');
     });
 
+    it('a send by user id names the user, not a chat', async () => {
+      expect(await relay.inspect(req('POST', '?user_id=5'), '/messages')).toMatchObject({
+        recipients: [],
+        recipientUsers: ['5'],
+        sendsMessage: true,
+      });
+    });
+
     it('refuses malformed addressing and a missing Authorization', async () => {
       for (const [method, query] of [
-        ['POST', '?user_id=5'],
         ['POST', '?chat_id=42&user_id=5'],
+        ['POST', '?user_id=5&user_id=6'],
         ['POST', '?chat_id=42&chat_id=43'],
         ['POST', ''],
         ['PUT', ''],

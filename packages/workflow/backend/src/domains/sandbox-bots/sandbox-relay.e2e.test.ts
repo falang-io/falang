@@ -69,13 +69,13 @@ describe('sandbox bots: credential resolver and outbound relay', () => {
     return { alice, projectId };
   };
 
-  const bindChat = async (alice: string, projectId: string, chat: string) => {
+  const bindChat = async (alice: string, projectId: string, chat: string, user?: string) => {
     const link = await request(server())
       .post(`/projects/${projectId}/integrations/${CRED}/sandbox-link`)
       .set(auth(alice));
     await app
       .get(SandboxBotsService)
-      .handleUpdate('fakegram', { chat, payload: (link.body.url as string).split('start=')[1] });
+      .handleUpdate('fakegram', { chat, user, payload: (link.body.url as string).split('start=')[1] });
   };
 
   const relayPath = (projectId: string, token: string, method = 'sendMessage') =>
@@ -127,6 +127,37 @@ describe('sandbox bots: credential resolver and outbound relay', () => {
       });
       expect(fake.upstreamCalls[0]?.body).toBe(JSON.stringify({ chat_id: '42', text: 'hi' }));
       expect(fake.upstreamCalls[0]?.headers[INTERNAL]).toBeUndefined();
+    });
+
+    it('relays a send by user id when that user’s chat is bound to the project, and refuses other users', async () => {
+      const { alice, projectId } = await setup();
+      await bindChat(alice, projectId, '42', 'u7');
+      const sendTo = (user: string, project = projectId) =>
+        request(server())
+          .post(relayPath(project, projectToken(project), 'sendToUser'))
+          .send({ user_id: user, text: 'hi' });
+      expect((await sendTo('u7')).status).toBe(200);
+      expect(fake.upstreamCalls[0]?.body).toBe(JSON.stringify({ user_id: 'u7', text: 'hi' }));
+      const unknown = await sendTo('u8');
+      expect(unknown.status).toBe(403);
+      expect(unknown.body.description).toContain('user is not connected');
+      // The same user's chat bound to someone else's project is not this project's.
+      const bob = await registerUser(app, 'bob');
+      const other = await createProjectWithInstance(app, bob, { id: CRED, devSandbox: true });
+      expect((await sendTo('u7', other)).status).toBe(403);
+      expect(fake.upstreamCalls).toHaveLength(1);
+    });
+
+    it('learns the user of a chat bound before users were stored from its next message', async () => {
+      const { alice, projectId } = await setup();
+      await bindChat(alice, projectId, '42');
+      const send = () =>
+        request(server())
+          .post(relayPath(projectId, projectToken(projectId), 'sendToUser'))
+          .send({ user_id: 'u7', text: 'hi' });
+      expect((await send()).status).toBe(403);
+      await app.get(SandboxBotsService).handleUpdate('fakegram', { chat: '42', user: 'u7', text: 'hello' });
+      expect((await send()).status).toBe(200);
     });
 
     it('passes an upstream error status through', async () => {
