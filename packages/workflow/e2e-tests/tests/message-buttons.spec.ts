@@ -98,7 +98,7 @@ test.describe('message buttons', () => {
             root?: { children?: { children?: { data?: unknown }[] }[] };
           }[];
           const document = documents.find((candidate) => candidate.id === menuId);
-          const node = document.root?.children?.[1]?.children?.[0];
+          const node = document?.root?.children?.[1]?.children?.[0];
           return JSON.parse(String((node?.data as { buttons?: string } | undefined)?.buttons ?? '[]'));
         },
         { timeout: 15_000 },
