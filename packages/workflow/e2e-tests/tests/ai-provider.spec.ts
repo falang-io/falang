@@ -100,6 +100,20 @@ test.describe('built-in AI provider', () => {
             vendor: 'openai',
           }),
         ]);
+
+      // The instance saved by the editor feeds the model select the same way a node editor loads it: the admin's chat
+      // models, not the instance's own (empty) endpoint.
+      const documentsResponse = await api.get(`/projects/${projectId}/documents`);
+      const documents = (await documentsResponse.json()) as { id: string; data: { instances?: { id: string }[] } }[];
+      const instanceId = documents.find((document) => document.id === documentId)?.data.instances?.[0]?.id ?? '';
+      const optionsResponse = await api.get(
+        `/projects/${projectId}/integrations/${instanceId}/actions/call-ai-text/fields/model/options`,
+      );
+      expect(optionsResponse.status()).toBe(200);
+      expect(await optionsResponse.json()).toEqual([
+        { value: 'mock-model', label: 'mock-model' },
+        { value: 'gpt-4o-mini', label: 'GPT-4o mini' },
+      ]);
     } finally {
       await api.delete('/admin/settings/ai-provider');
       await api.dispose();
