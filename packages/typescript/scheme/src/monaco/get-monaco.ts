@@ -6,7 +6,6 @@
 // oxlint-disable switch-case-braces
 import type * as monaco from 'monaco-editor';
 import { observable, runInAction } from 'mobx';
-import { lib } from './lib.js';
 import { libPortable } from './lib-portable.js';
 
 type IDisposable = monaco.IDisposable;
@@ -39,13 +38,27 @@ export const isMonacoInstalled = (): boolean => monacoNamespace !== null;
 let initialized = false;
 let overflowWidgetsDomNode: HTMLElement | null = null;
 
-/** `'full'` (default) is `lib.ts` (real JS/TS surface); `'portable'` is `lib-portable.ts`, see its own top comment. */
+/**
+ * `'full'` (default) is TypeScript's own `lib.esnext.d.ts` from the TS worker's bundled lib files (the real ES surface
+ * — the workflow backend type-checks the same code against esnext too); `'portable'` is `lib-portable.ts` with `noLib`,
+ * see its own top comment.
+ */
 export type TMonacoLibVariant = 'full' | 'portable';
 
-const LIB_SOURCE_BY_VARIANT: Readonly<Record<TMonacoLibVariant, string>> = {
-  full: lib,
-  portable: libPortable,
-};
+const BASE_COMPILER_OPTIONS = {
+  allowSyntheticDefaultImports: true,
+  esModuleInterop: true,
+  locale: 'ru',
+  isolatedModules: true,
+  strict: true,
+  noImplicitAny: true,
+  strictNullChecks: true,
+  strictFunctionTypes: true,
+  strictBindCallApply: true,
+  strictPropertyInitialization: true,
+  noImplicitThis: true,
+  alwaysStrict: true,
+} as const;
 
 let appliedLibVariant: TMonacoLibVariant | null = null;
 let desiredLibVariant: TMonacoLibVariant = 'full';
@@ -80,10 +93,18 @@ const sameExtraLibFiles = (a: TMonacoExtraLibFiles, b: TMonacoExtraLibFiles): bo
 const applyLibVariant = (monaco: TMonacoApi): void => {
   if (appliedLibVariant !== desiredLibVariant) {
     baseLibDisposable?.dispose();
-    baseLibDisposable = monaco.typescript.typescriptDefaults.addExtraLib(
-      LIB_SOURCE_BY_VARIANT[desiredLibVariant],
-      '@types/lib.d.ts',
-    );
+    const portable = desiredLibVariant === 'portable';
+    monaco.typescript.typescriptDefaults.setCompilerOptions({
+      ...BASE_COMPILER_OPTIONS,
+      moduleResolution: monaco.typescript.ModuleResolutionKind.NodeJs,
+      target: monaco.typescript.ScriptTarget.ESNext,
+      // Compiler options take lib *file* names (`lib.esnext.d.ts`) — the tsconfig short form `esnext` loads nothing in
+      // the worker. No `lib.dom.d.ts`: workflow code runs in Temporal's sandbox, not a browser.
+      ...(portable ? { noLib: true } : { lib: ['lib.esnext.d.ts'] }),
+    });
+    baseLibDisposable = portable
+      ? monaco.typescript.typescriptDefaults.addExtraLib(libPortable, '@types/lib.d.ts')
+      : null;
     appliedLibVariant = desiredLibVariant;
   }
   if (appliedExtraDeclarations !== desiredExtraDeclarations) {
@@ -199,22 +220,6 @@ export const getMonaco = (): TMonacoApi => {
     );
   }
   if (!initialized) {
-    monaco.typescript.typescriptDefaults.setCompilerOptions({
-      moduleResolution: monaco.typescript.ModuleResolutionKind.NodeJs,
-      allowSyntheticDefaultImports: true,
-      esModuleInterop: true,
-      noLib: true,
-      locale: 'ru',
-      isolatedModules: true,
-      strict: true,
-      noImplicitAny: true,
-      strictNullChecks: true,
-      strictFunctionTypes: true,
-      strictBindCallApply: true,
-      strictPropertyInitialization: true,
-      noImplicitThis: true,
-      alwaysStrict: true,
-    });
     monaco.typescript.typescriptDefaults.setEagerModelSync(true);
     initialized = true;
   }

@@ -25,6 +25,7 @@ export const installFakeMonaco = (): void => {
     },
     typescript: {
       ModuleResolutionKind: { NodeJs: 2 },
+      ScriptTarget: { ESNext: 99 },
       typescriptDefaults: {
         setCompilerOptions: () => undefined,
         setEagerModelSync: () => undefined,
