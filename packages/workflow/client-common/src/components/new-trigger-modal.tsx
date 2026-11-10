@@ -18,6 +18,7 @@ import { REGISTERED_INTEGRATIONS } from '../integrations-registry.js';
 import { buildTriggerCredentialOptions, defaultContextFieldValues } from './trigger-credential.js';
 import { validateDocumentName } from '../document-names.js';
 import { CronBuilderField } from './cron-builder-field.js';
+import { useDocsLinks } from '../docs/use-docs-links.js';
 
 /** A sensible starting point once "cron" is picked — "once an hour" (also what `react-js-cron`'s own `@hourly` shortcut produces), not presumptuous about weekdays/time-of-day. */
 const DEFAULT_CRON_EXPRESSION = '0 * * * *';
@@ -53,6 +54,7 @@ export const NewTriggerModal: React.FC<NewTriggerModalProps> = observer(({ open,
   const i18n = getGlobalI18n();
   const t = i18n.t;
   const store = useWorkflowStore();
+  const docs = useDocsLinks();
   const [form] = Form.useForm<FormValues>();
   const credentialKey = Form.useWatch('credential', form);
 
@@ -250,7 +252,7 @@ export const NewTriggerModal: React.FC<NewTriggerModalProps> = observer(({ open,
             <Form.Item
               key={field.name}
               name={['contextFields', field.name]}
-              label={<FieldLabel label={field.label} help={field.help} t={t} />}
+              label={<FieldLabel label={field.label} help={field.help} docs={docs.fieldDocs(field.docsTopic)} t={t} />}
               rules={[
                 { required: true, message: t('client:new-trigger-modal.field-required', { label: t(field.label) }) },
                 ...(field.validate

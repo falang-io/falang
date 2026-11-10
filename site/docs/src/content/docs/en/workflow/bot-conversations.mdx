@@ -1,0 +1,141 @@
+---
+title: Bot conversations and executions
+description: How messages of Telegram, MAX and VK bots reach scenario executions — the Chats and Conversation settings, what happens to a message that arrives while an execution is running, commands in groups and the common pitfalls
+head:
+  - tag: meta
+    attrs:
+      name: keywords
+      content: 'telegram bot, conversation, execution, chatType, per-chat, per-user, per-event, group command, workflow'
+---
+
+import { Aside } from '@astrojs/starlight/components';
+
+The **On message** and **On command** triggers of Telegram, MAX and VK bots decide two things: which chats to react to
+(the **Chats** setting) and which **execution** of the scenario receives the next message (the **Conversation**
+setting). Both are set when the trigger is created; the "?" next to them leads to this page.
+
+## What an execution is
+
+An **execution** (run) is one pass of the scenario with its own variables. It can last long: while the bot waits for an
+answer to a question, waits for a message or sits on a **Wait** block, the execution keeps running and remembers
+everything before it. It ends when the scenario reaches its end (or fails).
+
+Every execution has an id. The trigger builds it from the document, the chat and — depending on **Conversation** — the
+user or the event:
+
+| Conversation | Execution id |
+| --- | --- |
+| One execution per chat | `<prefix>-<document>-<chatId>` |
+| One execution per user in a chat | `<prefix>-<document>-<chatId>-<userId>` |
+| A new execution per message | `<prefix>-<document>-<chatId>-<event number>` |
+
+The prefix is `tg`, `max` or `vk`. An incoming message is delivered by that id:
+
+- **no execution with this id is running** (there was none, or it has ended) — a new execution starts, the scenario
+  runs from the beginning, the message is in the `message` variable;
+- **an execution with this id is already running** — **no** new execution starts, the message is handed to the running
+  one (what happens to it there — [below](#a-message-during-a-running-execution)).
+
+The id includes the document, so different triggers (say, _On message_ and _On command_ `/help`) always live in
+different executions, even in one chat.
+
+## The Chats setting
+
+- **Any chat** (default) — private chats, groups and channels.
+- **Private chats only.**
+- **Groups and channels only.**
+
+A message is handled by the first document whose filter admits the chat, so one project can hold a scenario for private
+chats and another for groups.
+
+## The Conversation setting
+
+### One execution per chat
+
+The default. One execution per chat: while it runs, every message of the chat goes into it; a new one starts only after
+it has ended.
+
+- **In a private chat** this is an ordinary conversation with the user: the bot asked a question, the person answered —
+  the answer reached the same execution.
+- **In a group** all members share one execution. While it runs, messages and commands of **any** member go into it
+  instead of starting their own. That suits a bot that runs one shared "game" per chat; for a separate conversation with
+  each member choose the next mode.
+
+### One execution per user in a chat
+
+Every member of the chat gets their own execution. Anna's and Boris's messages in one group don't interfere: each goes
+through the form, quiz or order on their own. In a private chat it behaves like _One execution per chat_ (there is one
+person). A message without a sender (a channel post) goes to the chat's execution.
+
+### A new execution per message (stateless)
+
+Every message starts a separate execution that knows nothing about the previous messages. Use it for short reactions
+without memory: spam filters, deleting links, replying to a keyword. Questions with buttons and _Wait for a message_ make
+no sense in this mode — the next message starts a new execution anyway.
+
+## A message during a running execution
+
+A new message from the chat is handled in this order:
+
+1. **A command that has its own _On command_ trigger** goes to that trigger's execution (it has its own id, see above).
+2. **If an execution is waiting on a _Wait for a message_ block** (for this user or for anyone in the chat), the message
+   goes to that block: its `message` branch runs and the text is available as `reply`.
+3. **Otherwise the message is sent by the execution id** — and if that execution is already running, the scenario is
+   **not run again** for this message.
+
+In the last case the message is neither queued nor handled separately: the running execution simply **replaces the
+`message` variable with the new message** and carries on from where it was. An answer to a question with buttons
+arrives separately (as a button press) and doesn't touch `message`.
+
+**Example.** A group, an _On command_ `/quiz` trigger, `Conversation: One execution per chat`. The scenario asks a
+question with buttons, then congratulates `message.from.firstName`.
+
+1. Anna sends `/quiz` — an execution starts, the bot asks the question and waits for a press.
+2. Boris sends `/quiz` — the chat's execution is already running, so **no** new quiz starts. His message goes into
+   Anna's execution, and `message` there is now Boris's message.
+3. Anna presses a button — the scenario continues and congratulates… Boris.
+
+Boris gets no reply to his command. The next `/quiz` in this chat starts a new quiz only after the current one has ended.
+The same happens in a private chat when the person sends a message before the scenario has finished (for example,
+`/start` a second time): `message` in the running execution becomes the latest message.
+
+### Avoiding the pitfall
+
+- **Keep what you need from `message` at the start of the scenario** — with a **New variable** block, e.g.
+  `const user = message.from` or `const chatId = message.chat.id`. A new message replaces only the `message` variable
+  itself; saved values stay as they were.
+- **A conversation with each member of a group** — choose _One execution per user in a chat_.
+- **A reaction without memory** (moderation, keyword replies) — _A new execution per message_.
+- **You need the user's next message** — take it with a _Wait for a message_ block, not from `message`: the block gets
+  the reply itself, with a timeout and an optional sender filter.
+- **Long pauses** (a **Wait** block, a question with a long timeout) keep the execution alive — all that time new
+  messages of the chat go into it. Don't keep an execution running longer than needed.
+
+## Commands in groups
+
+A command in a group is handled like in a private chat: it picks the _On command_ trigger, then **Chats** and
+**Conversation** apply. The differences:
+
+- Telegram appends the bot's name to a command (`/start@my_bot`); it is dropped, so the command matches the `start`
+  trigger.
+- Whether the bot receives a command at all is up to the messenger. A Telegram bot with privacy mode on reliably gets
+  commands with an explicit `@bot_name`, replies to its own messages and service events in a group; MAX and VK can limit
+  which conversation messages a bot sees as well.
+- A command button of _Send message with buttons_ works as if the presser had sent that command — with the same rules,
+  in groups too.
+
+<Aside type="caution">
+  **Question** buttons pressed in a group return to the waiting execution only in _One execution per chat_ mode. In the
+  per-user and per-message modes the press doesn't reach the execution and is written to the run journal as an
+  `UnroutableGroupAnswer` warning. Ask questions in private chats or keep _One execution per chat_.
+</Aside>
+
+<Aside>
+  The [platform test bot](../test-bot/) works in private chats only: in a group it just sends a notice. Use your own bot
+  to try group behaviour.
+</Aside>
+
+## See also
+
+- [Groups and moderation in messenger bots](../messenger-groups/) — member triggers, bans, deleting messages.
+- [Run journal](../run-journal/) — what reached an execution and when.

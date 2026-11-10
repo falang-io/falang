@@ -111,7 +111,8 @@ const buildClient = async (): Promise<void> => {
   console.log(`[e2e-fast] building the client into ${CLIENT_OUT_DIR}`);
   const code = await run('npx', ['vite', 'build', '--outDir', CLIENT_OUT_DIR, '--emptyOutDir', '--logLevel', 'warn'], {
     cwd: CLIENT_PACKAGE_DIR,
-    env: { ...process.env, VITE_BACKEND_URL: 'same-origin' },
+    // VITE_DOCS_URL: the same fake docs host as the kind stack (docs-links.spec.ts checks the links only).
+    env: { ...process.env, VITE_BACKEND_URL: 'same-origin', VITE_DOCS_URL: 'https://docs.e2e.test' },
   });
   if (code !== 0) throw new Error(`client build failed (exit ${code})`);
 };

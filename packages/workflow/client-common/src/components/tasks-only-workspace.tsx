@@ -8,6 +8,7 @@ import { TableEditor } from './table-editor/table-editor.js';
 import { FalangBrand, navButtonStyle } from './app-header.js';
 import { TasksPage } from './tasks-page.js';
 import { UserMenu } from './user-menu.js';
+import { DocsButton } from './docs-button.js';
 
 const styles: Record<string, React.CSSProperties> = {
   root: { display: 'flex', flexDirection: 'column', height: '100vh', width: '100vw', background: '#1e1e2e' },
@@ -78,6 +79,7 @@ export const TasksOnlyWorkspace: React.FC<{ projectId: string; name: string }> =
         <FalangBrand compact />
         <span style={styles.name}>{name}</span>
         <span style={styles.spacer} />
+        <DocsButton style={navButtonStyle(false)} />
         <UserMenu style={navButtonStyle(false)} />
       </div>
       <Tabs

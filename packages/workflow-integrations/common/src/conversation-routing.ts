@@ -83,6 +83,9 @@ export const buildMemberEventWorkflowId = (params: IMemberEventWorkflowIdParams)
   return `${params.vendorPrefix}-${params.documentId}-${params.chatId}-${params.userId}-${params.eventKey}`;
 };
 
+/** Documentation topic of the `chatType`/`conversation` fields: how messages are routed to runs. See `IFieldConfig.docsTopic`. */
+export const MESSENGER_CONVERSATIONS_DOCS_TOPIC = 'messenger-conversations';
+
 /** i18n keys (or plain text) supplied by the vendor. */
 export interface IChatTypeFieldLabels {
   readonly label: string;
@@ -108,6 +111,7 @@ export const buildChatTypeContextField = (labels: IChatTypeFieldLabels): IFieldC
     { value: 'group', label: labels.group },
   ],
   defaultValue: DEFAULT_CHAT_TYPE_FILTER,
+  docsTopic: MESSENGER_CONVERSATIONS_DOCS_TOPIC,
 });
 
 export const buildConversationContextField = (labels: IConversationFieldLabels): IFieldConfig => ({
@@ -120,4 +124,5 @@ export const buildConversationContextField = (labels: IConversationFieldLabels):
     { value: 'per-event', label: labels.perEvent },
   ],
   defaultValue: DEFAULT_CONVERSATION_MODE,
+  docsTopic: MESSENGER_CONVERSATIONS_DOCS_TOPIC,
 });

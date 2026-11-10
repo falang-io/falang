@@ -18,6 +18,7 @@ import { WebhookSecurityButton } from './webhook-security-button.js';
 import { VersionsModal } from './versions-modal.js';
 import { FalangBrand } from './app-header.js';
 import { UserMenu } from './user-menu.js';
+import { DocsButton } from './docs-button.js';
 
 const RUNNING_COLOR = '#a6e3a1';
 const STOPPED_COLOR = '#f38ba8';
@@ -368,6 +369,7 @@ export const Toolbar: React.FC = observer(() => {
       {!store.readOnly && (
         <WritableControls devRunning={devRunning} devMenuItems={devMenuItems} prodMenuItems={prodMenuItems} />
       )}
+      <DocsButton style={S.btn} />
       <UserMenu style={S.btn} />
       {devRun.modals}
       <VersionsModal projectId={store.projectId} open={versionsOpen} onClose={() => setVersionsOpen(false)} />

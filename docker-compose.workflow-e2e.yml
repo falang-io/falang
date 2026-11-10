@@ -513,6 +513,8 @@ services:
     environment:
       # `e2e-tests`' browser runs inside this compose network, not on the host — see header note.
       - VITE_BACKEND_URL=http://backend:4000
+      # The documentation "?" buttons; a fake host — docs-links.spec.ts only checks the links.
+      - VITE_DOCS_URL=https://docs.e2e.test
     ports:
       - '5176:5175'
     networks: [falang-workflow-e2e-network]

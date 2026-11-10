@@ -481,6 +481,8 @@ services:
       # The browser talks to the backend directly via its published host port, not the
       # docker-internal service name.
       - VITE_BACKEND_URL=http://localhost:4000
+      # The documentation "?" buttons (top bar, field links); empty = no buttons.
+      - VITE_DOCS_URL=https://docs.falang.io
     ports:
       - '5175:5175'
     networks: [falang-workflow-network]

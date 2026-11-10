@@ -58,6 +58,9 @@ WORKDIR /app/packages/workflow/client
 #   docker build --target production --build-arg VITE_BACKEND_URL=https://api.example.com -f docker/client.Dockerfile .
 ARG VITE_BACKEND_URL=http://localhost:4000
 ENV VITE_BACKEND_URL=$VITE_BACKEND_URL
+# Documentation host for the "?" buttons (top bar, field links), e.g. https://docs.falang.io; empty = no buttons.
+ARG VITE_DOCS_URL=
+ENV VITE_DOCS_URL=$VITE_DOCS_URL
 RUN npx vite build
 
 # ---- production: static files only, no node, no node_modules ----

@@ -20,6 +20,7 @@ import {
 } from '../extensions/client-extensions.js';
 import { TasksStore } from '../tasks-store.js';
 import { UserMenu } from './user-menu.js';
+import { DocsButton } from './docs-button.js';
 
 const styles: Record<string, React.CSSProperties> = {
   root: {
@@ -112,7 +113,7 @@ const NavButton: React.FC<INavButtonProps> = ({ active, icon, testId, onClick, h
 
 /**
  * The top menu of every page outside a project: the brand on the left; on the right, left to right — Projects,
- * Admin (admins only; "Settings" in a single-user deployment, where the admin app is the app's settings), Runs, Tasks, the host's extension items (cloud: the balance) and the user menu. The current
+ * Admin (admins only; "Settings" in a single-user deployment, where the admin app is the app's settings), Runs, Tasks, the host's extension items (cloud: the balance), the documentation "?" (when built with `VITE_DOCS_URL`) and the user menu. The current
  * section is highlighted.
  */
 export const AppHeader: React.FC = observer(() => {
@@ -179,6 +180,7 @@ export const AppHeader: React.FC = observer(() => {
           </NavButton>
         ))}
         {user && extensions.renderPlanBadge?.(user)}
+        <DocsButton style={navButtonStyle(false)} />
         <UserMenu style={navButtonStyle(view === 'settings' || view === 'tokens')} />
       </nav>
     </header>

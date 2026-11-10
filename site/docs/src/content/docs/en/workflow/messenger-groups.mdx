@@ -20,14 +20,12 @@ The **On message** and **On command** triggers of all three messengers have two 
 - **Chats** (`chatType`) — `Any chat` (default), `Private chats only` or `Groups and channels only`. A trigger only
   listens to the chats it admits, so a private-chat document and a group document can live in one project (the first
   document whose filter admits the chat wins).
-- **Conversation** (`conversation`) — which execution a message belongs to:
-  - `One execution per chat` (default) — one long-lived run per chat, as before;
-  - `One execution per user in a chat` — a separate dialog with every member of the group;
-  - `A new execution per message (stateless)` — every message starts its own short run; use it for spam filters and
-    other moderation.
+- **Conversation** (`conversation`) — which execution a message goes to: `One execution per chat` (default), `One
+  execution per user in a chat` or `A new execution per message (stateless)`.
 
-The execution (workflow) id is `<prefix>-<document>-<chatId>`, plus `-<userId>` for per-user and `-<eventKey>` for
-per-event.
+How these modes work, what happens to a message that arrives while an execution is running, and why in a group with the
+per-chat mode one member's command can land in someone else's execution — see
+[Bot conversations and executions](../bot-conversations/).
 
 Typical recipes:
 

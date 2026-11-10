@@ -74,6 +74,11 @@ export interface IClientExtensions {
    * a language = "Built-in provider". Read through `useAiProviderName()`. ADR 0081 (private).
    */
   aiProviderName?: Readonly<Record<string, string>>;
+  /**
+   * Page path per documentation topic (`IFieldConfig.docsTopic`) on this host's docs site, merged over
+   * `DEFAULT_DOCS_PATHS` (the community site's layout). The docs host itself is the build-time `VITE_DOCS_URL`.
+   */
+  docsPaths?: Readonly<Record<string, string>>;
   navItems?: IClientExtensionNavItem[];
   views?: IClientExtensionView[];
   /** Shown in the app header just before the user menu. */

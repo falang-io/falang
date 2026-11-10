@@ -12,6 +12,8 @@ export * from './components/login-page.js';
 export * from './support-store.js';
 export * from './components/language-switcher.js';
 export * from './extensions/client-extensions.js';
+export * from './docs/docs-links.js';
+export * from './docs/use-docs-links.js';
 export * from './ai-provider/ai-provider-name.js';
 export * from './ai-provider/ai-provider-model.js';
 export * from './ai-provider/ai-provider-store.js';

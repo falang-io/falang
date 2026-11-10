@@ -101,6 +101,7 @@ export default defineConfig({
             'workflow/human-tasks',
             'workflow/project-users',
             'workflow/test-bot',
+            'workflow/bot-conversations',
             'workflow/messenger-groups',
             'workflow/media',
             'workflow/built-in-ai-provider',

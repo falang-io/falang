@@ -1,4 +1,4 @@
-import { Popover } from 'antd';
+import { Popover, Tooltip } from 'antd';
 import { Fragment } from 'react';
 import { splitHelpLine, translateFieldText } from './field-help.js';
 
@@ -51,11 +51,58 @@ const FieldHelpContent: React.FC<{ text: string }> = ({ text }) => (
 
 type TTranslate = (key: string) => string;
 
-/** The "?" next to a field label; renders nothing without `help`. See `IFieldConfig.help`. `t` is passed in — the credential/trigger dialogs have no scheme container. */
-export const FieldHelp: React.FC<{ help?: string; t: TTranslate }> = ({ help, t }) => {
-  if (!help) return null;
+/** A documentation page for the field (see `IFieldConfig.docsTopic`): `url` absolute, `title` already translated. */
+export interface IFieldDocsLink {
+  readonly url: string;
+  readonly title: string;
+}
+
+const LINK_ICON_STYLE: React.CSSProperties = {
+  ...ICON_STYLE,
+  cursor: 'pointer',
+  color: 'inherit',
+  textDecoration: 'none',
+};
+
+/**
+ * The "?" next to a field label; renders nothing without `help` and `docs`. `help` alone — a popover
+ * (`IFieldConfig.help`); `docs` alone — the "?" is a link to the page (new tab); both — the popover ends with that
+ * link. `t` is passed in — the credential/trigger dialogs have no scheme container.
+ */
+export const FieldHelp: React.FC<{ help?: string; docs?: IFieldDocsLink | null; t: TTranslate }> = ({
+  help,
+  docs,
+  t,
+}) => {
+  if (!help && !docs) return null;
+  if (!help && docs) {
+    return (
+      <Tooltip title={docs.title}>
+        <a
+          href={docs.url}
+          target="_blank"
+          rel="noopener noreferrer"
+          style={LINK_ICON_STYLE}
+          aria-label={docs.title}
+          data-testid="field-docs-link"
+        >
+          ?
+        </a>
+      </Tooltip>
+    );
+  }
+  const content = (
+    <div>
+      <FieldHelpContent text={translateFieldText(t, help ?? '')} />
+      {docs && (
+        <a href={docs.url} target="_blank" rel="noopener noreferrer" data-testid="field-docs-link">
+          {docs.title}
+        </a>
+      )}
+    </div>
+  );
   return (
-    <Popover content={<FieldHelpContent text={translateFieldText(t, help)} />} trigger={['hover', 'click']}>
+    <Popover content={content} trigger={['hover', 'click']}>
       <span
         style={ICON_STYLE}
         role="img"
@@ -69,10 +116,15 @@ export const FieldHelp: React.FC<{ help?: string; t: TTranslate }> = ({ help, t 
   );
 };
 
-/** A field caption followed by its "?" (when the field has `help`). */
-export const FieldLabel: React.FC<{ label: string; help?: string; t: TTranslate }> = ({ label, help, t }) => (
+/** A field caption followed by its "?" (when the field has `help` or a documentation link). */
+export const FieldLabel: React.FC<{ label: string; help?: string; docs?: IFieldDocsLink | null; t: TTranslate }> = ({
+  label,
+  help,
+  docs,
+  t,
+}) => (
   <span style={{ display: 'inline-flex', alignItems: 'center' }}>
     {translateFieldText(t, label)}
-    <FieldHelp help={help} t={t} />
+    <FieldHelp help={help} docs={docs} t={t} />
   </span>
 );

@@ -632,7 +632,8 @@
       "admin": "Admin",
       "settings": "Settings",
       "runs": "Runs",
-      "tasks": "Tasks"
+      "tasks": "Tasks",
+      "docs": "Documentation"
     },
     "user-menu": {
       "settings": "Settings",
@@ -770,6 +771,9 @@
       "switch": "Use instead of your own endpoint and key",
       "switch-hint": "No endpoint or API key is needed for dev or prod. On hosted deployments calls may be charged to the project owner's balance.",
       "unavailable": "“{{name}}” is not available on this server — turn the switch off and enter your own endpoint and key."
+    },
+    "docs": {
+      "field-link": "About this setting in the documentation"
     }
   },
   "version-history": {

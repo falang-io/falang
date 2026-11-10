@@ -72,6 +72,12 @@ export interface IFieldConfig {
    */
   readonly help?: string;
   /**
+   * A documentation topic id (e.g. `MESSENGER_CONVERSATIONS_DOCS_TOPIC`) — the client turns it into a link on the "?"
+   * next to the label through its own topic → page map (`@falang/workflow-client-common`'s `docs-links.ts`, a host may
+   * override the paths). No link when the build has no docs host or the topic is unknown to the map.
+   */
+  readonly docsTopic?: string;
+  /**
    * Plain-English, LLM-only notes on what to enter (syntax, examples) — appended to the field's agent
    * description by `describeFieldForAgent`, never shown in the UI and never translated. The agent's
    * counterpart of `help`, which is an i18n key the schema builder can't resolve.
