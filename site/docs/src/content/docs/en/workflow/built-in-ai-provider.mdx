@@ -5,7 +5,7 @@ head:
   - tag: meta
     attrs:
       name: keywords
-      content: 'built-in ai provider, openai, api key, models, call ai, ai choice, administration, workflow'
+      content: 'built-in ai provider, openai, api key, models, call ai, ai choice, image generation, transcription, administration, workflow'
 ---
 
 <p>
@@ -23,8 +23,10 @@ head:
     switch. The endpoint and API key fields disappear; they are not needed for dev or for prod.
   </li>
   <li>
-    Use the integration in <b>Call AI</b> and <b>AI Choice</b> nodes as usual. The model list of the node shows the
-    models the administrator made available.
+    Use the integration in any OpenAI node as usual — <b>Call AI (text)</b>, <b>Ask AI (choice)</b>,{' '}
+    <b>Call AI (image generation)</b> and <b>Call AI (transcribe audio)</b>. The model list of each node shows the models of that kind the administrator made
+    available: chat models for text and choice, image models for image generation, speech-to-text models for
+    transcription.
   </li>
 </ol>
 
@@ -38,9 +40,12 @@ head:
 
 <ul>
   <li>
-    The first version supports <b>text and choice</b> actions only (<b>Call AI</b>, <b>AI Choice</b>).{' '}
-    <b>Call AI (image)</b> and <b>Call AI (transcribe)</b> still need an integration with your own key — the editor
-    shows a hint when such a node uses a built-in-provider integration.
+    A node can only use a kind of model the administrator offers: if the provider lists no image models, for example,
+    the image node has nothing to pick and needs an integration with your own key.
+  </li>
+  <li>
+    Streaming answers are not available through the built-in provider (calls must report their usage); the nodes never
+    stream anyway.
   </li>
   <li>
     Only the models the administrator listed can be used. If a model is removed from the list later, the node still
@@ -70,8 +75,9 @@ head:
   </li>
   <li>
     <b>Models</b> — the only models users can pick. Each has an id (as the provider expects it), an optional label
-    shown to users, and a kind: <b>Chat</b> (text and choice actions), <b>Image</b> or <b>Transcription</b> (reserved
-    for later versions). <b>Load from provider</b> reads the provider's own model list so you can pick ids instead of
+    shown to users, and a kind: <b>Chat</b> (text and choice actions), <b>Image</b> (image generation, e.g.{' '}
+    <code>gpt-image-1</code>) or <b>Transcription</b> (speech to text, e.g. <code>whisper-1</code>,{' '}
+    <code>gpt-4o-mini-transcribe</code>). <b>Load from provider</b> reads the provider's own model list so you can pick ids instead of
     typing them.
   </li>
 </ul>

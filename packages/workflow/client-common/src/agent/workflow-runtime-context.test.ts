@@ -66,6 +66,8 @@ describe('built-in AI provider note in the agent context (ADR 0081)', () => {
       { id: 'gpt-4o-mini', label: 'GPT-4o mini' },
       { id: 'deepseek-chat', label: 'deepseek-chat' },
     ],
+    imageModels: [{ id: 'gpt-image-1', label: 'gpt-image-1' }],
+    transcribeModels: [],
   };
 
   it('adds nothing while the provider is not configured', () => {
@@ -86,7 +88,7 @@ describe('built-in AI provider note in the agent context (ADR 0081)', () => {
     ).toBe('');
   });
 
-  it('names the vendors and chat models, says no key is needed and who pays', () => {
+  it('names the vendors and the models of every kind, says no key is needed, who pays and what is missing', () => {
     const text = new WorkflowRuntimeContextProvider(
       () => [],
       () => [],
@@ -96,7 +98,13 @@ describe('built-in AI provider note in the agent context (ADR 0081)', () => {
     expect(text).toContain('built-in AI provider for: openai.');
     expect(text).toContain('platformProvider: true');
     expect(text).toContain("paid from the project owner's balance");
-    expect(text).toContain('gpt-4o-mini (GPT-4o mini), deepseek-chat.');
+    expect(text).toContain(
+      'chat models (for call-ai-text and call-ai-choice): gpt-4o-mini (GPT-4o mini), deepseek-chat;',
+    );
+    expect(text).toContain('image models (for call-ai-image): gpt-image-1.');
+    expect(text).toContain(
+      "It offers no transcription models — the matching nodes need an instance with the user's own key.",
+    );
     expect(text).toMatch(/Prefer it when the user wants AI but has not given an API key/);
     expect(
       createSandboxContextProvider(
@@ -104,5 +112,22 @@ describe('built-in AI provider note in the agent context (ADR 0081)', () => {
         () => info,
       ).describe(),
     ).toContain('built-in AI provider');
+  });
+});
+
+describe('built-in AI provider note with every kind offered (ADR 0081 phase 4)', () => {
+  it('lists chat, image and transcription models and mentions no gap', () => {
+    const text = buildAiProviderNote(
+      {
+        chatModels: [{ id: 'gpt-4o-mini', label: 'gpt-4o-mini' }],
+        imageModels: [{ id: 'gpt-image-1', label: 'GPT Image' }],
+        transcribeModels: [{ id: 'whisper-1', label: 'whisper-1' }],
+      },
+      ['openai'],
+    );
+    expect(text).toContain('transcription models (for call-ai-transcribe): whisper-1.');
+    expect(text).toContain('image models (for call-ai-image): gpt-image-1 (GPT Image);');
+    expect(text).not.toContain('offers no');
+    expect(text).not.toContain('text and choice actions only');
   });
 });

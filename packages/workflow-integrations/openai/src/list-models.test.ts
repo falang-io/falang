@@ -1,6 +1,6 @@
 import { describe, expect, it, vi } from 'vitest';
 import type { IFieldOptionsContext } from '@falang/workflow-integrations-common';
-import { CALL_AI_CHOICE_NAME, CALL_AI_IMAGE_NAME, CALL_AI_TEXT_NAME } from './constants.js';
+import { CALL_AI_CHOICE_NAME, CALL_AI_IMAGE_NAME, CALL_AI_TEXT_NAME, CALL_AI_TRANSCRIBE_NAME } from './constants.js';
 import { fetchOpenAiModelOptions, loadOpenAiModelOptions } from './list-models.js';
 import { openaiIntegration } from './openai.integration.js';
 
@@ -69,6 +69,9 @@ describe('model options on the built-in AI provider (ADR 0081)', () => {
       expect(await modelField(CALL_AI_IMAGE_NAME)({ baseUrl: '', apiKey: '' }, context)).toEqual([
         { value: 'dall-e-3', label: 'DALL·E 3' },
       ]);
+      expect(await modelField(CALL_AI_TRANSCRIBE_NAME)({ baseUrl: '', apiKey: '' }, context)).toEqual([
+        { value: 'whisper-1', label: 'whisper-1' },
+      ]);
       expect(context.egress?.fetch).not.toHaveBeenCalled();
       expect(globalFetch).not.toHaveBeenCalled();
     } finally {
@@ -87,6 +90,29 @@ describe('model options on the built-in AI provider (ADR 0081)', () => {
     const context = { ...ctx(null), egress: { fetch: guardedFetch, resolveHost: vi.fn() } };
     expect(await loadOpenAiModelOptions('chat')({ baseUrl: 'http://x', apiKey: 'k' }, context)).toEqual([
       { value: 'own-model', label: 'own-model' },
+    ]);
+  });
+
+  it('call-ai-transcribe: a select over an own-key endpoint narrowed to speech-to-text models, full list as fallback', async () => {
+    const field = openaiIntegration.actions
+      .find((candidate) => candidate.name === CALL_AI_TRANSCRIBE_NAME)
+      ?.fields.find((candidate) => candidate.name === 'model');
+    expect(field?.kind).toBe('select');
+    const guardedFetch = vi
+      .fn()
+      .mockResolvedValueOnce(
+        Response.json({ data: [{ id: 'gpt-4o' }, { id: 'whisper-1' }, { id: 'gpt-4o-mini-transcribe' }] }),
+      )
+      .mockResolvedValueOnce(Response.json({ data: [{ id: 'local-stt' }, { id: 'local-llm' }] }));
+    const context = { ...ctx(null), egress: { fetch: guardedFetch, resolveHost: vi.fn() } };
+    const load = modelField(CALL_AI_TRANSCRIBE_NAME);
+    expect(await load({ baseUrl: 'http://x', apiKey: 'k' }, context)).toEqual([
+      { value: 'whisper-1', label: 'whisper-1' },
+      { value: 'gpt-4o-mini-transcribe', label: 'gpt-4o-mini-transcribe' },
+    ]);
+    expect(await load({ baseUrl: 'http://x', apiKey: 'k' }, context)).toEqual([
+      { value: 'local-stt', label: 'local-stt' },
+      { value: 'local-llm', label: 'local-llm' },
     ]);
   });
 });

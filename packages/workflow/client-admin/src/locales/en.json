@@ -306,7 +306,7 @@
       "api-key-label": "API key",
       "api-key-extra": "Leave empty to keep the currently stored key.",
       "models-title": "Models",
-      "models-description": "Only the models listed here can be used through the provider. Chat models serve the text and choice actions; image and transcription models are not supported by the provider yet. At least one chat model is needed.",
+      "models-description": "Only the models listed here can be used through the provider. Chat models serve the text and choice actions, image models the image action, transcription models the speech-to-text action. At least one chat model is needed.",
       "models-empty": "No models yet — add one or load the list from the provider",
       "model-id": "Model ID",
       "model-label": "Label",

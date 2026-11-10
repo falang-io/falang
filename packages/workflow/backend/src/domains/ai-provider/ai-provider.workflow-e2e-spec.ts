@@ -1,4 +1,5 @@
-// oxlint-disable max-lines-per-function -- three scenario-style runs over one stack.
+// oxlint-disable max-lines-per-function, max-lines -- scenario-style runs over one stack.
+import type { INode } from '@falang/dto';
 import { openaiIntegration } from '@falang/workflow-integrations-openai';
 import { getOpenAiRequests, queueOpenAiResponse } from '@falang/workflow-mocks';
 import { ActivityFailure, ApplicationFailure, WorkflowFailedError } from '@temporalio/client';
@@ -21,6 +22,7 @@ import {
   buildFunctionNode,
   buildReturnNode,
 } from '../../test-utils/workflow-e2e-fixtures.js';
+import { buildFilesFromTextNode } from '../../test-utils/workflow-e2e-fixtures-files.js';
 
 /**
  * ADR 0081 (private) phase 1: an `openai` instance with `platformProvider` and no key of its own runs `call-ai-text` /
@@ -28,8 +30,29 @@ import {
  * only ever sees the platform key; a model the admin does not offer fails the activity once, non-retryably. The relay
  * runs inside `backend`, so the provider's base URL is the mocks address `backend` reaches — the same
  * `RUNNER_MOCKS_URL` the database specs use for "reachable from backend and pods alike".
+ * Phase 4: `call-ai-image` (JSON) and `call-ai-transcribe` (multipart, forwarded byte for byte) go through the same relay.
  * Usage rows and "the pod never gets the key" are asserted in `ai-provider-relay.e2e.test.ts`.
  */
+/** `call-ai-image` node (fields as in `@falang/workflow-integrations-openai`'s `openai-media-actions.ts`). */
+const buildCallAiImageNode = (
+  id: string,
+  fields: { integration: string; model: string; prompt: string; resultVariable: string },
+): INode => ({
+  id,
+  name: 'call-ai-image',
+  data: { ...fields, size: '1024x1024' },
+});
+
+/** `call-ai-transcribe` node; `file` is an expression of type `files/File`. */
+const buildCallAiTranscribeNode = (
+  id: string,
+  fields: { integration: string; file: string; model: string; resultVariable: string },
+): INode => ({
+  id,
+  name: 'call-ai-transcribe',
+  data: { ...fields, language: '' },
+});
+
 /** The first `ActivityFailure` down the `cause` chain of a workflow's failure. */
 const findActivityFailure = (error: unknown): ActivityFailure | null => {
   let current: unknown = error;
@@ -52,7 +75,11 @@ describe('built-in AI provider (workflow tier)', () => {
       .send({
         baseUrl: `${WORKFLOW_E2E_RUNNER_MOCKS_URL}/openai`,
         apiKey: platformKey,
-        models: [{ id: 'mock-model', label: 'Mock model', kind: 'chat' }],
+        models: [
+          { id: 'mock-model', label: 'Mock model', kind: 'chat' },
+          { id: 'mock-image-model', label: 'Mock image model', kind: 'image' },
+          { id: 'whisper-1', label: 'Whisper', kind: 'transcribe' },
+        ],
       })
       .expect(200);
   });
@@ -209,5 +236,72 @@ describe('built-in AI provider (workflow tier)', () => {
     );
     const requests = (await getOpenAiRequests(WORKFLOW_E2E_MOCKS_URL, platformKey)) as { model?: string }[];
     expect(requests.some((request) => request.model === 'not-listed-model')).toBe(false);
+  }, 150_000);
+
+  it('call-ai-image generates an image through the relay and stores it as a File', async () => {
+    const credentialId = `ai-image-${Date.now()}`;
+    await runWithBuiltInProvider(
+      'drawBuiltIn',
+      credentialId,
+      buildFunctionNode(
+        'fn',
+        [
+          buildCallAiImageNode('fn-image', {
+            integration: credentialId,
+            model: 'mock-image-model',
+            prompt: 'A cat',
+            resultVariable: 'img',
+          }),
+          buildReturnNode('fn-return', '`${img.name}|${img.mime}|${img.size > 0}`'),
+        ],
+        { type: 'string' },
+      ),
+      async (run) => {
+        expect(await run).toBe('image.png|image/png|true');
+      },
+    );
+    expect(await getOpenAiRequests(WORKFLOW_E2E_MOCKS_URL, platformKey)).toEqual(
+      expect.arrayContaining([expect.objectContaining({ kind: 'image', model: 'mock-image-model', prompt: 'A cat' })]),
+    );
+  }, 150_000);
+
+  it('call-ai-transcribe uploads a file through the relay (multipart) and returns the text', async () => {
+    const credentialId = `ai-stt-${Date.now()}`;
+    await runWithBuiltInProvider(
+      'transcribeBuiltIn',
+      credentialId,
+      buildFunctionNode(
+        'fn',
+        [
+          buildFilesFromTextNode('fn-audio', {
+            text: '"not really audio"',
+            name: 'voice.mp3',
+            mime: 'audio/mpeg',
+            resultVariable: 'audio',
+          }),
+          buildCallAiTranscribeNode('fn-stt', {
+            integration: credentialId,
+            file: 'audio',
+            model: 'whisper-1',
+            resultVariable: 'heard',
+          }),
+          buildReturnNode('fn-return', 'heard'),
+        ],
+        { type: 'string' },
+      ),
+      async (run) => {
+        expect(await run).toBe('transcribed: voice.mp3');
+      },
+    );
+    expect(await getOpenAiRequests(WORKFLOW_E2E_MOCKS_URL, platformKey)).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          kind: 'transcription',
+          model: 'whisper-1',
+          filename: 'voice.mp3',
+          contentType: expect.stringContaining('multipart/form-data'),
+        }),
+      ]),
+    );
   }, 150_000);
 });

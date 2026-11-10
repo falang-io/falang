@@ -154,7 +154,7 @@ describe('IntegrationToolProvider — devSandbox (platform test bot)', () => {
 });
 
 describe('IntegrationToolProvider — platformProvider (built-in AI provider, ADR 0081)', () => {
-  const PROVIDER = { chatModels: [{ id: 'gpt-4o-mini', label: 'GPT-4o mini' }] };
+  const PROVIDER = { chatModels: [{ id: 'gpt-4o-mini', label: 'GPT-4o mini' }], imageModels: [], transcribeModels: [] };
   const buildAiStore = (configured: boolean, documents: readonly WorkflowDocument[] = []) => {
     const saveIntegrationInstance = vi.fn();
     const store = {

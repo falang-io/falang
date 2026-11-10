@@ -52,7 +52,7 @@ describe('resolveAiProviderName', () => {
 });
 
 describe('AiProviderStore', () => {
-  it('loads once and exposes chat models to the agent only when configured', async () => {
+  it('loads once and exposes the models of every kind to the agent only when configured', async () => {
     let calls = 0;
     const store = new AiProviderStore(() => {
       calls += 1;
@@ -61,6 +61,7 @@ describe('AiProviderStore', () => {
         models: [
           { id: 'gpt-4o-mini', label: 'GPT-4o mini', kind: 'chat' as const },
           { id: 'dall-e-3', label: 'dall-e-3', kind: 'image' as const },
+          { id: 'whisper-1', label: 'Whisper', kind: 'transcribe' as const },
         ],
       });
     });
@@ -68,7 +69,11 @@ describe('AiProviderStore', () => {
     await Promise.all([store.ensureLoaded(), store.ensureLoaded()]);
     expect(calls).toBe(1);
     expect(store.loaded).toBe(true);
-    expect(store.info).toEqual({ chatModels: [{ id: 'gpt-4o-mini', label: 'GPT-4o mini' }] });
+    expect(store.info).toEqual({
+      chatModels: [{ id: 'gpt-4o-mini', label: 'GPT-4o mini' }],
+      imageModels: [{ id: 'dall-e-3', label: 'dall-e-3' }],
+      transcribeModels: [{ id: 'whisper-1', label: 'Whisper' }],
+    });
   });
 
   it('reads a failed request as not configured', async () => {

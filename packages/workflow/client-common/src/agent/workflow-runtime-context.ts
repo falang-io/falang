@@ -29,24 +29,36 @@ export const buildSandboxNote = (vendors: readonly string[]): string =>
       'token fields empty; after finishing, tell the user to open the integration and press "Connect a chat" to ' +
       "link their chat. Prod always needs the user's own bot token.";
 
+const describeModels = (models: IBuiltInAiProviderInfo['chatModels']): string =>
+  models.map((model) => (model.label === model.id ? model.id : `${model.id} (${model.label})`)).join(', ');
+
 /**
  * Tells the agent about the built-in AI provider (ADR 0081 (private)); empty when the deployment has none. `vendors`:
  * the vendors that can run on it (`builtInProvider`).
  */
 export const buildAiProviderNote = (info: IBuiltInAiProviderInfo | null, vendors: readonly string[]): string => {
   if (!info || vendors.length === 0) return '';
+  const groups = [
+    { models: info.chatModels, title: 'chat models (for call-ai-text and call-ai-choice)' },
+    { models: info.imageModels, title: 'image models (for call-ai-image)' },
+    { models: info.transcribeModels, title: 'transcription models (for call-ai-transcribe)' },
+  ];
+  const offered = groups.filter((group) => group.models.length > 0);
+  const missing = groups.filter((group) => group.models.length === 0);
   const models =
-    info.chatModels.length === 0
+    offered.length === 0
       ? ''
-      : ` Its chat models (for call-ai-text and call-ai-choice): ${info.chatModels
-          .map((model) => (model.label === model.id ? model.id : `${model.id} (${model.label})`))
-          .join(', ')}.`;
+      : ` Its ${offered.map((group) => `${group.title}: ${describeModels(group.models)}`).join('; ')}.`;
+  const gaps =
+    missing.length === 0
+      ? ''
+      : ` It offers no ${missing.map((group) => group.title.split(' (')[0]).join(' and ')} — the matching nodes need an ` +
+        "instance with the user's own key.";
   return (
     `This deployment has a built-in AI provider for: ${vendors.join(', ')}. An instance created with ` +
     'platformProvider: true needs no endpoint or API key (leave those fields empty), works on dev and prod, and its ' +
     "calls are paid from the project owner's balance. Prefer it when the user wants AI but has not given an API " +
-    `key of their own.${models} It supports text and choice actions only — call-ai-image and call-ai-transcribe ` +
-    "still need an instance with the user's own key."
+    `key of their own.${models} A node on such an instance must use one of these model ids.${gaps}`
   );
 };
 

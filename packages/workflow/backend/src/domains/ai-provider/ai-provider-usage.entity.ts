@@ -42,6 +42,14 @@ export class AiProviderUsage {
   @Column({ name: 'total_tokens', type: 'integer', nullable: true })
   totalTokens!: number | null;
 
+  /** Image generation: how many images the reply carried (ADR 0081 (private) phase 4); null for other kinds. */
+  @Column({ type: 'integer', nullable: true })
+  images!: number | null;
+
+  /** Duration-billed transcription (`whisper-1`): the seconds of audio the upstream reported; null otherwise. */
+  @Column({ name: 'audio_seconds', type: 'real', nullable: true })
+  audioSeconds!: number | null;
+
   @CreateDateColumn({ name: 'created_at' })
   createdAt!: Date;
 }

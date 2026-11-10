@@ -1,12 +1,29 @@
 import type { TAiProviderModelKind } from '../admin/app-settings/ai-provider-models.js';
 
-/** Token usage the upstream reported for one built-in provider call (ADR 0081 (private)). */
+/**
+ * What the upstream reported for one built-in provider call (ADR 0081 (private)).
+ *
+ * - `chat`: tokens from `usage` (`prompt_tokens`/`completion_tokens`/`total_tokens`, cached prompt tokens when given).
+ * - `image`: tokens from `usage` (`gpt-image-*`: `input_tokens`/`output_tokens`/`total_tokens`, cached input tokens
+ *   from `input_tokens_details.cached_tokens`), plus `images` = how many images the reply carried (`data.length`).
+ * - `transcribe`: tokens from `usage` of `type: 'tokens'` (`gpt-4o-*-transcribe`), or `audioSeconds` from `usage` of
+ *   `type: 'duration'` (`whisper-1`).
+ *
+ * The token counts are `0` exactly when the reply reported no token usage but something else is known (`images`,
+ * `audioSeconds`): `totalTokens === 0` means "not reported", never "free" — a sink pricing per token must price such a
+ * call by `images`/`audioSeconds` or per call. A reply with nothing usable at all gives `usage: null` (see
+ * {@link IAiProviderAfterCallContext}).
+ */
 export interface IAiProviderUsage {
   readonly promptTokens: number;
   readonly completionTokens: number;
   readonly totalTokens: number;
   /** The part of `promptTokens` served from the provider's prompt cache, when it reported one. */
   readonly cachedPromptTokens?: number;
+  /** Image generation: the number of images returned. */
+  readonly images?: number;
+  /** Transcription billed by duration (`whisper-1`): the seconds of audio the upstream reported. */
+  readonly audioSeconds?: number;
 }
 
 export interface IAiProviderCallContext {
@@ -20,7 +37,7 @@ export interface IAiProviderCallContext {
 }
 
 export interface IAiProviderAfterCallContext extends IAiProviderCallContext {
-  /** What the upstream reported; `null` when it sent no `usage` object. */
+  /** What the upstream reported; `null` when the reply carried no usable `usage` (and, for images, no `data` array). */
   readonly usage: IAiProviderUsage | null;
 }
 

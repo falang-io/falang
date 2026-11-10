@@ -7,7 +7,7 @@ export type TAiProviderRelayErrorCode =
   | 'invalid_request'
   | 'model_not_allowed'
   | 'stream_not_supported'
-  | 'not_supported_by_built_in_provider'
+  | 'request_too_large'
   | 'ai_provider_busy'
   | 'ai_provider_unreachable'
   | 'ai_provider_timeout';

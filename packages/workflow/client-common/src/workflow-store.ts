@@ -24,7 +24,6 @@ import {
   type ITheme,
   ExecutionPositionModule,
   focusNode,
-  getGlobalI18n,
   scrollToNode,
   setSchemeStartPosition,
   TOKEN_HISTORY,
@@ -71,7 +70,7 @@ import {
 } from '@falang/workflow-dto';
 import type { IIntegrationInstance } from '@falang/workflow-integrations-common';
 import { SCHEDULE_VENDOR } from '@falang/workflow-integrations-schedule';
-import { TOKEN_AI_PROVIDER_NAME, TOKEN_SCHEDULE_STATUS } from '@falang/workflow-scheme';
+import { TOKEN_SCHEDULE_STATUS } from '@falang/workflow-scheme';
 import { workflowApi } from './api-client.js';
 import type { IApiProjectOwner } from './api-types.js';
 import { AgentLockTracker } from './agent/agent-lock-tracker.js';
@@ -120,7 +119,6 @@ import { TemporalDebugAdapter } from './temporal-debug-adapter.js';
 import { buildTriggerFunctionDocument } from './trigger-function-document.js';
 import { SandboxBotsStore } from './sandbox-bots-store.js';
 import { AiProviderStore, type IBuiltInAiProviderInfo } from './ai-provider/ai-provider-store.js';
-import { resolveAiProviderName } from './ai-provider/ai-provider-name.js';
 import { VendorDataStore } from './vendor-data-store.js';
 import { resolveServerActivity, type TServerActivity } from './server-activity.js';
 import { buildReadOnlySchemeForDiff as buildReadOnlySchemeForDiffImpl } from './versioning/build-read-only-scheme-for-diff.js';
@@ -164,8 +162,6 @@ export interface IWorkflowStoreOptions {
    * schedule polling, dev/prod status, the agent, vendor data). The guest workspace shows none of their UI.
    */
   readonly guest?: { readonly dataPort: IProjectDataPort };
-  /** `IClientExtensions.aiProviderName` — the built-in AI provider's name in editor hints (ADR 0081 (private)). */
-  readonly aiProviderNames?: Readonly<Record<string, string>>;
 }
 
 /** Local editor state for one open project — folders, tabs, scheme instances, selection. Backend I/O is `ProjectSync`'s job. */
@@ -315,16 +311,6 @@ export class WorkflowStore implements IWorkflowAgentStore {
     // closure to read it here, even though it's still empty until `ProjectSync`'s first load resolves.
     this.scheduleStatus = new ScheduleStatusStore(projectId, () => !this.isGuest && this.hasScheduleTrigger());
     this.container.register(TOKEN_SCHEDULE_STATUS, { useValue: this.scheduleStatus });
-    // The action editors' "the built-in provider doesn't support this" hint names the provider like the rest of the UI.
-    const aiProviderNames = options.aiProviderNames;
-    this.container.register(TOKEN_AI_PROVIDER_NAME, {
-      useValue: {
-        getName: () => {
-          const i18n = getGlobalI18n();
-          return resolveAiProviderName(aiProviderNames, i18n.language, i18n.t);
-        },
-      },
-    });
     // A guest has no account: `GET /ai-provider` would 401.
     if (!this.isGuest) {
       this.aiProvider.ensureLoaded().catch(() => {

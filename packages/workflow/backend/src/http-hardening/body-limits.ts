@@ -8,6 +8,11 @@ export const LARGE_BODY_LIMIT = '15mb';
  * `AI_ATTACHMENT_MAX_BYTES` (20 MiB each) — over the 15 MB large limit. Internal port only.
  */
 export const AI_PROVIDER_BODY_LIMIT = '30mb';
+/**
+ * {@link AI_PROVIDER_BODY_LIMIT} in bytes (body-parser's `mb` is 1024²) — the cap the relay applies itself to a
+ * `multipart/form-data` transcription upload, which no JSON/urlencoded parser consumes.
+ */
+export const AI_PROVIDER_BODY_LIMIT_BYTES = 30 * 1024 * 1024;
 
 const AI_PROVIDER_BODY_PATH = /^\/+internal\/ai-provider(\/|$)/i;
 

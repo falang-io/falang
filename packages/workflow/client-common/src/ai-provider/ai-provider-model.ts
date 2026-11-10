@@ -25,6 +25,12 @@ export const resolvePlatformProvider = (integration: TBuiltInCapable | null | un
 export const isHiddenByAiProvider = (integration: TBuiltInCapable | null | undefined, enabled: boolean): boolean =>
   resolvePlatformProvider(integration, enabled);
 
+/** The provider's models of one kind: `chat` (`call-ai-text`/`call-ai-choice`), `image`, `transcribe`. */
+export const modelsOfKind = (
+  models: readonly IApiAiProviderModel[],
+  kind: IApiAiProviderModel['kind'],
+): readonly IApiAiProviderModel[] => models.filter((model) => model.kind === kind);
+
 /** The provider's chat models (the ones `call-ai-text`/`call-ai-choice` can use). */
 export const chatModelsOf = (models: readonly IApiAiProviderModel[]): readonly IApiAiProviderModel[] =>
-  models.filter((model) => model.kind === 'chat');
+  modelsOfKind(models, 'chat');

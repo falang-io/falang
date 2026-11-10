@@ -10,7 +10,7 @@ import {
   TemplateStringStore,
 } from '@falang/typescript-scheme';
 import type { IActionDescriptor, IFieldConfig, IIntegrationInstance } from '@falang/workflow-integrations-common';
-import { action, computed, makeObservable, observable, runInAction } from 'mobx';
+import { action, makeObservable, observable, runInAction } from 'mobx';
 import {
   TOKEN_CREDENTIALS_PROVIDER,
   TOKEN_DOCUMENTS_PROVIDER,
@@ -21,11 +21,6 @@ import {
 import { expressionFieldPrefix } from '../../field-check/expression-field-prefix.js';
 import { isOptionalField, storedFieldValues } from '../../field-check/describe-integration-fields.js';
 import { initialFieldValue } from '../../registry/initial-field-value.js';
-import {
-  isUnsupportedOnBuiltInAiProvider,
-  TOKEN_AI_PROVIDER_NAME,
-  type IAiProviderNameProvider,
-} from '../../registry/built-in-ai-provider.js';
 import { ButtonsFieldStore } from './buttons-field.store.js';
 
 export type TIntegrationActionData = Readonly<Record<string, string>>;
@@ -80,8 +75,6 @@ export class IntegrationActionEditorStore extends ExpressionBlockEditorStore<TIn
   private readonly getDocuments: (type: string) => readonly { id: string; name: string }[];
   private readonly credentialRefFieldName: string | undefined;
   private readonly dynamicOptionsField: IFieldConfig | undefined;
-  /** The host's name for the built-in AI provider (`TOKEN_AI_PROVIDER_NAME`), `null` when it registered none. */
-  private readonly aiProviderNameProvider: IAiProviderNameProvider | null;
   /** Every field's starting value, so a function `expectedType` sees a complete snapshot even while the stores are still being created. */
   private readonly initialValues: Readonly<Record<string, string>>;
 
@@ -103,14 +96,6 @@ export class IntegrationActionEditorStore extends ExpressionBlockEditorStore<TIn
         return [];
       }
     };
-    this.aiProviderNameProvider = (() => {
-      try {
-        return resolveService(TOKEN_AI_PROVIDER_NAME, params.container);
-      } catch {
-        // Optional: hosts without the built-in AI provider register nothing.
-        return null;
-      }
-    })();
     this.credentialRefFieldName = descriptor.fields.find((field) => field.kind === 'credential-ref')?.name;
     this.dynamicOptionsField = descriptor.fields.find((field) => field.kind === 'select' && field.loadOptions);
     this.initialValues = storedFieldValues(descriptor.fields, params.data, this.credentialInstances);
@@ -256,20 +241,6 @@ export class IntegrationActionEditorStore extends ExpressionBlockEditorStore<TIn
         this.optionsLoading = false;
       });
     }
-  }
-
-  /**
-   * The selected integration runs on the built-in AI provider, which does not serve this action yet (ADR 0081
-   * (private)) — the editor shows a hint and greys the model select out.
-   */
-  @computed get unsupportedOnBuiltInAiProvider(): boolean {
-    const credentialId = this.credentialRefFieldName ? (this.values.get(this.credentialRefFieldName) ?? '') : '';
-    return isUnsupportedOnBuiltInAiProvider(this.action.name, credentialId, this.credentialInstances);
-  }
-
-  /** The built-in AI provider's display name from the host, `null` when the host gave none (the editor then uses its own string). */
-  getAiProviderName(): string | null {
-    return this.aiProviderNameProvider?.getName() ?? null;
   }
 
   /** Options for a `select`/`credential-ref`/`document-ref` field's `TsSelect`. */

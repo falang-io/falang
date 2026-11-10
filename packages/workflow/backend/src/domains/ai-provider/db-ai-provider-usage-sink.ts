@@ -32,9 +32,11 @@ export class DbAiProviderUsageSink implements IAiProviderUsageSink {
   async afterCall(ctx: IAiProviderAfterCallContext): Promise<void> {
     await this.repository.save(
       this.repository.create({
+        audioSeconds: ctx.usage?.audioSeconds ?? null,
         cachedPromptTokens: ctx.usage?.cachedPromptTokens ?? null,
         completionTokens: ctx.usage?.completionTokens ?? null,
         env: ctx.env,
+        images: ctx.usage?.images ?? null,
         kind: ctx.kind,
         model: ctx.model,
         ownerId: ctx.ownerId,

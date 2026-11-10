@@ -3,6 +3,7 @@ import { createServer, type IncomingMessage, type Server, type ServerResponse } 
 import type { AddressInfo } from 'node:net';
 import { Global, HttpException, Module, type INestApplication } from '@nestjs/common';
 import request from 'supertest';
+import { DataSource } from 'typeorm';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { auth, createTestApp, login } from '../../test-utils/e2e-app.js';
 import { ProjectTokenService } from '../internal-auth/project-token.service.js';
@@ -12,12 +13,15 @@ import {
   type IAiProviderCallContext,
   type IAiProviderUsageSink,
 } from './ai-provider-usage-sink.js';
+import { AiProviderUsage } from './ai-provider-usage.entity.js';
 import { DbAiProviderUsageSink } from './db-ai-provider-usage-sink.js';
 
 interface IUpstreamCall {
   readonly url: string;
   readonly authorization: string | undefined;
+  readonly contentType: string | undefined;
   readonly body: string;
+  readonly raw: Buffer;
 }
 
 interface IFakeUpstream {
@@ -55,10 +59,13 @@ const startUpstream = async (): Promise<IFakeUpstream> => {
     const chunks: Buffer[] = [];
     req.on('data', (chunk: Buffer) => chunks.push(chunk));
     req.on('end', () => {
+      const raw = Buffer.concat(chunks);
       state.calls.push({
         url: req.url ?? '',
         authorization: req.headers.authorization,
-        body: Buffer.concat(chunks).toString('utf8'),
+        contentType: req.headers['content-type'],
+        body: raw.toString('utf8'),
+        raw,
       });
       const answer = (): void => {
         const reply = state.replies.shift() ?? { status: 200, body: DEFAULT_REPLY };
@@ -104,11 +111,14 @@ class RecordingSink implements IAiProviderUsageSink {
 const MODELS = [
   { id: 'gpt-4o-mini', kind: 'chat' },
   { id: 'dall-e-3', kind: 'image' },
+  { id: 'gpt-image-1', kind: 'image' },
+  { id: 'whisper-1', kind: 'transcribe' },
+  { id: 'gpt-4o-mini-transcribe', kind: 'transcribe' },
 ];
 
 const CRED = 'ai-1';
 
-describe('built-in AI provider relay (ADR 0081 phase 1)', () => {
+describe('built-in AI provider relay (ADR 0081 phases 1 and 4)', () => {
   // oxlint-disable-next-line init-declarations
   let app: INestApplication;
   // oxlint-disable-next-line init-declarations
@@ -250,7 +260,14 @@ describe('built-in AI provider relay (ADR 0081 phase 1)', () => {
       await configure();
       expect((await options('call-ai-text')).body).toEqual([{ value: 'gpt-4o-mini', label: 'gpt-4o-mini' }]);
       expect((await options('call-ai-choice')).body).toEqual([{ value: 'gpt-4o-mini', label: 'gpt-4o-mini' }]);
-      expect((await options('call-ai-image')).body).toEqual([{ value: 'dall-e-3', label: 'dall-e-3' }]);
+      expect((await options('call-ai-image')).body).toEqual([
+        { value: 'dall-e-3', label: 'dall-e-3' },
+        { value: 'gpt-image-1', label: 'gpt-image-1' },
+      ]);
+      expect((await options('call-ai-transcribe')).body).toEqual([
+        { value: 'whisper-1', label: 'whisper-1' },
+        { value: 'gpt-4o-mini-transcribe', label: 'gpt-4o-mini-transcribe' },
+      ]);
       expect(upstream.calls).toEqual([]);
     });
   });
@@ -388,23 +405,186 @@ describe('built-in AI provider relay (ADR 0081 phase 1)', () => {
     });
   });
 
-  describe('other endpoints', () => {
-    it('images/transcriptions are 400 not_supported_by_built_in_provider; models lists chat models', async () => {
+  describe('image generation (phase 4)', () => {
+    const imageBody = { model: 'gpt-image-1', prompt: 'a cat', size: '1024x1024' };
+    const images = (projectId: string, body: Record<string, unknown>) =>
+      http()
+        .post(`/internal/ai-provider/${projectId}/dev/images/generations`)
+        .set('Authorization', `Bearer ${tokenOf(projectId)}`)
+        .send(body);
+
+    it('forwards under the platform key and reports token usage plus the number of images', async () => {
+      await boot(true);
+      await configure();
+      const projectId = await createProject();
+      const reply = {
+        created: 1,
+        data: [{ b64_json: 'AAA' }, { b64_json: 'BBB' }],
+        usage: {
+          input_tokens: 20,
+          input_tokens_details: { text_tokens: 20, image_tokens: 0 },
+          output_tokens: 4160,
+          total_tokens: 4180,
+        },
+      };
+      upstream.replies.push({ status: 200, body: reply });
+      const response = await images(projectId, imageBody);
+      expect(response.status).toBe(200);
+      expect(response.body).toEqual(reply);
+      expect(upstream.calls).toHaveLength(1);
+      expect(upstream.calls[0]).toMatchObject({
+        url: '/v1/images/generations',
+        authorization: 'Bearer sk-platform',
+        contentType: 'application/json',
+      });
+      expect(JSON.parse(upstream.calls[0]?.body ?? '')).toEqual(imageBody);
+      const ownerId = (await http().get('/auth/me').set(auth(adminToken))).body.id as string;
+      const ctx = { env: 'dev', kind: 'image', model: 'gpt-image-1', ownerId, projectId };
+      expect(sink?.before).toEqual([ctx]);
+      expect(sink?.after).toEqual([
+        { ...ctx, usage: { promptTokens: 20, completionTokens: 4160, totalTokens: 4180, images: 2 } },
+      ]);
+    });
+
+    it('a DALL·E reply without usage still records the image count; the community sink stores it', async () => {
+      await boot(false);
+      await configure();
+      const projectId = await createProject();
+      upstream.replies.push({ status: 200, body: { data: [{ url: 'https://img/1.png' }] } });
+      expect((await images(projectId, { ...imageBody, model: 'dall-e-3' })).status).toBe(200);
+      const rows = await app.get(DataSource).getRepository(AiProviderUsage).find({ where: { projectId } });
+      expect(rows).toEqual([
+        expect.objectContaining({ kind: 'image', model: 'dall-e-3', images: 1, totalTokens: 0, audioSeconds: null }),
+      ]);
+    });
+
+    it('400 model_not_allowed for a chat or transcription model, and stream refused', async () => {
+      await boot(true);
+      await configure();
+      const projectId = await createProject();
+      for (const model of ['gpt-4o-mini', 'whisper-1', 'not-listed']) {
+        const refused = await images(projectId, { ...imageBody, model });
+        expect(refused.status).toBe(400);
+        expect(refused.body).toMatchObject({ code: 'model_not_allowed', error: { code: 'model_not_allowed' } });
+      }
+      expect((await images(projectId, { ...imageBody, stream: true })).body.code).toBe('stream_not_supported');
+      expect(upstream.calls).toEqual([]);
+      expect(sink?.before).toEqual([]);
+    });
+
+    it('a chat model is refused on the image endpoint and an image model on chat', async () => {
+      await boot(true);
+      await configure();
+      const projectId = await createProject();
+      expect((await chat(projectId, { ...chatBody, model: 'gpt-image-1' })).body.code).toBe('model_not_allowed');
+      expect((await images(projectId, { ...imageBody, model: 'gpt-4o-mini' })).body.code).toBe('model_not_allowed');
+      expect(upstream.calls).toEqual([]);
+    });
+  });
+
+  describe('audio transcription (phase 4)', () => {
+    const audio = new Uint8Array(70_000).map((_, index) => (index * 31) % 256);
+    const transcribe = async (projectId: string, model: string | null, extra: Record<string, string> = {}) => {
+      const form = new FormData();
+      form.append('file', new Blob([audio], { type: 'audio/mpeg' }), 'voice.mp3');
+      if (model !== null) form.append('model', model);
+      form.append('response_format', 'json');
+      for (const [key, value] of Object.entries(extra)) form.append(key, value);
+      const encoded = new Request('http://x/', { method: 'POST', body: form });
+      const contentType = encoded.headers.get('content-type') ?? '';
+      const raw = Buffer.from(await encoded.arrayBuffer());
+      const response = await http()
+        .post(`/internal/ai-provider/${projectId}/dev/audio/transcriptions`)
+        .set('Authorization', `Bearer ${tokenOf(projectId)}`)
+        .set('Content-Type', contentType)
+        .send(raw);
+      return { response, contentType, raw };
+    };
+
+    it('forwards the multipart body byte for byte with its boundary; whisper duration usage reaches the sink', async () => {
+      await boot(true);
+      await configure();
+      const projectId = await createProject();
+      const reply = { text: 'hello', usage: { type: 'duration', seconds: 12 } };
+      upstream.replies.push({ status: 200, body: reply });
+      const { response, contentType, raw } = await transcribe(projectId, 'whisper-1');
+      expect(response.status).toBe(200);
+      expect(response.body).toEqual(reply);
+      expect(upstream.calls).toHaveLength(1);
+      expect(upstream.calls[0]).toMatchObject({
+        url: '/v1/audio/transcriptions',
+        authorization: 'Bearer sk-platform',
+        contentType,
+      });
+      expect(upstream.calls[0]?.raw.equals(raw)).toBe(true);
+      const ownerId = (await http().get('/auth/me').set(auth(adminToken))).body.id as string;
+      const ctx = { env: 'dev', kind: 'transcribe', model: 'whisper-1', ownerId, projectId };
+      expect(sink?.before).toEqual([ctx]);
+      expect(sink?.after).toEqual([
+        { ...ctx, usage: { promptTokens: 0, completionTokens: 0, totalTokens: 0, audioSeconds: 12 } },
+      ]);
+    });
+
+    it('token usage of a gpt-4o transcription model; the community sink stores both shapes', async () => {
+      await boot(false);
+      await configure();
+      const projectId = await createProject();
+      upstream.replies.push({
+        status: 200,
+        body: { text: 'hi', usage: { type: 'tokens', input_tokens: 30, output_tokens: 5, total_tokens: 35 } },
+      });
+      expect((await transcribe(projectId, 'gpt-4o-mini-transcribe')).response.status).toBe(200);
+      upstream.replies.push({ status: 200, body: { text: 'hi', usage: { type: 'duration', seconds: 2.5 } } });
+      expect((await transcribe(projectId, 'whisper-1')).response.status).toBe(200);
+      const rows = await app.get(DataSource).getRepository(AiProviderUsage).find({ where: { projectId } });
+      expect(rows).toEqual(
+        expect.arrayContaining([
+          expect.objectContaining({ model: 'gpt-4o-mini-transcribe', totalTokens: 35, audioSeconds: null }),
+          expect.objectContaining({ model: 'whisper-1', totalTokens: 0, audioSeconds: 2.5, images: null }),
+        ]),
+      );
+    });
+
+    it('400 model_not_allowed for a missing, chat or image model, stream refused, non-multipart refused', async () => {
+      await boot(true);
+      await configure();
+      const projectId = await createProject();
+      for (const model of [null, 'gpt-4o-mini', 'dall-e-3', 'whisper-2']) {
+        const { response } = await transcribe(projectId, model);
+        expect(response.status).toBe(400);
+        expect(response.body).toMatchObject({ code: 'model_not_allowed' });
+      }
+      const streamed = await transcribe(projectId, 'gpt-4o-mini-transcribe', { stream: 'true' });
+      expect(streamed.response.body.code).toBe('stream_not_supported');
+      const json = await http()
+        .post(`/internal/ai-provider/${projectId}/dev/audio/transcriptions`)
+        .set('Authorization', `Bearer ${tokenOf(projectId)}`)
+        .send({ model: 'whisper-1' });
+      expect(json.status).toBe(400);
+      expect(json.body.code).toBe('invalid_request');
+      expect(upstream.calls).toEqual([]);
+      expect(sink?.before).toEqual([]);
+    });
+
+    it('401 without the project token, before the body matters', async () => {
+      await boot(true);
+      await configure();
+      const projectId = await createProject();
+      const response = await http()
+        .post(`/internal/ai-provider/${projectId}/dev/audio/transcriptions`)
+        .set('Content-Type', 'multipart/form-data; boundary=b')
+        .send(Buffer.from('--b--\r\n'));
+      expect(response.status).toBe(401);
+      expect(upstream.calls).toEqual([]);
+    });
+  });
+
+  describe('models endpoint', () => {
+    it('lists chat models in OpenAI list shape; anonymous is 401', async () => {
       await boot(true);
       await configure();
       const projectId = await createProject();
       const token = tokenOf(projectId);
-      for (const path of ['images/generations', 'audio/transcriptions']) {
-        const response = await http()
-          .post(`/internal/ai-provider/${projectId}/dev/${path}`)
-          .set('Authorization', `Bearer ${token}`)
-          .send({ model: 'dall-e-3', prompt: 'x' });
-        expect(response.status).toBe(400);
-        expect(response.body).toMatchObject({
-          code: 'not_supported_by_built_in_provider',
-          error: { code: 'not_supported_by_built_in_provider' },
-        });
-      }
       const models = await http()
         .get(`/internal/ai-provider/${projectId}/dev/models`)
         .set('Authorization', `Bearer ${token}`);
