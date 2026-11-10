@@ -1,4 +1,5 @@
 import type { INode, NodesStack } from '@falang/dto';
+import { toPlainData } from '../../utils/to-plain-data.js';
 
 const ALPHABET = 'useandom-26T198340PX75pxJACKVERYMINDBUSHWOLF_GQZbfghjklqvwyzrict';
 const ID_LENGTH = 21;
@@ -16,15 +17,16 @@ export const generateNodeId = (): string => {
 
 /**
  * A deep copy of `node` where the node itself and every node below it (children, mods, out) gets a fresh id.
- * `data`/`meta` are deep-copied as they are — no node kind stores node ids there.
+ * `data`/`meta` are deep-copied as they are — no node kind stores node ids there. A payload from a host clipboard may
+ * still hold MobX proxies, so the copy goes through `toPlainData`, not `structuredClone`.
  */
 export const cloneWithNewIds = (node: INode, createId: () => string = generateNodeId): INode => {
   const { children, mods, out, data, meta, ...rest } = node;
   return {
     ...rest,
     id: createId(),
-    ...('data' in node ? { data: structuredClone(data) } : {}),
-    ...(meta ? { meta: structuredClone(meta) } : {}),
+    ...('data' in node ? { data: toPlainData(data) } : {}),
+    ...(meta ? { meta: toPlainData(meta) } : {}),
     ...(children ? { children: children.map((child) => cloneWithNewIds(child, createId)) } : {}),
     ...(mods ? { mods: mods.map((mod) => cloneWithNewIds(mod, createId)) } : {}),
     ...(out ? { out: cloneWithNewIds(out, createId) } : {}),

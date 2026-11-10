@@ -1,9 +1,9 @@
 import { resolveService } from '@falang/di';
 import type { INode } from '@falang/dto';
-import { toJS } from 'mobx';
 import type { Scheme } from '../../scheme/scheme.js';
 import { CMD_INSERT_NODE } from '../../scheme/scheme-commands.js';
 import { getDto } from '../../utils/get-dto.js';
+import { toPlainData } from '../../utils/to-plain-data.js';
 import { TOKEN_HISTORY } from '../history/history.store.token.js';
 import { TOKEN_ICONS_TRANSFER_SERVICE } from '../icons-transfer/icons-transfer.service.token.js';
 import { cloneWithNewIds, generateNodeId, isAllowedChild } from './copy-paste.utils.js';
@@ -65,7 +65,7 @@ export class CopyPasteService {
       format: SCHEME_CLIPBOARD_FORMAT,
       version: 1,
       ...this.origin,
-      nodes: ids.map((id) => toJS(getDto(id, this.scheme))),
+      nodes: ids.map((id) => toPlainData(getDto(id, this.scheme))),
     };
     this.clipboard.write(payload);
     return payload;

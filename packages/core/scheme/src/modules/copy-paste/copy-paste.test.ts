@@ -1,5 +1,6 @@
 // oxlint-disable max-lines
 import { assert, afterEach, beforeEach, describe, it } from 'vitest';
+import { isObservable, observable } from 'mobx';
 import { resolveService } from '@falang/di';
 import type { INode } from '@falang/dto';
 import type { Scheme } from '../../scheme/scheme.js';
@@ -177,6 +178,46 @@ describe('CopyPaste module test', () => {
   });
 
   describe('paste', () => {
+    it('copies and pastes nodes whose tree came from a deep-observable host store', () => {
+      // Hosts build schemes from documents held in a deep-observable MobX array; their `data`/`meta` used to stay
+      // proxies inside the node stores, and `structuredClone` on paste threw "Proxy object could not be cloned".
+      const node = observable({
+        ...scheme.infra.structure.factory('action'),
+        data: { text: 'hi', buttons: [{ kind: 'url', text: 'Open', value: 'https://x' }] },
+        meta: { width: 120, extra: { nested: [1, 2] } },
+      });
+      insert(scheme, bodyId, 4, node);
+      const store = scheme.nodes.getNode(node.id);
+      assert.isFalse(isObservable(store.data));
+      assert.isFalse(isObservable((store.data as { buttons: unknown }).buttons));
+      assert.isFalse(isObservable((store.meta as { extra: unknown }).extra));
+
+      const copyPaste = service(scheme);
+      const payload = copyPaste.copy([node.id]);
+      assert.doesNotThrow(() => structuredClone(payload));
+      const [pastedId] = copyPaste.paste(bodyId, 5);
+      assert.deepEqual(scheme.nodes.getNode(pastedId).data, {
+        text: 'hi',
+        buttons: [{ kind: 'url', text: 'Open', value: 'https://x' }],
+      });
+    });
+
+    it('pastes a host clipboard payload that still holds MobX proxies', () => {
+      const node = scheme.infra.structure.factory('action');
+      clipboard.write({
+        format: 'falang/scheme-nodes',
+        version: 1,
+        projectType: 'logic',
+        documentType: 'function',
+        nodes: [{ ...node, data: observable({ a: [1] }) as unknown as string, meta: { m: observable({ b: 2 }) } }],
+      });
+      const [pastedId] = service(scheme).paste(bodyId, 0);
+      const pasted = scheme.nodes.getNode(pastedId);
+      assert.deepEqual(pasted.data, { a: [1] });
+      assert.isFalse(isObservable(pasted.data));
+      assert.doesNotThrow(() => structuredClone(getDto(pastedId, scheme)));
+    });
+
     it('inserts copies with every id (children, mods, out) replaced', () => {
       const copyPaste = service(scheme);
       copyPaste.copy([a2.id, loop.id]);

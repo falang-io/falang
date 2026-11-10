@@ -1,4 +1,5 @@
 import type { Scheme } from '../scheme/scheme.js';
+import { toPlainData } from '../utils/to-plain-data.js';
 import { EVENT_DATA_UPDATED } from '../scheme/scheme-events.js';
 
 export interface ISetDataCommandParams {
@@ -9,7 +10,7 @@ export interface ISetDataCommandParams {
 export const setData = ({ id, data }: ISetDataCommandParams, scheme: Scheme): boolean => {
   const node = scheme.nodes.getNode(id);
   const oldData = node.data;
-  node.data = data;
+  node.data = toPlainData(data);
   scheme.events.fireEvent(EVENT_DATA_UPDATED, {
     node,
     oldData,
