@@ -1,6 +1,8 @@
 // oxlint-disable max-lines -- three end-to-end scenarios with their fixtures.
 import type { INode } from '@falang/dto';
 import {
+  MAX_GET_MESSAGE_NAME,
+  MAX_GET_MESSAGES_NAME,
   MAX_ON_COMMAND_TRIGGER_NAME,
   MAX_QUESTION_NAME,
   MAX_SEND_BUTTONS_NAME,
@@ -177,6 +179,35 @@ describe('integrations (workflow tier): MAX', () => {
         });
         const hello = await waitForCall(botToken, isTextMessage('Hello, Ann! /start ref-1'));
         expect(hello.query).toEqual({ chat_id: '556' });
+      },
+    );
+  }, 150_000);
+
+  it('max-get-messages / max-get-message: reads the chat history oldest first and one message by id', async () => {
+    await withRunningProject(
+      'Workflow-tier MAX read messages',
+      (credentialId) => [
+        triggerDocument('on-message', 'onMessage', credentialId, maxIntegration.triggers[0].name, [
+          sendMessageNode('first', credentialId, 'first'),
+          sendMessageNode('second', credentialId, 'second'),
+          {
+            id: 'history',
+            name: MAX_GET_MESSAGES_NAME,
+            data: { credentialId, chatId: 'message.chat.id', count: '10', resultVariable: 'history' },
+          },
+          {
+            id: 'one',
+            name: MAX_GET_MESSAGE_NAME,
+            data: { credentialId, messageId: 'history[0].messageId', resultVariable: 'one' },
+          },
+          sendMessageNode('report', credentialId, "Read: ${history.map((m) => m.text).join('|')}; one: ${one.text}"),
+        ]),
+      ],
+      async (botToken) => {
+        await pushMaxUpdate(WORKFLOW_E2E_MOCKS_URL, botToken, incomingMessage(560, 'in.r1', 'read'));
+        await waitForCall(botToken, isTextMessage('Read: first|second; one: first'));
+        const list = await waitForCall(botToken, (call) => call.method === 'getMessages');
+        expect(list.query).toEqual({ chat_id: '560', count: '10' });
       },
     );
   }, 150_000);

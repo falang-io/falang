@@ -21,6 +21,8 @@ import type { IMaxRawMessage, IMaxRawUser } from './max-message-mapper.js';
 
 const POST_MESSAGES = 'POST messages';
 const MESSAGE_BY_ID_PATTERN = /^\/messages\/([^/]+)$/;
+/** Query parameters of `GET /messages` (a chat's history) the relay passes on. */
+const LIST_MESSAGES_PARAMS: ReadonlySet<string> = new Set(['chat_id', 'count', 'from', 'to']);
 
 interface IMaxSandboxUpdate {
   readonly update_type?: string;
@@ -125,10 +127,38 @@ const safeDecode = (value: string): string | null => {
   }
 };
 
+/** A send (`POST /messages`): exactly one `chat_id` or `user_id`. */
+const inspectSend = (search: URLSearchParams, relayToken: string): TSandboxRelayDecision => {
+  const chatIds = search.getAll('chat_id');
+  const userIds = search.getAll('user_id');
+  if (chatIds.length + userIds.length !== 1 || !(chatIds[0] ?? userIds[0])) {
+    return { error: 'Exactly one chat_id or user_id is required' };
+  }
+  // A send by user id: the host resolves the user to the chat bound to the project (`recipientUsers`).
+  if (userIds[0]) {
+    return { method: POST_MESSAGES, recipients: [], recipientUsers: [userIds[0]], relayToken, sendsMessage: true };
+  }
+  return { method: POST_MESSAGES, recipients: [chatIds[0]], relayToken, sendsMessage: true };
+};
+
+/**
+ * Reading a chat's history: exactly one `chat_id` (the host checks it is bound) and paging parameters only — no
+ * `message_ids`/`user_id`, which would address messages of other chats of the shared test bot.
+ */
+const inspectHistoryRead = (search: URLSearchParams, relayToken: string): TSandboxRelayDecision => {
+  const chatIds = search.getAll('chat_id');
+  if (chatIds.length !== 1 || !chatIds[0]) return { error: 'Exactly one chat_id is required' };
+  for (const key of search.keys()) {
+    if (!LIST_MESSAGES_PARAMS.has(key)) return { error: `Query parameter ${key} is not allowed` };
+  }
+  return { method: 'GET messages list', recipients: [chatIds[0]], relayToken };
+};
+
 /**
  * The only calls the MAX activities of this package make: send (`POST /messages`, also the question/confirmation
- * texts), strip a question's buttons (`GET /messages/<mid>` + `PUT /messages`) and the first step of send-file
- * (`POST /uploads`). The relay token is the pod's `Authorization` header.
+ * texts), strip a question's buttons (`GET /messages/<mid>` + `PUT /messages`), read a chat's history
+ * (`GET /messages?chat_id=`; `max-get-message` reuses `GET /messages/<mid>`, so in the sandbox it reads only messages
+ * the project itself sent) and the first step of send-file (`POST /uploads`). The relay token is the pod's `Authorization` header.
  */
 // oxlint-disable-next-line require-await -- `ISandboxRelay.inspect` is async (Telegram reads the body); MAX decides from method, path and query alone.
 const inspect = async (request: Request, path: string): Promise<TSandboxRelayDecision> => {
@@ -137,18 +167,7 @@ const inspect = async (request: Request, path: string): Promise<TSandboxRelayDec
   const search = new URL(request.url, 'http://relay.invalid').searchParams;
   const verb = request.method.toUpperCase();
 
-  if (path === '/messages' && verb === 'POST') {
-    const chatIds = search.getAll('chat_id');
-    const userIds = search.getAll('user_id');
-    if (chatIds.length + userIds.length !== 1 || !(chatIds[0] ?? userIds[0])) {
-      return { error: 'Exactly one chat_id or user_id is required' };
-    }
-    // A send by user id: the host resolves the user to the chat bound to the project (`recipientUsers`).
-    if (userIds[0]) {
-      return { method: POST_MESSAGES, recipients: [], recipientUsers: [userIds[0]], relayToken, sendsMessage: true };
-    }
-    return { method: POST_MESSAGES, recipients: [chatIds[0]], relayToken, sendsMessage: true };
-  }
+  if (path === '/messages' && verb === 'POST') return inspectSend(search, relayToken);
   if (path === '/messages' && verb === 'PUT') {
     const ids = search.getAll('message_id');
     if (ids.length !== 1 || !ids[0] || search.has('chat_id') || search.has('user_id')) {
@@ -156,6 +175,7 @@ const inspect = async (request: Request, path: string): Promise<TSandboxRelayDec
     }
     return { method: 'PUT messages', recipients: [], messageIds: [ids[0]], relayToken };
   }
+  if (path === '/messages' && verb === 'GET') return inspectHistoryRead(search, relayToken);
   const byId = MESSAGE_BY_ID_PATTERN.exec(path);
   if (byId && verb === 'GET') {
     const messageId = safeDecode(byId[1]);

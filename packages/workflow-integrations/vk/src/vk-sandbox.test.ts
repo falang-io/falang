@@ -124,6 +124,7 @@ describe('vk sandbox adapter', () => {
       for (const method of [
         'messages.edit',
         'messages.getByConversationMessageId',
+        'messages.getHistory',
         'messages.setActivity',
         'photos.getMessagesUploadServer',
         'docs.getMessagesUploadServer',
@@ -161,7 +162,8 @@ describe('vk sandbox adapter', () => {
       const cases: [string, Record<string, string>][] = [
         ['messages.send', { peer_id: '7', random_id: '1', message: 'm', attachment: 'doc1_2_k', keyboard: '{}' }],
         ['messages.send', { peer_ids: '7', random_id: '1', message: 'm', keyboard: '{}', v: '5.199' }],
-        ['messages.getByConversationMessageId', { peer_id: '7', conversation_message_ids: '3' }],
+        ['messages.getByConversationMessageId', { peer_id: '7', conversation_message_ids: '3', extended: '1' }],
+        ['messages.getHistory', { peer_id: '7', count: '20', extended: '1' }],
         ['messages.edit', { peer_id: '7', conversation_message_id: '3', message: 'm', keyboard: '{}' }],
         ['messages.setActivity', { peer_id: '7', type: 'typing' }],
         ['photos.getMessagesUploadServer', { peer_id: '7' }],

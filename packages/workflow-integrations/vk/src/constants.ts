@@ -44,6 +44,8 @@ export const VK_EVENT_SCOPE_VARIABLE_NAME = 'event';
 export const VK_REQUEST_SCOPE_VARIABLE_NAME = 'request';
 export const VK_KICK_FROM_CHAT_NAME = 'vk-kick-from-chat';
 export const VK_DELETE_MESSAGE_NAME = 'vk-delete-message';
+export const VK_GET_MESSAGES_NAME = 'vk-get-messages';
+export const VK_GET_MESSAGE_NAME = 'vk-get-message';
 
 export const VK_GROUP_MEMBER_EVENT_TYPE_ID = 'vk/GroupMemberEvent';
 export const VK_CHAT_MEMBER_EVENT_TYPE_ID = 'vk/ChatMemberEvent';

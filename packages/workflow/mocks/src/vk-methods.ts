@@ -93,6 +93,15 @@ const getByConversationMessageId = ({ state, params }: IMethodContext): IMethodR
   return { response: { count: items.length, items } };
 };
 
+/** A peer's history, newest first like real VK; the mock knows only the messages it sent itself. */
+const getHistory = ({ state, params }: IMethodContext): IMethodResult => {
+  const peerId = Number(requireParam(params, 'peer_id'));
+  const count = Math.min(200, Math.max(1, Number(params.count) || 20));
+  const all = state.messages.filter((m) => m.peerId === peerId).toReversed();
+  const items = all.slice(0, count).map((m) => messageItem(state, m));
+  return { response: { count: all.length, items, profiles: [] } };
+};
+
 const getLongPollServer = ({ state, baseUrl, token }: IMethodContext): IMethodResult => {
   // A fresh key per call: the previous one stops working, like real VK after a `failed: 2` refresh.
   const pollKey = randomBytes(8).toString('hex');
@@ -208,6 +217,7 @@ const METHODS: Record<string, TMethodHandler> = {
   'messages.send': sendMessages,
   'messages.edit': editMessage,
   'messages.getByConversationMessageId': getByConversationMessageId,
+  'messages.getHistory': getHistory,
   'users.get': ({ params }) => ({
     response: (params.user_ids ?? '')
       .split(',')

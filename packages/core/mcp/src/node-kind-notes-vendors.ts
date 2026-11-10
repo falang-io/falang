@@ -87,6 +87,28 @@ export const VENDOR_NODE_KIND_NOTES: Record<string, string> = {
     'Deletes one message of a VK conversation. `messageId` is its `conversation_message_id` (the one the message',
     "payload carries), not the global id. The community needs administrator rights for other users' messages.",
   ].join(' '),
+  'max-get-messages': [
+    'Reads the latest `count` (1–100, default 20) messages of a MAX chat (`GET /messages`) and declares a',
+    '`max/Message[]` variable, oldest first — e.g. the conversation history to pass to an AI node. `chatId` is a chat',
+    'id (`message.chat.id`), not a user id. Media fields (`photo`, `document`, …) are always absent here: files are not',
+    'downloaded. In a group the bot must be an admin allowed to read all messages.',
+  ].join(' '),
+  'max-get-message': [
+    'Reads one MAX message by its `messageId` (a string mid, e.g. a stored `message.messageId`) and declares a',
+    '`max/Message` variable; media is not downloaded. An unknown id fails the node. With the dev-stand test bot it can',
+    'read only messages the project itself sent.',
+  ].join(' '),
+  'vk-get-messages': [
+    'Reads the latest `count` (1–200, default 20) messages of a VK dialog or conversation (`messages.getHistory`) and',
+    'declares a `vk/Message[]` variable, oldest first — e.g. the conversation history to pass to an AI node. `chatId` is',
+    'the peer_id (`message.chat.id`). The community\'s own messages have no `from`; `text` is the raw text ("Начать" is',
+    'not turned into "/start" here); media is not downloaded.',
+  ].join(' '),
+  'vk-get-message': [
+    'Reads one VK message by `chatId` (peer_id) and `messageId` = its conversation_message_id',
+    '(`message.conversationMessageId`) and declares a `vk/Message` variable; media is not downloaded. An unknown id fails',
+    'the node.',
+  ].join(' '),
   'telegram-get-member': [
     'Looks up one user in a chat and declares a variable `{ status, user, isAdmin }`. `status` is one of',
     '"creator", "administrator", "member", "restricted", "left", "kicked"; `isAdmin` is true for the first two.',

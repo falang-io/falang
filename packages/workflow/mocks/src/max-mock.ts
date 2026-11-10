@@ -1,3 +1,4 @@
+// oxlint-disable max-lines -- one router for the whole MAX Bot API surface the integration uses.
 import { randomBytes } from 'node:crypto';
 import express, { Router, type Request, type Response } from 'express';
 import { answeredBlocked } from './blocked-chats.js';
@@ -27,7 +28,7 @@ interface IMaxMockFile {
 interface IMaxTokenState {
   readonly pendingUpdates: unknown[];
   readonly calls: IMaxMockCall[];
-  readonly messages: Map<string, { body: { mid: string; text: string | null } }>;
+  readonly messages: Map<string, { recipient: { chat_id: number | null }; body: { mid: string; text: string | null } }>;
   readonly subscriptions: Map<string, unknown>;
   readonly files: Map<string, IMaxMockFile>;
   /** `chatId:userId` of members already removed via `DELETE /chats/:chatId/members`. */
@@ -126,6 +127,21 @@ export const createMaxMockRouter = (): Router => {
     };
     state.messages.set(mid, message);
     res.json({ message });
+  });
+
+  // A chat's history (`GET /messages?chat_id=&count=`): the messages this mock sent to that chat, newest first.
+  router.get('/max/messages', (req: Request, res: Response) => {
+    const state = authorized(req, res);
+    if (!state) return;
+    const query = queryOf(req);
+    state.calls.push({ method: 'getMessages', query, body: null });
+    const chatId = Number(query.chat_id);
+    const count = Math.min(100, Math.max(1, Number(query.count) || 50));
+    const messages = [...state.messages.values()]
+      .filter((message) => message.recipient.chat_id === chatId)
+      .toReversed()
+      .slice(0, count);
+    res.json({ messages });
   });
 
   router.get('/max/messages/:mid', (req: Request, res: Response) => {

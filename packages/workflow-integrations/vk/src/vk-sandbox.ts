@@ -49,7 +49,8 @@ const ALLOWED_PARAMS: Readonly<Record<string, ReadonlySet<string>>> = {
     'disable_mentions',
     'v',
   ]),
-  'messages.getByConversationMessageId': new Set(['peer_id', 'conversation_message_ids', 'v']),
+  'messages.getByConversationMessageId': new Set(['peer_id', 'conversation_message_ids', 'extended', 'v']),
+  'messages.getHistory': new Set(['peer_id', 'count', 'offset', 'start_cmid', 'rev', 'extended', 'v']),
   'messages.setActivity': new Set(['peer_id', 'type', 'v']),
   'photos.getMessagesUploadServer': new Set(['peer_id', 'v']),
   'docs.getMessagesUploadServer': new Set(['peer_id', 'type', 'v']),
@@ -61,6 +62,7 @@ const ALLOWED_PARAMS: Readonly<Record<string, ReadonlySet<string>>> = {
 const PEER_METHODS: ReadonlySet<string> = new Set([
   'messages.edit',
   'messages.getByConversationMessageId',
+  'messages.getHistory',
   'messages.setActivity',
   'photos.getMessagesUploadServer',
   'docs.getMessagesUploadServer',

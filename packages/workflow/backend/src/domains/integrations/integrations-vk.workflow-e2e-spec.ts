@@ -1,6 +1,8 @@
 // oxlint-disable max-lines -- three end-to-end scenarios with their fixtures.
 import type { INode } from '@falang/dto';
 import {
+  VK_GET_MESSAGE_NAME,
+  VK_GET_MESSAGES_NAME,
   VK_ON_COMMAND_TRIGGER_NAME,
   VK_QUESTION_NAME,
   VK_SEND_BUTTONS_NAME,
@@ -193,6 +195,40 @@ describe('integrations (workflow tier): VK', () => {
       },
     );
   }, 180_000);
+
+  it('vk-get-messages / vk-get-message: reads the dialog history oldest first and one message by id', async () => {
+    await withRunningProject(
+      'Workflow-tier VK read messages',
+      (credentialId) => [
+        triggerDocument('on-message', 'onMessage', credentialId, vkIntegration.triggers[0].name, [
+          sendMessageNode('first', credentialId, 'first'),
+          sendMessageNode('second', credentialId, 'second'),
+          {
+            id: 'history',
+            name: VK_GET_MESSAGES_NAME,
+            data: { credentialId, chatId: 'message.chat.id', count: '10', resultVariable: 'history' },
+          },
+          {
+            id: 'one',
+            name: VK_GET_MESSAGE_NAME,
+            data: {
+              credentialId,
+              chatId: 'message.chat.id',
+              messageId: 'history[1].conversationMessageId',
+              resultVariable: 'one',
+            },
+          },
+          sendMessageNode('report', credentialId, "Read: ${history.map((m) => m.text).join('|')}; one: ${one.text}"),
+        ]),
+      ],
+      async (botToken) => {
+        await pushVkUpdate(WORKFLOW_E2E_MOCKS_URL, botToken, [incoming(9100, 'read')]);
+        await waitForCall(botToken, isText('Read: first|second; one: second'));
+        const history = await waitForCall(botToken, (call) => call.method === 'messages.getHistory');
+        expect(history.params).toMatchObject({ peer_id: '9100', count: '10', extended: '1' });
+      },
+    );
+  }, 150_000);
 
   it('vk-question: ask with callback buttons -> button press -> event answered, buttons removed, confirmation, branch', async () => {
     await withRunningProject(

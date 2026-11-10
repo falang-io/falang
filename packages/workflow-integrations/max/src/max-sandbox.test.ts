@@ -123,6 +123,24 @@ describe('max sandbox adapter', () => {
       });
     });
 
+    it('allows GET /messages (a chat history) for exactly one chat_id and its paging parameters only', async () => {
+      expect(await relay.inspect(req('GET', '?chat_id=42&count=20'), '/messages')).toEqual({
+        method: 'GET messages list',
+        recipients: ['42'],
+        relayToken: 'relay-tok',
+      });
+      for (const query of [
+        '',
+        '?chat_id=42&chat_id=43',
+        '?chat_id=42&message_ids=mid.1',
+        '?chat_id=42&user_id=5',
+        '?count=5',
+      ]) {
+        // oxlint-disable-next-line no-await-in-loop -- tiny table.
+        expect(await relay.inspect(req('GET', query), '/messages'), query).toHaveProperty('error');
+      }
+    });
+
     it('allows POST /uploads as unaddressed', async () => {
       expect(await relay.inspect(req('POST', '?type=image'), '/uploads')).toEqual({
         method: 'POST uploads',
@@ -138,7 +156,6 @@ describe('max sandbox adapter', () => {
       ['POST', '/answers', '?callback_id=1'],
       ['GET', '/me', ''],
       ['GET', '/chats', ''],
-      ['GET', '/messages', '?chat_id=42'],
       ['DELETE', '/messages', '?message_id=1'],
     ])('refuses %s %s', async (method, path, query) => {
       expect(await relay.inspect(req(method, query), path)).toHaveProperty('error');

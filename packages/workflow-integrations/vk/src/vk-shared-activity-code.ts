@@ -1,4 +1,5 @@
 import { VK_API_VERSION, VK_DEFAULT_API_BASE_URL } from './constants.js';
+import { VK_READ_SHARED_CODE } from './vk-read-actions.js';
 import { VK_PREPARE_BUTTONS_CODE } from './vk-send-buttons-action.js';
 import { VK_SEND_GUARD_CODE } from './vk-send-result.js';
 
@@ -133,4 +134,6 @@ export const VK_SHARED_ACTIVITY_CODE = [
   '    keyboard: { buttons: [], inline: true },',
   '  });',
   '};',
+  '',
+  VK_READ_SHARED_CODE,
 ].join('\n');

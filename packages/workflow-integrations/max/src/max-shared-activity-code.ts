@@ -1,6 +1,7 @@
 import { MAX_DEFAULT_API_BASE_URL } from './constants.js';
 import { MAX_RECIPIENT_QUERY_CODE } from './max-recipient.js';
 import { MAX_MODERATION_SHARED_CODE } from './max-moderation-actions.js';
+import { MAX_READ_SHARED_CODE } from './max-read-actions.js';
 import { MAX_PREPARE_BUTTONS_CODE } from './max-send-buttons-action.js';
 import { MAX_SEND_GUARD_CODE } from './max-send-result.js';
 
@@ -94,4 +95,6 @@ export const MAX_SHARED_ACTIVITY_CODE = [
   MAX_PREPARE_BUTTONS_CODE,
   '',
   MAX_MODERATION_SHARED_CODE,
+  '',
+  MAX_READ_SHARED_CODE,
 ].join('\n');

@@ -27,6 +27,7 @@ import {
 } from './constants.js';
 import { registerMaxBackend } from './max-backend.js';
 import { maxDeleteMessageAction, maxRemoveMemberAction } from './max-moderation-actions.js';
+import { maxGetMessageAction, maxGetMessagesAction } from './max-read-actions.js';
 import { maxSandboxAdapter } from './max-sandbox.js';
 import { maxSendButtonsAction } from './max-send-buttons-action.js';
 import { maxSendFileAction } from './max-send-file-action.js';
@@ -88,7 +89,7 @@ export const maxIntegration: IWorkflowIntegration = {
   vendor: MAX_VENDOR,
   label: 'max:label',
   notes:
-    'MAX messenger bots (Russian messenger MAX / Макс, chat bot): receive incoming messages and /commands, send text messages and files (optionally with link or command buttons that do not wait for a press), and ask questions with inline-keyboard buttons (yes/no, multiple choice) that pause the workflow until the user taps one. Works like the Telegram integration. Group and community management (moderation): triggers for a member joining or leaving a group chat or channel, and actions to remove or block (kick, ban) a member and to delete a message — the bot must be a chat admin (rights read_all_messages for member events, add_remove_members for removing, delete for deleting messages). Moderation keywords: remove, block, kick, ban, group, chat, community, member. Buttons of max-question pressed in a group chat are not routed back to the run when the trigger uses conversation per-user or per-event — ask in private chats or keep per-chat.',
+    'MAX messenger bots (Russian messenger MAX / Макс, chat bot): receive incoming messages and /commands, send text messages and files (optionally with link or command buttons that do not wait for a press), and ask questions with inline-keyboard buttons (yes/no, multiple choice) that pause the workflow until the user taps one. Works like the Telegram integration. Group and community management (moderation): triggers for a member joining or leaving a group chat or channel, and actions to remove or block (kick, ban) a member and to delete a message — the bot must be a chat admin (rights read_all_messages for member events, add_remove_members for removing, delete for deleting messages). Moderation keywords: remove, block, kick, ban, group, chat, community, member. Reading messages: max-get-messages returns the latest messages of a chat (history, chat log, conversation context for AI), max-get-message one message by its id. Buttons of max-question pressed in a group chat are not routed back to the run when the trigger uses conversation per-user or per-event — ask in private chats or keep per-chat.',
   locales: {
     en: () => import('./locales/en.json'),
     ru: () => import('./locales/ru.json'),
@@ -168,6 +169,8 @@ export const maxIntegration: IWorkflowIntegration = {
     maxSendButtonsAction,
     maxRemoveMemberAction,
     maxDeleteMessageAction,
+    maxGetMessagesAction,
+    maxGetMessageAction,
   ],
   questions: [
     {

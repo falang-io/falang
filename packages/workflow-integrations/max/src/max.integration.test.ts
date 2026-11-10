@@ -42,6 +42,8 @@ describe('maxIntegration', () => {
       MAX_SEND_BUTTONS_NAME,
       'max-remove-member',
       'max-delete-message',
+      'max-get-messages',
+      'max-get-message',
     ]);
   });
 

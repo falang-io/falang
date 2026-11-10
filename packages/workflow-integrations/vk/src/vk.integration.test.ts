@@ -46,6 +46,8 @@ describe('vkIntegration', () => {
       VK_SEND_BUTTONS_NAME,
       'vk-kick-from-chat',
       'vk-delete-message',
+      'vk-get-messages',
+      'vk-get-message',
     ]);
   });
 

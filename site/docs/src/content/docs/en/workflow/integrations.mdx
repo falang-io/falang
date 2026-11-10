@@ -46,6 +46,8 @@ head:
     table and stop a mailing to them. Any other error still stops the block. Credentials (the bot token) are stored separately for the dev and prod
     environments and encrypted at rest. Locally the engine long-polls Telegram; once a public address is configured it
     switches to webhooks automatically.
+    The Telegram Bot API cannot read a chat's earlier messages, so unlike MAX and VK there is no "Get messages" action —
+    keep the messages you need in a <a href="../tables/">table</a>.
     Groups and channels: member triggers, moderation actions and the <code>Chats</code> / <code>Conversation</code> settings — see{' '}
     <a href="../messenger-groups/">Groups and moderation in messenger bots</a>.
   </li>
@@ -65,7 +67,12 @@ head:
     marker MAX returns only the latest event, so events sent while the engine was down are lost); with one it uses a
     webhook subscription, as MAX itself recommends. The engine talks to <code>platform-api2.max.ru</code>, whose
     certificate is issued by the Russian Trusted CA of the Ministry of Digital Development; that root is trusted only
-    for MAX requests, not for the whole process.
+    for MAX requests, not for the whole process. Reading messages: "Get messages" returns the latest messages of a chat
+    (1–100, <code>GET /messages</code>) as a <code>max/Message</code> list, oldest first — for example the conversation
+    history to pass to an AI block; "Get message" reads one message by its <code>messageId</code>. Photos and files of
+    the messages read this way are not downloaded. In a group the bot must be an admin allowed to read all messages.
+    Through the test bot "Get messages" works for the chat connected to the project, and "Get message" only for
+    messages the project itself sent.
   </li>
   <li>
     <b>VK (VKontakte) community bot</b>. The same as Telegram: "On message" and "On command" triggers, "Send message",
@@ -79,7 +86,11 @@ head:
     documents and voice messages become <a href="../files/">File</a>s (video is not supported). The send actions return{' '}
     <code>{'{ success, disabled }'}</code> like in Telegram: <code>disabled</code> is <code>true</code> for VK errors
     900, 901, 902 (the user blacklisted the community, forbade its messages, or the privacy settings forbid them) and
-    917 (the community was removed from the conversation).
+    917 (the community was removed from the conversation). Reading messages: "Get messages" returns the latest messages
+    of a dialog or a conversation (1–200, <code>messages.getHistory</code>) as a <code>vk/Message</code> list, oldest
+    first; "Get message" reads one message by <code>peer_id</code> and its <code>conversationMessageId</code>. The
+    text is VK's own (a "Start" press stays "Начать", not <code>/start</code>), the community's own messages have no{' '}
+    <code>from</code>, and photos and files are not downloaded.
   </li>
   <li>
     <b>OpenAI-compatible models</b>. The "Call AI" action sends a chat-completion request to the selected model and
