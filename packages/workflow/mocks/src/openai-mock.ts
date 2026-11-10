@@ -1,4 +1,5 @@
 import express, { Router, type Request, type Response } from 'express';
+import { parseMultipart } from './multipart.js';
 
 interface IOpenAiChatMessage {
   readonly role: string;
@@ -85,7 +86,12 @@ export const createOpenAiMockRouter = (): Router => {
     }));
     const message = { content: queued.content, role: 'assistant', ...(toolCalls ? { tool_calls: toolCalls } : {}) };
     // A plausible `usage` object so the in-app agent's token accounting is exercised by e2e turns.
-    res.json({ choices: [{ message }], usage: { completion_tokens: 7, prompt_tokens: 21, total_tokens: 28 } });
+    res.json({
+      choices: [{ message }],
+      // Echoed like the real API does (`model` of the answer), so a caller can read which model answered.
+      ...(typeof req.body.model === 'string' ? { model: req.body.model } : {}),
+      usage: { completion_tokens: 7, prompt_tokens: 21, total_tokens: 28 },
+    });
   });
 
   router.post('/openai/images/generations', (req: Request, res: Response) => {
@@ -94,7 +100,17 @@ export const createOpenAiMockRouter = (): Router => {
     // of an existing chat record (see `getOpenAiRequests`'s own doc comment) — chat records stay
     // exactly as before so `openai-mock.test.ts`'s pre-existing exact-shape assertion keeps passing.
     state.requests.push({ kind: 'image', ...req.body });
-    res.json({ data: [{ b64_json: ONE_PIXEL_PNG_BASE64 }] });
+    // `gpt-image-*`-style token usage, so the built-in AI provider relay's accounting (ADR 0081 (private)) is exercised.
+    res.json({
+      created: Math.floor(Date.now() / 1000),
+      data: [{ b64_json: ONE_PIXEL_PNG_BASE64 }],
+      usage: {
+        input_tokens: 12,
+        input_tokens_details: { image_tokens: 0, text_tokens: 12 },
+        output_tokens: 1056,
+        total_tokens: 1068,
+      },
+    });
   });
 
   // No multer/multipart parser dependency: `express.json()` (mounted globally in `app.ts`) only
@@ -109,13 +125,19 @@ export const createOpenAiMockRouter = (): Router => {
       const state = getState(req.header('authorization') ?? '');
       const bodyBuffer = req.body as Buffer;
       const filename = MULTIPART_FILENAME.exec(bodyBuffer.toString('latin1'))?.[1] ?? 'unknown';
+      const model = parseMultipart(bodyBuffer, req.header('content-type') ?? '').fields.model ?? '';
       state.requests.push({
         contentType: req.header('content-type') ?? '',
         filename,
         kind: 'transcription',
+        model,
         size: bodyBuffer.length,
       });
-      res.json({ text: `transcribed: ${filename}` });
+      // Like the real API: `whisper-*` reports the audio duration, the token-billed models report tokens.
+      const usage = model.startsWith('whisper')
+        ? { seconds: 3, type: 'duration' }
+        : { input_tokens: 40, output_tokens: 6, total_tokens: 46, type: 'tokens' };
+      res.json({ text: `transcribed: ${filename}`, usage });
     },
   );
 

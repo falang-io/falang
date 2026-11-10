@@ -345,6 +345,11 @@ export interface IWorkflowIntegration {
   readonly registerBackend?: TRegisterIntegrationBackend;
   /** The messenger-specific half of the platform's test bot (ADR 0073 (private)) — present on Telegram, MAX, VK. See `sandbox-bot.ts`. */
   readonly sandbox?: ISandboxBotAdapter;
+  /**
+   * The vendor can run on the platform's built-in AI provider (ADR 0081 (private)): an instance may set
+   * `IIntegrationInstance.platformProvider`, and its own endpoint/key fields are then not required. Set on `openai`.
+   */
+  readonly builtInProvider?: true;
   /** "Sync structure" (ADR 0039 (private) §4) — connects with resolved (always **dev**) credential fields, returns data to persist per key via `IntegrationVendorDataService.set` (read back through `instanceTypes` below/`GET .../vendor-data`); `env` is unused by every v1 (SQL) implementer. */
   readonly syncVendorData?: (
     credentialFields: Readonly<Record<string, string>>,

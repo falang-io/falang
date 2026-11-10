@@ -69,6 +69,32 @@ export interface IAdminAgentSettings {
   readonly updatedAt: string | null;
 }
 
+/** Which OpenAI-compatible endpoint a built-in AI provider model serves (ADR 0081 (private)). */
+export type TAdminAiProviderModelKind = 'chat' | 'image' | 'transcribe';
+
+/** One entry of the built-in AI provider's model list; `label` is optional (the id is shown instead). */
+export interface IAdminAiProviderModel {
+  readonly id: string;
+  readonly label?: string;
+  readonly kind: TAdminAiProviderModelKind;
+}
+
+/** `GET`/`PUT /admin/settings/ai-provider` — the built-in AI provider, never carrying the key (`hasApiKey` only). */
+export interface IAdminAiProviderSettings {
+  /** `baseUrl` + key + at least one `chat` model. */
+  readonly configured: boolean;
+  readonly baseUrl: string | null;
+  readonly hasApiKey: boolean;
+  readonly models: readonly IAdminAiProviderModel[];
+  readonly updatedAt: string | null;
+}
+
+/** One model the provider's own `/models` lists (`POST /admin/settings/ai-provider/fetch-models`). */
+export interface IAdminUpstreamModel {
+  readonly id: string;
+  readonly ownedBy?: string;
+}
+
 /** `GET`/`PUT /admin/settings/proxy` — the egress-proxy config, never carrying the token (`hasToken` only). ADR 0056 (private). */
 export interface IAdminProxySettings {
   readonly configured: boolean;
@@ -254,6 +280,27 @@ export const adminApi = {
     }),
 
   deleteAgentSettings: () => apiRequest<null>('/admin/settings/agent', { method: 'DELETE' }),
+
+  getAiProviderSettings: () => apiRequest<IAdminAiProviderSettings>('/admin/settings/ai-provider'),
+
+  /** `apiKey` is omitted from the request body entirely when empty, keeping the previously stored key. */
+  upsertAiProviderSettings: (input: { baseUrl: string; apiKey?: string; models: readonly IAdminAiProviderModel[] }) =>
+    apiRequest<IAdminAiProviderSettings>('/admin/settings/ai-provider', {
+      method: 'PUT',
+      body: JSON.stringify(input.apiKey ? input : { baseUrl: input.baseUrl, models: input.models }),
+    }),
+
+  deleteAiProviderSettings: () => apiRequest<null>('/admin/settings/ai-provider', { method: 'DELETE' }),
+
+  /** Lists the upstream `/models`; empty `baseUrl`/`apiKey` are left out (the stored values are used). */
+  fetchAiProviderModels: (input: { baseUrl?: string; apiKey?: string } = {}) =>
+    apiRequest<{ models: IAdminUpstreamModel[] }>('/admin/settings/ai-provider/fetch-models', {
+      method: 'POST',
+      body: JSON.stringify({
+        ...(input.baseUrl ? { baseUrl: input.baseUrl } : {}),
+        ...(input.apiKey ? { apiKey: input.apiKey } : {}),
+      }),
+    }),
 
   getProxySettings: () => apiRequest<IAdminProxySettings>('/admin/settings/proxy'),
 

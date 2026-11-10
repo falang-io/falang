@@ -5,6 +5,7 @@ export type TAdminPage =
   | 'users'
   | 'oauth-credentials'
   | 'agent-settings'
+  | 'ai-provider'
   | 'proxy'
   | 'sandbox-bots'
   | 'project-templates'

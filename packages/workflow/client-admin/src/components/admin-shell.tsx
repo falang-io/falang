@@ -10,6 +10,7 @@ import {
   KeyOutlined,
   ExperimentOutlined,
   RobotOutlined,
+  ThunderboltOutlined,
   TeamOutlined,
 } from '@ant-design/icons';
 import {
@@ -17,12 +18,14 @@ import {
   ChangePasswordModal,
   DefaultPasswordBanner,
   TopBar,
+  useAiProviderName,
   useClientBrand,
 } from '@falang/workflow-client-common';
 import { findAdminExtensionPage, toAdminExtensionPage, useAdminExtensions } from '../admin-extensions.js';
 import { adminSupportStore } from '../admin-support-store.js';
 import { adminNavigationStore, isAdminPageAvailable, type TAdminPage } from '../admin-navigation-store.js';
 import { AgentSettingsPage } from './agent-settings-page.js';
+import { AiProviderSettingsPage } from './ai-provider-settings-page.js';
 import { ProxySettingsPage } from './proxy-settings-page.js';
 import { SandboxBotsPage } from './sandbox-bots-page.js';
 import { OAuthCredentialsPage } from './oauth-credentials-page.js';
@@ -42,6 +45,7 @@ const PAGES: readonly { readonly key: TAdminPage; readonly icon: React.ReactNode
   { key: 'users', icon: <TeamOutlined /> },
   { key: 'oauth-credentials', icon: <KeyOutlined /> },
   { key: 'agent-settings', icon: <RobotOutlined /> },
+  { key: 'ai-provider', icon: <ThunderboltOutlined /> },
   { key: 'proxy', icon: <GlobalOutlined /> },
   { key: 'sandbox-bots', icon: <ExperimentOutlined /> },
   { key: 'project-templates', icon: <AppstoreAddOutlined /> },
@@ -52,6 +56,8 @@ const MENU_LABEL_KEYS: Record<TAdminPage, string> = {
   users: 'shell.users-menu',
   'oauth-credentials': 'shell.oauth-credentials-menu',
   'agent-settings': 'shell.agent-settings-menu',
+  // Shown as `useAiProviderName()` (a host may rename the provider); the key is the fallback only.
+  'ai-provider': 'shell.ai-provider-menu',
   proxy: 'shell.proxy-menu',
   'sandbox-bots': 'shell.sandbox-bots-menu',
   'project-templates': 'shell.project-templates-menu',
@@ -67,6 +73,10 @@ export const AdminShell: React.FC = observer(() => {
   const t = getGlobalI18n().t;
   const extensions = useAdminExtensions();
   const brand = useClientBrand();
+  const aiProviderName = useAiProviderName();
+  // The built-in provider's entry carries its (host-renamable) name; every other one its own string.
+  const menuLabel = (key: TAdminPage): string =>
+    key === 'ai-provider' ? aiProviderName : t(`workflow-client-admin:${MENU_LABEL_KEYS[key]}`);
   const singleUser = authStore.isSingleUser;
   const extensionPage = findAdminExtensionPage(extensions, adminNavigationStore.page);
 
@@ -125,10 +135,10 @@ export const AdminShell: React.FC = observer(() => {
                 label:
                   key === 'support' ? (
                     <Badge count={adminSupportStore.unreadTotal} size="small" offset={[10, 0]}>
-                      <span style={{ color: 'inherit' }}>{t(`workflow-client-admin:${MENU_LABEL_KEYS[key]}`)}</span>
+                      <span style={{ color: 'inherit' }}>{menuLabel(key)}</span>
                     </Badge>
                   ) : (
-                    t(`workflow-client-admin:${MENU_LABEL_KEYS[key]}`)
+                    menuLabel(key)
                   ),
               })),
               ...(extensions.pages ?? []).map((page) => ({
@@ -144,6 +154,7 @@ export const AdminShell: React.FC = observer(() => {
           {adminNavigationStore.page === 'users' && !singleUser ? <UsersPage /> : null}
           {adminNavigationStore.page === 'oauth-credentials' ? <OAuthCredentialsPage /> : null}
           {adminNavigationStore.page === 'agent-settings' ? <AgentSettingsPage /> : null}
+          {adminNavigationStore.page === 'ai-provider' ? <AiProviderSettingsPage /> : null}
           {adminNavigationStore.page === 'proxy' ? <ProxySettingsPage /> : null}
           {adminNavigationStore.page === 'sandbox-bots' ? <SandboxBotsPage /> : null}
           {adminNavigationStore.page === 'project-templates' ? <ProjectTemplatesPage /> : null}

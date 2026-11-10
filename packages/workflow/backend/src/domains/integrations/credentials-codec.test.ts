@@ -356,3 +356,54 @@ describe('unknown vendor (fail-closed, P1-7)', () => {
     expect(stripIntegrationsSecretsForExport(stored, [integration]).instances[0]?.fields.region).toBe('');
   });
 });
+
+describe('platformProvider (ADR 0081)', () => {
+  const aiIntegration: IWorkflowIntegration = {
+    vendor: 'openai',
+    label: 'OpenAI',
+    credentialFields: [
+      { name: 'baseUrl', label: 'Base URL', kind: 'text' },
+      { name: 'apiKey', label: 'API key', kind: 'secret', secretProdOptional: true },
+    ],
+    builtInProvider: true,
+    ...EMPTY_INTEGRATION_PARTS,
+  };
+  const instance = (vendor: string, platformProvider: unknown) =>
+    ({
+      id: 'cred-1',
+      vendor,
+      name: 'x',
+      fields:
+        vendor === 'openai' ? { baseUrl: '', apiKey: { dev: '', prod: '' } } : { botToken: { dev: '', prod: '' } },
+      platformProvider,
+    }) as unknown as IIntegrationsDocumentData['instances'][number];
+
+  const encode = (vendor: string, platformProvider: unknown) =>
+    encodeIntegrationsDataForWrite(
+      { instances: [instance(vendor, platformProvider)] },
+      null,
+      [aiIntegration, fakeIntegration],
+      key,
+    );
+
+  it('keeps the flag, with empty credential fields, on a vendor that supports it — and through export and restore', () => {
+    const stored = encode('openai', true);
+    expect(stored.instances[0]?.platformProvider).toBe(true);
+    expect(maskIntegrationsDataForRead(stored, [aiIntegration], key).instances[0]?.platformProvider).toBe(true);
+    const exported = stripIntegrationsSecretsForExport(stored, [aiIntegration]);
+    expect(exported.instances[0]?.platformProvider).toBe(true);
+    expect(mergeIntegrationsDataForRestore(exported, stored, [aiIntegration]).instances[0]?.platformProvider).toBe(
+      true,
+    );
+  });
+
+  it('drops false', () => {
+    expect(encode('openai', false).instances[0]).not.toHaveProperty('platformProvider');
+  });
+
+  it('rejects the flag on a vendor without builtInProvider, on an unknown vendor and as a non-boolean', () => {
+    expect(() => encode('telegram', true)).toThrow(/cannot use the built-in AI provider/);
+    expect(() => encode('gone-vendor', true)).toThrow(/cannot use the built-in AI provider/);
+    expect(() => encode('openai', 'yes')).toThrow(/must be a boolean/);
+  });
+});

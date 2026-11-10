@@ -7,7 +7,7 @@ import {
 } from '@falang/workflow-integrations-common';
 import { fileArrayTypeInfo } from '@falang/workflow-integrations-files';
 import { CALL_AI_CHOICE_NAME, CALL_AI_TEXT_NAME, FILE_REF_TYPE, OPENAI_VENDOR } from './constants.js';
-import { fetchOpenAiModelOptions } from './list-models.js';
+import { loadOpenAiModelOptions } from './list-models.js';
 import { openaiMediaActions } from './openai-media-actions.js';
 
 export * from './constants.js';
@@ -48,6 +48,8 @@ export const openaiIntegration: IWorkflowIntegration = {
     { name: 'baseUrl', label: 'openai:credentialField.baseUrl', kind: 'text' },
     { name: 'apiKey', label: 'openai:credentialField.apiKey', kind: 'secret', secretProdOptional: true },
   ],
+  // ADR 0081 (private): an instance may run on the platform's built-in AI provider (`platformProvider`).
+  builtInProvider: true,
   triggers: [],
   actions: [
     {
@@ -63,7 +65,7 @@ export const openaiIntegration: IWorkflowIntegration = {
           label: 'openai:field.model',
           kind: 'select',
           vendor: OPENAI_VENDOR,
-          loadOptions: (fields, ctx) => fetchOpenAiModelOptions(fields, ctx?.egress),
+          loadOptions: loadOpenAiModelOptions('chat'),
         },
         { name: 'prompt', label: 'openai:field.prompt', kind: 'template-string' },
         {
@@ -133,7 +135,7 @@ export const openaiIntegration: IWorkflowIntegration = {
         "    body: JSON.stringify({ model, messages: [{ role: 'user', content: messageContent }] }),",
         '  });',
         '  if (!response.ok) {',
-        '    throw new Error(`OpenAI chat completion failed: ${response.status} ${await response.text()}`);',
+        "    throw openaiHttpError('OpenAI chat completion', response.status, await response.text());",
         '  }',
         '  const data = (await response.json()) as {',
         '    choices: { message: { content: string } }[];',
@@ -157,7 +159,7 @@ export const openaiIntegration: IWorkflowIntegration = {
           label: 'openai:field.model',
           kind: 'select',
           vendor: OPENAI_VENDOR,
-          loadOptions: (fields, ctx) => fetchOpenAiModelOptions(fields, ctx?.egress),
+          loadOptions: loadOpenAiModelOptions('chat'),
         },
       ],
       promptFields: [
@@ -218,7 +220,7 @@ export const openaiIntegration: IWorkflowIntegration = {
         '    }),',
         '  });',
         '  if (!response.ok) {',
-        '    throw new Error(`OpenAI structured chat completion failed: ${response.status} ${await response.text()}`);',
+        "    throw openaiHttpError('OpenAI structured chat completion', response.status, await response.text());",
         '  }',
         '  const data = (await response.json()) as {',
         '    choices: { message: { content: string } }[];',
@@ -251,6 +253,42 @@ export const openaiIntegration: IWorkflowIntegration = {
     // the exact same line files' own `sharedActivityCode` uses, so it dedups instead of colliding.
     "import { fileToDataUrl, readFileBytes as openaiReadFileBytes, uploadFileFromStream as openaiUploadFileFromStream } from '@falang/workflow-integrations-files';",
     "import type { IFileRef } from '@falang/workflow-integrations-files';",
+    "import { ApplicationFailure } from '@temporalio/activity';",
+    '',
+    '// The built-in AI provider relay (ADR 0081 (private)) refuses a call with one of these codes (or a 402) when no',
+    '// retry can succeed — no balance, a model the admin does not offer, no price, an unsupported endpoint, the',
+    '// provider switched off. A 429 (busy, hourly limit) stays retryable.',
+    'const OPENAI_NON_RETRYABLE_CODES: ReadonlySet<string> = new Set([',
+    "  'insufficient_balance',",
+    "  'model_not_allowed',",
+    "  'pricing_not_configured',",
+    "  'not_supported_by_built_in_provider',",
+    "  'ai_provider_not_configured',",
+    ']);',
+    '',
+    '/** The error a failed OpenAI-compatible call throws: a non-retryable `ApplicationFailure` (type = the code) for a',
+    ' *  built-in provider refusal, otherwise a plain (retryable) `Error` with `fallback` as its message. */',
+    'const openaiHttpError = (what: string, status: number, text: string, fallback = `${what} failed: ${status} ${text}`): Error => {',
+    '  let code: string | undefined;',
+    '  let message: string | undefined;',
+    '  try {',
+    '    const body: unknown = JSON.parse(text);',
+    "    if (body && typeof body === 'object') {",
+    '      const record = body as { code?: unknown; message?: unknown; error?: unknown };',
+    "      const nested = record.error && typeof record.error === 'object' ? (record.error as { code?: unknown; message?: unknown }) : {};",
+    '      const rawCode = nested.code ?? record.code;',
+    '      const rawMessage = nested.message ?? record.message;',
+    "      if (typeof rawCode === 'string') code = rawCode;",
+    "      if (typeof rawMessage === 'string') message = rawMessage;",
+    '    }',
+    '  } catch {',
+    '    // not JSON: no code to look at',
+    '  }',
+    '  if (status === 402 || (status !== 429 && code !== undefined && OPENAI_NON_RETRYABLE_CODES.has(code))) {',
+    '    return ApplicationFailure.nonRetryable(`${what}: ${message ?? text}`, code ?? `OPENAI_HTTP_${status}`);',
+    '  }',
+    '  return new Error(fallback);',
+    '};',
     '',
     "// Resolves credentialId+field -> real value via @falang/workflow-backend's internal endpoint —",
     "// same trust boundary/mechanism as telegram.integration.ts's resolveTelegramBotToken, but",
@@ -270,7 +308,8 @@ export const openaiIntegration: IWorkflowIntegration = {
     "    body: JSON.stringify({ credentialId, vendor: 'openai', field, projectId, env }),",
     '  });',
     '  if (!response.ok) {',
-    '    throw new Error(`Failed to resolve OpenAI credential ${credentialId}/${field}: ${response.status} ${await response.text()}`);',
+    '    const text = await response.text();',
+    '    throw openaiHttpError(`OpenAI credential ${credentialId}/${field}`, response.status, text, `Failed to resolve OpenAI credential ${credentialId}/${field}: ${response.status} ${text}`);',
     '  }',
     '  const data = (await response.json()) as { value: string };',
     '  return data.value;',

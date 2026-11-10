@@ -1,4 +1,5 @@
 import { OAuthCredentialsModule } from '../admin/oauth-credentials/oauth-credentials.module.js';
+import { AppSettingsModule } from '../admin/app-settings/app-settings.module.js';
 import { Module } from '@nestjs/common';
 import { PersonalAccessTokensModule } from '../auth/personal-access-tokens/personal-access-tokens.module.js';
 import { BuildModule } from '../build/build/build.module.js';
@@ -27,6 +28,7 @@ import { McpService } from './mcp.service.js';
     RunsModule,
     IntegrationsModule,
     OAuthCredentialsModule,
+    AppSettingsModule,
   ],
   providers: [McpService],
   exports: [McpService],

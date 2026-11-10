@@ -3,6 +3,7 @@ import type { TypesRegistryStore } from '@falang/typescript-scheme';
 import type { ITableDocumentData, IWorkflowConstant, TTriggerFunctionBodyData } from '@falang/workflow-dto';
 import type { IIntegrationInstance } from '@falang/workflow-integrations-common';
 import type { IApiVendorData } from '../api-types.js';
+import type { IBuiltInAiProviderInfo } from '../ai-provider/ai-provider-store.js';
 import type { IProjectTreeFolder } from '@falang/dto';
 import type { DocumentType, WorkflowDocument } from '../workflow-types.js';
 
@@ -39,6 +40,11 @@ export interface IWorkflowAgentStore {
   saveIntegrationInstance(instance: IIntegrationInstance): void;
   /** Vendors with a configured platform test bot on this deployment (ADR 0073 (private)); empty when none. */
   getSandboxVendors(): readonly string[];
+  /**
+   * The deployment's built-in AI provider (ADR 0081 (private)) — its chat models, `null` while it is not configured.
+   * Optional: a host without it (headless) offers no built-in provider to the agent.
+   */
+  getBuiltInAiProvider?(): IBuiltInAiProviderInfo | null;
   /** The project's struct-type registry (`list_types` reads the project's own interfaces from it). */
   readonly typesRegistry: Pick<TypesRegistryStore, 'types'>;
   /** Backend-synced per-instance data (`list_types` derives vendor instance types from it). */

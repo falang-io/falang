@@ -1,4 +1,10 @@
-import type { IBackendEgress, IFieldSelectOption } from '@falang/workflow-integrations-common';
+import type {
+  IBackendEgress,
+  IFieldOptionsContext,
+  IFieldSelectOption,
+  IPlatformModel,
+  TPlatformModelKind,
+} from '@falang/workflow-integrations-common';
 
 /**
  * Fetches `<baseUrl>/models` and maps it to select options — shared by every OpenAI-compatible
@@ -27,3 +33,21 @@ export const fetchOpenAiModelOptions = async (
   const filtered = all.filter((option) => keywords.some((keyword) => option.value.toLowerCase().includes(keyword)));
   return filtered.length > 0 ? filtered : all;
 };
+
+/** The built-in provider's models of one kind as select options (ADR 0081 (private)) — no upstream call. */
+export const platformModelOptions = (
+  models: readonly IPlatformModel[],
+  kind: TPlatformModelKind,
+): readonly IFieldSelectOption[] =>
+  models.filter((model) => model.kind === kind).map((model) => ({ value: model.id, label: model.label }));
+
+/**
+ * The `loadOptions` of an OpenAI `model` field: for an instance on the built-in provider (`ctx.platformModels` set by
+ * the backend) the admin's models of `kind`, never an upstream call; otherwise the instance's own `<baseUrl>/models`.
+ */
+export const loadOpenAiModelOptions =
+  (kind: TPlatformModelKind, keywords?: readonly string[]) =>
+  (fields: Readonly<Record<string, string>>, ctx?: IFieldOptionsContext): Promise<readonly IFieldSelectOption[]> =>
+    ctx?.platformModels
+      ? Promise.resolve(platformModelOptions(ctx.platformModels, kind))
+      : fetchOpenAiModelOptions(fields, ctx?.egress, keywords);

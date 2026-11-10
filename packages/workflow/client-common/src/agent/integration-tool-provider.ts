@@ -1,10 +1,16 @@
 import type { ILlmToolCall, ILlmToolDefinition, TToolExecutionResult } from '@falang/agent';
 import type { IAgentToolProvider } from '@falang/agent';
-import type { IEnvironmentValue, IFieldConfig, IIntegrationInstance } from '@falang/workflow-integrations-common';
+import {
+  supportsBuiltInProvider,
+  type IEnvironmentValue,
+  type IFieldConfig,
+  type IIntegrationInstance,
+  type IWorkflowIntegration,
+} from '@falang/workflow-integrations-common';
 import { generateUuid } from '../generate-uuid.js';
 import { getIntegrationInstances } from '../integration-instances.js';
 import { getEnabledIntegrations } from '../disabled-vendors.js';
-import { sandboxVendorsOf } from './sandbox-vendors.js';
+import { builtInAiProviderOf, sandboxVendorsOf } from './sandbox-vendors.js';
 import { searchIntegrations } from './integration-catalog.js';
 import type { IWorkflowAgentStore } from './workflow-agent-store.js';
 
@@ -35,6 +41,14 @@ export const DEV_SANDBOX_PROPERTY = {
     "token's dev value may stay empty (the user links their chat in the integration editor). Prod is unaffected.",
 } as const;
 
+export const PLATFORM_PROVIDER_PROPERTY = {
+  type: 'boolean',
+  description:
+    "AI vendors that support the deployment's built-in AI provider (openai) only, and only when the runtime notes " +
+    'say it is available: calls go through the built-in provider, so leave the endpoint and API key fields empty ' +
+    "(dev and prod). Its calls are paid from the project owner's balance. Supports text and choice actions only.",
+} as const;
+
 const TOOLS: readonly ILlmToolDefinition[] = [
   {
     name: 'search_integrations',
@@ -58,8 +72,9 @@ const TOOLS: readonly ILlmToolDefinition[] = [
   {
     name: 'list_integration_instances',
     description:
-      'Read-only. Lists existing credential instances (id, vendor, name) — field values/secrets are never ' +
-      'included, so an existing instance can be reused without ever seeing its credentials.',
+      'Read-only. Lists existing credential instances (id, vendor, name; devSandbox / platformProvider when set) — ' +
+      'field values/secrets are never included, so an existing instance can be reused without ever seeing its ' +
+      'credentials.',
     inputSchema: { type: 'object', properties: {} },
   },
   {
@@ -75,6 +90,7 @@ const TOOLS: readonly ILlmToolDefinition[] = [
         name: { type: 'string' },
         fields: { type: 'object' },
         devSandbox: DEV_SANDBOX_PROPERTY,
+        platformProvider: PLATFORM_PROVIDER_PROPERTY,
       },
       required: ['vendor', 'name'],
     },
@@ -116,12 +132,33 @@ export class IntegrationToolProvider implements IAgentToolProvider {
   }
 
   private listIntegrationInstances(): TToolExecutionResult {
-    const instances = getIntegrationInstances(this.store.documents).map(({ id, name, vendor, devSandbox }) => {
-      const entry: Record<string, unknown> = { id, name, vendor };
-      if (devSandbox) entry.devSandbox = true;
-      return entry;
-    });
+    const instances = getIntegrationInstances(this.store.documents).map(
+      ({ id, name, vendor, devSandbox, platformProvider }) => {
+        const entry: Record<string, unknown> = { id, name, vendor };
+        if (devSandbox) entry.devSandbox = true;
+        if (platformProvider) entry.platformProvider = true;
+        return entry;
+      },
+    );
     return ok(JSON.stringify(instances));
+  }
+
+  /** `platformProvider` (ADR 0081 (private)): a boolean, and `true` only on a capable vendor with the provider configured. */
+  private checkPlatformProvider(
+    params: Record<string, unknown>,
+    integration: Pick<IWorkflowIntegration, 'vendor' | 'builtInProvider'>,
+  ): string | null {
+    if ('platformProvider' in params && typeof params.platformProvider !== 'boolean') {
+      return 'create_integration_instance: platformProvider must be a boolean';
+    }
+    if (params.platformProvider !== true) return null;
+    if (!supportsBuiltInProvider(integration)) {
+      return `create_integration_instance: vendor "${integration.vendor}" cannot use the built-in AI provider, platformProvider is not allowed`;
+    }
+    if (!builtInAiProviderOf(this.store)) {
+      return 'create_integration_instance: the built-in AI provider is not configured on this deployment';
+    }
+    return null;
   }
 
   private createIntegrationInstance(input: unknown): TToolExecutionResult {
@@ -157,12 +194,17 @@ export class IntegrationToolProvider implements IAgentToolProvider {
       }
     }
 
+    const platformProviderError = this.checkPlatformProvider(params, integration);
+    if (platformProviderError) return fail(platformProviderError);
+    const platformProvider = params.platformProvider === true;
+
     const instance: IIntegrationInstance = {
       fields,
       id: generateUuid(),
       name,
       vendor,
       ...(devSandbox ? { devSandbox } : {}),
+      ...(platformProvider ? { platformProvider: true as const } : {}),
     };
     this.store.saveIntegrationInstance(instance);
     return ok(JSON.stringify({ instanceId: instance.id }));

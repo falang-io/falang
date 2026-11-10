@@ -41,6 +41,8 @@ import { RunJournalModule } from '../domains/run-journal/run-journal.module.js';
 import { MessageWait } from '../domains/message-waits/message-wait.entity.js';
 import { MessageWaitsModule } from '../domains/message-waits/message-waits.module.js';
 import { AgentUsage } from '../domains/agent-chat/agent-usage.entity.js';
+import { AiProviderUsage } from '../domains/ai-provider/ai-provider-usage.entity.js';
+import { AiProviderModule } from '../domains/ai-provider/ai-provider.module.js';
 import { Project } from '../domains/projects/projects/project.entity.js';
 import { ProjectMember } from '../domains/projects/members/project-member.entity.js';
 import { Task } from '../domains/tasks/task.entity.js';
@@ -97,6 +99,7 @@ export const buildTestAppImports = (extraModules: TAppImport[] = []) => [
       UserLimits,
       File,
       AgentUsage,
+      AiProviderUsage,
       RunJournalEntry,
       ProjectTemplate,
       AuthToken,
@@ -127,6 +130,7 @@ export const buildTestAppImports = (extraModules: TAppImport[] = []) => [
   IntegrationsModule,
   AdminModule,
   AgentChatModule,
+  AiProviderModule,
   SupportModule,
   FilesModule,
   RunJournalModule,

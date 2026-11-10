@@ -7,7 +7,7 @@ import {
   IMAGE_SIZE_OPTIONS,
   OPENAI_VENDOR,
 } from './constants.js';
-import { fetchOpenAiModelOptions } from './list-models.js';
+import { loadOpenAiModelOptions } from './list-models.js';
 
 /**
  * `call-ai-image`/`call-ai-transcribe` — the two "get a file back from/into the agent" actions
@@ -19,6 +19,9 @@ import { fetchOpenAiModelOptions } from './list-models.js';
 
 /** Both media activities are real I/O against the vendor (image generation, audio upload/transcription) — not a fit for a 10s local activity (ADR 0038 (private) §3). */
 const MEDIA_ACTIVITY_OPTIONS: IActivityOptions = { kind: 'regular', startToCloseTimeout: '10 minutes' };
+
+/** Narrows an own-key instance's `/models` to speech-to-text models (the full list when nothing matches). */
+export const TRANSCRIBE_MODEL_KEYWORDS: readonly string[] = ['whisper', 'transcribe'];
 
 const emitCall = (call: string, resultVariable: string): string =>
   resultVariable ? `const ${resultVariable} = ${call};` : `${call};`;
@@ -34,7 +37,7 @@ const callAiImageAction: IActionDescriptor = {
       label: 'openai:field.model',
       kind: 'select',
       vendor: OPENAI_VENDOR,
-      loadOptions: (fields, ctx) => fetchOpenAiModelOptions(fields, ctx?.egress, ['image', 'dall-e', 'gpt-image']),
+      loadOptions: loadOpenAiModelOptions('image', ['image', 'dall-e', 'gpt-image']),
     },
     { name: 'prompt', label: 'openai:field.prompt', kind: 'template-string' },
     {
@@ -81,12 +84,12 @@ const callAiImageAction: IActionDescriptor = {
     '  if (response.status === 400) {',
     '    const errorText = await response.text();',
     "    if (!errorText.includes('response_format')) {",
-    '      throw new Error(`OpenAI image generation failed: 400 ${errorText}`);',
+    "      throw openaiHttpError('OpenAI image generation', 400, errorText);",
     '    }',
     '    response = await post(requestBody(false));',
     '  }',
     '  if (!response.ok) {',
-    '    throw new Error(`OpenAI image generation failed: ${response.status} ${await response.text()}`);',
+    "    throw openaiHttpError('OpenAI image generation', response.status, await response.text());",
     '  }',
     '  const data = (await response.json()) as { data: { b64_json?: string; url?: string }[] };',
     '  const first = data.data[0];',
@@ -117,7 +120,19 @@ const callAiTranscribeAction: IActionDescriptor = {
   fields: [
     { name: 'integration', label: 'openai:field.integration', kind: 'credential-ref', vendor: OPENAI_VENDOR },
     { name: 'file', label: 'openai:field.file', kind: 'expression', expectedType: fileTypeInfo() },
-    { name: 'model', label: 'openai:field.transcribeModel', help: 'openai:help.transcribeModel', kind: 'text' },
+    // A select since ADR 0081 (private) phase 4 (was `text`): the stored value stays a plain string either way, so older
+    // nodes keep their value (shown even when it is not among the options), and empty still means `whisper-1`.
+    {
+      name: 'model',
+      label: 'openai:field.transcribeModel',
+      help: 'openai:help.transcribeModel',
+      kind: 'select',
+      vendor: OPENAI_VENDOR,
+      loadOptions: loadOpenAiModelOptions('transcribe', TRANSCRIBE_MODEL_KEYWORDS),
+      agentNotes:
+        'The speech-to-text model id, e.g. "whisper-1" or "gpt-4o-mini-transcribe"; empty means "whisper-1". On an ' +
+        "instance with platformProvider it must be one of the built-in provider's transcription models.",
+    },
     { name: 'language', label: 'openai:field.language', help: 'openai:help.language', kind: 'text' },
     { name: 'resultVariable', label: 'openai:field.resultVariable', kind: 'new-variable' },
   ],
@@ -154,7 +169,7 @@ const callAiTranscribeAction: IActionDescriptor = {
     '    body: formData,',
     '  });',
     '  if (!response.ok) {',
-    '    throw new Error(`OpenAI transcription failed: ${response.status} ${await response.text()}`);',
+    "    throw openaiHttpError('OpenAI transcription', response.status, await response.text());",
     '  }',
     '  const data = (await response.json()) as { text: string };',
     '  return data.text;',

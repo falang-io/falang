@@ -118,6 +118,7 @@ import { TasksStore } from './tasks-store.js';
 import { TemporalDebugAdapter } from './temporal-debug-adapter.js';
 import { buildTriggerFunctionDocument } from './trigger-function-document.js';
 import { SandboxBotsStore } from './sandbox-bots-store.js';
+import { AiProviderStore, type IBuiltInAiProviderInfo } from './ai-provider/ai-provider-store.js';
 import { VendorDataStore } from './vendor-data-store.js';
 import { resolveServerActivity, type TServerActivity } from './server-activity.js';
 import { buildReadOnlySchemeForDiff as buildReadOnlySchemeForDiffImpl } from './versioning/build-read-only-scheme-for-diff.js';
@@ -244,6 +245,8 @@ export class WorkflowStore implements IWorkflowAgentStore {
   private readonly registeredTableIds = new Set<string>();
   /** The deployment's sandbox (test) bot platforms, loaded lazily by the integrations editor (ADR 0073 (private)). */
   readonly sandboxBots = new SandboxBotsStore();
+  /** The deployment's built-in AI provider (`GET /ai-provider`, ADR 0081 (private)) — loaded at construction, never for a guest. */
+  readonly aiProvider = new AiProviderStore();
   /**
    * Which non-document main-content view is showing, if any — `'files'` for the project-wide Files tab
    * (ADR 0038 (private) §7), `'tasks'` for the Tasks view (ADR 0040 (private) §2), both siblings of
@@ -308,6 +311,12 @@ export class WorkflowStore implements IWorkflowAgentStore {
     // closure to read it here, even though it's still empty until `ProjectSync`'s first load resolves.
     this.scheduleStatus = new ScheduleStatusStore(projectId, () => !this.isGuest && this.hasScheduleTrigger());
     this.container.register(TOKEN_SCHEDULE_STATUS, { useValue: this.scheduleStatus });
+    // A guest has no account: `GET /ai-provider` would 401.
+    if (!this.isGuest) {
+      this.aiProvider.ensureLoaded().catch(() => {
+        // never rejects
+      });
+    }
     // Tasks are always the viewer's own (`GET /tasks` is owner-scoped) — nothing to show read-only.
     if (!this.readOnly && !this.isGuest) {
       this.tasks.load({ status: 'open', projectId });
@@ -905,6 +914,10 @@ export class WorkflowStore implements IWorkflowAgentStore {
 
   getSandboxVendors(): readonly string[] {
     return this.sandboxBots.platforms.map((platform) => platform.vendor);
+  }
+
+  getBuiltInAiProvider(): IBuiltInAiProviderInfo | null {
+    return this.aiProvider.info;
   }
 
   @action saveIntegrationInstance(instance: IIntegrationInstance): void {

@@ -5,6 +5,7 @@ import {
   type IIntegrationInstance,
   type IIntegrationsDocumentData,
   type IWorkflowIntegration,
+  supportsBuiltInProvider,
 } from '@falang/workflow-integrations-common';
 import { BadRequestException } from '@nestjs/common';
 import { getDisabledVendors } from './optional-vendors.js';
@@ -97,6 +98,28 @@ const encodeSecretValue = (incoming: string, previousEncrypted: string, encrypti
 };
 
 /**
+ * `platformProvider` (ADR 0081 (private)) is valid only as `true` on a vendor that declares `builtInProvider`; `false`
+ * is dropped (the flag is either `true` or absent), anything else is a 400. A vendor missing from the catalog never
+ * supports it (every such vendor is static).
+ */
+const normalizePlatformProvider = (
+  instance: IIntegrationInstance,
+  integration: IWorkflowIntegration | undefined,
+): IIntegrationInstance => {
+  if (!Object.hasOwn(instance, 'platformProvider')) return instance;
+  const raw: unknown = (instance as { platformProvider?: unknown }).platformProvider;
+  const { platformProvider: _dropped, ...rest } = instance;
+  if (raw === false || raw === null) return rest;
+  if (raw !== true) throw new BadRequestException(`Instance "${instance.id}": platformProvider must be a boolean`);
+  if (!integration || !supportsBuiltInProvider(integration)) {
+    throw new BadRequestException(
+      `Instance "${instance.id}": integration "${instance.vendor}" cannot use the built-in AI provider`,
+    );
+  }
+  return { ...rest, platformProvider: true };
+};
+
+/**
  * Called before persisting an `integrations` document (`DocumentsService.create`/`update`):
  * encrypts every `secret`-kind field's `dev`/`prod` values. A value equal to `SECRET_MASK` means the
  * client echoed back the mask unchanged — the previously stored (encrypted) value is kept instead of
@@ -108,8 +131,9 @@ export const encodeIntegrationsDataForWrite = (
   integrations: readonly IWorkflowIntegration[],
   encryptionKey: Buffer,
 ): IIntegrationsDocumentData => ({
-  instances: incoming.instances.map((instance) => {
-    const integration = findIntegration(integrations, instance.vendor);
+  instances: incoming.instances.map((incomingInstance) => {
+    const integration = findIntegration(integrations, incomingInstance.vendor);
+    const instance = normalizePlatformProvider(incomingInstance, integration);
     if (!integration) {
       if (getDisabledVendors().includes(instance.vendor)) {
         throw new BadRequestException(`Integration "${instance.vendor}" is disabled on this instance`);

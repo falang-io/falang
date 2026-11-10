@@ -25,7 +25,7 @@ interface IOpenAiChatMessage {
   readonly tool_call_id?: string;
 }
 
-interface IOpenAiUsage {
+export interface IOpenAiUsage {
   readonly prompt_tokens?: number;
   readonly completion_tokens?: number;
   readonly total_tokens?: number;
@@ -55,8 +55,11 @@ const toCachedPromptTokens = (raw: IOpenAiUsage, promptTokens: number): number |
   return Math.min(Math.max(reported, 0), promptTokens);
 };
 
-/** The vendor's `usage` object, or `null` when it is absent or not numeric (some OpenAI-compatible vendors omit it). */
-const toUsage = (raw: IOpenAiUsage | undefined): IAgentChatUsage | null => {
+/**
+ * The vendor's `usage` object, or `null` when it is absent or not numeric (some OpenAI-compatible vendors omit it).
+ * Also used by the built-in AI provider relay (ADR 0081 (private)).
+ */
+export const parseOpenAiUsage = (raw: IOpenAiUsage | undefined): IAgentChatUsage | null => {
   if (!raw || typeof raw !== 'object') return null;
   const promptTokens = Number(raw.prompt_tokens);
   const completionTokens = Number(raw.completion_tokens);
@@ -193,6 +196,6 @@ export const callOpenAiChat = async (params: ICallOpenAiChatParams): Promise<IAg
   )) as IOpenAiChatCompletionResponse;
   const message = data.choices[0]?.message;
   const toolCalls: IAgentChatToolCall[] = (message?.tool_calls ?? []).map((call) => toToolCall(call));
-  const usage = toUsage(data.usage);
+  const usage = parseOpenAiUsage(data.usage);
   return { text: message?.content ?? '', toolCalls, ...(usage ? { usage } : {}) };
 };

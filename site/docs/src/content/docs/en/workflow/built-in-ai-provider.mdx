@@ -1,0 +1,89 @@
+---
+title: Built-in AI provider
+description: Using AI nodes without an API key of your own — how an administrator sets up the built-in provider and its models, and how a user switches an OpenAI integration to it
+head:
+  - tag: meta
+    attrs:
+      name: keywords
+      content: 'built-in ai provider, openai, api key, models, call ai, ai choice, image generation, transcription, administration, workflow'
+---
+
+<p>
+  The OpenAI integration normally needs your own endpoint and API key. If the administrator of your installation has
+  configured a <b>built-in AI provider</b>, an OpenAI integration can use it instead: you turn one switch on and enter
+  no endpoint or key at all. Nodes, compiled scenarios and the run journal stay exactly as they are — only the place
+  the request is sent to changes.
+</p>
+
+#### For a user
+
+<ol>
+  <li>
+    Open <b>Integrations</b>, add (or edit) an <b>OpenAI</b> integration and turn on the <b>Built-in provider</b>{' '}
+    switch. The endpoint and API key fields disappear; they are not needed for dev or for prod.
+  </li>
+  <li>
+    Use the integration in any OpenAI node as usual — <b>Call AI (text)</b>, <b>Ask AI (choice)</b>,{' '}
+    <b>Call AI (image generation)</b> and <b>Call AI (transcribe audio)</b>. The model list of each node shows the models of that kind the administrator made
+    available: chat models for text and choice, image models for image generation, speech-to-text models for
+    transcription.
+  </li>
+</ol>
+
+<p>
+  Turning the switch off brings the endpoint and key fields back with whatever you had entered before, so switching
+  between your own key and the built-in provider is one click. The in-app AI agent knows about the provider too: when
+  you ask for an AI feature without giving a key, it creates the integration with the built-in provider.
+</p>
+
+#### Good to know
+
+<ul>
+  <li>
+    A node can only use a kind of model the administrator offers: if the provider lists no image models, for example,
+    the image node has nothing to pick and needs an integration with your own key.
+  </li>
+  <li>
+    Streaming answers are not available through the built-in provider (calls must report their usage); the nodes never
+    stream anyway.
+  </li>
+  <li>
+    Only the models the administrator listed can be used. If a model is removed from the list later, the node still
+    compiles, but its call fails at run time and the error shows up in the run journal.
+  </li>
+  <li>
+    The setting travels with the project: an exported project keeps it (it carries no secret). On an installation
+    without a built-in provider the integration shows a warning and its calls fail until you switch back to your own
+    key.
+  </li>
+  <li>
+    The calls are made by the server under the administrator's key; your scenario never sees that key. On hosted
+    deployments calls may be charged to the project owner's balance.
+  </li>
+</ul>
+
+#### For an administrator
+
+<p>
+  The provider is configured on the <b>Built-in provider</b> page of the admin app:
+</p>
+
+<ul>
+  <li>
+    <b>Base URL</b> and <b>API key</b> of any OpenAI-compatible endpoint (OpenAI itself, a gateway such as OpenRouter,
+    a local server). The key is stored encrypted and never shown again; leave the field empty to keep it.
+  </li>
+  <li>
+    <b>Models</b> — the only models users can pick. Each has an id (as the provider expects it), an optional label
+    shown to users, and a kind: <b>Chat</b> (text and choice actions), <b>Image</b> (image generation, e.g.{' '}
+    <code>gpt-image-1</code>) or <b>Transcription</b> (speech to text, e.g. <code>whisper-1</code>,{' '}
+    <code>gpt-4o-mini-transcribe</code>). <b>Load from provider</b> reads the provider's own model list so you can pick ids instead of
+    typing them.
+  </li>
+</ul>
+
+<p>
+  The provider counts as configured once the base URL, the key and at least one chat model are saved; only then do
+  users see the switch. Requests go through the <a href="../integration-proxy/">egress proxy</a> when it is set up
+  for the OpenAI integration. <b>Reset</b> removes the whole configuration.
+</p>

@@ -42,7 +42,17 @@ export interface IIntegrationInstance {
    * affects prod.
    */
   readonly devSandbox?: boolean;
+  /**
+   * Calls go through the platform's built-in AI provider instead of this instance's own endpoint/key (ADR 0081
+   * (private)) — valid only for a vendor with `IWorkflowIntegration.builtInProvider`; its credential fields may then
+   * be empty (dev and prod). Carries no secret, so it is exported like any other field.
+   */
+  readonly platformProvider?: true;
 }
+
+/** Whether `integration` accepts `IIntegrationInstance.platformProvider` (ADR 0081 (private)). */
+export const supportsBuiltInProvider = (integration: Pick<IWorkflowIntegration, 'builtInProvider'>): boolean =>
+  integration.builtInProvider === true;
 
 export interface IIntegrationsDocumentData {
   readonly instances: readonly IIntegrationInstance[];
@@ -57,6 +67,8 @@ const buildInstanceSchema = (integration: IWorkflowIntegration): zod.ZodType<IIn
     name: zod.string(),
     fields: zod.object(shape),
     devSandbox: zod.boolean().optional(),
+    // Only a vendor that declares `builtInProvider` may carry the flag; anywhere else it fails validation.
+    platformProvider: supportsBuiltInProvider(integration) ? zod.literal(true).optional() : zod.never().optional(),
   });
 };
 

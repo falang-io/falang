@@ -124,8 +124,9 @@ describe('openai mock', () => {
       headers: { 'Content-Type': 'application/json', Authorization: 'Bearer key-8' },
       body: JSON.stringify({ model: 'mock-image-model', prompt: 'a cat', size: '1024x1024' }),
     });
-    const body = (await response.json()) as { data: { b64_json: string }[] };
+    const body = (await response.json()) as { data: { b64_json: string }[]; usage: { total_tokens: number } };
     expect(body.data[0].b64_json).toBeTruthy();
+    expect(body.usage.total_tokens).toBe(1068);
     expect(Buffer.from(body.data[0].b64_json, 'base64').length).toBeGreaterThan(0);
 
     const requests = await getOpenAiRequests(server.url, 'key-8');
@@ -142,8 +143,9 @@ describe('openai mock', () => {
       headers: { Authorization: 'Bearer key-9' },
       body: form,
     });
-    const body = (await response.json()) as { text: string };
+    const body = (await response.json()) as { text: string; usage: unknown };
     expect(body.text).toBe('transcribed: voice.mp3');
+    expect(body.usage).toEqual({ seconds: 3, type: 'duration' });
 
     const requests = await getOpenAiRequests(server.url, 'key-9');
     expect(requests).toEqual([
@@ -151,8 +153,24 @@ describe('openai mock', () => {
         kind: 'transcription',
         contentType: expect.stringContaining('multipart/form-data'),
         filename: 'voice.mp3',
+        model: 'whisper-1',
         size: expect.any(Number),
       },
     ]);
+
+    const tokenForm = new FormData();
+    tokenForm.append('model', 'gpt-4o-mini-transcribe');
+    tokenForm.append('file', new Blob([new Uint8Array([1])], { type: 'audio/ogg' }), 'v.ogg');
+    const tokenReply = await fetch(`${server.url}/openai/audio/transcriptions`, {
+      method: 'POST',
+      headers: { Authorization: 'Bearer key-9' },
+      body: tokenForm,
+    });
+    expect(((await tokenReply.json()) as { usage: unknown }).usage).toEqual({
+      input_tokens: 40,
+      output_tokens: 6,
+      total_tokens: 46,
+      type: 'tokens',
+    });
   });
 });

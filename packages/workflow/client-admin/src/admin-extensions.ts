@@ -21,6 +21,11 @@ export interface IAdminExtensions {
    * `{{brand}}` texts. Absent = the community brand.
    */
   brand?: IClientBrand;
+  /**
+   * The built-in AI provider's name per UI language (the main client's `IClientExtensions.aiProviderName`): the admin
+   * page's title and menu entry. Absent = "Built-in provider". ADR 0081 (private).
+   */
+  aiProviderName?: Readonly<Record<string, string>>;
   /** The interface language before sign-in (the main client's `IClientExtensions.defaultLanguage`). */
   defaultLanguage?: string;
   pages?: IAdminExtensionPage[];

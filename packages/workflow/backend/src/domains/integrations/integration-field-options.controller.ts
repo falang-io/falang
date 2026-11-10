@@ -7,11 +7,13 @@ import {
   INTEGRATIONS_DOCUMENT_TYPE,
   type IFieldSelectOption,
   type IIntegrationsDocumentData,
+  type IPlatformModel,
 } from '@falang/workflow-integrations-common';
 import type { Repository } from 'typeorm';
 import { getBackendEgress } from '../../net/egress-guard.js';
 import { CurrentUser } from '../auth/auth/current-user.decorator.js';
 import type { IJwtPayloadUser } from '../auth/auth/jwt.strategy.js';
+import { AiProviderSettingsService } from '../admin/app-settings/ai-provider-settings.service.js';
 import { Document } from '../projects/documents/document.entity.js';
 import { ProjectsService } from '../projects/projects/projects.service.js';
 import { resolveFieldValue } from './credentials-codec.js';
@@ -33,17 +35,20 @@ export class IntegrationFieldOptionsController {
   private readonly projectsService: ProjectsService;
   private readonly config: ConfigService;
   private readonly vendorData: IntegrationVendorDataService;
+  private readonly aiProvider: AiProviderSettingsService;
 
   constructor(
     @InjectRepository(Document) documents: Repository<Document>,
     @Inject(ProjectsService) projectsService: ProjectsService,
     @Inject(ConfigService) config: ConfigService,
     @Inject(IntegrationVendorDataService) vendorData: IntegrationVendorDataService,
+    @Inject(AiProviderSettingsService) aiProvider: AiProviderSettingsService,
   ) {
     this.documents = documents;
     this.projectsService = projectsService;
     this.config = config;
     this.vendorData = vendorData;
+    this.aiProvider = aiProvider;
   }
 
   @Get(':credentialId/actions/:actionName/fields/:fieldName/options')
@@ -81,11 +86,29 @@ export class IntegrationFieldOptionsController {
     // `ctx.vendorData` backs `sql-common`'s `table` field (ADR 0039 (private) §6's `loadOptions`
     // extension) — options come from a previously-synced schema rather than a fresh live round trip.
     const vendorData = await this.vendorData.getAll(projectId, credentialId);
+    // An instance on the built-in AI provider (ADR 0081 (private)) lists the admin's models, never its own endpoint.
+    const platformModels =
+      integration.builtInProvider && instance.platformProvider === true ? await this.loadPlatformModels() : null;
     const loadOptions = field.loadOptions.bind(field);
     return [
       ...(await runWithEgressVendor(instance.vendor, () =>
-        loadOptions(resolvedFields, { instance, vendorData, egress: getBackendEgress() }),
+        loadOptions(resolvedFields, {
+          instance,
+          vendorData,
+          egress: getBackendEgress(),
+          ...(platformModels ? { platformModels } : {}),
+        }),
       )),
     ];
+  }
+
+  /** The built-in provider's models (`label` defaulted to `id`); empty while the provider is not configured. */
+  private async loadPlatformModels(): Promise<IPlatformModel[]> {
+    const resolved = await this.aiProvider.resolve();
+    return (resolved?.models ?? []).map((model) => ({
+      id: model.id,
+      kind: model.kind,
+      label: model.label ?? model.id,
+    }));
   }
 }
