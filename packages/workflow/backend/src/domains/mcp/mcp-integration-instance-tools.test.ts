@@ -51,7 +51,12 @@ describe('buildMcpIntegrationInstance (ADR 0081)', () => {
     ).toMatchObject({ ok: false, error: expect.stringMatching(/not configured/) });
 
     expect(
-      buildMcpIntegrationInstance({ vendor: 'telegram', name: 'Bot', platformProvider: true }, telegram, true, createId),
+      buildMcpIntegrationInstance(
+        { vendor: 'telegram', name: 'Bot', platformProvider: true },
+        telegram,
+        true,
+        createId,
+      ),
     ).toMatchObject({ ok: false, error: expect.stringMatching(/cannot use the built-in AI provider/) });
   });
 
@@ -63,7 +68,8 @@ describe('buildMcpIntegrationInstance (ADR 0081)', () => {
       createId,
     );
     expect(built.ok && 'platformProvider' in built.instance).toBe(false);
-    expect(buildMcpIntegrationInstance({ vendor: 'nope', name: 'X' }, undefined, true, createId)).toMatchObject({
+    const unknownVendor = [openai, telegram].find((item) => item.vendor === 'nope');
+    expect(buildMcpIntegrationInstance({ vendor: 'nope', name: 'X' }, unknownVendor, true, createId)).toMatchObject({
       ok: false,
       error: expect.stringMatching(/Unknown vendor/),
     });
