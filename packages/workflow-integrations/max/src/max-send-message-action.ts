@@ -1,14 +1,11 @@
-import type { TVariableInfo } from '@falang/typescript-dto';
 import {
   emitMessageSend,
   MESSAGE_SEND_RESULT_TS_TYPE,
   type IActionDescriptor,
 } from '@falang/workflow-integrations-common';
 import { MAX_SEND_MESSAGE_NAME, MAX_VENDOR } from './constants.js';
-import { MAX_RECIPIENT_FIELD, emitMaxRecipient } from './max-recipient.js';
+import { MAX_RECIPIENT_FIELD, MAX_RECIPIENT_ID_FIELD, emitMaxRecipient } from './max-recipient.js';
 import { MAX_SEND_RESULT_FIELD, MAX_SEND_RESULT_TYPE } from './max-send-result.js';
-
-const anyNumber: TVariableInfo = { type: 'number', numberType: { type: 'any' } };
 
 /** "Send message": a plain text message to a chat or a user; reports `{ success, disabled }` (see `max-send-result.ts`). */
 export const maxSendMessageAction: IActionDescriptor = {
@@ -17,7 +14,7 @@ export const maxSendMessageAction: IActionDescriptor = {
   fields: [
     { name: 'credentialId', label: 'max:field.bot', kind: 'credential-ref', vendor: MAX_VENDOR },
     MAX_RECIPIENT_FIELD,
-    { name: 'chatId', label: 'max:field.recipientId', kind: 'expression', expectedType: anyNumber },
+    MAX_RECIPIENT_ID_FIELD,
     { name: 'text', label: 'max:field.text', kind: 'template-string' },
     MAX_SEND_RESULT_FIELD,
   ],

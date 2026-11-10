@@ -23,6 +23,15 @@ export const MAX_RECIPIENT_FIELD: IFieldConfig = {
     'Always set it. "user": `chatId` is a user id (`message.from.id`, `event.user.id`, a user id stored in a table) — MAX sends to that user\'s dialog with the bot. "chat": `chatId` is a chat id (`message.chat.id`, a group or channel id); an omitted value means "chat".',
 };
 
+/** The id the `recipient` field addresses — a chat id or a user id. */
+export const MAX_RECIPIENT_ID_FIELD: IFieldConfig = {
+  name: 'chatId',
+  label: 'max:field.recipientId',
+  help: 'max:help.recipientId',
+  kind: 'expression',
+  expectedType: { type: 'number', numberType: { type: 'any' } },
+};
+
 /**
  * The emitted argument for the `recipient` field. `resolveFieldExpression` JSON-stringifies a `select` value, an unset
  * one arrives as `'""'`, and a node saved before the field existed has no key at all — both mean `'chat'`.

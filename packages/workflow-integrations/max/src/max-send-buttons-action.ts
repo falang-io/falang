@@ -1,4 +1,3 @@
-import type { TVariableInfo } from '@falang/typescript-dto';
 import {
   buildPrepareButtonsActivityCode,
   MESSAGE_BUTTON_COMMAND_PREFIX,
@@ -9,9 +8,7 @@ import {
 } from '@falang/workflow-integrations-common';
 import { MAX_SEND_BUTTONS_NAME, MAX_VENDOR } from './constants.js';
 import { MAX_SEND_RESULT_FIELD, MAX_SEND_RESULT_TYPE } from './max-send-result.js';
-import { MAX_RECIPIENT_FIELD, emitMaxRecipient } from './max-recipient.js';
-
-const anyNumber: TVariableInfo = { type: 'number', numberType: { type: 'any' } };
+import { MAX_RECIPIENT_FIELD, MAX_RECIPIENT_ID_FIELD, emitMaxRecipient } from './max-recipient.js';
 
 /** MAX's limit on a callback button's `payload`, in characters — the command prefix counts too. */
 const CALLBACK_PAYLOAD_MAX_LENGTH = 1024;
@@ -31,7 +28,7 @@ export const maxSendButtonsAction: IActionDescriptor = {
   fields: [
     { name: 'credentialId', label: 'max:field.bot', kind: 'credential-ref', vendor: MAX_VENDOR },
     MAX_RECIPIENT_FIELD,
-    { name: 'chatId', label: 'max:field.recipientId', kind: 'expression', expectedType: anyNumber, fieldSize: 'small' },
+    { ...MAX_RECIPIENT_ID_FIELD, fieldSize: 'small' },
     { name: 'text', label: 'max:field.text', kind: 'template-string' },
     { name: 'buttons', label: 'max:field.buttons', help: 'max:help.buttons', kind: 'buttons', defaultValue: '[]' },
     MAX_SEND_RESULT_FIELD,

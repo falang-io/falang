@@ -28,7 +28,7 @@
       "buttons": "Buttons",
       "fromUser": "From user",
       "recipient": "Send to",
-      "recipientId": "Chat / user ID",
+      "recipientId": "ID",
       "resultVariable": "Result variable"
     },
     "action": {
@@ -66,6 +66,7 @@
       "fromUser": "Id of the user to wait for, e.g. `message.from.id`. Empty — anyone in the chat.",
       "waitTimeout": "How long to wait for the message: `10m`, `2h`, `1d`. Required.\nIf a message arrives, the “message” branch runs with the reply as `reply`; otherwise the “timeout” branch.\nA command that has an “On command” trigger goes to that trigger and does not end the wait.",
       "recipient": "**Chat** — the field below is a chat ID (`message.chat.id`).\n**User** — a user ID (`message.from.id`); MAX finds the user's dialog with the bot.\nIn MAX a private dialog has its own ID, different from the user's ID.",
+      "recipientId": "The ID of the chat or of the user — whichever **Send to** says: `message.chat.id` for a chat, `message.from.id` for a user.",
       "sendResult": "Optional. Gets `{ success, disabled }`: `disabled` is `true` when the bot can no longer write to this chat (the user blocked or stopped the bot) — then `success` is `false` and the workflow goes on instead of failing. Other errors still stop the node."
     },
     "recipient": {

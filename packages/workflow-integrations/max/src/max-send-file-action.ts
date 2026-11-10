@@ -1,4 +1,3 @@
-import type { TVariableInfo } from '@falang/typescript-dto';
 import {
   type IActionDescriptor,
   emitMessageSend,
@@ -7,9 +6,7 @@ import {
 import { fileTypeInfo } from '@falang/workflow-integrations-files';
 import { MAX_SEND_FILE_NAME, MAX_VENDOR } from './constants.js';
 import { MAX_SEND_RESULT_FIELD, MAX_SEND_RESULT_TYPE } from './max-send-result.js';
-import { MAX_RECIPIENT_FIELD, emitMaxRecipient } from './max-recipient.js';
-
-const anyNumber: TVariableInfo = { type: 'number', numberType: { type: 'any' } };
+import { MAX_RECIPIENT_FIELD, MAX_RECIPIENT_ID_FIELD, emitMaxRecipient } from './max-recipient.js';
 
 /** Inlined `IFileRef` shape — `activitySignature` text lands in `workflows.ts`, which never imports the files vendor (see Telegram's `telegram-send-file-action.ts`). */
 const FILE_REF_TYPE = '{ id: string; name: string; size: number; mime: string; publicUrl?: string }';
@@ -33,7 +30,7 @@ export const maxSendFileAction: IActionDescriptor = {
   fields: [
     { name: 'credentialId', label: 'max:field.bot', kind: 'credential-ref', vendor: MAX_VENDOR },
     MAX_RECIPIENT_FIELD,
-    { name: 'chatId', label: 'max:field.recipientId', kind: 'expression', expectedType: anyNumber },
+    MAX_RECIPIENT_ID_FIELD,
     { name: 'file', label: 'max:field.file', kind: 'expression', expectedType: fileTypeInfo() },
     { name: 'as', label: 'max:field.sendFileAs', kind: 'select', options: AS_OPTIONS },
     { name: 'caption', label: 'max:field.caption', kind: 'template-string' },

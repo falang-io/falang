@@ -33,7 +33,7 @@ import { maxSendFileAction } from './max-send-file-action.js';
 import { maxSendMessageAction } from './max-send-message-action.js';
 import { MAX_SHARED_ACTIVITY_CODE } from './max-shared-activity-code.js';
 import { maxStructTypes } from './max-struct-types.js';
-import { MAX_RECIPIENT_FIELD } from './max-recipient.js';
+import { MAX_RECIPIENT_FIELD, MAX_RECIPIENT_ID_FIELD } from './max-recipient.js';
 
 export * from './constants.js';
 export { maxStructTypes } from './max-struct-types.js';
@@ -177,13 +177,7 @@ export const maxIntegration: IWorkflowIntegration = {
       contextFields: [
         { name: 'credentialId', label: 'max:field.bot', kind: 'credential-ref', vendor: MAX_VENDOR },
         MAX_RECIPIENT_FIELD,
-        {
-          name: 'chatId',
-          label: 'max:field.recipientId',
-          kind: 'expression',
-          expectedType: anyNumber,
-          fieldSize: 'small',
-        },
+        { ...MAX_RECIPIENT_ID_FIELD, fieldSize: 'small' },
       ],
       questionFields: [
         { name: 'question', label: 'max:field.question', kind: 'template-string' },
