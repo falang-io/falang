@@ -1,6 +1,7 @@
 import { Module } from '@nestjs/common';
 import { OAUTH2_ACCESS_TOKEN_PORT } from '@falang/workflow-gateway';
 import { TypeOrmModule } from '@nestjs/typeorm';
+import { AppSettingsModule } from '../admin/app-settings/app-settings.module.js';
 import { OAuthCredentialsModule } from '../admin/oauth-credentials/oauth-credentials.module.js';
 import { ProjectTokenModule } from '../internal-auth/project-token.module.js';
 import { Document } from '../projects/documents/document.entity.js';
@@ -29,6 +30,7 @@ import { SyncVendorDataController } from './vendor-data/sync-vendor-data.control
     OAuthCredentialsModule,
     IntegrationVendorDataModule,
     SandboxBotsModule,
+    AppSettingsModule,
   ],
   controllers: [
     InternalCredentialsController,

@@ -7,7 +7,7 @@ import {
   IMAGE_SIZE_OPTIONS,
   OPENAI_VENDOR,
 } from './constants.js';
-import { fetchOpenAiModelOptions } from './list-models.js';
+import { loadOpenAiModelOptions } from './list-models.js';
 
 /**
  * `call-ai-image`/`call-ai-transcribe` — the two "get a file back from/into the agent" actions
@@ -34,7 +34,7 @@ const callAiImageAction: IActionDescriptor = {
       label: 'openai:field.model',
       kind: 'select',
       vendor: OPENAI_VENDOR,
-      loadOptions: (fields, ctx) => fetchOpenAiModelOptions(fields, ctx?.egress, ['image', 'dall-e', 'gpt-image']),
+      loadOptions: loadOpenAiModelOptions('image', ['image', 'dall-e', 'gpt-image']),
     },
     { name: 'prompt', label: 'openai:field.prompt', kind: 'template-string' },
     {
@@ -81,12 +81,12 @@ const callAiImageAction: IActionDescriptor = {
     '  if (response.status === 400) {',
     '    const errorText = await response.text();',
     "    if (!errorText.includes('response_format')) {",
-    '      throw new Error(`OpenAI image generation failed: 400 ${errorText}`);',
+    "      throw openaiHttpError('OpenAI image generation', 400, errorText);",
     '    }',
     '    response = await post(requestBody(false));',
     '  }',
     '  if (!response.ok) {',
-    '    throw new Error(`OpenAI image generation failed: ${response.status} ${await response.text()}`);',
+    "    throw openaiHttpError('OpenAI image generation', response.status, await response.text());",
     '  }',
     '  const data = (await response.json()) as { data: { b64_json?: string; url?: string }[] };',
     '  const first = data.data[0];',
@@ -154,7 +154,7 @@ const callAiTranscribeAction: IActionDescriptor = {
     '    body: formData,',
     '  });',
     '  if (!response.ok) {',
-    '    throw new Error(`OpenAI transcription failed: ${response.status} ${await response.text()}`);',
+    "    throw openaiHttpError('OpenAI transcription', response.status, await response.text());",
     '  }',
     '  const data = (await response.json()) as { text: string };',
     '  return data.text;',

@@ -13,6 +13,22 @@ export interface IFieldOptionsContext {
   readonly vendorData: Readonly<Record<string, Record<string, unknown>>>;
   /** Set by the backend; a `loadOptions` that connects somewhere tenant-controlled must use it (see `IBackendEgress`). */
   readonly egress?: IBackendEgress;
+  /**
+   * The built-in AI provider's model list (ADR 0081 (private)), set by the backend only for an instance with
+   * `platformProvider` of a vendor with `builtInProvider` — empty when the provider is not configured. A `loadOptions`
+   * that sees it answers from it (entries of its field's kind) instead of calling the instance's own endpoint.
+   */
+  readonly platformModels?: readonly IPlatformModel[];
+}
+
+/** Which OpenAI-compatible endpoint a built-in provider model serves (ADR 0081 (private)). */
+export type TPlatformModelKind = 'chat' | 'image' | 'transcribe';
+
+/** One model of the built-in AI provider, as the admin listed it (`label` falls back to `id`). */
+export interface IPlatformModel {
+  readonly id: string;
+  readonly label: string;
+  readonly kind: TPlatformModelKind;
 }
 
 /**

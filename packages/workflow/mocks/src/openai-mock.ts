@@ -85,7 +85,12 @@ export const createOpenAiMockRouter = (): Router => {
     }));
     const message = { content: queued.content, role: 'assistant', ...(toolCalls ? { tool_calls: toolCalls } : {}) };
     // A plausible `usage` object so the in-app agent's token accounting is exercised by e2e turns.
-    res.json({ choices: [{ message }], usage: { completion_tokens: 7, prompt_tokens: 21, total_tokens: 28 } });
+    res.json({
+      choices: [{ message }],
+      // Echoed like the real API does (`model` of the answer), so a caller can read which model answered.
+      ...(typeof req.body.model === 'string' ? { model: req.body.model } : {}),
+      usage: { completion_tokens: 7, prompt_tokens: 21, total_tokens: 28 },
+    });
   });
 
   router.post('/openai/images/generations', (req: Request, res: Response) => {

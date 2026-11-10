@@ -15,6 +15,8 @@ import { Public } from '../auth/auth/public.decorator.js';
 import { ProjectTokenGuard } from '../internal-auth/project-token.guard.js';
 import { ProjectTokenService } from '../internal-auth/project-token.service.js';
 import { SandboxBotsService } from '../sandbox-bots/sandbox-bots.service.js';
+import { AiProviderSettingsService } from '../admin/app-settings/ai-provider-settings.service.js';
+import { aiProviderRelayBaseUrl } from '../ai-provider/ai-provider-relay-url.js';
 import { Document } from '../projects/documents/document.entity.js';
 import { ActivepiecesCatalogService } from './activepieces-catalog.service.js';
 import { resolveFieldValue } from './credentials-codec.js';
@@ -28,6 +30,10 @@ import { ResolveCredentialDto } from './dto/resolve-credential.dto.js';
 import { applyOAuth2TokensToInstance } from './oauth2-tokens-codec.js';
 import { OAuth2AccessTokenService } from './oauth2-access-token.service.js';
 import { REGISTERED_INTEGRATIONS } from './registered-integrations.js';
+
+/** The OpenAI-shaped credential fields a built-in provider instance answers with the relay (ADR 0081 (private)). */
+type TRelayField = 'baseUrl' | 'apiKey';
+const isRelayField = (name: string): name is TRelayField => name === 'baseUrl' || name === 'apiKey';
 
 /**
  * Called by the spawned `runner` process's compiled activities (e.g. `telegram-send-message`'s
@@ -51,6 +57,7 @@ export class InternalCredentialsController {
   private readonly oauth2AccessTokens: OAuth2AccessTokenService;
   private readonly sandboxBots: SandboxBotsService;
   private readonly projectTokens: ProjectTokenService;
+  private readonly aiProvider: AiProviderSettingsService;
 
   constructor(
     @InjectRepository(Document) documents: Repository<Document>,
@@ -59,6 +66,7 @@ export class InternalCredentialsController {
     @Inject(OAuth2AccessTokenService) oauth2AccessTokens: OAuth2AccessTokenService,
     @Inject(SandboxBotsService) sandboxBots: SandboxBotsService,
     @Inject(ProjectTokenService) projectTokens: ProjectTokenService,
+    @Inject(AiProviderSettingsService) aiProvider: AiProviderSettingsService,
   ) {
     this.documents = documents;
     this.config = config;
@@ -66,6 +74,7 @@ export class InternalCredentialsController {
     this.oauth2AccessTokens = oauth2AccessTokens;
     this.sandboxBots = sandboxBots;
     this.projectTokens = projectTokens;
+    this.aiProvider = aiProvider;
   }
 
   /**
@@ -103,6 +112,12 @@ export class InternalCredentialsController {
         return this.resolveSandboxRelay(body.vendor, body.projectId);
       }
 
+      // Built-in AI provider (ADR 0081 (private)): the pod gets the backend relay as its endpoint and the project's
+      // internal token as its key — never the platform key. Both environments.
+      if (integration?.builtInProvider && instance.platformProvider === true && isRelayField(field.name)) {
+        return this.resolveAiProviderRelay(field.name, body.projectId, body.env);
+      }
+
       const encryptionKey = requireEncryptionKey(this.config.get<string>('CREDENTIALS_ENCRYPTION_KEY'));
       const value = resolveFieldValue(instance, field, body.env, encryptionKey);
       if (!value)
@@ -125,6 +140,26 @@ export class InternalCredentialsController {
     return {
       value: this.projectTokens.getOrCreateToken(projectId),
       apiBaseUrl: `${internalUrl}/internal/sandbox-bots/${vendor}/${projectId}`,
+    };
+  }
+
+  private async resolveAiProviderRelay(
+    field: TRelayField,
+    projectId: string,
+    env: 'dev' | 'prod',
+  ): Promise<{ value: string }> {
+    const internalUrl = this.config.get<string>('BACKEND_INTERNAL_URL');
+    if (!internalUrl || !(await this.aiProvider.resolve())) {
+      throw new PreconditionFailedException({
+        code: 'ai_provider_not_configured',
+        message: 'The built-in AI provider is not configured on this server',
+      });
+    }
+    return {
+      value:
+        field === 'baseUrl'
+          ? aiProviderRelayBaseUrl(internalUrl, projectId, env)
+          : this.projectTokens.getOrCreateToken(projectId),
     };
   }
 

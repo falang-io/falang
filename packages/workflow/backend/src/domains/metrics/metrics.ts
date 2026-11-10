@@ -76,3 +76,7 @@ export const temporalPermissionDeniedTotal = metricsRegistry.counter(
   'falang_temporal_permission_denied_total',
   'Temporal PERMISSION_DENIED / UNAUTHENTICATED answers.',
 );
+export const aiProviderCallsTotal = metricsRegistry.counter(
+  'falang_ai_provider_calls_total',
+  'Built-in AI provider relay calls (ADR 0081) by result: ok, upstream_error, refused, failed.',
+);
