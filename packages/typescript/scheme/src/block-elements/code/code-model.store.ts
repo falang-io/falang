@@ -4,6 +4,13 @@ import { action, computed, makeObservable, observable } from 'mobx';
 import type { TNumberComputed } from '@falang/scheme';
 import { getMonaco } from '../../monaco/get-monaco.js';
 import { buildModelText, MODULE_MARKER } from '../../field-check/model-text.js';
+import {
+  clampSelection,
+  deletesIntoHidden,
+  extractValue,
+  isModelTextIntact,
+  type IVisibleRange,
+} from './hidden-range-guard.js';
 
 // `setHiddenAreas` is an internal monaco API not present in the public `IStandaloneCodeEditor` typings.
 interface IEditorWithHiddenAreas {
@@ -43,6 +50,8 @@ export class CodeModelStore {
   @observable private _width: TNumberComputed = () => 0;
   editor: editor.IStandaloneCodeEditor | null = null;
   private readonly markersDisposable: monaco.IDisposable;
+  private editorDisposables: monaco.IDisposable[] = [];
+  private repairScheduled = false;
 
   constructor({ id, name, value, hiddenPrefix, hiddenSuffix, allowEmpty }: ICodeModelConstructorParams) {
     this.fileName = `file:///${id}${name ? `-${name}` : ''}.ts`;
@@ -91,6 +100,7 @@ export class CodeModelStore {
   }
 
   dispose(): void {
+    this.disposeEditorListeners();
     this.markersDisposable.dispose();
     this.model.dispose();
     this._width = () => 0;
@@ -114,12 +124,18 @@ export class CodeModelStore {
   }
 
   @action updateValue(): void {
-    const lines = this.model.getValue().split('\n');
-    this.value = lines.slice(this.hiddenLineCount, lines.length - this.hiddenSuffixLineCount).join('\n');
+    const text = this.model.getValue();
+    if (!isModelTextIntact(text, this.hiddenPrefix, this.effectiveHiddenSuffix)) {
+      // An edit reached the hidden prefix/suffix (an import added by a quick fix, a moved or joined line, …):
+      // slicing such text by line counts would shift the hidden ranges onto the user's code and show the hidden
+      // lines. Keep the last good value and rewrite the model from it.
+      this.scheduleRepair();
+      return;
+    }
+    this.value = extractValue(text, this.hiddenPrefix, this.effectiveHiddenSuffix);
     // Any content change — not just ones routed through `setValue`/`setHiddenPrefix` below — can
-    // touch the hidden-prefix/suffix lines too, e.g. monaco's own in-editor undo (Ctrl+Z) restoring
-    // text that was previously replaced by a select-all edit. Reassert the hidden ranges every time
-    // so they can't end up rendered as plain visible text.
+    // make monaco drop the hidden ranges, e.g. its own in-editor undo (Ctrl+Z). Reassert them every
+    // time so they can't end up rendered as plain visible text.
     this.applyHiddenAreas();
   }
 
@@ -129,8 +145,82 @@ export class CodeModelStore {
   }
 
   setEditor(editorInstance: editor.IStandaloneCodeEditor | null): void {
+    this.disposeEditorListeners();
     this.editor = editorInstance;
+    if (editorInstance) {
+      this.editorDisposables = [
+        // Ctrl+A, Ctrl+Home/End, arrows and mouse drags would otherwise select or move into the hidden lines,
+        // and typing over such a selection replaces them.
+        editorInstance.onDidChangeCursorSelection(() => this.clampSelections()),
+        editorInstance.onKeyDown((event) => this.blockBoundaryDelete(event)),
+      ];
+    }
     this.applyHiddenAreas();
+  }
+
+  private disposeEditorListeners(): void {
+    for (const disposable of this.editorDisposables) disposable.dispose();
+    this.editorDisposables = [];
+  }
+
+  /** The visible part of an intact model: from the first line after the prefix to the end of the last line before the suffix. */
+  private getVisibleRange(): IVisibleRange {
+    const lastLine = this.model.getLineCount() - this.hiddenSuffixLineCount;
+    return {
+      start: { lineNumber: this.hiddenLineCount + 1, column: 1 },
+      end: { lineNumber: lastLine, column: this.model.getLineMaxColumn(lastLine) },
+    };
+  }
+
+  private isIntact(): boolean {
+    return isModelTextIntact(this.model.getValue(), this.hiddenPrefix, this.effectiveHiddenSuffix);
+  }
+
+  private clampSelections(): void {
+    const editorInstance = this.editor;
+    if (!editorInstance || !this.isIntact()) return;
+    const selections = editorInstance.getSelections();
+    if (!selections) return;
+    const visible = this.getVisibleRange();
+    let changed = false;
+    const clamped = selections.map((selection) => {
+      const next = clampSelection(selection, visible);
+      if (!next) return selection;
+      changed = true;
+      return new this.monaco.Selection(
+        next.selectionStartLineNumber,
+        next.selectionStartColumn,
+        next.positionLineNumber,
+        next.positionColumn,
+      );
+    });
+    // Re-fires this listener once with selections already inside, so it doesn't loop.
+    if (changed) editorInstance.setSelections(clamped, 'falang-hidden-range');
+  }
+
+  /** Backspace at the start / Delete at the end of the visible text would join it with a hidden line. */
+  private blockBoundaryDelete(event: monaco.IKeyboardEvent): void {
+    const { KeyCode } = this.monaco;
+    const isBackspace = event.keyCode === KeyCode.Backspace;
+    if (!isBackspace && event.keyCode !== KeyCode.Delete) return;
+    const direction = isBackspace ? 'left' : 'right';
+    const selections = this.editor?.getSelections();
+    if (!selections || !this.isIntact()) return;
+    if (!deletesIntoHidden(direction, selections, this.getVisibleRange())) return;
+    event.preventDefault();
+    event.stopPropagation();
+  }
+
+  /** Rewrites a damaged model from the last good value, outside the content-change event that reported it. */
+  private scheduleRepair(): void {
+    if (this.repairScheduled) return;
+    this.repairScheduled = true;
+    queueMicrotask(() => {
+      this.repairScheduled = false;
+      if (this.model.isDisposed() || this.isIntact()) return;
+      this.updateModel();
+      this.clampSelections();
+    });
   }
 
   private applyHiddenAreas(): void {
