@@ -86,6 +86,14 @@ describe('app-sketch ipc-handlers', () => {
   });
 
   const createProject = () => call(IPC.projectCreate, dir, { name: 'Proj', type: 'text' });
+  // projectCreate writes the agent files in the background; wait for that write before removing
+  // `.mcp.json`, otherwise it can land after the removal (seen on CI).
+  const createProjectWithoutMcpJson = async () => {
+    await createProject();
+    const mcpJson = path.join(dir, '.mcp.json');
+    await vi.waitFor(async () => expect(await fs.stat(mcpJson)).toBeTruthy());
+    await fs.rm(mcpJson, { force: true });
+  };
 
   it('projectCreate creates the project, writes agent files and starts the watcher', async () => {
     expect(await createProject()).toMatchObject({ name: 'Proj' });
@@ -93,8 +101,7 @@ describe('app-sketch ipc-handlers', () => {
   });
 
   it('projectOpen: a regular project is opened unconverted, with agent files', async () => {
-    await createProject();
-    await fs.rm(path.join(dir, '.mcp.json'), { force: true });
+    await createProjectWithoutMcpJson();
     const result = await call<{ converted: boolean; manifest: { name: string } }>(IPC.projectOpen, dir);
     expect(result).toMatchObject({ converted: false, manifest: { name: 'Proj' } });
     expect(h.convertOldProject).not.toHaveBeenCalled();
@@ -102,8 +109,7 @@ describe('app-sketch ipc-handlers', () => {
   });
 
   it('projectOpen: an old-format project is converted first and gets no agent files this time', async () => {
-    await createProject();
-    await fs.rm(path.join(dir, '.mcp.json'), { force: true });
+    await createProjectWithoutMcpJson();
     h.isOldFormatProject.mockResolvedValue(true);
     const result = await call<{ converted: boolean }>(IPC.projectOpen, dir);
     expect(result.converted).toBe(true);
