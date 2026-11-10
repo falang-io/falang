@@ -40,3 +40,27 @@ describe('adminApi.createUser', () => {
     expect(JSON.parse(apiRequest.mock.calls[0]?.[1].body)).toEqual({ username: 'bob', email: 'b@x.io' });
   });
 });
+
+describe('adminApi built-in AI provider (ADR 0081)', () => {
+  beforeEach(() => {
+    apiRequest.mockReset();
+    apiRequest.mockResolvedValue({});
+  });
+
+  const models = [{ id: 'gpt-4o-mini', kind: 'chat' as const }];
+
+  it('omits an empty API key so the stored one is kept', async () => {
+    await adminApi.upsertAiProviderSettings({ baseUrl: 'https://p', apiKey: '', models });
+    expect(JSON.parse(apiRequest.mock.calls[0]?.[1].body)).toEqual({ baseUrl: 'https://p', models });
+    await adminApi.upsertAiProviderSettings({ baseUrl: 'https://p', apiKey: 'sk', models });
+    expect(JSON.parse(apiRequest.mock.calls[1]?.[1].body)).toEqual({ apiKey: 'sk', baseUrl: 'https://p', models });
+  });
+
+  it('fetch-models sends only the typed overrides', async () => {
+    await adminApi.fetchAiProviderModels({ baseUrl: '', apiKey: '' });
+    expect(apiRequest.mock.calls[0]?.[0]).toBe('/admin/settings/ai-provider/fetch-models');
+    expect(JSON.parse(apiRequest.mock.calls[0]?.[1].body)).toEqual({});
+    await adminApi.fetchAiProviderModels({ baseUrl: 'https://p', apiKey: 'sk' });
+    expect(JSON.parse(apiRequest.mock.calls[1]?.[1].body)).toEqual({ apiKey: 'sk', baseUrl: 'https://p' });
+  });
+});

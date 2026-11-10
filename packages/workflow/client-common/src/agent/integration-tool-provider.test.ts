@@ -153,6 +153,82 @@ describe('IntegrationToolProvider — devSandbox (platform test bot)', () => {
   });
 });
 
+describe('IntegrationToolProvider — platformProvider (built-in AI provider, ADR 0081)', () => {
+  const PROVIDER = { chatModels: [{ id: 'gpt-4o-mini', label: 'GPT-4o mini' }] };
+  const buildAiStore = (configured: boolean, documents: readonly WorkflowDocument[] = []) => {
+    const saveIntegrationInstance = vi.fn();
+    const store = {
+      documents,
+      getBuiltInAiProvider: () => (configured ? PROVIDER : null),
+      getSandboxVendors: () => [],
+      saveIntegrationInstance,
+    } as unknown as WorkflowStore;
+    return { saveIntegrationInstance, store };
+  };
+  const create = (store: WorkflowStore, extra: Record<string, unknown>) =>
+    new IntegrationToolProvider(store).execute(
+      call('create_integration_instance', { name: 'AI', vendor: 'openai', ...extra }),
+    );
+
+  it('saves the flag with blank endpoint/key when the provider is configured', () => {
+    const { saveIntegrationInstance, store } = buildAiStore(true);
+    expect(create(store, { platformProvider: true }).ok).toBe(true);
+    const saved = saveIntegrationInstance.mock.calls[0][0] as IIntegrationInstance;
+    expect(saved.platformProvider).toBe(true);
+    expect(saved.fields).toEqual({ apiKey: { dev: '', prod: '' }, baseUrl: '' });
+  });
+
+  it('rejects the flag when the provider is not configured, or the store cannot tell', () => {
+    const { saveIntegrationInstance, store } = buildAiStore(false);
+    const result = create(store, { platformProvider: true });
+    expect(result).toMatchObject({ ok: false, error: expect.stringMatching(/not configured/) });
+    const legacy = buildStore();
+    expect(create(legacy.store, { platformProvider: true }).ok).toBe(false);
+    expect(saveIntegrationInstance).not.toHaveBeenCalled();
+  });
+
+  it('rejects the flag on a vendor without builtInProvider, and a non-boolean value', () => {
+    const { saveIntegrationInstance, store } = buildAiStore(true);
+    const telegram = new IntegrationToolProvider(store).execute(
+      call('create_integration_instance', { name: 'Bot', platformProvider: true, vendor: TELEGRAM_VENDOR }),
+    );
+    expect(telegram).toMatchObject({ ok: false, error: expect.stringMatching(/cannot use the built-in AI provider/) });
+    expect(create(store, { platformProvider: 'yes' }).ok).toBe(false);
+    expect(saveIntegrationInstance).not.toHaveBeenCalled();
+  });
+
+  it('does not set the flag when omitted or false', () => {
+    const { saveIntegrationInstance, store } = buildAiStore(true);
+    create(store, { platformProvider: false });
+    expect((saveIntegrationInstance.mock.calls[0][0] as IIntegrationInstance).platformProvider).toBeUndefined();
+  });
+
+  it('list_integration_instances shows platformProvider when set', () => {
+    const instance: IIntegrationInstance = {
+      fields: { apiKey: { dev: '', prod: '' }, baseUrl: '' },
+      id: 'ai-1',
+      name: 'AI',
+      platformProvider: true,
+      vendor: 'openai',
+    };
+    const docs: readonly WorkflowDocument[] = [
+      {
+        customData: { instances: [instance] },
+        folderId: null,
+        id: 'integrations-doc',
+        name: 'integrations',
+        pinned: true,
+        type: INTEGRATIONS_DOCUMENT_TYPE,
+      },
+    ];
+    const { store } = buildAiStore(true, docs);
+    const instances = parseOk(
+      new IntegrationToolProvider(store).execute(call('list_integration_instances', {})),
+    ) as Record<string, unknown>[];
+    expect(instances[0]).toEqual({ id: 'ai-1', name: 'AI', platformProvider: true, vendor: 'openai' });
+  });
+});
+
 describe('IntegrationToolProvider — vendors disabled by the deployment', () => {
   afterEach(() => setDisabledVendors([]));
 

@@ -65,6 +65,7 @@ import type {
   IApiSandboxBinding,
   IApiSandboxLink,
   IApiSandboxPlatform,
+  IApiAiProviderStatus,
   IApiTriggerAddresses,
   IApiRuntimeSettingsInput,
   IApiWorkflowPosition,
@@ -464,6 +465,8 @@ export const workflowApi = {
     return request<{ sessions: IApiRunnerSession[] }>(`/projects/${projectId}/runner-sessions${suffix}`);
   },
 
+  /** The built-in AI provider's status and models (ADR 0081 (private)) — any signed-in user. */
+  getAiProvider: () => request<IApiAiProviderStatus>('/ai-provider'),
   /** Configured sandbox (test) bot platforms, ADR 0073 (private). */
   getSandboxBots: () => request<{ platforms: IApiSandboxPlatform[] }>('/sandbox-bots'),
   /** Inbound URLs of the project's webhook-style triggers (generic webhook, Bitrix24, YooKassa). */

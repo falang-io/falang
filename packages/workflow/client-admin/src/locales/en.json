@@ -12,7 +12,8 @@
       "project-templates-menu": "Project templates",
       "support-menu": "User support",
       "proxy-menu": "Proxy",
-      "sandbox-bots-menu": "Test bots"
+      "sandbox-bots-menu": "Test bots",
+      "ai-provider-menu": "Built-in provider"
     },
     "forbidden": {
       "title": "403",
@@ -295,6 +296,40 @@
       "unblock-title": "Lift the block for this account?",
       "unblocked": "Block lifted",
       "unblock-failed": "Couldn't lift the block"
+    },
+    "ai-provider-page": {
+      "description": "An OpenAI-compatible endpoint that workflow AI integrations can use without a key of their own: users turn on the built-in provider on an OpenAI integration instead of entering an endpoint and API key. Calls are made by the server under this key.",
+      "configured": "Configured",
+      "not-configured": "Not configured",
+      "updated-at": "Last updated {{date}}",
+      "base-url-label": "Base URL",
+      "api-key-label": "API key",
+      "api-key-extra": "Leave empty to keep the currently stored key.",
+      "models-title": "Models",
+      "models-description": "Only the models listed here can be used through the provider. Chat models serve the text and choice actions; image and transcription models are not supported by the provider yet. At least one chat model is needed.",
+      "models-empty": "No models yet — add one or load the list from the provider",
+      "model-id": "Model ID",
+      "model-label": "Label",
+      "model-label-placeholder": "Shown to users (optional)",
+      "model-kind": "Kind",
+      "kind-chat": "Chat",
+      "kind-image": "Image",
+      "kind-transcribe": "Transcription",
+      "remove-model": "Remove",
+      "add-model": "Add model",
+      "load-models": "Load from provider",
+      "picker-title": "Models offered by the provider",
+      "picker-add": "Add selected",
+      "owned-by": "Owner",
+      "save": "Save",
+      "saved": "Saved",
+      "reset": "Reset",
+      "reset-title": "Reset the built-in provider",
+      "reset-description": "Remove the stored endpoint, key and models? Integrations that use the built-in provider stop working until it's set up again.",
+      "load-failed": "Failed to load the built-in provider settings",
+      "save-failed": "Failed to save the built-in provider settings",
+      "delete-failed": "Failed to reset the built-in provider settings",
+      "fetch-failed": "Failed to load the provider's models"
     }
   }
 }

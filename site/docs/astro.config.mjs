@@ -103,6 +103,7 @@ export default defineConfig({
             'workflow/test-bot',
             'workflow/messenger-groups',
             'workflow/media',
+            'workflow/built-in-ai-provider',
             'workflow/ai-agent',
             // 'workflow/magic-node', — the magic node is hidden in the product for now
             'workflow/administration',

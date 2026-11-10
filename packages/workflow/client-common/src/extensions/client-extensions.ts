@@ -68,6 +68,12 @@ export interface IClientExtensions {
    * Applied by `renderWorkflowApp` before the first render; a signed-in user's own language still wins.
    */
   defaultLanguage?: string;
+  /**
+   * The built-in AI provider's name per UI language, ready to show (cloud: `{ ru: 'ИИ Шагомата', en: '…' }`) — a ready
+   * string rather than a `{{brand}}` parameter because some languages need another grammatical case. Absent or missing
+   * a language = "Built-in provider". Read through `useAiProviderName()`. ADR 0081 (private).
+   */
+  aiProviderName?: Readonly<Record<string, string>>;
   navItems?: IClientExtensionNavItem[];
   views?: IClientExtensionView[];
   /** Shown in the app header just before the user menu. */

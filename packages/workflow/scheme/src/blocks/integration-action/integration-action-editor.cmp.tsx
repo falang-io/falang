@@ -6,7 +6,7 @@ import {
   TypeScriptBlockContainer,
 } from '@falang/typescript-scheme';
 import type { IFieldConfig } from '@falang/workflow-integrations-common';
-import { Form, Input, Typography } from 'antd';
+import { Alert, Form, Input, Typography } from 'antd';
 import { observer } from 'mobx-react-lite';
 import { FieldLabel } from '../field-help/field-help.cmp.js';
 import { ButtonsFieldEditorComponent } from './buttons-field-editor.cmp.js';
@@ -95,7 +95,9 @@ const SidebarFieldEditorComponent: React.FC<{ editor: IntegrationActionEditorSto
             editor={editor}
             field={field}
             placeholder={dynamicSelectPlaceholder(editor, t)}
-            disabled={editor.optionsLoading || editor.dynamicOptions.length === 0}
+            disabled={
+              editor.optionsLoading || editor.dynamicOptions.length === 0 || editor.unsupportedOnBuiltInAiProvider
+            }
           />
         );
       }
@@ -185,7 +187,9 @@ const FieldEditorComponent: React.FC<{
           editor={editor}
           field={field}
           placeholder={dynamicSelectPlaceholder(editor, t)}
-          disabled={editor.optionsLoading || editor.dynamicOptions.length === 0}
+          disabled={
+            editor.optionsLoading || editor.dynamicOptions.length === 0 || editor.unsupportedOnBuiltInAiProvider
+          }
         />
       );
     }
@@ -202,6 +206,22 @@ const FieldEditorComponent: React.FC<{
   );
 });
 
+/** "The built-in AI provider doesn't support this action yet" (ADR 0081 (private) decision 7) — only while it applies. */
+const BuiltInAiProviderHint: React.FC<{ editor: IntegrationActionEditorStore }> = observer(({ editor }) => {
+  const t = useService(TOKEN_I18N).t;
+  if (!editor.unsupportedOnBuiltInAiProvider) return null;
+  const name = editor.getAiProviderName() ?? t('integration-editor:built-in-ai-provider');
+  return (
+    <Alert
+      data-testid="ai-provider-unsupported-hint"
+      type="warning"
+      showIcon
+      style={{ marginBottom: 12 }}
+      message={t('integration-editor:built-in-ai-provider-unsupported', { name })}
+    />
+  );
+});
+
 /** The compact single-row-per-field layout every inline action (e.g. `telegram-send-message`) uses. */
 const InlineActionEditorComponent: TBlockEditorView<IntegrationActionEditorStore> = observer(({ editor }) => {
   const t = useService(TOKEN_I18N).t;
@@ -209,6 +229,7 @@ const InlineActionEditorComponent: TBlockEditorView<IntegrationActionEditorStore
   return (
     <TypeScriptBlockContainer>
       <div className="workflow-integration-editor">
+        <BuiltInAiProviderHint editor={editor} />
         <table className="ts-table ts-table--fixed">
           <tbody>
             {editor.action.fields.map((field) => (
@@ -238,6 +259,7 @@ const SidebarActionEditorComponent: TBlockEditorView<IntegrationActionEditorStor
       <Typography.Title level={5} style={{ marginTop: 0 }}>
         {t(editor.action.label)}
       </Typography.Title>
+      <BuiltInAiProviderHint editor={editor} />
       <Form layout="vertical">
         {editor.action.fields.map((field) => (
           <Form.Item

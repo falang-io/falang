@@ -331,11 +331,12 @@ export class WorkflowJsonFilesHost implements IJsonFilesHost {
   }
 
   private renderIntegrations(): string {
-    const instances = getIntegrationInstances(this.deps.store.documents).map((instance) => ({
-      id: instance.id,
-      name: instance.name,
-      vendor: instance.vendor,
-    }));
+    const instances = getIntegrationInstances(this.deps.store.documents).map((instance) => {
+      const entry: Record<string, unknown> = { id: instance.id, name: instance.name, vendor: instance.vendor };
+      if (instance.devSandbox) entry.devSandbox = true;
+      if (instance.platformProvider) entry.platformProvider = true;
+      return entry;
+    });
     return `${JSON.stringify({ instances, note: 'Read-only. Add instances with create_integration_instance.' }, null, 2)}\n`;
   }
 }

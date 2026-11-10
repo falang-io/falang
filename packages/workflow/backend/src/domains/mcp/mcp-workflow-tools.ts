@@ -12,6 +12,7 @@ import {
   type IIntegrationsDocumentData,
   type IWorkflowIntegration,
 } from '@falang/workflow-integrations-common';
+import type { AiProviderSettingsService } from '../admin/app-settings/ai-provider-settings.service.js';
 import type { OAuthCredentialsService } from '../admin/oauth-credentials/oauth-credentials.service.js';
 import type { ActivepiecesCatalogService } from '../integrations/activepieces-catalog.service.js';
 import { REGISTERED_INTEGRATIONS } from '../integrations/registered-integrations.js';
@@ -23,6 +24,7 @@ import type { ProjectsService } from '../projects/projects/projects.service.js';
 import type { RunsService } from '../runs/runs.service.js';
 import { assertMcpProjectScope, type IMcpAuthContext } from './mcp-auth.js';
 import { registerMcpConstantsTools } from './mcp-constants-tools.js';
+import { registerMcpIntegrationInstanceTools } from './mcp-integration-instance-tools.js';
 import { registerMcpTableTools } from './mcp-table-tools.js';
 import { registerLooseTool } from './mcp-register-tool.js';
 import { errorResult, okResult, withToolErrors } from './mcp-tool-result.js';
@@ -36,6 +38,8 @@ export interface IWorkflowToolsDeps {
   readonly runsService: RunsService;
   readonly activepiecesCatalog: ActivepiecesCatalogService;
   readonly oauthCredentials: Pick<OAuthCredentialsService, 'listConfiguredVendors'>;
+  /** The built-in AI provider's status (ADR 0081 (private)) — `create_integration_instance`'s `platformProvider`. */
+  readonly aiProviderSettings: Pick<AiProviderSettingsService, 'getPublicStatus'>;
 }
 
 const debugLocation = zod.object({ documentId: zod.string(), nodeId: zod.string() });
@@ -70,6 +74,8 @@ const describeIntegrationForMcp = async (integration: IWorkflowIntegration) => {
   return {
     vendor: integration.vendor,
     notes: integration.notes,
+    // ADR 0081 (private): an instance may set `platformProvider` (create_integration_instance) instead of a key.
+    ...(integration.builtInProvider ? { builtInProvider: true } : {}),
     actions: integration.actions.map((action) => ({
       nodeKind: action.name,
       label: t(action.label),
@@ -108,6 +114,15 @@ export const registerWorkflowMcpTools = (
 ): void => {
   registerMcpTableTools(server, deps.documentsService, getAuth);
   registerMcpConstantsTools(server, deps.documentsService, getAuth);
+  registerMcpIntegrationInstanceTools(
+    server,
+    {
+      aiProviderSettings: deps.aiProviderSettings,
+      documentsService: deps.documentsService,
+      getIntegrations: () => combinedIntegrations(deps),
+    },
+    getAuth,
+  );
 
   registerLooseTool(
     server,
@@ -541,7 +556,9 @@ export const registerWorkflowMcpTools = (
     server,
     'list_credentials',
     {
-      description: 'Read-only. id/name/vendor only for every configured credential — never secrets.',
+      description:
+        'Read-only. id/name/vendor (plus devSandbox / platformProvider when set) for every configured credential — ' +
+        'never secrets.',
       inputSchema: zod.object({ projectId: zod.string() }),
       annotations: readOnly,
     },
@@ -552,7 +569,14 @@ export const registerWorkflowMcpTools = (
       const integrationsDocument = documents.find((document) => document.type === INTEGRATIONS_DOCUMENT_TYPE);
       const data = integrationsDocument?.data as IIntegrationsDocumentData | undefined;
       const instances = data?.instances ?? [];
-      return okResult(instances.map((instance) => ({ id: instance.id, name: instance.name, vendor: instance.vendor })));
+      return okResult(
+        instances.map((instance) => {
+          const entry: Record<string, unknown> = { id: instance.id, name: instance.name, vendor: instance.vendor };
+          if (instance.devSandbox) entry.devSandbox = true;
+          if (instance.platformProvider) entry.platformProvider = true;
+          return entry;
+        }),
+      );
     }),
   );
 
@@ -570,7 +594,8 @@ export const registerWorkflowMcpTools = (
         "kind (pieceName/actionName/credentialId/propsValue). Every trigger's notes is a required " +
         'plain-English description — read it before picking a trigger: it flags non-obvious semantics, e.g. ' +
         "which of a vendor's several triggers to prefer for a given case instead of reimplementing that " +
-        'filtering logic inside the function body.',
+        'filtering logic inside the function body. A vendor marked `builtInProvider` can run on the ' +
+        "deployment's built-in AI provider (create_integration_instance with platformProvider: true).",
       inputSchema: zod.object({
         keywords: zod
           .array(zod.string())

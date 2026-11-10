@@ -566,6 +566,22 @@ export interface IApiRuntimeSettingsInput {
   readonly prod: IApiRuntimeEnvSettings;
 }
 
+/** Which OpenAI-compatible endpoint a built-in AI provider model serves (ADR 0081 (private)). */
+export type TApiAiProviderModelKind = 'chat' | 'image' | 'transcribe';
+
+/** One model of the built-in AI provider, as `GET /ai-provider` lists it (`label` falls back to `id` on the server). */
+export interface IApiAiProviderModel {
+  readonly id: string;
+  readonly label: string;
+  readonly kind: TApiAiProviderModelKind;
+}
+
+/** `GET /ai-provider` — whether the deployment's built-in AI provider is configured; never its endpoint or key. */
+export interface IApiAiProviderStatus {
+  readonly configured: boolean;
+  readonly models: readonly IApiAiProviderModel[];
+}
+
 /** One configured test-bot platform of `GET /sandbox-bots` (ADR 0073 (private)). */
 export interface IApiSandboxPlatform {
   readonly vendor: string;

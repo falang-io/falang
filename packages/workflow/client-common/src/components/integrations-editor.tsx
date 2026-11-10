@@ -21,6 +21,11 @@ import {
   type IIntegrationFormValues,
 } from '../integrations-editor-form.js';
 import { findSandboxPlatform, resolveDevSandbox } from '../sandbox-bots-model.js';
+import {
+  isHiddenByAiProvider,
+  resolvePlatformProvider,
+  shouldShowAiProviderSwitch,
+} from '../ai-provider/ai-provider-model.js';
 import { createActivepiecesCatalogProvider } from '../integrations-document-helpers.js';
 import { REGISTERED_INTEGRATIONS } from '../integrations-registry.js';
 import { connectOAuth2Instance } from '../oauth2-connect.js';
@@ -28,6 +33,8 @@ import { OAuth2ConnectionField } from './oauth2-connection-field.cmp.js';
 import { useDisabledVendors } from './use-disabled-vendors.js';
 import { useVendorAutoName } from './use-vendor-auto-name.js';
 import { SandboxDevField } from './sandbox-dev-field.cmp.js';
+import { AiProviderField } from './ai-provider-field.cmp.js';
+import { useAiProviderName } from '../ai-provider/ai-provider-name.js';
 import { SandboxLinkModal } from './sandbox-link-modal.cmp.js';
 import { VendorDataSyncField } from './vendor-data-sync-field.cmp.js';
 
@@ -46,9 +53,12 @@ export const IntegrationsEditor: React.FC = observer(() => {
   const [dynamicIntegrations, setDynamicIntegrations] = useState<readonly IWorkflowIntegration[]>([]);
   const [connecting, setConnecting] = useState(false);
   const [devSandbox, setDevSandbox] = useState(false);
+  // The built-in AI provider switch (ADR 0081 (private)); the provider's status is loaded by `WorkflowStore`.
+  const [platformProvider, setPlatformProvider] = useState(false);
   // Instance whose connect-a-chat dialog is open; independent of the edit dialog so it can outlive it.
   const [sandboxLinkId, setSandboxLinkId] = useState<string | null>(null);
   const disabledVendors = useDisabledVendors();
+  const aiProviderName = useAiProviderName();
 
   // Sandbox (test) bot platforms — empty on any failure, then no sandbox UI is shown (ADR 0073 (private)).
   useEffect(() => {
@@ -93,6 +103,7 @@ export const IntegrationsEditor: React.FC = observer(() => {
     const firstVendor = allIntegrations[0]?.vendor ?? null;
     setEditingId(null);
     setDevSandbox(false);
+    setPlatformProvider(false);
     setSelectedVendor(firstVendor);
     form.resetFields();
     form.setFieldsValue({ name: '', vendor: firstVendor ?? '' });
@@ -106,6 +117,7 @@ export const IntegrationsEditor: React.FC = observer(() => {
     if (!integration) return;
     setEditingId(instance.id);
     setDevSandbox(instance.devSandbox === true);
+    setPlatformProvider(instance.platformProvider === true);
     setSelectedVendor(instance.vendor);
     form.setFieldsValue(instanceToFormValues(instance, integration));
     setModalOpen(true);
@@ -130,6 +142,7 @@ export const IntegrationsEditor: React.FC = observer(() => {
       name: values.name,
       fields: formValuesToFields(integration, values, previousInstance),
       ...(sandboxOn ? { devSandbox: true } : {}),
+      ...(resolvePlatformProvider(integration, platformProvider) ? { platformProvider: true as const } : {}),
     });
     closeModal();
     // The switch was just turned on: go straight to connecting a chat.
@@ -160,6 +173,7 @@ export const IntegrationsEditor: React.FC = observer(() => {
           name: values.name,
           fields: formValuesToFields(integration, values, previousInstance),
           ...(resolveDevSandbox(integration, devSandbox) ? { devSandbox: true } : {}),
+          ...(resolvePlatformProvider(integration, platformProvider) ? { platformProvider: true as const } : {}),
         },
       );
       if (result.status === 'success') message.success(t('client:integrations-editor.oauth2-connected'));
@@ -192,6 +206,13 @@ export const IntegrationsEditor: React.FC = observer(() => {
   const { readOnly } = store;
   const sandboxPlatform = findSandboxPlatform(activeIntegration, store.sandboxBots.platforms);
   const savedInstance = instances.find((instance) => instance.id === editingId);
+  const showAiProvider = shouldShowAiProviderSwitch(
+    activeIntegration,
+    store.aiProvider.configured,
+    savedInstance?.platformProvider === true,
+  );
+  // With the provider on, the instance's own endpoint/key are hidden — kept in the form, so turning it off restores them.
+  const credentialFieldsHidden = showAiProvider && isHiddenByAiProvider(activeIntegration, platformProvider);
 
   return (
     <div style={{ flex: 1, overflow: 'auto', padding: 24 }}>
@@ -216,9 +237,18 @@ export const IntegrationsEditor: React.FC = observer(() => {
             {
               title: t('client:integrations-editor.vendor'),
               dataIndex: 'vendor',
-              render: (vendor: string) => {
+              render: (vendor: string, instance) => {
                 const label = findIntegration(vendor)?.label;
-                return <Tag>{label ? t(label) : vendor}</Tag>;
+                return (
+                  <>
+                    <Tag>{label ? t(label) : vendor}</Tag>
+                    {instance.platformProvider ? (
+                      <Tag color="purple" data-testid="ai-provider-tag">
+                        {aiProviderName}
+                      </Tag>
+                    ) : null}
+                  </>
+                );
               },
             },
             {
@@ -280,19 +310,33 @@ export const IntegrationsEditor: React.FC = observer(() => {
               }}
             />
           </Form.Item>
+          {showAiProvider ? (
+            <AiProviderField
+              checked={platformProvider}
+              configured={store.aiProvider.configured}
+              readOnly={readOnly}
+              onChange={setPlatformProvider}
+            />
+          ) : null}
           {activeIntegration?.credentialFields
             .filter((field) => !field.hidden)
             .map((field) =>
               field.kind === 'secret' ? (
-                <div key={field.name} style={{ display: 'flex', gap: 12 }}>
+                <div key={field.name} style={{ display: credentialFieldsHidden ? 'none' : 'flex', gap: 12 }}>
                   <Form.Item
                     name={fieldKey(field, 'dev')}
+                    hidden={credentialFieldsHidden}
                     label={<FieldLabel label={`${t(field.label)} (dev)`} help={field.help} t={t} />}
                     style={{ flex: 1 }}
                   >
                     <Input.Password autoComplete="new-password" />
                   </Form.Item>
-                  <Form.Item name={fieldKey(field, 'prod')} label={`${t(field.label)} (prod)`} style={{ flex: 1 }}>
+                  <Form.Item
+                    name={fieldKey(field, 'prod')}
+                    hidden={credentialFieldsHidden}
+                    label={`${t(field.label)} (prod)`}
+                    style={{ flex: 1 }}
+                  >
                     <Input.Password autoComplete="new-password" />
                   </Form.Item>
                 </div>
@@ -300,6 +344,7 @@ export const IntegrationsEditor: React.FC = observer(() => {
                 <Form.Item
                   key={field.name}
                   name={fieldKey(field)}
+                  hidden={credentialFieldsHidden}
                   label={<FieldLabel label={field.label} help={field.help} t={t} />}
                 >
                   {field.kind === 'select' ? (
