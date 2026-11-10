@@ -173,6 +173,10 @@ describe('openaiIntegration', () => {
     ]);
   });
 
+  it('declares support for the built-in AI provider (ADR 0081)', () => {
+    expect(openaiIntegration.builtInProvider).toBe(true);
+  });
+
   it("model field's loadOptions calls the provider /models endpoint with the resolved credential fields", async () => {
     const fetchMock = vi.fn().mockResolvedValue({
       ok: true,

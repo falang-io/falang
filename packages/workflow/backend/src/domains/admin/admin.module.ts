@@ -6,6 +6,7 @@ import { MailModule } from '../mail/mail.module.js';
 import { PersonalAccessTokensModule } from '../auth/personal-access-tokens/personal-access-tokens.module.js';
 import { UsersModule } from '../users/users/users.module.js';
 import { AdminAgentSettingsController } from './app-settings/admin-agent-settings.controller.js';
+import { AdminAiProviderSettingsController } from './app-settings/admin-ai-provider-settings.controller.js';
 import { AdminProxySettingsController } from './app-settings/admin-proxy-settings.controller.js';
 import { AppSettingsModule } from './app-settings/app-settings.module.js';
 import { AdminOAuthCredentialsController } from './oauth-credentials/admin-oauth-credentials.controller.js';
@@ -43,6 +44,7 @@ import { AdminUsersService } from './users/admin-users.service.js';
     AdminUsersController,
     AdminOAuthCredentialsController,
     AdminAgentSettingsController,
+    AdminAiProviderSettingsController,
     AdminProxySettingsController,
     AdminUserLimitsController,
   ],

@@ -15,6 +15,7 @@ import {
 import type { MigrationInterface, Repository } from 'typeorm';
 import { AdminModule } from './domains/admin/admin.module.js';
 import { AgentChatModule } from './domains/agent-chat/agent-chat.module.js';
+import { AiProviderModule } from './domains/ai-provider/ai-provider.module.js';
 import { AuthModule } from './domains/auth/auth/auth.module.js';
 import { JwtAuthGuard } from './domains/auth/auth/jwt-auth.guard.js';
 import { PersonalAccessTokensModule } from './domains/auth/personal-access-tokens/personal-access-tokens.module.js';
@@ -120,6 +121,7 @@ const buildBuiltInImports = (
   FoldersModule,
   DocumentsModule,
   AgentChatModule,
+  AiProviderModule,
   SupportModule,
   ProjectExportModule,
   TreeModule,

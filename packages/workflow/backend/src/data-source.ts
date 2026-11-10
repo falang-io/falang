@@ -14,6 +14,7 @@ import { Project } from './domains/projects/projects/project.entity.js';
 import { ProjectBlob } from './domains/projects/versioning/project-blob.entity.js';
 import { ProjectCommit } from './domains/projects/versioning/project-commit.entity.js';
 import { AgentUsage } from './domains/agent-chat/agent-usage.entity.js';
+import { AiProviderUsage } from './domains/ai-provider/ai-provider-usage.entity.js';
 import { RunJournalEntry } from './domains/run-journal/run-journal-entry.entity.js';
 import { Task } from './domains/tasks/task.entity.js';
 import { OAuth2PendingStateRow } from './domains/integrations/oauth2-pending-state.entity.js';
@@ -54,6 +55,7 @@ const AppDataSource = new DataSource({
     Task,
     ProjectMember,
     AgentUsage,
+    AiProviderUsage,
     RunJournalEntry,
     TableRecord,
     TableRecordChange,

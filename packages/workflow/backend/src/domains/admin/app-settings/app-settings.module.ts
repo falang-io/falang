@@ -1,6 +1,7 @@
 import { Module } from '@nestjs/common';
 import { TypeOrmModule } from '@nestjs/typeorm';
 import { AgentSettingsService } from './agent-settings.service.js';
+import { AiProviderSettingsService } from './ai-provider-settings.service.js';
 import { AppSetting } from './app-setting.entity.js';
 import { ProxySettingsService } from './proxy-settings.service.js';
 import { AppSettingsService } from './app-settings.service.js';
@@ -12,7 +13,7 @@ import { AppSettingsService } from './app-settings.service.js';
  */
 @Module({
   imports: [TypeOrmModule.forFeature([AppSetting])],
-  providers: [AppSettingsService, AgentSettingsService, ProxySettingsService],
-  exports: [AppSettingsService, AgentSettingsService, ProxySettingsService],
+  providers: [AppSettingsService, AgentSettingsService, ProxySettingsService, AiProviderSettingsService],
+  exports: [AppSettingsService, AgentSettingsService, ProxySettingsService, AiProviderSettingsService],
 })
 export class AppSettingsModule {}

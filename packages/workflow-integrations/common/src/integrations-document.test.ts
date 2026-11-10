@@ -4,6 +4,7 @@ import {
   buildIntegrationsDocumentConfig,
   buildIntegrationsDocumentSchema,
   INTEGRATIONS_DOCUMENT_TYPE,
+  supportsBuiltInProvider,
 } from './integrations-document.js';
 
 const telegramIntegration: IWorkflowIntegration = {
@@ -58,6 +59,75 @@ describe('buildIntegrationsDocumentSchema', () => {
   it('accepts an empty instance list with no registered integrations', () => {
     const schema = buildIntegrationsDocumentSchema([]);
     expect(schema.parse({ instances: [] })).toEqual({ instances: [] });
+  });
+});
+
+const aiIntegration: IWorkflowIntegration = {
+  vendor: 'ai',
+  label: 'AI',
+  notes: 'Test vendor.',
+  credentialFields: [
+    { name: 'baseUrl', label: 'Base URL', kind: 'text' },
+    { name: 'apiKey', label: 'API key', kind: 'secret' },
+  ],
+  builtInProvider: true,
+  triggers: [],
+  actions: [],
+};
+
+describe('platformProvider (ADR 0081)', () => {
+  const schema = buildIntegrationsDocumentSchema([telegramIntegration, aiIntegration]);
+
+  it('is accepted, with empty credential fields, on a vendor that declares builtInProvider', () => {
+    const parsed = schema.parse({
+      instances: [
+        {
+          id: 'ai-1',
+          vendor: 'ai',
+          name: 'Built-in',
+          fields: { baseUrl: '', apiKey: { dev: '', prod: '' } },
+          platformProvider: true,
+        },
+      ],
+    });
+    expect(parsed.instances[0]?.platformProvider).toBe(true);
+  });
+
+  it('is rejected on a vendor without builtInProvider', () => {
+    expect(() =>
+      schema.parse({
+        instances: [
+          {
+            id: 'tg-1',
+            vendor: 'telegram',
+            name: 'Bot',
+            fields: { botToken: { dev: '', prod: '' }, botUsername: '' },
+            platformProvider: true,
+          },
+        ],
+      }),
+    ).toThrow();
+  });
+
+  it('only accepts the literal true', () => {
+    expect(() =>
+      schema.parse({
+        instances: [
+          {
+            id: 'ai-1',
+            vendor: 'ai',
+            name: 'x',
+            fields: { baseUrl: '', apiKey: { dev: '', prod: '' } },
+            platformProvider: 'yes',
+          },
+        ],
+      }),
+    ).toThrow();
+  });
+
+  it('supportsBuiltInProvider reads the marker', () => {
+    expect(supportsBuiltInProvider(aiIntegration)).toBe(true);
+    expect(supportsBuiltInProvider(telegramIntegration)).toBe(false);
   });
 });
 

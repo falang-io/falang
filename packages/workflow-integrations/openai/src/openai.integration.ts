@@ -48,6 +48,8 @@ export const openaiIntegration: IWorkflowIntegration = {
     { name: 'baseUrl', label: 'openai:credentialField.baseUrl', kind: 'text' },
     { name: 'apiKey', label: 'openai:credentialField.apiKey', kind: 'secret', secretProdOptional: true },
   ],
+  // ADR 0081 (private): an instance may run on the platform's built-in AI provider (`platformProvider`).
+  builtInProvider: true,
   triggers: [],
   actions: [
     {

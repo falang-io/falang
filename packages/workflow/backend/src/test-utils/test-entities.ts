@@ -13,6 +13,7 @@ import { Document } from '../domains/projects/documents/document.entity.js';
 import { Folder } from '../domains/projects/folders/folder.entity.js';
 import { RunJournalEntry } from '../domains/run-journal/run-journal-entry.entity.js';
 import { AgentUsage } from '../domains/agent-chat/agent-usage.entity.js';
+import { AiProviderUsage } from '../domains/ai-provider/ai-provider-usage.entity.js';
 import { Project } from '../domains/projects/projects/project.entity.js';
 import { ProjectMember } from '../domains/projects/members/project-member.entity.js';
 import { Task } from '../domains/tasks/task.entity.js';
@@ -44,6 +45,7 @@ export const TEST_ENTITIES = [
   UserLimits,
   File,
   AgentUsage,
+  AiProviderUsage,
   RunJournalEntry,
   ProjectTemplate,
   AuthToken,

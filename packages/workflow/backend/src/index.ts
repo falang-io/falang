@@ -27,6 +27,33 @@ export {
 export type { IAgentChatUsage } from './domains/agent-chat/agent-chat.types.js';
 export { AgentUsage } from './domains/agent-chat/agent-usage.entity.js';
 export { DbAgentUsageSink, type IAgentUsageTotals } from './domains/agent-chat/db-agent-usage-sink.js';
+// ADR 0081 (private): the built-in AI provider — its settings (`AiProviderSettingsService`, from `AppSettingsModule`)
+// and the usage seam. Provide `AI_PROVIDER_USAGE_SINK` from a `@Global()` module to bill the owner's calls.
+export {
+  AI_PROVIDER_USAGE_SINK,
+  type IAiProviderAfterCallContext,
+  type IAiProviderCallContext,
+  type IAiProviderUsage,
+  type IAiProviderUsageSink,
+} from './domains/ai-provider/ai-provider-usage-sink.js';
+export { AiProviderModule } from './domains/ai-provider/ai-provider.module.js';
+export { AiProviderUsage } from './domains/ai-provider/ai-provider-usage.entity.js';
+export { DbAiProviderUsageSink, type IAiProviderUsageTotals } from './domains/ai-provider/db-ai-provider-usage-sink.js';
+export {
+  AiProviderSettingsService,
+  type IAiProviderPublicStatus,
+  type IAiProviderSettingsStatus,
+  type IResolvedAiProviderSettings,
+  type IUpsertAiProviderSettingsParams,
+  type IListUpstreamModelsParams,
+  type IUpstreamModel,
+} from './domains/admin/app-settings/ai-provider-settings.service.js';
+export {
+  AI_PROVIDER_MODEL_KINDS,
+  parseAiProviderModels,
+  type IAiProviderModel,
+  type TAiProviderModelKind,
+} from './domains/admin/app-settings/ai-provider-models.js';
 export {
   RUN_JOURNAL_STORE,
   RunJournalModule,
