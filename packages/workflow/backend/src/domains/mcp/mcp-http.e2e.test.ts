@@ -3,6 +3,7 @@
 // the ADR phase F brief; splitting by scenario would duplicate the harness/PAT-creation setup in
 // each part with no real gain in readability.
 import { OAuthCredentialsService } from '../admin/oauth-credentials/oauth-credentials.service.js';
+import { AiProviderSettingsService } from '../admin/app-settings/ai-provider-settings.service.js';
 import { Client } from '@modelcontextprotocol/sdk/client/index.js';
 import { StreamableHTTPClientTransport } from '@modelcontextprotocol/sdk/client/streamableHttp.js';
 import request from 'supertest';
@@ -142,6 +143,7 @@ describe('/mcp (HTTP-level, PAT auth) (e2e)', () => {
           'debug_resume',
           'debug_stop',
           'list_credentials',
+          'create_integration_instance',
           'list_integrations',
           'create_table',
           'set_table_fields',
@@ -412,6 +414,73 @@ describe('/mcp (HTTP-level, PAT auth) (e2e)', () => {
         arguments: { projectId, name: 'Orders', fields: [] },
       });
       expect(duplicate.isError).toBe(true);
+    } finally {
+      await client.close();
+    }
+  });
+
+  it('create_integration_instance: platformProvider only with a configured built-in AI provider (ADR 0081)', async () => {
+    const rawToken = await createPat(harness, jwt);
+    const client = await connectClient(harness, rawToken);
+    try {
+      const own = await client.callTool({
+        name: 'create_integration_instance',
+        arguments: {
+          projectId,
+          vendor: 'openai',
+          name: 'Own key',
+          fields: { baseUrl: 'https://api.example/v1', apiKey: { dev: 'sk-dev', prod: 'sk-prod' } },
+        },
+      });
+      expect(own.isError).not.toBe(true);
+
+      const refused = await client.callTool({
+        name: 'create_integration_instance',
+        arguments: { projectId, vendor: 'openai', name: 'Built-in', platformProvider: true },
+      });
+      expect(refused.isError).toBe(true);
+      expect(toolText(refused)).toContain('not configured');
+
+      const wrongVendor = await client.callTool({
+        name: 'create_integration_instance',
+        arguments: { projectId, vendor: 'telegram', name: 'Bot', platformProvider: true },
+      });
+      expect(wrongVendor.isError).toBe(true);
+
+      await harness.app.get(AiProviderSettingsService).upsert({
+        apiKey: 'sk-platform',
+        baseUrl: 'https://provider.example/v1',
+        models: [{ id: 'gpt-4o-mini', kind: 'chat' }],
+      });
+      const created = await client.callTool({
+        name: 'create_integration_instance',
+        arguments: { projectId, vendor: 'openai', name: 'Built-in', platformProvider: true },
+      });
+      expect(created.isError).not.toBe(true);
+      const { instanceId } = JSON.parse(toolText(created)) as { instanceId: string };
+
+      const listed = JSON.parse(
+        toolText(await client.callTool({ name: 'list_credentials', arguments: { projectId } })),
+      ) as Record<string, unknown>[];
+      expect(listed).toEqual([
+        { id: expect.any(String), name: 'Own key', vendor: 'openai' },
+        { id: instanceId, name: 'Built-in', vendor: 'openai', platformProvider: true },
+      ]);
+
+      // The first instance's key survived the second write (masked on read, kept by the codec).
+      const documents = await request(harness.app.getHttpServer())
+        .get(`/projects/${projectId}/documents`)
+        .set(auth(jwt))
+        .expect(200);
+      const integrations = (documents.body as { type: string; data: { instances: Record<string, unknown>[] } }[]).find(
+        (document) => document.type === 'integrations',
+      );
+      expect(integrations?.data.instances[0]?.fields).toMatchObject({ apiKey: { dev: '••••••••' } });
+
+      const search = JSON.parse(
+        toolText(await client.callTool({ name: 'list_integrations', arguments: { keywords: ['openai'] } })),
+      ) as { vendors: { vendor: string; builtInProvider?: boolean }[] };
+      expect(search.vendors.find((vendor) => vendor.vendor === 'openai')?.builtInProvider).toBe(true);
     } finally {
       await client.close();
     }

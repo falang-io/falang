@@ -87,7 +87,9 @@ head:
     the prompt; a separate "AI Choice" node asks the model to pick one of a set of predefined options with structured
     data — handy for branching a scenario off the model's answer. "Call AI (image)" generates an image and returns it as
     a file, and "Call AI (transcribe)" turns an audio file into text. The API base URL is configurable, so this works
-    with more than just api.openai.com — Azure OpenAI, local servers like llama.cpp, and any other compatible provider.
+    with more than just api.openai.com — Azure OpenAI, local servers like llama.cpp, and any other compatible provider. If the
+    administrator has configured a <a href="../built-in-ai-provider/">built-in AI provider</a>, an OpenAI integration
+    can use it instead of an endpoint and key of its own.
   </li>
   <li>
     <b>HTTP request</b>. A generic outbound call to any HTTP API: method, URL, headers and body are given as

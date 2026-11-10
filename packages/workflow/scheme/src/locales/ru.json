@@ -27,7 +27,9 @@
     "button-command": "Команда (например, /help)",
     "buttons-invalid": "Сохранённые кнопки не читаются — добавление или изменение кнопки заменит их",
     "buttons-limit": "Не больше {{count}} кнопок",
-    "wait-timeout": "Ждёт сообщение: {{timeout}}"
+    "wait-timeout": "Ждёт сообщение: {{timeout}}",
+    "built-in-ai-provider": "Встроенный провайдер",
+    "built-in-ai-provider-unsupported": "«{{name}}» пока не поддерживает это действие — выберите интеграцию со своим ключом."
   },
   "activepieces-picker": {
     "title": "Добавить действие ActivePieces",

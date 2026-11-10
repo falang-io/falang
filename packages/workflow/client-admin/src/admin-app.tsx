@@ -36,8 +36,13 @@ export const AdminApp: React.FC<{ extensions?: IAdminExtensions }> = observer(({
   // Once, before the first paint of the sign-in form (a signed-in admin's own language follows from `AuthStore`).
   useState(() => applyDefaultLanguage(extensions?.defaultLanguage));
   // The shared client-common components (sign-in form, brand) read the brand from the main client's context.
+  // `useAiProviderName()` reads the provider's name from the same context.
   const brand = extensions?.brand;
-  const clientExtensions = useMemo<IClientExtensions>(() => (brand ? { brand } : {}), [brand]);
+  const aiProviderName = extensions?.aiProviderName;
+  const clientExtensions = useMemo<IClientExtensions>(
+    () => ({ ...(brand ? { brand } : {}), ...(aiProviderName ? { aiProviderName } : {}) }),
+    [brand, aiProviderName],
+  );
 
   const content = (() => {
     if (!authStore.isAuthChecked) {

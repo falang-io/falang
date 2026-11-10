@@ -764,6 +764,12 @@
       "type-number": "Number",
       "type-boolean": "Boolean",
       "save-failed": "Could not save the constants"
+    },
+    "ai-provider": {
+      "name": "Built-in provider",
+      "switch": "Use instead of your own endpoint and key",
+      "switch-hint": "No endpoint or API key is needed for dev or prod. On hosted deployments calls may be charged to the project owner's balance.",
+      "unavailable": "“{{name}}” is not available on this server — turn the switch off and enter your own endpoint and key."
     }
   },
   "version-history": {

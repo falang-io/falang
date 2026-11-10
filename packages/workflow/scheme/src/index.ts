@@ -1,5 +1,6 @@
 export * from './registry/integrations-registry.store.js';
 export * from './registry/di-tokens.js';
+export * from './registry/built-in-ai-provider.js';
 export * from './registry/integrations.module.js';
 export * from './registry/seed-integration-types.js';
 export * from './blocks/integration-action/integration-action-editor.store.js';

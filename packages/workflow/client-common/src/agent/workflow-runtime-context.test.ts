@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import {
+  buildAiProviderNote,
   buildConstantsNote,
   createSandboxContextProvider,
   projectConstantsOf,
@@ -56,5 +57,52 @@ describe('constants note in the agent context', () => {
   it('says there are none yet', () => {
     expect(projectConstantsOf({ documents: [] })).toEqual([]);
     expect(buildConstantsNote([])).toContain('The project has none yet.');
+  });
+});
+
+describe('built-in AI provider note in the agent context (ADR 0081)', () => {
+  const info = {
+    chatModels: [
+      { id: 'gpt-4o-mini', label: 'GPT-4o mini' },
+      { id: 'deepseek-chat', label: 'deepseek-chat' },
+    ],
+  };
+
+  it('adds nothing while the provider is not configured', () => {
+    expect(buildAiProviderNote(null, ['openai'])).toBe('');
+    expect(buildAiProviderNote(info, [])).toBe('');
+    const text = new WorkflowRuntimeContextProvider(
+      () => [],
+      () => [],
+      false,
+      () => null,
+    ).describe();
+    expect(text).not.toContain('built-in AI provider');
+    expect(
+      createSandboxContextProvider(
+        () => [],
+        () => null,
+      ).describe(),
+    ).toBe('');
+  });
+
+  it('names the vendors and chat models, says no key is needed and who pays', () => {
+    const text = new WorkflowRuntimeContextProvider(
+      () => [],
+      () => [],
+      false,
+      () => info,
+    ).describe();
+    expect(text).toContain('built-in AI provider for: openai.');
+    expect(text).toContain('platformProvider: true');
+    expect(text).toContain("paid from the project owner's balance");
+    expect(text).toContain('gpt-4o-mini (GPT-4o mini), deepseek-chat.');
+    expect(text).toMatch(/Prefer it when the user wants AI but has not given an API key/);
+    expect(
+      createSandboxContextProvider(
+        () => [],
+        () => info,
+      ).describe(),
+    ).toContain('built-in AI provider');
   });
 });

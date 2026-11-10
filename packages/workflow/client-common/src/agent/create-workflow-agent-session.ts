@@ -27,7 +27,7 @@ import { CodeIntegrationTools } from './code/code-integration-tools.js';
 import { CODE_SYSTEM_PROMPT } from './code/code-prompt.js';
 import { CodeFilesContextProvider, CodeToolProvider, describeInstanceForCode } from './code/code-tool-provider.js';
 import { WorkflowJsonFilesHost, type TWorkflowCheckProject } from './workflow-json-files-host.js';
-import { sandboxVendorsOf } from './sandbox-vendors.js';
+import { builtInAiProviderOf, sandboxVendorsOf } from './sandbox-vendors.js';
 import { ConstantsToolProvider } from './constants-tool-provider.js';
 import {
   createSandboxContextProvider,
@@ -67,7 +67,10 @@ const createWorkflowCodeAgentSession = (deps: ICreateWorkflowAgentSessionDeps): 
     deps.llmClient,
     [
       new CodeFilesContextProvider({ integrations, store }),
-      createSandboxContextProvider(() => sandboxVendorsOf(store)),
+      createSandboxContextProvider(
+        () => sandboxVendorsOf(store),
+        () => builtInAiProviderOf(store),
+      ),
     ],
     {
       coreTools: [],
@@ -136,6 +139,7 @@ const createJsonFilesSession = (
         () => sandboxVendorsOf(deps.store),
         () => projectConstantsOf(deps.store),
         true,
+        () => builtInAiProviderOf(deps.store),
       ),
     ],
     {
@@ -190,6 +194,7 @@ export const createWorkflowAgentSession = (deps: ICreateWorkflowAgentSessionDeps
               () => sandboxVendorsOf(store),
               () => projectConstantsOf(store),
               true,
+              () => builtInAiProviderOf(store),
             ),
           ],
           {

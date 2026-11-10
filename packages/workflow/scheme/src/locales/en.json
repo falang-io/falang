@@ -27,7 +27,9 @@
     "button-command": "Command (e.g. /help)",
     "buttons-invalid": "The stored buttons can't be read — adding or changing a button replaces them",
     "buttons-limit": "At most {{count}} buttons",
-    "wait-timeout": "Waits for a message: {{timeout}}"
+    "wait-timeout": "Waits for a message: {{timeout}}",
+    "built-in-ai-provider": "Built-in provider",
+    "built-in-ai-provider-unsupported": "“{{name}}” doesn't support this action yet — pick an integration that uses your own key."
   },
   "activepieces-picker": {
     "title": "Add ActivePieces action",

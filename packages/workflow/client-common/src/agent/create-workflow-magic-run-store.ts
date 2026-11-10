@@ -1,7 +1,7 @@
 import type { ILlmClient } from '@falang/agent';
 import type { Scheme } from '@falang/scheme';
 import { ScopeVariablesContextProvider } from '@falang/typescript-agent';
-import { sandboxVendorsOf } from './sandbox-vendors.js';
+import { builtInAiProviderOf, sandboxVendorsOf } from './sandbox-vendors.js';
 import { projectConstantsOf, WorkflowRuntimeContextProvider } from './workflow-runtime-context.js';
 import { TRIGGER_FUNCTION_NAME } from '@falang/workflow-dto';
 import { getIntegrationInstances } from '../integration-instances.js';
@@ -48,6 +48,8 @@ export const createWorkflowMagicRunStore = (deps: ICreateWorkflowMagicRunStoreDe
       new WorkflowRuntimeContextProvider(
         () => sandboxVendorsOf(store),
         () => projectConstantsOf(store),
+        false,
+        () => builtInAiProviderOf(store),
       ),
     ],
     createLlmClient: deps.createLlmClient,

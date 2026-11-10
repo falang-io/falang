@@ -1,4 +1,5 @@
 import { OAuthCredentialsService } from '../admin/oauth-credentials/oauth-credentials.service.js';
+import { AiProviderSettingsService } from '../admin/app-settings/ai-provider-settings.service.js';
 import { Inject, Injectable } from '@nestjs/common';
 import { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
 import { StreamableHTTPServerTransport } from '@modelcontextprotocol/sdk/server/streamableHttp.js';
@@ -62,6 +63,7 @@ export class McpService {
   private readonly activepiecesCatalog: ActivepiecesCatalogService;
   private readonly oauthCredentials: OAuthCredentialsService;
   private readonly tokensService: PersonalAccessTokensService;
+  private readonly aiProviderSettings: AiProviderSettingsService;
   private readonly registry: DocumentStackRegistry;
 
   constructor(
@@ -75,7 +77,9 @@ export class McpService {
     @Inject(ActivepiecesCatalogService) activepiecesCatalog: ActivepiecesCatalogService,
     @Inject(PersonalAccessTokensService) tokensService: PersonalAccessTokensService,
     @Inject(OAuthCredentialsService) oauthCredentials: OAuthCredentialsService,
+    @Inject(AiProviderSettingsService) aiProviderSettings: AiProviderSettingsService,
   ) {
+    this.aiProviderSettings = aiProviderSettings;
     this.projectsService = projectsService;
     this.documentsService = documentsService;
     this.foldersService = foldersService;
@@ -154,6 +158,7 @@ export class McpService {
         runsService: this.runsService,
         activepiecesCatalog: this.activepiecesCatalog,
         oauthCredentials: this.oauthCredentials,
+        aiProviderSettings: this.aiProviderSettings,
       },
       getAuth,
     );

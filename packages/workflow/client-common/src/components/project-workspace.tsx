@@ -6,6 +6,7 @@ import { getGlobalI18n } from '@falang/scheme';
 import { message } from 'antd';
 import { PrintExportModal, PrintLayer, VersionDiffModal } from '@falang/antd';
 import { workflowApi } from '../api-client.js';
+import { useClientExtensions } from '../extensions/client-extensions.js';
 import { navigationStore } from '../navigation-store.js';
 import { WorkflowStore } from '../workflow-store.js';
 import { WorkflowStoreContext } from '../workflow-store-context.js';
@@ -40,6 +41,7 @@ export const ProjectWorkspace: React.FC<Props> = observer(({ projectId }) => {
   // An executor-only member (ADR 0070 (private), `canRead: false`) has no access to the project's contents: no store is
   // built, the workspace shows only the project's Tasks page.
   const [store, setStore] = useState<WorkflowStore | null>(null);
+  const aiProviderNames = useClientExtensions().aiProviderName;
   const [tasksOnlyName, setTasksOnlyName] = useState<string | null>(null);
   useEffect(() => {
     let cancelled = false;
@@ -55,13 +57,18 @@ export const ProjectWorkspace: React.FC<Props> = observer(({ projectId }) => {
           setTasksOnlyName(info.name);
           return;
         }
-        nextStore = new WorkflowStore(projectId, { readOnly: info?.readOnly === true, owner: info?.owner ?? null });
+        nextStore = new WorkflowStore(projectId, {
+          aiProviderNames,
+          owner: info?.owner ?? null,
+          readOnly: info?.readOnly === true,
+        });
         setStore(nextStore);
       });
     return () => {
       cancelled = true;
       nextStore?.dispose();
     };
+    // oxlint-disable-next-line exhaustive-deps -- the host's extensions are fixed for the app's lifetime.
   }, [projectId]);
 
   // A `PATCH`/`DELETE` 409'd on a document the 5s lock poll hadn't caught up with yet — the overlay
