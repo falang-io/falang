@@ -114,7 +114,11 @@ describe('registerAmoCrmBackend', () => {
       }),
     );
     expect(response.status).toBe(200);
-    const calls = vi.mocked(ctx.signalWorkflow).mock.calls.map(([target]) => target);
+    // The signals go out concurrently (each awaits its own hash), so their order isn't fixed.
+    const calls = vi
+      .mocked(ctx.signalWorkflow)
+      .mock.calls.map(([target]) => target)
+      .sort((a, b) => (a.signalArgs[0] as { id: number }).id - (b.signalArgs[0] as { id: number }).id);
     expect(calls.map((call) => [call.workflowType, (call.signalArgs[0] as { id: number }).id])).toEqual([
       ['on_tf-status', 5],
       ['on_tf-status', 6],
