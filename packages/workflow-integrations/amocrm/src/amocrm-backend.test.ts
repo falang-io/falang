@@ -118,7 +118,7 @@ describe('registerAmoCrmBackend', () => {
     const calls = vi
       .mocked(ctx.signalWorkflow)
       .mock.calls.map(([target]) => target)
-      .sort((a, b) => (a.signalArgs[0] as { id: number }).id - (b.signalArgs[0] as { id: number }).id);
+      .toSorted((a, b) => (a.signalArgs[0] as { id: number }).id - (b.signalArgs[0] as { id: number }).id);
     expect(calls.map((call) => [call.workflowType, (call.signalArgs[0] as { id: number }).id])).toEqual([
       ['on_tf-status', 5],
       ['on_tf-status', 6],
