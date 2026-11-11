@@ -38,12 +38,18 @@ const FILE_NOTE_OVERRIDES: Readonly<Record<string, string>> = {
     '"meta": { "trueIsMain": true } on the node — that compiles to `while (!(condition))`.',
 };
 
-const reachableKinds = (stack: NodesStack, roots: readonly string[]): string[] => {
+/** Kinds reachable from `roots`, not walking through a kind `isListed` rejects — so a hidden vendor question's
+ *  `*-option` branches don't show up as structural kinds either. */
+const reachableKinds = (
+  stack: NodesStack,
+  roots: readonly string[],
+  isListed: (kind: string) => boolean = () => true,
+): string[] => {
   const seen = new Set<string>();
   const queue = [...roots];
   while (queue.length > 0) {
     const name = queue.shift() as string;
-    if (seen.has(name) || !stack.configsMap.has(name)) continue;
+    if (seen.has(name) || !stack.configsMap.has(name) || !isListed(name)) continue;
     seen.add(name);
     const cfg = stack.getConfig(name);
     queue.push(...(cfg.childTuple ?? []), ...getAllowedChildNames(name, stack), ...(cfg.mods ?? []));
@@ -92,7 +98,7 @@ const GENERIC_RULES = [
   'A document file is ONE JSON object: the document\'s root node. Every node is `{ "id", "name", "data"?, "children"?, "out"?, "mods"? }`; `name` is the node kind.',
   'Ids: keep the ids of nodes you read — that is how a node keeps its identity, layout and undo history. A NEW node needs no "id" (one is assigned; read the file again to see it). Never reuse one id twice; to copy a node, drop its "id".',
   'Kinds with "children: exactly [...]" have fixed slots: always write all of them, in that order. Statements never go directly into such a node — they go into a slot\'s own "children" (e.g. `function` → `function-body`).',
-  '"out" is a jump that ends a node\'s branch: `break`/`continue` (loops), `return`/`throw`. It is a separate node in "out", never a child. The FIRST child of any list can\'t have an "out" — put it on a later sibling. (An `if` whose then-branch jumps away is fixed automatically.)',
+  '"out" is a jump: `break`/`continue` (loops), `return`/`throw`. It is a separate node in "out", never a child, and only kinds marked "may have out" carry one — a branch (e.g. `if-child`: the jump runs after the branch\'s last statement) or a loop (after the loop). To end a branch with a jump, put "out" on the branch node, not on its last statement. The FIRST child of any list can\'t have an "out". (An `if` whose then-branch jumps away is fixed automatically.)',
   '`if`: "children" is [then-branch, else-branch] — slot 0 runs when the condition is true. Each branch is an `if-child` whose "children" are statements.',
   'Fields marked (template) are the BODY of a JavaScript template literal: plain text with `${expr}` for values — no surrounding backticks or quotes. Other string fields that hold conditions, expressions or code are real TypeScript.',
   'Write a whole file with write_file, or change part of it with edit_file (exact text, copied from a fresh read_file — the files are re-formatted after every write).',
@@ -110,7 +116,11 @@ export const buildNodesReference = (params: IBuildNodesReferenceParams): string 
     stack,
     params.documentTypes.map((doc) => doc.rootKind),
   );
-  const listed = all.filter((name) => isListed(name));
+  const listed = reachableKinds(
+    stack,
+    params.documentTypes.map((doc) => doc.rootKind),
+    isListed,
+  );
   const notesOf = (name: string): string | undefined =>
     FILE_NOTE_OVERRIDES[name] ?? describeNodeKind(name, stack).notes;
   const statementSet = new Set(
@@ -159,15 +169,16 @@ export const buildNodesReference = (params: IBuildNodesReferenceParams): string 
   return lines.join('\n');
 };
 
-/** `schemas/<kind>.json`: the kind's `data` JSON Schema with its `$defs` inlined into one document. */
+/** `schemas/<kind>.json`: the kind's `data` JSON Schema with its `$defs` inlined into one document. Compact JSON: the
+ *  file is read-only reference that stays in the conversation, and indentation more than doubled its size. */
 export const buildKindSchemaFile = (kind: string, stack: NodesStack): string | null => {
   const cfg = stack.configsMap.get(kind);
   if (!cfg) return null;
-  if (!cfg.data) return `${JSON.stringify({ description: `"${kind}" carries no data.` }, null, 2)}\n`;
+  if (!cfg.data) return `${JSON.stringify({ description: `"${kind}" carries no data.` })}\n`;
   const listing = describeNodeKinds([kind], stack);
   const schema = listing.nodeKinds[0]?.dataSchema ?? (zod.toJSONSchema(cfg.data.type) as Record<string, unknown>);
   const ownDefs = (schema.$defs as Record<string, unknown> | undefined) ?? {};
   const defs = { ...listing.$defs, ...ownDefs };
   const document = Object.keys(defs).length > 0 ? { ...schema, $defs: defs } : schema;
-  return `${JSON.stringify(document, null, 2)}\n`;
+  return `${JSON.stringify(document)}\n`;
 };

@@ -45,6 +45,28 @@ describe('searchIntegrations', () => {
     expect(search(['telegram', 'bot']).vendors[0]?.vendor).toBe('telegram');
   });
 
+  it('a vendor matched only by mentioning another named vendor gets the compact form', () => {
+    const result = search(['telegram']);
+    const byVendor = new Map(result.vendors.map((vendor) => [vendor.vendor, vendor]));
+    expect(byVendor.get('telegram')?.triggers?.length).toBeGreaterThan(0);
+    for (const other of ['max', 'vk']) {
+      expect(byVendor.get(other)).toEqual({ notes: expect.any(String), vendor: other });
+    }
+    expect(result.note).toContain('search for one by its vendor name');
+    expect(JSON.stringify(result).length).toBeLessThan(12_000);
+  });
+
+  it('keeps every vendor full when it matched a keyword of its own (ai + telegram)', () => {
+    const result = search(['ai', 'telegram']);
+    const openai = result.vendors.find((vendor) => vendor.vendor === 'openai');
+    expect(openai).toHaveProperty('credentialFields');
+    expect(result.vendors.find((vendor) => vendor.vendor === 'telegram')).toHaveProperty('triggers');
+  });
+
+  it("a search by the other vendor's name describes it in full", () => {
+    expect(search(['max']).vendors.find((vendor) => vendor.vendor === 'max')).toHaveProperty('triggers');
+  });
+
   it('describes triggers by notes/contextFields, never by label', () => {
     const telegram = search(['telegram']).vendors.find((vendor) => vendor.vendor === 'telegram');
     const onCommand = telegram?.triggers?.find((trigger) => trigger.name === 'telegram-on-command-trigger');

@@ -4,6 +4,9 @@ import { callOpenAiChat } from './openai-chat-client.js';
 
 const jsonResponse = (body: unknown): Response => Response.json(body);
 
+/** A text content part carrying a prompt cache breakpoint, as sent for Claude models. */
+const part = (text: string) => [{ cache_control: { type: 'ephemeral' }, text, type: 'text' }];
+
 describe('callOpenAiChat', () => {
   let fetchMock = vi.fn();
 
@@ -97,6 +100,65 @@ describe('callOpenAiChat', () => {
     ]);
   });
 
+  describe('prompt cache breakpoints (Claude models only)', () => {
+    const conversation = [
+      { content: 'build it', role: 'user' as const },
+      { content: '', role: 'assistant' as const, toolCalls: [{ id: 'c1', input: {}, name: 'list_files' }] },
+      {
+        results: [
+          { content: 'a.json', isError: false, toolCallId: 'c1' },
+          { content: 'b.json', isError: false, toolCallId: 'c1b' },
+        ],
+        role: 'tool' as const,
+      },
+      {
+        content: '',
+        role: 'assistant' as const,
+        toolCalls: [{ id: 'c2', input: { path: 'a.json' }, name: 'read_file' }],
+      },
+      { results: [{ content: '{"x":1}', isError: false, toolCallId: 'c2' }], role: 'tool' as const },
+    ];
+    const sentMessages = async (model: string) => {
+      fetchMock.mockResolvedValue(jsonResponse({ choices: [{ message: { content: '', tool_calls: [] } }] }));
+      await callOpenAiChat({
+        apiKey: 'key',
+        baseUrl: 'https://api.example.com',
+        messages: conversation,
+        model,
+        system: 'sys',
+        tools: [],
+      });
+      const [, init] = fetchMock.mock.calls[0] as [string, RequestInit];
+      return (JSON.parse(init.body as string) as { messages: { role: string; content: unknown }[] }).messages;
+    };
+
+    it("marks the system prompt, the newest message and the previous request's newest message", async () => {
+      const messages = await sentMessages('anthropic/claude-opus-5.5');
+      expect(messages.map((message) => message.content)).toEqual([
+        part('sys'),
+        'build it',
+        null,
+        'a.json',
+        part('b.json'),
+        null,
+        part('{"x":1}'),
+      ]);
+    });
+
+    it('leaves the request unchanged for other models', async () => {
+      const messages = await sentMessages('deepseek/deepseek-v4-flash');
+      expect(messages.map((message) => message.content)).toEqual([
+        'sys',
+        'build it',
+        null,
+        'a.json',
+        'b.json',
+        null,
+        '{"x":1}',
+      ]);
+    });
+  });
+
   it('parses tool_calls from the response into the abstract ILlmToolCall shape', async () => {
     fetchMock.mockResolvedValue(
       jsonResponse({
@@ -154,6 +216,40 @@ describe('callOpenAiChat', () => {
     expect(result.toolCalls).toHaveLength(1);
     expect(result.toolCalls[0]).toMatchObject({ id: 'c1', input: {}, name: 'finish' });
     expect(result.toolCalls[0]?.inputError).toMatch(/^The tool call's arguments were not valid JSON \(.+\): not json$/);
+  });
+
+  it('treats empty tool call arguments as an empty object (a tool without parameters)', async () => {
+    fetchMock.mockResolvedValue(
+      jsonResponse({
+        choices: [
+          {
+            message: {
+              content: null,
+              tool_calls: [
+                { function: { arguments: '', name: 'list_files' }, id: 'c1' },
+                { function: { arguments: '  ', name: 'check_project' }, id: 'c2' },
+                { function: { name: 'finish' }, id: 'c3' },
+              ],
+            },
+          },
+        ],
+      }),
+    );
+
+    const result = await callOpenAiChat({
+      apiKey: 'key',
+      baseUrl: 'https://api.example.com',
+      messages: [],
+      model: 'gpt-test',
+      system: 's',
+      tools: [],
+    });
+
+    expect(result.toolCalls).toEqual([
+      { id: 'c1', input: {}, name: 'list_files' },
+      { id: 'c2', input: {}, name: 'check_project' },
+      { id: 'c3', input: {}, name: 'finish' },
+    ]);
   });
 
   it('truncates long unparseable arguments in inputError', async () => {

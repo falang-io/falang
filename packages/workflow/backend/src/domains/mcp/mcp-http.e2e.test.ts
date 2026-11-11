@@ -207,13 +207,14 @@ describe('/mcp (HTTP-level, PAT auth) (e2e)', () => {
         JSON.parse(toolText(result)) as {
           vendors: {
             vendor: string;
-            triggers: { nodeKind: string; notes: string; contextFields?: { name: string }[] }[];
+            // Absent on a vendor that only mentions another named one (MAX/VK on "telegram") — compact form.
+            triggers?: { nodeKind: string; notes: string; contextFields?: { name: string }[] }[];
           }[];
         }
       ).vendors;
       const telegram = integrations.find((integration) => integration.vendor === 'telegram');
-      const onMessage = telegram?.triggers.find((trigger) => trigger.nodeKind === 'telegram-trigger');
-      const onCommand = telegram?.triggers.find((trigger) => trigger.nodeKind === 'telegram-on-command-trigger');
+      const onMessage = telegram?.triggers?.find((trigger) => trigger.nodeKind === 'telegram-trigger');
+      const onCommand = telegram?.triggers?.find((trigger) => trigger.nodeKind === 'telegram-on-command-trigger');
       expect(onMessage?.notes).toContain('telegram-on-command-trigger');
       expect(onCommand?.notes).toContain('one trigger-function document per command');
       expect(onCommand?.contextFields?.map((field) => field.name)).toEqual(['command', 'chatType', 'conversation']);
@@ -221,7 +222,7 @@ describe('/mcp (HTTP-level, PAT auth) (e2e)', () => {
       // `notes` is a required field on `ITriggerDescriptor` precisely so every trigger in this catalog
       // has one, not just Telegram's — and `label` (UI-only, sometimes an untranslated i18n key) is
       // never sent to an agent at all.
-      const allTriggers = integrations.flatMap((integration) => integration.triggers);
+      const allTriggers = integrations.flatMap((integration) => integration.triggers ?? []);
       expect(allTriggers.length).toBeGreaterThan(0);
       for (const trigger of allTriggers) {
         expect(trigger).not.toHaveProperty('label');

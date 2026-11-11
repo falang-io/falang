@@ -18,9 +18,15 @@ interface IOpenAiToolCall {
   readonly function: { readonly name: string; readonly arguments: string };
 }
 
+interface IOpenAiTextPart {
+  readonly type: 'text';
+  readonly text: string;
+  readonly cache_control?: { readonly type: 'ephemeral' };
+}
+
 interface IOpenAiChatMessage {
   readonly role: 'system' | 'user' | 'assistant' | 'tool';
-  readonly content: string | null;
+  readonly content: string | null | readonly IOpenAiTextPart[];
   readonly tool_calls?: readonly IOpenAiToolCall[];
   readonly tool_call_id?: string;
 }
@@ -115,13 +121,15 @@ const toOpenAiTools = (tools: readonly IAgentChatToolDefinition[]) =>
 const MAX_ECHOED_ARGUMENTS_LENGTH = 200;
 
 /** One vendor tool call; unparseable arguments (a completion truncated mid-JSON, say) become `{}` plus an `inputError` naming the
- *  problem, so the agent is told to resend the call rather than seeing a misleading "x is required". */
+ *  problem, so the agent is told to resend the call rather than seeing a misleading "x is required". Empty arguments are `{}`:
+ *  some models/gateways send `""` for a tool without parameters (`list_files`, `check_project`, …). */
 const toToolCall = (call: {
   readonly id: string;
-  readonly function: { readonly name: string; readonly arguments: string };
+  readonly function: { readonly name: string; readonly arguments?: string };
 }): IAgentChatToolCall => {
-  const raw = call.function.arguments;
+  const raw = call.function.arguments ?? '';
   const base = { id: call.id, name: call.function.name };
+  if (raw.trim() === '') return { ...base, input: {} };
   try {
     return { ...base, input: JSON.parse(raw) };
   } catch (error) {
@@ -136,6 +144,35 @@ const toToolCall = (call: {
       inputError: `The tool call's arguments were not valid JSON (${reason}): ${echoed}`,
     };
   }
+};
+
+/**
+ * Claude models cache a prompt prefix only up to explicit `cache_control` breakpoints (DeepSeek and OpenAI cache on
+ * their own). Without them an agent run pays full price for every earlier tool result on every call — a 19-call
+ * Opus run sent 745 k prompt tokens, ~700 k of them a resent prefix. Checked on the OpenAI-compatible gateway
+ * (2026-11-11): the breakpoints pass through on `system`/`user`/`tool` content parts and the next call reads the
+ * whole prefix the previous one wrote (`prompt_tokens_details.cached_tokens`).
+ */
+export const needsPromptCacheBreakpoints = (model: string): boolean => /claude|anthropic/i.test(model);
+
+const withCacheBreakpoint = (message: IOpenAiChatMessage): IOpenAiChatMessage =>
+  typeof message.content === 'string' && message.content.length > 0
+    ? { ...message, content: [{ cache_control: { type: 'ephemeral' }, text: message.content, type: 'text' }] }
+    : message;
+
+/**
+ * Marks the system prompt (tools precede it in the cached prefix), the newest message, and the newest message of the
+ * previous request (the one before the last assistant turn) — so the next call finds the previous call's cache entry
+ * even when many parallel tool results were added since (the vendor looks back at most 20 blocks from a breakpoint).
+ * At most three breakpoints, under the vendor's limit of four. Empty messages are never marked.
+ */
+export const addPromptCacheBreakpoints = (messages: readonly IOpenAiChatMessage[]): IOpenAiChatMessage[] => {
+  const marked = new Set<number>([0]);
+  const last = messages.length - 1;
+  if (last > 0 && messages[last]?.role !== 'assistant') marked.add(last);
+  const lastAssistant = messages.findLastIndex((message) => message.role === 'assistant');
+  if (lastAssistant > 1 && messages[lastAssistant - 1]?.role !== 'assistant') marked.add(lastAssistant - 1);
+  return messages.map((message, index) => (marked.has(index) ? withCacheBreakpoint(message) : message));
 };
 
 const CORE_BODY_FIELDS = new Set(['messages', 'model', 'tools']);
@@ -177,7 +214,7 @@ export const callOpenAiChat = async (params: ICallOpenAiChatParams): Promise<IAg
   ];
   const body: Record<string, unknown> = {
     ...omitCoreFields(params.extraBody),
-    messages: openaiMessages,
+    messages: needsPromptCacheBreakpoints(params.model) ? addPromptCacheBreakpoints(openaiMessages) : openaiMessages,
     model: params.model,
   };
   const extra = params.extraBody ?? {};

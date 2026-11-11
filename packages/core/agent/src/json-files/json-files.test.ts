@@ -182,6 +182,38 @@ describe('JSON document files (ADR 0062)', () => {
     expect(reread.children?.[0].out?.name).toBe('out');
   });
 
+  it("moves an out written on a branch's last statement onto the branch itself", () => {
+    build(doc([{ data: 'a', id: 'n0', name: 'action' }, ifNode('i2', [], [])]));
+    const tree = file();
+    const shownIf = at(tree, 1, 1);
+    at(shownIf, 0).children = [{ data: 'stay', name: 'action' }];
+    at(shownIf, 1).children = [
+      { data: 'first', name: 'action' },
+      { data: 'last', name: 'action', out: { name: 'out' } },
+    ];
+    const result = write(JSON.stringify(tree));
+    expect(result.ok ? 'ok' : result.error).toBe('ok');
+    const elseBranch = scheme.nodes.getNode('i2').children[1];
+    expect(elseBranch.out?.name).toBe('out');
+    expect(elseBranch.children.map((child) => [child.data, child.out])).toEqual([
+      ['first', null],
+      ['last', null],
+    ]);
+  });
+
+  it('a then-branch ending in a statement with an out becomes a jumping branch, then the if is swapped', () => {
+    build(doc([{ data: 'a', id: 'n0', name: 'action' }, ifNode('i2', [], [])]));
+    const tree = file();
+    const shownIf = at(tree, 1, 1);
+    at(shownIf, 0).children = [{ data: 'notify', name: 'action', out: { name: 'out' } }];
+    const result = write(JSON.stringify(tree));
+    expect(result.ok ? 'ok' : result.error).toBe('ok');
+    const stored = scheme.nodes.getNode('i2');
+    expect(stored.meta).toMatchObject({ trueOnRight: true });
+    expect(stored.children[1].out?.name).toBe('out');
+    expect(stored.children[1].children[0].out).toBeNull();
+  });
+
   describe('errors (nothing is applied)', () => {
     const expectError = (text: string, ...fragments: string[]) => {
       const before = current();
@@ -229,6 +261,19 @@ describe('JSON document files (ADR 0062)', () => {
       const tree = file();
       at(tree, 1, 0).out = { name: 'out' };
       expectError(JSON.stringify(tree), 'root');
+    });
+
+    it("rejects an out on a loop body's last statement (a loop's own out runs after the loop) with a hint", () => {
+      const tree = file();
+      at(tree, 1).children?.push({
+        children: [
+          { data: 'x', name: 'action' },
+          { data: 'y', name: 'action', out: { name: 'out' } },
+        ],
+        data: 'true',
+        name: 'while',
+      });
+      expectError(JSON.stringify(tree), '"action" can\'t have an "out"', 'put the "out" on the branch node itself');
     });
 
     it('refuses to change the root kind', () => {

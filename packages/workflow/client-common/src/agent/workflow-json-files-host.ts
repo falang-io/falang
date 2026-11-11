@@ -180,8 +180,9 @@ export class WorkflowJsonFilesHost implements IJsonFilesHost {
     const previous = existing ? store.getTableData(existing.id) : null;
     const parsed = parseTableFile(previous, text);
     if (!parsed.ok) throw new Error(`${path}: nothing was changed. ${parsed.error}`);
+    // No `beforeWrite` for a table: it has no scheme to lock or open, and the session's resolver refuses tables —
+    // a rewrite of an existing `tables/<name>.json` failed with "is a table — it has no node tree" (like set_table_fields).
     if (existing) {
-      this.deps.beforeWrite?.(existing.id);
       store.updateTableFields(existing.id, parsed.data);
     } else {
       const conflict = findDocumentNameConflict(store.documents, name);

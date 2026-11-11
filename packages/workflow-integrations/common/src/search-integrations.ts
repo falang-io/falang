@@ -60,12 +60,19 @@ export interface IIntegrationSearchResult<TVendor> {
   readonly note?: string;
 }
 
+export const MENTIONED_VENDORS_NOTE =
+  'Vendors given as vendor + notes only matched because they mention another vendor you named — search for one ' +
+  'by its vendor name to get its node kinds, triggers and fields.';
+
 /**
  * With keywords, the vendors matching at least one keyword (case-insensitive substring over vendor id,
  * notes, node kind names and trigger names/notes), most keywords matched first (catalog order breaks
- * ties), capped at `SEARCH_INTEGRATIONS_LIMIT`, each described by `describe`. With no keywords, a compact
- * index (`vendor` + `notes` only) of every vendor, so an agent can still browse without paying for every
- * vendor's actions/triggers/fields.
+ * ties), capped at `SEARCH_INTEGRATIONS_LIMIT`, each described by `describe` — except a vendor that matched
+ * only keywords naming OTHER matched vendors (MAX's and VK's notes mention Telegram): it gets the compact form,
+ * since a search for `telegram` used to return ~23 KB, three quarters of it other messengers, that then
+ * stayed in the conversation for the rest of the run. With no keywords, a compact index (`vendor` +
+ * `notes` only) of every vendor, so an agent can still browse without paying for every vendor's
+ * actions/triggers/fields.
  */
 export const searchIntegrationCatalog = <TVendor>(
   integrations: readonly IWorkflowIntegration[],
@@ -79,13 +86,30 @@ export const searchIntegrationCatalog = <TVendor>(
   const ranked = integrations
     .map((integration, order) => {
       const haystack = vendorHaystack(integration);
-      return { integration, order, score: keywords.filter((keyword) => haystack.includes(keyword)).length };
+      const matched = keywords.filter((keyword) => haystack.includes(keyword));
+      return { integration, matched, order, score: matched.length };
     })
     .filter((entry) => entry.score > 0)
     .toSorted((a, b) => b.score - a.score || a.order - b.order);
-  const vendors = ranked.slice(0, SEARCH_INTEGRATIONS_LIMIT).map((entry) => describe(entry.integration));
-  if (vendors.length === 0) return { note: NO_INTEGRATION_MATCH_NOTE, vendors };
-  return ranked.length > vendors.length
-    ? { note: `${ranked.length - vendors.length} more vendors matched — use more specific keywords.`, vendors }
-    : { vendors };
+  const shown = ranked.slice(0, SEARCH_INTEGRATIONS_LIMIT);
+  if (shown.length === 0) return { note: NO_INTEGRATION_MATCH_NOTE, vendors: [] };
+  const named = new Set(
+    shown.map((entry) => entry.integration.vendor.toLowerCase()).filter((id) => keywords.includes(id)),
+  );
+  const onlyMentions = (entry: (typeof shown)[number]) => {
+    const own = entry.integration.vendor.toLowerCase();
+    return entry.matched.every((keyword) => keyword !== own && named.has(keyword));
+  };
+  const vendors = shown.map((entry) =>
+    onlyMentions(entry)
+      ? { notes: entry.integration.notes, vendor: entry.integration.vendor }
+      : describe(entry.integration),
+  );
+  const notes = [
+    ...(shown.some((entry) => onlyMentions(entry)) ? [MENTIONED_VENDORS_NOTE] : []),
+    ...(ranked.length > shown.length
+      ? [`${ranked.length - shown.length} more vendors matched — use more specific keywords.`]
+      : []),
+  ];
+  return notes.length > 0 ? { note: notes.join(' '), vendors } : { vendors };
 };

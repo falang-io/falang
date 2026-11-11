@@ -3,6 +3,7 @@ import { JsonFileToolProvider, type IAgentNodeKindFilter } from '@falang/agent';
 import { emptyTableData, normalizeTableDocumentData, type ITableDocumentData } from '@falang/workflow-dto';
 import type { WorkflowDocument } from '../workflow-types.js';
 import { DocumentToolProvider } from './document-tool-provider.js';
+import { createAgentDocumentResolver } from './create-agent-document-resolver.js';
 import { buildTableFields, describeTableFields, parseTableFile } from './table-agent.js';
 import type { IWorkflowAgentStore } from './workflow-agent-store.js';
 import { WorkflowJsonFilesHost } from './workflow-json-files-host.js';
@@ -183,6 +184,40 @@ describe('WorkflowJsonFilesHost tables/<name>.json', () => {
     });
     expect(bad.ok).toBe(false);
     expect(raw.updateTableFields.mock.calls.length).toBe(calls);
+  });
+
+  it("rewrites an existing table with the session's beforeWrite wired (the node resolver refuses tables)", async () => {
+    const fake = fakeStore();
+    const resolver = createAgentDocumentResolver({
+      acquireLock: vi.fn(),
+      getDocument: fake.raw.getDocument,
+      getScheme: () => {
+        throw new Error('a table has no scheme');
+      },
+    });
+    const nodeKindFilter = { isListed: () => true } as unknown as IAgentNodeKindFilter;
+    const host = new WorkflowJsonFilesHost({
+      beforeWrite: (id) => resolver.resolve(id),
+      nodeKindFilter,
+      store: fake.store,
+    });
+    const provider = new JsonFileToolProvider(host);
+    const write = (fields: unknown[]) =>
+      provider.execute({
+        id: 'c',
+        input: { content: JSON.stringify({ fields }), path: 'tables/games.json' },
+        name: 'write_file',
+      });
+
+    expect(parse(await write([{ name: 'status', type: 'text' }])).created).toBe(true);
+    const rewritten = await write([
+      { id: 'f1', name: 'status', type: 'text' },
+      { name: 'score', type: 'number' },
+    ]);
+    expect(parse(rewritten).fields).toEqual([
+      { id: 'f1', name: 'status', type: 'text' },
+      { id: 'f2', name: 'score', type: 'number' },
+    ]);
   });
 
   it('rejects a name clashing with another document and non-json paths', async () => {

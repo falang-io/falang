@@ -97,6 +97,29 @@ const fillSlotData = (raw: Record<string, unknown>, isSlot: boolean, ctx: IStruc
   if (isSlot && !has(raw, 'data') && ctx.stack.getConfig(name).data) raw.data = ctx.stack.factory(name).data;
 };
 
+/** A branch kind: named explicitly in another kind's fixed tuple or child list (`if-child`, `switch-option`,
+ *  `parallel-thread`, …) — unlike a loop, which is a statement and whose `out` runs after the loop. */
+const isBranchKind = (name: string, stack: NodesStack): boolean =>
+  [...stack.configsMap.values()].some(
+    (cfg) => cfg.childTuple?.includes(name) || (Array.isArray(cfg.children) && cfg.children.includes(name)),
+  );
+
+/**
+ * A jump written on a branch's last statement (`log` + `"out": return` at the end of an `if-child`) means "this branch
+ * ends with that jump" — the branch's own `out`, which the compiler appends after the last statement anyway. Moved
+ * there when the statement can't carry an `out` and the branch has none yet; any other misplaced `out` is reported.
+ */
+const hoistTrailingOut = (raw: Record<string, unknown>, ctx: IStructureContext): void => {
+  const children = raw.children as unknown[];
+  const last = children.at(-1);
+  if (!isRecord(last) || !has(last, 'out') || typeof last.name !== 'string') return;
+  if (!ctx.stack.configsMap.has(last.name) || ctx.stack.getConfig(last.name).haveOut) return;
+  const name = raw.name as string;
+  if (has(raw, 'out') || !ctx.stack.getConfig(name).haveOut || !isBranchKind(name, ctx.stack)) return;
+  raw.out = last.out;
+  delete last.out;
+};
+
 const normalizeChildren = (
   raw: Record<string, unknown>,
   path: string,
@@ -115,6 +138,7 @@ const normalizeChildren = (
   const policyError = checkChildren(name, raw.children, path, ctx);
   if (policyError) return policyError;
   const isSlot = Boolean(cfg.childTuple);
+  if (!isSlot) hoistTrailingOut(raw, ctx);
   for (const [i, child] of raw.children.entries()) {
     const oldChild = isSlot && oldNode?.name === name ? (oldNode.children?.[i] ?? null) : null;
     // oxlint-disable-next-line no-use-before-define -- mutual recursion
@@ -127,7 +151,12 @@ const normalizeChildren = (
 const normalizeOutAndMods = (raw: Record<string, unknown>, path: string, ctx: IStructureContext): string | null => {
   const name = raw.name as string;
   if (has(raw, 'out')) {
-    if (!ctx.stack.getConfig(name).haveOut) return `${path}: "${name}" can't have an "out".`;
+    if (!ctx.stack.getConfig(name).haveOut) {
+      return (
+        `${path}: "${name}" can't have an "out" — only branches (e.g. "if-child") and loops carry one. ` +
+        'To end a branch with a jump, put the "out" on the branch node itself (it runs after the branch\'s last statement).'
+      );
+    }
     // oxlint-disable-next-line no-use-before-define -- mutual recursion
     const error = normalizeStructure(raw.out, `${path}.out`, null, false, ctx);
     if (error) return error;
