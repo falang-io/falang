@@ -57,3 +57,19 @@ export const guessModelKind = (id: string): TAdminAiProviderModelKind => {
   if (/whisper|transcri|speech-to-text|stt/.test(lower)) return 'transcribe';
   return 'chat';
 };
+
+/**
+ * The "Load from provider" picker's name filter: every whitespace-separated word of `query` must occur in the model id
+ * (or its owner), case-insensitively; an empty query keeps every model.
+ */
+export const filterUpstreamModels = <T extends { readonly id: string; readonly ownedBy?: string }>(
+  models: readonly T[],
+  query: string,
+): T[] => {
+  const words = query.toLowerCase().split(/\s+/).filter(Boolean);
+  if (words.length === 0) return [...models];
+  return models.filter((model) => {
+    const text = `${model.id} ${model.ownedBy ?? ''}`.toLowerCase();
+    return words.every((word) => text.includes(word));
+  });
+};

@@ -15,6 +15,7 @@ import {
 import {
   addUpstreamModels,
   emptyModelRow,
+  filterUpstreamModels,
   guessModelKind,
   rowsToModels,
   toModelRows,
@@ -139,7 +140,9 @@ const UpstreamModelsPicker: React.FC<{ store: AiProviderSettingsPageStore }> = o
   const t = getGlobalI18n().t;
   const [selected, setSelected] = useState<string[]>([]);
   const [kinds, setKinds] = useState<Record<string, TAdminAiProviderModelKind>>({});
+  const [query, setQuery] = useState('');
   const upstream = store.upstream;
+  const visible = filterUpstreamModels(upstream ?? [], query);
   const kindOf = (id: string): TAdminAiProviderModelKind => kinds[id] ?? guessModelKind(id);
 
   const add = () => {
@@ -153,6 +156,13 @@ const UpstreamModelsPicker: React.FC<{ store: AiProviderSettingsPageStore }> = o
     }
     store.setRows(rows);
     setSelected([]);
+    setQuery('');
+    store.closePicker();
+  };
+
+  const close = () => {
+    setSelected([]);
+    setQuery('');
     store.closePicker();
   };
 
@@ -160,7 +170,7 @@ const UpstreamModelsPicker: React.FC<{ store: AiProviderSettingsPageStore }> = o
     <Modal
       title={t(`${NS}.picker-title`)}
       open={upstream !== null}
-      onCancel={() => store.closePicker()}
+      onCancel={close}
       onOk={add}
       okText={t(`${NS}.picker-add`)}
       okButtonProps={{ disabled: selected.length === 0, 'data-testid': 'ai-provider-picker-add' } as never}
@@ -168,12 +178,29 @@ const UpstreamModelsPicker: React.FC<{ store: AiProviderSettingsPageStore }> = o
       destroyOnHidden
     >
       <div data-testid="ai-provider-picker">
+        <Input.Search
+          allowClear
+          autoFocus
+          value={query}
+          onChange={(event) => setQuery(event.target.value)}
+          placeholder={t(`${NS}.picker-filter`)}
+          data-testid="ai-provider-picker-filter"
+          style={{ marginBottom: 8 }}
+        />
+        <Typography.Text type="secondary" style={{ display: 'block', marginBottom: 8 }}>
+          {t(`${NS}.picker-count`, { shown: visible.length, total: upstream?.length ?? 0, selected: selected.length })}
+        </Typography.Text>
         <Table<IAdminUpstreamModel>
           rowKey="id"
           size="small"
-          dataSource={[...(upstream ?? [])]}
-          pagination={{ pageSize: 50, hideOnSinglePage: true }}
-          rowSelection={{ selectedRowKeys: selected, onChange: (keys) => setSelected(keys.map(String)) }}
+          dataSource={visible}
+          pagination={{ pageSize: 50, hideOnSinglePage: true, showSizeChanger: false }}
+          rowSelection={{
+            selectedRowKeys: selected,
+            // Keeps ids the filter currently hides selected.
+            preserveSelectedRowKeys: true,
+            onChange: (keys) => setSelected(keys.map(String)),
+          }}
           columns={[
             { title: t(`${NS}.model-id`), dataIndex: 'id' },
             { title: t(`${NS}.owned-by`), dataIndex: 'ownedBy', width: 140 },

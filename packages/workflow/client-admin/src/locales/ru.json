@@ -320,6 +320,8 @@
       "load-models": "Загрузить у провайдера",
       "picker-title": "Модели провайдера",
       "picker-add": "Добавить выбранные",
+      "picker-filter": "Фильтр по имени модели",
+      "picker-count": "Показано {{shown}} из {{total}}, выбрано {{selected}}",
       "owned-by": "Владелец",
       "save": "Сохранить",
       "saved": "Сохранено",

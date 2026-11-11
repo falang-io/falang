@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest';
 import {
   addUpstreamModels,
   emptyModelRow,
+  filterUpstreamModels,
   guessModelKind,
   rowsToModels,
   toModelRows,
@@ -39,5 +40,23 @@ describe('built-in AI provider models table (ADR 0081)', () => {
     expect(guessModelKind('whisper-1')).toBe('transcribe');
     expect(guessModelKind('gpt-4o-transcribe')).toBe('transcribe');
     expect(guessModelKind('deepseek-chat')).toBe('chat');
+  });
+});
+
+describe('filterUpstreamModels', () => {
+  const models = [
+    { id: 'openai/gpt-4o-mini', ownedBy: 'openai' },
+    { id: 'deepseek/deepseek-chat' },
+    { id: 'openai/whisper-1', ownedBy: 'openai' },
+  ];
+
+  it('keeps every model for an empty query', () => {
+    expect(filterUpstreamModels(models, '  ')).toEqual(models);
+  });
+
+  it('matches every word case-insensitively against the id and the owner', () => {
+    expect(filterUpstreamModels(models, 'GPT').map((m) => m.id)).toEqual(['openai/gpt-4o-mini']);
+    expect(filterUpstreamModels(models, 'openai whisper').map((m) => m.id)).toEqual(['openai/whisper-1']);
+    expect(filterUpstreamModels(models, 'deepseek mini')).toEqual([]);
   });
 });

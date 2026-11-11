@@ -320,6 +320,8 @@
       "load-models": "Load from provider",
       "picker-title": "Models offered by the provider",
       "picker-add": "Add selected",
+      "picker-filter": "Filter by model name",
+      "picker-count": "Shown {{shown}} of {{total}}, selected {{selected}}",
       "owned-by": "Owner",
       "save": "Save",
       "saved": "Saved",
