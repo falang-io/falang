@@ -56,9 +56,12 @@ test.describe('documentation links', () => {
     const fieldLinks = page.getByRole('dialog').getByTestId('field-docs-link');
     // Chats and Conversation.
     await expect(fieldLinks).toHaveCount(2);
-    for (const link of await fieldLinks.all()) {
-      await expect(link).toHaveAttribute('href', `${DOCS_HOST}/workflow/bot-conversations/`);
-      await expect(link).toHaveAttribute('target', '_blank');
-    }
+    const links = await fieldLinks.all();
+    await Promise.all(
+      links.flatMap((link) => [
+        expect(link).toHaveAttribute('href', `${DOCS_HOST}/workflow/bot-conversations/`),
+        expect(link).toHaveAttribute('target', '_blank'),
+      ]),
+    );
   });
 });
