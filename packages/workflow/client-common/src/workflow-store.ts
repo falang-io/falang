@@ -675,7 +675,7 @@ export class WorkflowStore implements IWorkflowAgentStore {
     const allIds = new Set([id, ...this.getFolderDescendantIds(id)]);
     const docsToDelete = this.documents.filter((d) => d.folderId !== null && allIds.has(d.folderId));
     for (const doc of docsToDelete) {
-      this.closeTab(doc.id);
+      this.closeTab(doc.id, { keepEdit: false });
     }
     this.documents.replace(this.documents.filter((d) => d.folderId === null || !allIds.has(d.folderId)));
     this.folders.replace(this.folders.filter((f) => !allIds.has(f.id)));
@@ -771,7 +771,7 @@ export class WorkflowStore implements IWorkflowAgentStore {
     if (deleted?.type === OBJECTS_STRUCTURE_NAME && deleted.data) {
       this.typesRegistry.updateTypesByParent(deleted.data.id, []);
     }
-    this.closeTab(id);
+    this.closeTab(id, { keepEdit: false });
     this.documents.replace(this.documents.filter((d) => d.id !== id));
     this.sync.deleteDocumentRemote(id);
     if (deleted?.type === TABLE_DOCUMENT_TYPE) this.registerTableTypes();
@@ -816,7 +816,8 @@ export class WorkflowStore implements IWorkflowAgentStore {
     if (this.activeView === view) this.activeView = this.systemTabs.at(-1) ?? null;
   }
 
-  @action closeTab(id: string): void {
+  /** `keepEdit: false` — the document is being deleted, so an open block editor's text is not written back. */
+  @action closeTab(id: string, { keepEdit = true }: { keepEdit?: boolean } = {}): void {
     this.openTabIds = this.openTabIds.filter((t) => t !== id);
     this.keepAliveSchemeIds = this.keepAliveSchemeIds.filter((item) => item !== id);
     if (this.activeTabId === id) {
@@ -828,6 +829,8 @@ export class WorkflowStore implements IWorkflowAgentStore {
     }
     const scheme = this.schemes.get(id);
     if (scheme) {
+      // The block editor open in this tab is discarded with the scheme — keep what was typed (autosave picks it up).
+      if (keepEdit && !this.readOnly) commitInlineEdit(scheme);
       scheme.dispose();
       this.schemes.delete(id);
       this.validationModules.delete(id);
@@ -1179,6 +1182,8 @@ export class WorkflowStore implements IWorkflowAgentStore {
     this.agentSession.cancel();
     this.validationPriorityDisposer();
     defaultValidationQueue.setPriorityScheme(null);
+    // Leaving the project with a block editor open: keep what was typed (the debounced save still runs).
+    if (!this.readOnly) this.commitOpenEdits();
     for (const scheme of this.schemes.values()) scheme.dispose();
     this.schemes.clear();
     this.validationModules.clear();

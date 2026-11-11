@@ -65,4 +65,15 @@ describe('EditorService.commitEdit', () => {
     expect(commitInlineEdit(bare)).toBe(false);
     bare.dispose();
   });
+
+  it('disposes an editor still open when the scheme is disposed, without writing its data', () => {
+    const edit = startFakeEdit('x = 2');
+    const service = resolveService(TOKEN_INLINE_EDITOR_SERVICE, scheme.container);
+    const before = scheme.nodes.getNode(nodeId).data;
+    scheme.dispose();
+    expect(edit.disposed()).toBe(true);
+    expect(service.editingStore).toBeNull();
+    expect(service.editingId).toBeNull();
+    expect(scheme.nodes.getNode(nodeId).data).toBe(before);
+  });
 });

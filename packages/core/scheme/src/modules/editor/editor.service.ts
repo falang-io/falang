@@ -44,6 +44,13 @@ export class EditorService {
     return true;
   }
 
+  /** Disposes the open editor without writing its data or touching the scheme (for a scheme being disposed). */
+  @action discardEdit() {
+    this.editingStore?.dispose();
+    this.editingId = null;
+    this.editingStore = null;
+  }
+
   @action stopEdit(scheme: Scheme, save?: boolean) {
     if (this.editingStore && this.editingId && save) {
       scheme.commands.dispatchCommand(CMD_SET_DATA, {
