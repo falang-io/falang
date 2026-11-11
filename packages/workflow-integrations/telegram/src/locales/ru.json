@@ -27,7 +27,7 @@
       "messageId": "ID сообщения",
       "untilDate": "Бан до",
       "revokeMessages": "Удалить все его сообщения",
-      "resultVariable": "Переменная с результатом",
+      "resultVariable": "Результат",
       "buttons": "Кнопки",
       "fromUser": "От пользователя"
     },

@@ -29,7 +29,7 @@
       "conversation": "Диалог",
       "buttons": "Кнопки",
       "fromUser": "От пользователя",
-      "resultVariable": "Переменная с результатом",
+      "resultVariable": "Результат",
       "count": "Количество"
     },
     "action": {

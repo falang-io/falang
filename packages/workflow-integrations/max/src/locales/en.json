@@ -29,7 +29,7 @@
       "fromUser": "From user",
       "recipient": "Send to",
       "recipientId": "ID",
-      "resultVariable": "Result variable",
+      "resultVariable": "Result",
       "count": "Count"
     },
     "action": {

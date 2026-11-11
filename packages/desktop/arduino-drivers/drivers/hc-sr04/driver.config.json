@@ -29,7 +29,7 @@
         },
         {
           "name": "variable",
-          "label": "Result variable",
+          "label": "Result",
           "kind": "new-variable",
           "default": "distanceCm"
         }
@@ -69,7 +69,7 @@
               "label": "Пин Echo"
             },
             "variable": {
-              "label": "Переменная результата"
+              "label": "Результат"
             }
           }
         }

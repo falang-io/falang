@@ -40,7 +40,7 @@
         },
         {
           "name": "variable",
-          "label": "Result variable",
+          "label": "Result",
           "kind": "new-variable",
           "default": "temperature"
         }
@@ -77,7 +77,7 @@
         },
         {
           "name": "variable",
-          "label": "Result variable",
+          "label": "Result",
           "kind": "new-variable",
           "default": "humidity"
         }
@@ -127,7 +127,7 @@
               "label": "Датчик"
             },
             "variable": {
-              "label": "Переменная результата"
+              "label": "Результат"
             }
           }
         },
@@ -141,7 +141,7 @@
               "label": "Датчик"
             },
             "variable": {
-              "label": "Переменная результата"
+              "label": "Результат"
             }
           }
         }

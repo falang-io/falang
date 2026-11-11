@@ -27,7 +27,7 @@
       "messageId": "Message ID",
       "untilDate": "Ban until",
       "revokeMessages": "Delete all their messages",
-      "resultVariable": "Result variable",
+      "resultVariable": "Result",
       "buttons": "Buttons",
       "fromUser": "From user"
     },

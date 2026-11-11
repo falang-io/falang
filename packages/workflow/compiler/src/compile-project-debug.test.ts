@@ -200,7 +200,7 @@ describe('compileProject — debug instrumentation (ADR 0021 (private))', () => 
       label: 'Call AI (text)',
       fields: [
         { name: 'result', label: 'Result', kind: 'result-type' },
-        { name: 'resultVariable', label: 'Result variable', kind: 'new-variable' },
+        { name: 'resultVariable', label: 'Result', kind: 'new-variable' },
       ],
       resultType: (fields) => {
         try {

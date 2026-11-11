@@ -42,7 +42,7 @@ const ACTIONS: Record<TLanguage, TDictionary> = {
 const FIELDS: Record<TLanguage, TDictionary> = {
   en: {
     account: 'Account',
-    resultVariable: 'Result variable',
+    resultVariable: 'Result',
     leadName: 'Lead name',
     leadNameKeep: 'Lead name (empty — unchanged)',
     leadId: 'Lead ID',
@@ -80,7 +80,7 @@ const FIELDS: Record<TLanguage, TDictionary> = {
   },
   ru: {
     account: 'Аккаунт',
-    resultVariable: 'Переменная результата',
+    resultVariable: 'Результат',
     leadName: 'Название сделки',
     leadNameKeep: 'Название сделки (пусто — не менять)',
     leadId: 'ID сделки',

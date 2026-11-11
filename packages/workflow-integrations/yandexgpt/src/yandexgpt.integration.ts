@@ -43,7 +43,7 @@ export const yandexgptIntegration: IWorkflowIntegration = {
         { name: 'credentialId', label: 'Account', kind: 'credential-ref', vendor: YANDEXGPT_VENDOR },
         { name: 'model', label: 'Model (e.g. yandexgpt/latest)', kind: 'text' },
         { name: 'prompt', label: 'Prompt', kind: 'template-string' },
-        { name: 'resultVariable', label: 'Result variable', kind: 'new-variable' },
+        { name: 'resultVariable', label: 'Result', kind: 'new-variable' },
       ],
       emit: (fields) => {
         // The activity returns `{ text, usage, model }` (run journal, ADR 0059 (private)); the scheme variable stays a `string`.

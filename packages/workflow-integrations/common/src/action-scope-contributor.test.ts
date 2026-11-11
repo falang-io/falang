@@ -91,7 +91,7 @@ describe('buildActionScopeContributor', () => {
       name: 'call-ai-text',
       fields: [
         { name: 'result', label: 'Result', kind: 'result-type' },
-        { name: 'resultVariable', label: 'Result variable', kind: 'new-variable' },
+        { name: 'resultVariable', label: 'Result', kind: 'new-variable' },
       ],
       resultType: (fields) => {
         try {

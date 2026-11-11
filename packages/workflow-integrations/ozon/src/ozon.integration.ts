@@ -62,7 +62,7 @@ export const ozonIntegration: IWorkflowIntegration = {
             return { type: 'struct', id: structId };
           },
         },
-        { name: 'resultVariable', label: 'Result variable', kind: 'new-variable' },
+        { name: 'resultVariable', label: 'Result', kind: 'new-variable' },
       ],
       emit: (fields) => {
         const call = `await ozonCallMethod(${fields.credentialId}, ${fields.method}, ${fields.data})`;

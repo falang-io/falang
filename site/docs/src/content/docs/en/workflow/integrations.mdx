@@ -14,7 +14,7 @@ head:
 </p>
 
 <p>
-  An action's result field ("Result", "Result variable") is optional, like a function call's <code>result</code>: left
+  An action's result field ("Result") is optional, like a function call's <code>result</code>: left
   empty, the call still runs, but no variable is declared and nothing is shown for it on the scheme.
 </p>
 
@@ -39,7 +39,7 @@ head:
     "On command" trigger — handy for a menu whose buttons start other scenarios. A photo, document, voice message, audio or
     video attached to an incoming message is resolved into a <a href="../files/">File</a> automatically, and "Send file"
     delivers one back as an attachment. "Send message", "Send message with buttons" and "Send file" can keep their result
-    in a variable ("Result variable", optional): <code>{'{ success, disabled }'}</code>. <code>disabled</code> is{' '}
+    in a variable ("Result", optional): <code>{'{ success, disabled }'}</code>. <code>disabled</code> is{' '}
     <code>true</code> when the bot can no longer write to that chat — the user blocked the bot or deleted the account,
     the bot was removed from the group or never started — and then <code>success</code> is <code>false</code> and the
     scenario goes on instead of failing; check <code>disabled</code> to, for example, mark a subscriber inactive in a
