@@ -121,7 +121,8 @@ const NewRecordModal: React.FC<{
   const save = () => {
     const data: Record<string, unknown> = {};
     for (const field of fields) {
-      const parsed = parseCellInput(field, draft[field.id]);
+      const value = Object.hasOwn(draft, field.id) ? draft[field.id] : field.defaultValue;
+      const parsed = parseCellInput(field, value);
       if (!parsed.ok) {
         message.error(parsed.message);
         return;
@@ -157,13 +158,19 @@ const NewRecordModal: React.FC<{
     >
       <Form layout="vertical">
         {fields.map((field) => (
-          <Form.Item key={field.id} label={field.name} required={field.required} extra={field.description}>
+          <Form.Item
+            key={field.id}
+            label={field.name}
+            required={field.required === true && (field.defaultValue ?? null) === null}
+            extra={field.description}
+          >
             <div data-testid="table-new-cell" data-field-name={field.name}>
               <TableCellInput
                 field={field}
-                value={draft[field.id]}
+                value={Object.hasOwn(draft, field.id) ? draft[field.id] : field.defaultValue}
                 onChange={(value) => setDraft((prev) => ({ ...prev, [field.id]: value }))}
                 uploadFile={files?.upload}
+                openFile={files?.open}
               />
             </div>
           </Form.Item>

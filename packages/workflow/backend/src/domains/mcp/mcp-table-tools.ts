@@ -20,13 +20,15 @@ const fieldsSchema = zod
       name: zod.string(),
       type: zod.enum(TABLE_FIELD_TYPES),
       required: zod.boolean().optional(),
+      defaultValue: zod.unknown().optional(),
       options: zod.array(zod.string()).optional(),
       description: zod.string().optional(),
     }),
   )
   .describe(
-    'The complete field list. Keep "id" for a field that already exists (a rename/retype of the same column, its ' +
-      'data survives); omit it for a new field — it gets the next free id.',
+    'The complete field list. defaultValue is allowed only on a required field: it is a non-null value of the field ' +
+      'type used when an insert omits it, making the field optional in table-insert. Keep "id" for a field that already exists ' +
+      '(a rename/retype of the same column, its data survives); omit it for a new field — it gets the next free id.',
   );
 
 /**

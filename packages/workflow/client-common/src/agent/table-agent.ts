@@ -35,9 +35,12 @@ export const parseTableFile = (
   return buildTableFields(previous, parsed.fields ?? []);
 };
 
-/** `name:type`, `!` after the type for a required field — the project-context line of a table. */
+/** `name:type`, `!` for required, `=<JSON>` for a default — the project-context line of a table. */
 export const describeTableFields = (data: ITableDocumentData): string => {
-  const fields = data.fields.map((field: ITableField) => `${field.name}:${field.type}${field.required ? '!' : ''}`);
+  const fields = data.fields.map(
+    (field: ITableField) =>
+      `${field.name}:${field.type}${field.required ? '!' : ''}${(field.defaultValue ?? null) === null ? '' : `=${JSON.stringify(field.defaultValue)}`}`,
+  );
   return fields.length > 0 ? `fields: ${fields.join(', ')}` : 'no fields yet';
 };
 
@@ -48,10 +51,11 @@ export const TABLE_NOTES = [
   '# Tables',
   'A table is a built-in record store. Its file `tables/<name>.json` holds only the field definitions (records are ' +
     'edited by people in the grid and by the `table-*` workflow nodes — never by you):',
-  '```json\n{ "fields": [ { "id": "f1", "name": "title", "type": "text", "required": true }, { "name": "status", "type": "select", "options": ["new", "done"] } ] }\n```',
-  `Field types: ${TABLE_FIELD_TYPES.join(', ')}. \`select\` needs a non-empty \`options\` list. Field names are ` +
-    'identifier-like (letters, digits, `_`; Unicode letters allowed), unique ignoring case, and not `id`, `version`, ' +
-    '`createdAt`, `updatedAt`, `and`, `or`.',
+  '```json\n{ "fields": [ { "id": "f1", "name": "title", "type": "text", "required": true }, { "name": "status", "type": "select", "required": true, "options": ["new", "done"], "defaultValue": "new" } ] }\n```',
+  `Field types: ${TABLE_FIELD_TYPES.join(', ')}. \`select\` needs a non-empty \`options\` list. ` +
+    '`defaultValue` is allowed only on a REQUIRED field: a non-null value of its type applied when an insert omits ' +
+    'it, making the field optional in `table-insert`. Field names are identifier-like (letters, digits, `_`; Unicode ' +
+    'letters allowed), unique ignoring case, and not `id`, `version`, `createdAt`, `updatedAt`, `and`, `or`.',
   'Field ids: keep the `"id"` of every field you keep (renaming or retyping a field with its id keeps the column and its ' +
     'data); give a NEW field no `id` — it gets the next free one; a field you leave out is deleted with its data. ' +
     '`nextFieldNo` is computed — ignore it.',

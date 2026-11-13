@@ -1,5 +1,5 @@
 import dayjs from 'dayjs';
-import { normalizeFieldValue, type ITableField, type ITableFileRef } from '@falang/workflow-dto';
+import { hasTableFieldDefault, normalizeFieldValue, type ITableField, type ITableFileRef } from '@falang/workflow-dto';
 
 /** Pure helpers for showing and parsing grid cells (ADR 0075 (private)). Datetimes are shown in the viewer's zone and sent as ISO. */
 
@@ -67,6 +67,6 @@ export const buildCellPatch = (field: ITableField, value: unknown): Record<strin
 export const buildInsertData = (draft: Record<string, unknown>): Record<string, unknown> =>
   Object.fromEntries(Object.entries(draft).filter(([, value]) => !isUnset(value) && value !== ''));
 
-/** Fields whose required value is missing from an insert draft. */
+/** Required fields with neither an insert value nor a default. */
 export const missingRequiredFields = (fields: readonly ITableField[], data: Record<string, unknown>): ITableField[] =>
-  fields.filter((field) => field.required && isUnset(data[field.id]));
+  fields.filter((field) => field.required && !hasTableFieldDefault(field) && isUnset(data[field.id]));

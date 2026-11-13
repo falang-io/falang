@@ -142,6 +142,36 @@ describe('normalizeTableDocumentData', () => {
     expect(data.fields[0]).toEqual({ id: 'f1', name: 'a', type: 'text' });
   });
 
+  it('validates and normalises default values by field type', () => {
+    const data = okData({
+      fields: [
+        { id: 'f1', name: 'name', type: 'text', required: true, defaultValue: 'anonymous' },
+        { id: 'f2', name: 'age', type: 'number', required: true, defaultValue: 0 },
+        { id: 'f3', name: 'active', type: 'boolean', required: true, defaultValue: false },
+        { id: 'f4', name: 'seen', type: 'datetime', required: true, defaultValue: '2026-11-07T12:30:00+03:00' },
+        { id: 'f5', name: 'note', type: 'text', defaultValue: 'not allowed' },
+      ],
+    });
+    expect(data.fields.slice(0, 4).map((field) => field.defaultValue)).toEqual([
+      'anonymous',
+      0,
+      false,
+      '2026-11-07T09:30:00.000Z',
+    ]);
+    expect(data.fields[4]?.defaultValue).toBeUndefined();
+    expect(
+      errorOf({
+        fields: [{ id: 'f1', name: 'kind', type: 'select', required: true, options: ['a'], defaultValue: 'b' }],
+      }),
+    ).toContain('defaultValue');
+    expect(
+      errorOf({ fields: [{ id: 'f1', name: 'age', type: 'number', required: true, defaultValue: '1' }] }),
+    ).toContain('defaultValue');
+    expect(
+      errorOf({ fields: [{ id: 'f1', name: 'name', type: 'text', required: true, defaultValue: null }] }),
+    ).toContain('must not be null');
+  });
+
   it('validates description length', () => {
     expect(errorOf({ fields: [{ id: 'f1', name: 'a', type: 'text', description: 'x'.repeat(501) }] })).toContain('500');
     expect(errorOf({ fields: [{ id: 'f1', name: 'a', type: 'text', description: 5 }] })).toContain('description');

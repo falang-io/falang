@@ -12,7 +12,7 @@ const data: ITableDocumentData = {
   nextFieldNo: 9,
   fields: [
     { id: 'f1', name: 'name', type: 'text', required: true },
-    { id: 'f2', name: 'age', type: 'number' },
+    { id: 'f2', name: 'age', type: 'number', required: true, defaultValue: 0 },
     { id: 'f3', name: 'vip', type: 'boolean' },
     { id: 'f4', name: 'tag', type: 'select', options: ['a'] },
     { id: 'f5', name: 'born', type: 'date' },
@@ -55,7 +55,7 @@ describe('tableStructTypes', () => {
     expect(Object.keys(row)).toEqual(['id', 'version', 'createdAt', 'updatedAt', ...data.fields.map((f) => f.name)]);
     expect(row.id).toEqual({ type: 'string' });
     expect(row.name).toEqual({ type: 'string' });
-    expect(row.age).toEqual({ type: 'number', numberType: { type: 'any' }, optional: true });
+    expect(row.age).toEqual({ type: 'number', numberType: { type: 'any' } });
     expect(row.vip).toEqual({ type: 'boolean', optional: true });
     expect(row.tag).toEqual({ type: 'string', optional: true });
     expect(row.born).toEqual({ type: 'string', optional: true });
@@ -64,7 +64,7 @@ describe('tableStructTypes', () => {
     expect(row.scan).toEqual({ type: 'struct', id: 'files/File', optional: true });
   });
 
-  it('Insert has fields only (required stays required), Patch makes all optional', () => {
+  it('Insert requires only required fields without a default; Patch makes all optional', () => {
     const insert = byId('table:doc1#insert').properties;
     expect(Object.keys(insert)).toEqual(data.fields.map((f) => f.name));
     expect(insert.name.optional).toBeUndefined();

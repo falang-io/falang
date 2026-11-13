@@ -32,6 +32,23 @@ describe('table fields model', () => {
     expect(data.fields[0]?.options).toBeUndefined();
   });
 
+  it('keeps defaults only on required fields and clears empty, disabled and retyped defaults', () => {
+    let data = addField(emptyTableData(), 'boolean');
+    data = updateField(data, 'f1', { defaultValue: false });
+    expect(data.fields[0]?.defaultValue).toBeUndefined();
+    data = updateField(data, 'f1', { required: true, defaultValue: false });
+    expect(data.fields[0]?.defaultValue).toBe(false);
+    data = updateField(data, 'f1', { defaultValue: null });
+    expect(data.fields[0]?.defaultValue).toBeUndefined();
+    data = updateField(data, 'f1', { type: 'number', defaultValue: 0 });
+    expect(data.fields[0]?.defaultValue).toBe(0);
+    data = updateField(data, 'f1', { required: false });
+    expect(data.fields[0]?.defaultValue).toBeUndefined();
+    data = updateField(data, 'f1', { required: true, defaultValue: 0 });
+    data = updateField(data, 'f1', { type: 'text' });
+    expect(data.fields[0]?.defaultValue).toBeUndefined();
+  });
+
   it('reorders within bounds', () => {
     let data = addField(addField(emptyTableData()));
     expect(moveField(data, 'f1', -1)).toBe(data);

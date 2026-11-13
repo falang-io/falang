@@ -42,6 +42,11 @@ export const updateField = (
     else delete next.options;
     if (next.required !== true) delete next.required;
     if (next.description === '') delete next.description;
+    const retyped = (patch.type ?? field.type) !== field.type;
+    const clearedDefault = (next.defaultValue ?? null) === null || next.defaultValue === '';
+    if (!next.required || (retyped && !Object.hasOwn(patch, 'defaultValue')) || clearedDefault) {
+      delete next.defaultValue;
+    }
     return next;
   }),
 });

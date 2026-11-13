@@ -43,5 +43,7 @@ describe('table cell model', () => {
     expect(buildCellPatch(f('text'), null)).toEqual({ f1: null });
     expect(buildInsertData({ f1: 'a', f2: '', f3: null, f4: 0 })).toEqual({ f1: 'a', f4: 0 });
     expect(missingRequiredFields([f('text', { required: true })], {}).length).toBe(1);
+    expect(missingRequiredFields([f('text', { required: true, defaultValue: 'x' })], {})).toEqual([]);
+    expect(missingRequiredFields([f('boolean', { required: true, defaultValue: false })], {})).toEqual([]);
   });
 });

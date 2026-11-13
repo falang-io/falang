@@ -46,13 +46,30 @@ test.describe('project tables', () => {
 
     await addTextFieldsViaUI(page, ['Name', 'City']);
     await expect(page.getByRole('columnheader', { name: 'Name' })).toBeVisible();
-    await expect(page.getByRole('columnheader', { name: 'City' })).toBeVisible();
+    await expect(page.getByRole('columnheader', { name: 'City *' })).toHaveCount(0);
 
-    // Add a row through the "Add row" form.
+    // A required field with a default is optional in the new-row form.
+    await page.getByTestId('table-fields-button').click();
+    const fieldsDialog = page.getByTestId('table-fields-dialog');
+    const cityField = fieldsDialog.getByTestId('table-field-row').nth(1);
+    await expect(cityField).toHaveCSS('border-top-width', '1px');
+    await expect(cityField.getByTestId('table-field-default')).toHaveCount(0);
+    await cityField.getByRole('checkbox').check();
+    const defaultInput = cityField.getByTestId('table-field-default');
+    await expect(defaultInput).toBeVisible();
+    const checkboxBox = await cityField.getByRole('checkbox').boundingBox();
+    const defaultBox = await defaultInput.boundingBox();
+    expect(defaultBox?.y ?? 0).toBeGreaterThan(checkboxBox?.y ?? 0);
+    await defaultInput.locator('input').fill('Paris');
+    await page.getByTestId('table-fields-save').click();
+    await expect(page.getByTestId('table-fields-dialog')).toHaveCount(0);
+    await expect(page.getByRole('columnheader', { name: 'City *' })).toBeVisible();
+
+    // Add a row through the "Add row" form, leaving the defaulted required field untouched.
     await page.getByTestId('table-add-row').click();
     const modal = page.getByRole('dialog');
     await modal.locator('[data-testid="table-new-cell"][data-field-name="Name"] input').fill('Ann');
-    await modal.locator('[data-testid="table-new-cell"][data-field-name="City"] input').fill('Paris');
+    await expect(modal.locator('[data-testid="table-new-cell"][data-field-name="City"] input')).toHaveValue('Paris');
     await modal.getByRole('button', { name: 'Add row' }).click();
     await expect(page.getByRole('cell', { name: 'Ann' })).toBeVisible();
     await expect(page.getByRole('cell', { name: 'Paris' })).toBeVisible();

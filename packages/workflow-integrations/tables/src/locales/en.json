@@ -32,7 +32,7 @@
       "limit": "How many records to return: 100 by default, at most 1000.",
       "offset": "How many leading records to skip — for paging: `0`, `100`, `200`…",
       "id": "The record id (a string), e.g. `record.id` from another action's result.",
-      "row": "An object: field name → value.\n`{ maxId: user.id, created: new Date().toISOString(), joined: true }`\nThe table's required fields must be set.",
+      "row": "An object: field name → value.\n`{ maxId: user.id, created: new Date().toISOString(), joined: true }`\nThe table's required fields must be set unless they have a default value.",
       "set": "An object with only the fields that change.\n`{ gone: true }`\n`{ status: 'done', attempts: record.attempts + 1 }`"
     }
   }

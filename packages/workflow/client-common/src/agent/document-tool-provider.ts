@@ -104,9 +104,10 @@ const OBJECTS_STRUCTURE_DESCRIPTION =
 const TABLE_FIELDS_SCHEMA = {
   type: 'array',
   description:
-    'The complete field list. Each field: { name, type, required?, options? (select only), description?, id? }. Keep ' +
-    '"id" for a field that already exists (a rename or retype of the same column); omit it for a new field. ' +
-    `type is one of ${TABLE_FIELD_TYPES.join(', ')}.`,
+    'The complete field list. Each field: { name, type, required?, defaultValue?, options? (select only), ' +
+    'description?, id? }. defaultValue is allowed only on a required field and is used when an insert omits it, ' +
+    'making the field optional in table-insert. Keep "id" for a field that already exists (a rename or retype of the same column); ' +
+    `omit it for a new field. type is one of ${TABLE_FIELD_TYPES.join(', ')}.`,
   items: {
     type: 'object',
     properties: {
@@ -114,6 +115,9 @@ const TABLE_FIELDS_SCHEMA = {
       name: { type: 'string' },
       type: { type: 'string', enum: [...TABLE_FIELD_TYPES] },
       required: { type: 'boolean' },
+      defaultValue: {
+        description: 'Required fields only: a non-null value of this field type, used when an insert omits it',
+      },
       options: { type: 'array', items: { type: 'string' } },
       description: { type: 'string' },
     },

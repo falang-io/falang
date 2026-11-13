@@ -150,6 +150,7 @@ export const TableEditor: React.FC<ITableEditorProps> = observer(
         <TableFieldsDialog
           open={fieldsOpen}
           data={data}
+          files={guest ? null : files}
           onSave={readOnly ? null : (onFieldsChange ?? null)}
           onClose={() => setFieldsOpen(false)}
         />

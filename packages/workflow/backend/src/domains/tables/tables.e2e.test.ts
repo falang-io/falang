@@ -354,6 +354,24 @@ describe.skipIf(resolveTestDb() === 'sqlite')('project tables records API (e2e)'
   });
 
   describe('internal API', () => {
+    it('applies field defaults to omitted insert values', async () => {
+      const tableId = '00000000-0000-4000-8000-0000000000a2';
+      await createTable(tableId, 'Defaults', [
+        { id: 'f1', name: 'Name', type: 'text', required: true, defaultValue: 'anonymous' },
+        { id: 'f2', name: 'Age', type: 'number', required: true, defaultValue: 0 },
+        { id: 'f3', name: 'Active', type: 'boolean', required: true, defaultValue: false },
+      ]);
+      const created = await internal('insert', { data: { f2: 7 }, idempotencyKey: 'defaults-1' }, tableId).expect(200);
+      expect(created.body.record.data).toEqual({ f1: 'anonymous', f2: 7, f3: false });
+      const fromGrid = await request(server())
+        .post(`${base(tableId)}/records`)
+        .set(auth(token))
+        .send({ env: 'dev', data: {} })
+        .expect(201);
+      expect(fromGrid.body.data).toEqual({ f1: 'anonymous', f2: 0, f3: false });
+      await internal('insert', { data: { f1: null }, idempotencyKey: 'defaults-2' }, tableId).expect(400);
+    });
+
     it('inserts idempotently: the same key returns the same record and writes one change row', async () => {
       const key = 'run-1:act-1';
       const first = await internal('insert', {

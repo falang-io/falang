@@ -694,6 +694,8 @@
       "field-description": "Description (optional)",
       "field-options": "Options, one per line",
       "field-required": "Required",
+      "field-default": "Default value",
+      "field-default-not-set": "Not set",
       "type-text": "Text",
       "type-number": "Number",
       "type-boolean": "Yes/No",

@@ -83,12 +83,12 @@ describe('buildTableFields', () => {
     expect(buildTableFields(previous, 'nope').ok).toBe(false);
   });
 
-  it('describes fields with ! for required', () => {
+  it('describes required fields and defaults', () => {
     const built = buildTableFields(null, [
       { name: 'title', required: true, type: 'text' },
-      { name: 'qty', type: 'number' },
+      { name: 'qty', type: 'number', required: true, defaultValue: 0 },
     ]);
-    expect(built.ok && describeTableFields(built.data)).toBe('fields: title:text!, qty:number');
+    expect(built.ok && describeTableFields(built.data)).toBe('fields: title:text!, qty:number!=0');
   });
 
   it('parseTableFile ignores a written nextFieldNo and reports bad JSON', () => {

@@ -1,5 +1,5 @@
 import type { TVariableInfo } from '@falang/typescript-dto';
-import type { ITableDocumentData, ITableField } from '@falang/workflow-dto';
+import { hasTableFieldDefault, type ITableDocumentData, type ITableField } from '@falang/workflow-dto';
 import type { IIntegrationStructType } from '@falang/workflow-integrations-common';
 import {
   ANY_FILTER_TYPE_ID,
@@ -127,7 +127,7 @@ export const tableStructTypes = (doc: ITableDocumentLike): IIntegrationStructTyp
   for (const field of doc.data.fields) {
     const value = tableFieldVariableInfo(field);
     rowProps[field.name] = field.required ? value : optionalOf(value);
-    insertProps[field.name] = field.required ? value : optionalOf(value);
+    insertProps[field.name] = field.required && !hasTableFieldDefault(field) ? value : optionalOf(value);
     patchProps[field.name] = optionalOf(value);
     whereProps[field.name] = optionalOf({
       type: 'union',

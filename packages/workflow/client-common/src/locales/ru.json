@@ -706,6 +706,8 @@
       "field-description": "Описание (необязательно)",
       "field-options": "Варианты, по одному в строке",
       "field-required": "Обязательное",
+      "field-default": "Значение по умолчанию",
+      "field-default-not-set": "Не задано",
       "type-text": "Текст",
       "type-number": "Число",
       "type-boolean": "Да/Нет",

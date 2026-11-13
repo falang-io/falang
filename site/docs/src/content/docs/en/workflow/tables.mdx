@@ -28,6 +28,11 @@ head:
 </p>
 
 <p>
+  A <b>required</b> field can have a <b>default value</b>, used when an insert omits it — in the grid, a CSV import or
+  the <b>Insert</b> node. It is then optional when creating a record. Optional fields do not have defaults.
+</p>
+
+<p>
   The schema (tables and fields) is part of the project: it is exported, versioned and shared between the dev and the
   production environment. The <b>records</b> are not — dev and prod each have their own, so the test stand never
   touches production data, and records are never included in a project export or a version. Restoring a version that

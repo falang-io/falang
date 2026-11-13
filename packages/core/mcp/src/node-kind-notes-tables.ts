@@ -30,8 +30,8 @@ export const TABLES_VENDOR_NODE_KIND_NOTES: Record<string, string> = {
   ].join(' '),
   'table-insert': [
     'Adds a record to a project table and returns it (with its new `id`, `version` 1 and timestamps). `row` holds the',
-    "table's fields by name; required fields must be present. Temporal retries of the same node never create a",
-    'duplicate. The returned record is a snapshot.',
+    "table's fields by name; required fields must be present unless their field definition has a defaultValue, which",
+    'is applied when omitted. Temporal retries of the same node never create a duplicate. The returned record is a snapshot.',
     TABLE_FIELD,
   ].join(' '),
   'table-update': [

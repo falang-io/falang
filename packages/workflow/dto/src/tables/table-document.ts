@@ -3,6 +3,7 @@
  * backend's database, not in the document; the document holds only the field definitions.
  * Browser-safe: no `node:*`, no `process.env`, no `Buffer`.
  */
+import { normalizeFieldValue, type TFieldValueResult } from './table-field-value.js';
 
 export const TABLE_DOCUMENT_TYPE = 'table';
 
@@ -16,10 +17,15 @@ export interface ITableField {
   name: string;
   type: TTableFieldType;
   required?: boolean;
+  /** Required fields only: used when an insert omits the field; must be a non-null value of its type. */
+  defaultValue?: unknown;
   /** Only for `select`: the allowed values. */
   options?: string[];
   description?: string;
 }
+
+export const hasTableFieldDefault = (field: ITableField): boolean =>
+  field.required === true && (field.defaultValue ?? null) !== null;
 
 export interface ITableDocumentData {
   fields: ITableField[];
@@ -95,6 +101,18 @@ const normalizeFieldName = (where: string, raw: unknown): { ok: true; name: stri
   return { ok: true, name };
 };
 
+const normalizeFieldDefault = (where: string, field: ITableField, item: Record<string, unknown>): TFieldValueResult => {
+  if (!field.required || !Object.hasOwn(item, 'defaultValue')) return { ok: true, value: null };
+  const result = normalizeFieldValue(field, item.defaultValue);
+  if (!result.ok) {
+    return { ok: false, code: result.code, message: `${where}.defaultValue: ${result.message}` };
+  }
+  if (result.value === null) {
+    return { ok: false, code: 'validation', message: `${where}.defaultValue must not be null` };
+  }
+  return result;
+};
+
 /** Validates one field entry; `ids`/`names` (lower-cased) accumulate across the table to detect duplicates. */
 const normalizeField = (item: unknown, index: number, ids: Set<string>, names: Set<string>): TNormalizeFieldResult => {
   const where = `fields[${index}]`;
@@ -123,6 +141,9 @@ const normalizeField = (item: unknown, index: number, ids: Set<string>, names: S
     if (!options.ok) return options;
     field.options = options.options;
   }
+  const defaultValue = normalizeFieldDefault(where, field, item);
+  if (!defaultValue.ok) return { ok: false, error: defaultValue.message };
+  if (defaultValue.value !== null) field.defaultValue = defaultValue.value;
   const description = item.description;
   if ((description ?? null) !== null && description !== '') {
     if (typeof description !== 'string' || description.length > TABLE_FIELD_DESCRIPTION_MAX_LENGTH) {

@@ -146,6 +146,31 @@ describe('normalizeRecordData', () => {
     });
   });
 
+  it('insert: applies defaults of required fields only, including false and zero', () => {
+    const defaulted: ITableField[] = [
+      { id: 'f1', name: 'name', type: 'text', required: true, defaultValue: 'anonymous' },
+      { id: 'f2', name: 'age', type: 'number', required: true, defaultValue: 0 },
+      { id: 'f3', name: 'active', type: 'boolean', required: true, defaultValue: false },
+      { id: 'f4', name: 'note', type: 'text', defaultValue: 'default' },
+    ];
+    expect(normalizeRecordData(defaulted, {}, 'insert')).toEqual({
+      ok: true,
+      data: { f1: 'anonymous', f2: 0, f3: false },
+      unset: [],
+    });
+    expect(normalizeRecordData(defaulted, { f1: 'Ann', f2: 5, f3: true, f4: null }, 'insert')).toEqual({
+      ok: true,
+      data: { f1: 'Ann', f2: 5, f3: true },
+      unset: [],
+    });
+    expect(normalizeRecordData(defaulted, { f1: null }, 'insert')).toMatchObject({
+      ok: false,
+      code: 'required_field',
+      field: 'f1',
+    });
+    expect(normalizeRecordData(defaulted, {}, 'patch')).toEqual({ ok: true, data: {}, unset: [] });
+  });
+
   it('patch: required not demanded when absent, null clears optional, rejected on required', () => {
     expect(normalizeRecordData(fields, { f2: 5 }, 'patch')).toEqual({ ok: true, data: { f2: 5 }, unset: [] });
     expect(normalizeRecordData(fields, { f2: null, f3: null }, 'patch')).toEqual({
