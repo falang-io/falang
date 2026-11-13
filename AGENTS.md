@@ -1,52 +1,63 @@
 # AGENTS.md
 
-This file provides guidance to agents when working with code in this repository.
+This file provides guidance to coding agents working in this repository.
 
-npm workspaces monorepo. Node `>=24`, TypeScript 6, `"type": "commonjs"`.
+This is the **community edition** of Falang (AGPL-3.0-only, see `LICENSE`; contributions need a CLA, see
+`CONTRIBUTING.md`). Design discussions happen in GitHub Issues/Discussions. Pointers of the form `ADR 00xx (private)`
+refer to the maintainers' private architecture decision records — the rule or reason itself is always stated in place,
+the pointer only says where the longer history lives.
 
-## Packages
+## Repository overview
 
-| Package               | Path                   | Purpose                                            |
-| --------------------- | ---------------------- | -------------------------------------------------- |
-| `@falang/di`          | `packages/core/di`     | tsyringe wrapper + `createSchemeToken<T>()`        |
-| `@falang/dto`         | `packages/core/dto`    | Node model (zod DTOs, `NodesGroup` / `NodesStack`) |
-| `@falang/scheme`      | `packages/core/scheme` | MobX + React editor runtime (`schemeFactory`)      |
-| `@falang/antd`        | `packages/core/antd`   | Ant Design UI module                               |
-| `@falang/text-dto`    | `packages/text/dto`    | Text-node DTOs                                     |
-| `@falang/text-scheme` | `packages/text/scheme` | Text-node scheme runtime                           |
-| _(playground)_        | `playground`           | Vite + React dev harness                           |
+npm workspaces monorepo. Node `>=24`, TypeScript 6, `"type": "commonjs"` throughout (except `playground`, which is
+`"type": "module"`). Packages publish directly from `src/index.ts`; no build step is needed to consume them in-repo.
 
-All packages publish from `src/index.ts` (`main` points at TS source, no build step needed in-repo).
+The detailed, versioned agent memory lives under `.kimi-code/memory/`. Read the files relevant to the area you are
+changing rather than loading the whole directory.
 
-## Commands (run from root)
+## Memory map
 
-- `npm test` — Vitest across all workspaces
-- `npm run coverage` — same with V8 coverage
-- `npm run format` / `format:check` — Prettier
-- `npx oxlint` — lint (`.oxlintrc.json`)
+- [Workspace and repository layout](.kimi-code/memory/workspace.md) — repository layout and package-domain overview.
+- [Core packages](.kimi-code/memory/packages-core.md) — agent, DI, DTO, MCP, scheme, versioning, and antd.
+- [Text and TypeScript packages](.kimi-code/memory/packages-text-typescript.md) — text and TypeScript domains.
+- [Workflow runtime packages](.kimi-code/memory/packages-workflow-runtime.md) — DTO, scheme, compiler, backend, runner,
+  gateway, integrations, local mode, and mocks.
+- [Workflow client packages](.kimi-code/memory/packages-workflow-client.md) — client-common, client-admin, and client.
+- [Logic and desktop packages](.kimi-code/memory/packages-logic-desktop.md) — logic constructor, Electron apps, Arduino,
+  project filesystem, MCP, and desktop agent hosts.
+- [Other packages and applications](.kimi-code/memory/packages-other.md) — simple-code, standalone services, playground,
+  and public sites.
+- [Commands and verification](.kimi-code/memory/commands.md) — unit/e2e/coverage commands, release commands, and the
+  required verification policy.
+- [Conventions](.kimi-code/memory/conventions.md) — licensing, imports, decorators, linting, and formatting.
+- [Architecture](.kimi-code/memory/architecture.md) — node model, DI, editor runtime, modules, and TypeScript scope.
 
-Per-package:
+Keep these notes current when changing the behavior they describe. Update the relevant memory file instead of creating
+another monolithic instruction file.
 
-- `npm test -w @falang/<name>` — single package tests
-- `npm run check -w @falang/scheme` — typecheck (`tsc --noEmit -p tsconfig.build.json`, only scheme has this)
-- `npm run stryker -w @falang/<dto|text-dto>` — mutation tests
-- `npm run dev -w playground` / `npm run build -w playground`
+## Quick commands
 
-Single test: `npx vitest run -c vitest.config.ts path/to/file.test.ts -t "test name"` from inside the package directory.
+Run from the repository root unless noted:
 
-## Conventions
+```sh
+npm ci
+npm test
+npx oxlint
+npm run check -w <package>
+npm run test-e2e
+```
 
-- **Import paths end in `.js`** always (nodenext + `isolatedModules`). Enforced by `.vscode/settings.json`.
-- **Decorators enabled** (`experimentalDecorators`, `emitDecoratorMetadata`) — MobX `@observable` and tsyringe rely on this.
-- **oxlint** is the only linter; many style rules disabled (`sort-keys`, `no-null`, `curly`, etc.).
-- **Prettier**: 120 width, single quotes, trailing commas.
+See [Commands and verification](.kimi-code/memory/commands.md) for focused tests, local e2e, coverage, desktop releases,
+and the full verification requirements. In particular, after every task run lint and type-check every changed package;
+at the end of each implementation phase run the complete unit and e2e suites as documented there.
 
-## Architecture notes
+## Essential conventions
 
-- **DTO**: Tree of typed nodes. `INodeConfig` declares a node kind (name, optional zod `data` schema, children policy, factory). Children policy: `true` (any), array (`['nameA','nameB']`), or `childTuple` (fixed positional). `NodesStack` builds a zod discriminated union for `parseNode`/`parseDocument`.
-- **Scheme entry**: `schemeFactory({ infra, modules, document })` creates a tsyringe child container, parses doc, creates `NodeStore` instances, registers modules.
-- **Stores**: MobX observable classes — `NodeStore`, `SchemeNodesStore`, `SchemeIconsStore`, plus view-model stores resolved via DI tokens.
-- **Actions → events**: Mutations (`insertNode`, `deleteNode`, `moveNodes`, etc.) fire typed events via `scheme.events.fireEvent()`.
-- **Command bus**: `SchemeCommandsService` dispatches at 5 priority levels (0–4, high→low). Listener returning `true` stops propagation.
-- **Module pattern**: Implement `IModule` (`register` → DI bindings, `initialize` → event/command wiring, `dispose` → cleanup). See `src/modules/history/` as canonical example.
-- **Test harness**: `getTestInfrastructure()` + `getTestEmptyDoc()` from `packages/core/scheme/test-utils/`. See `src/modules/history/history.test.ts` for setup pattern (build infra, call `schemeFactory`, dispose in cleanup).
+- End relative import paths in `.js`, even when importing TypeScript sources.
+- Prefer relative imports within a package and package names across package boundaries.
+- Never add cloud-only code (billing, metering, deployment) under `packages/`.
+- Run Prettier with `npm run format`; do not run its Markdown printer on the dense hand-written memory files.
+- Before marking work done, check and update any documentation made stale by the change, including this memory, package
+  READMEs, and public docs where applicable.
+
+See [Conventions](.kimi-code/memory/conventions.md) and [Architecture](.kimi-code/memory/architecture.md) for details.

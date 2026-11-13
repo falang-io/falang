@@ -22,4 +22,4 @@ npm run format               # Prettier
 Run `npm run check` for every package you change, plus `npx oxlint`, before opening a pull request.
 
 Conventions (import paths ending in `.js`, package layout, architecture notes) are described in
-[`CLAUDE.md`](CLAUDE.md) / [`AGENTS.md`](AGENTS.md).
+[`AGENTS.md`](AGENTS.md) and the detailed notes under [`.kimi-code/memory/`](.kimi-code/memory/).

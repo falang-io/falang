@@ -78,8 +78,8 @@ npm run format        # Prettier
 npm run test-e2e      # end-to-end suite; heavy, needs Docker + kind
 ```
 
-See [CONTRIBUTING.md](CONTRIBUTING.md), and [AGENTS.md](AGENTS.md) / [CLAUDE.md](CLAUDE.md) for coding
-agents (repository layout, conventions, per-package notes).
+See [CONTRIBUTING.md](CONTRIBUTING.md) and [AGENTS.md](AGENTS.md) for coding agents (repository layout,
+conventions, and links to the detailed notes in `.kimi-code/memory/`).
 
 ## Production client image
 
