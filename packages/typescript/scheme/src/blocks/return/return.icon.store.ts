@@ -6,7 +6,7 @@ import {
   OutIconStore,
   type IIconStoreParams,
 } from '@falang/scheme';
-import { computed, makeObservable, reaction } from 'mobx';
+import { computed, makeObservable } from 'mobx';
 import { isInValueReturningFunction } from './return-value.js';
 
 /**
@@ -15,20 +15,15 @@ import { isInValueReturningFunction } from './return-value.js';
  * is the user's (`meta.width`) or the default.
  */
 export class ReturnIconStore extends OutIconStore {
-  private readonly disposeWidthReaction: () => void;
-
   constructor(params: IIconStoreParams) {
     super(params);
     makeObservable(this);
-    this.disposeWidthReaction = reaction(
-      () => this.returnsValue,
-      (returnsValue) => {
-        const width = this.dataNode.meta?.width;
-        if (returnsValue) this.setBlockWidth(typeof width === 'number' ? width : BLOCK_DEFAULT_WIDTH);
-        else this.setBlockWidth(CELL_SIZE_4);
-      },
-      { fireImmediately: true },
-    );
+  }
+
+  protected override get storedBlockWidth(): number {
+    if (!this.returnsValue) return CELL_SIZE_4;
+    const width = this.dataNode.meta?.width;
+    return typeof width === 'number' ? width : BLOCK_DEFAULT_WIDTH;
   }
 
   @computed get returnsValue(): boolean {
@@ -41,10 +36,5 @@ export class ReturnIconStore extends OutIconStore {
 
   override get blockResizable(): boolean {
     return this.returnsValue;
-  }
-
-  override dispose(): void {
-    this.disposeWidthReaction();
-    super.dispose();
   }
 }

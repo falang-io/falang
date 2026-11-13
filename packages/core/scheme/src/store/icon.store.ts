@@ -18,7 +18,8 @@ export abstract class IconStore extends FlowNodeStore {
   readonly id: string;
   readonly name: string;
   readonly title: string | null;
-  @observable blockWidth: number;
+  /** Width while the user drags the resize handle — not stored until the drag ends (`setResizeWidth`). */
+  @observable private resizeWidth: number | null = null;
   @observable blockHeight = 0;
   @observable parent: IconStore | null = null;
   readonly mods = observable<IconStore>([]);
@@ -37,8 +38,6 @@ export abstract class IconStore extends FlowNodeStore {
     this.config = config;
     this.dataNode = dataNode;
     this.title = config.title === true ? `icon:${this.name}` : (config.title ?? null);
-    const meta = dataNode.meta;
-    this.blockWidth = typeof meta?.width === 'number' ? meta.width : (config.block.defaultWidth ?? BLOCK_DEFAULT_WIDTH);
     this.nodeConfig = nodeConfig;
     makeObservable(this);
   }
@@ -47,8 +46,23 @@ export abstract class IconStore extends FlowNodeStore {
     this.parent = icon;
   }
 
-  @action setBlockWidth(width: number): void {
-    this.blockWidth = width;
+  /**
+   * The block's width: the drag in progress, else `storedBlockWidth`. Follows `meta.width` live, so undoing a resize
+   * or a width written by an agent shows at once.
+   */
+  @computed get blockWidth(): number {
+    return this.resizeWidth ?? this.storedBlockWidth;
+  }
+
+  /** `meta.width`, else the block config's default — an icon with a fixed width overrides it. */
+  protected get storedBlockWidth(): number {
+    const width = this.dataNode.meta?.width;
+    return typeof width === 'number' ? width : (this.config.block.defaultWidth ?? BLOCK_DEFAULT_WIDTH);
+  }
+
+  /** Shows `width` while a resize is dragged; `null` goes back to the stored width. */
+  @action setResizeWidth(width: number | null): void {
+    this.resizeWidth = width;
   }
 
   /** Minimum block height — the block config's by default; an icon whose look depends on its state may override it. */

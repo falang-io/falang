@@ -57,7 +57,7 @@ export class BlockResizeService {
     const deltaX = scheme.mousePosition.x - this.startX;
     const steps = Math.round(deltaX / CELL_SIZE_2);
     const newWidth = Math.max(CELL_SIZE_2, this.startWidth + steps * CELL_SIZE_2);
-    icon.setBlockWidth(newWidth);
+    icon.setResizeWidth(newWidth);
     return true;
   }
 
@@ -68,10 +68,14 @@ export class BlockResizeService {
       const icon = scheme.icons.getIconSafe(iconId);
       const node = scheme.nodes.getNode(iconId);
       if (icon) {
-        scheme.commands.dispatchCommand(CMD_SET_META, {
-          id: iconId,
-          meta: { ...node.meta, width: icon.blockWidth },
-        });
+        const width = icon.blockWidth;
+        icon.setResizeWidth(null);
+        if (width !== icon.blockWidth) {
+          scheme.commands.dispatchCommand(CMD_SET_META, {
+            id: iconId,
+            meta: { ...node.meta, width },
+          });
+        }
       }
     }
     scheme.mode.setMode(DEFAULT_MODES.START);

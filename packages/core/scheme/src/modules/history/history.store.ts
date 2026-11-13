@@ -16,6 +16,7 @@ export class HistoryStore {
   @observable private saveIndex = -1;
   @observable private groupDepth = 0;
   private groupItems: IHistoryStoreItem[] = [];
+  private amendDepth = 0;
   private attachedScheme: Scheme | null = null;
   private replayDepth = 0;
 
@@ -110,11 +111,52 @@ export class HistoryStore {
   }
 
   @action add(item: IHistoryStoreItem): void {
+    if (this.amendDepth > 0) {
+      this.amendLast(item);
+      return;
+    }
     if (this.groupDepth > 0) {
       this.groupItems.push(item);
       return;
     }
     this.pushItem(item);
+  }
+
+  /**
+   * Attaches `item` to the latest step instead of making a step of its own: one undo reverts both. Inside an open
+   * group it simply joins the group; with no step to attach to (empty history, or after an undo — the latest step is
+   * then the redo target) it becomes a step of its own.
+   */
+  @action amendLast(item: IHistoryStoreItem): void {
+    if (this.groupDepth > 0) {
+      this.groupItems.push(item);
+      return;
+    }
+    const last = this.backLevel === 0 ? this.history.at(-1) : null;
+    if (!last) {
+      this.pushItem(item);
+      return;
+    }
+    this.history[this.history.length - 1] = {
+      back: () => {
+        item.back();
+        last.back();
+      },
+      forward: () => {
+        last.forward();
+        item.forward();
+      },
+    };
+  }
+
+  /** Runs `fn` with every item it records attached to the latest step (`amendLast`). */
+  runAmending<T>(fn: () => T): T {
+    this.amendDepth += 1;
+    try {
+      return fn();
+    } finally {
+      this.amendDepth -= 1;
+    }
   }
 
   @action private pushItem(item: IHistoryStoreItem): void {

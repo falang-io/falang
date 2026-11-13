@@ -5,10 +5,12 @@ import { TOKEN_CSS_CLASSES, TOKEN_I18N, TOKEN_SCHEME } from '../di-tokens.js';
 import { CELL_SIZE } from '../constants.js';
 import React, { useLayoutEffect, useRef } from 'react';
 import useResizeObserver from '@react-hook/resize-observer';
+import { resolveService } from '@falang/di';
 import { runInAction } from 'mobx';
 import styled from '@emotion/styled';
 import type { ITheme } from '../types/theme.js';
 import type { Scheme } from '../scheme/scheme.js';
+import { TOKEN_BLOCK_AUTO_WIDTH } from '../modules/block-resize/block-auto-width.service.token.js';
 import {
   CMD_ICON_CONTEXT_MENU,
   CMD_ICON_MOUSE_CLICK,
@@ -57,6 +59,21 @@ const BlockContainer: React.FC<{ icon: IconStore } & React.PropsWithChildren> = 
       icon.blockHeight = calculateHeight(target.contentRect.height, icon.blockMinHeight);
     });
   });
+
+  // Content wider than the block (a `ts-table` whose nowrap cells don't fit) shows as `scrollWidth > clientWidth`;
+  // measured one frame after an edit/insert so the new content is laid out.
+  const scheme = useService(TOKEN_SCHEME);
+  const autoWidth = scheme.container.isRegistered(TOKEN_BLOCK_AUTO_WIDTH, true)
+    ? resolveService(TOKEN_BLOCK_AUTO_WIDTH, scheme.container)
+    : null;
+  const shouldMeasure = autoWidth?.shouldMeasure(icon) ?? false;
+  useLayoutEffect(() => {
+    if (!shouldMeasure || !autoWidth) return;
+    const frame = requestAnimationFrame(() => {
+      if (ref.current) autoWidth.reportContentWidth(icon.id, ref.current.scrollWidth);
+    });
+    return () => cancelAnimationFrame(frame);
+  }, [shouldMeasure, autoWidth, icon]);
 
   const blockPosition = icon.blockPosition;
   return (
