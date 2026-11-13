@@ -60,7 +60,7 @@ test.describe('project tables', () => {
     const checkboxBox = await cityField.getByRole('checkbox').boundingBox();
     const defaultBox = await defaultInput.boundingBox();
     expect(defaultBox?.y ?? 0).toBeGreaterThan(checkboxBox?.y ?? 0);
-    await defaultInput.locator('input').fill('Paris');
+    await defaultInput.locator('textarea').fill('Paris');
     await page.getByTestId('table-fields-save').click();
     await expect(page.getByTestId('table-fields-dialog')).toHaveCount(0);
     await expect(page.getByRole('columnheader', { name: 'City *' })).toBeVisible();
@@ -68,27 +68,39 @@ test.describe('project tables', () => {
     // Add a row through the "Add row" form, leaving the defaulted required field untouched.
     await page.getByTestId('table-add-row').click();
     const modal = page.getByRole('dialog');
-    await modal.locator('[data-testid="table-new-cell"][data-field-name="Name"] input').fill('Ann');
-    await expect(modal.locator('[data-testid="table-new-cell"][data-field-name="City"] input')).toHaveValue('Paris');
+    const nameInput = modal.locator('[data-testid="table-new-cell"][data-field-name="Name"] textarea');
+    const nameInputHeight = await nameInput.evaluate((element) => element.getBoundingClientRect().height);
+    await nameInput.fill('Ann\nSmith');
+    await expect
+      .poll(() => nameInput.evaluate((element) => element.getBoundingClientRect().height))
+      .toBeGreaterThan(nameInputHeight);
+    await expect(modal.locator('[data-testid="table-new-cell"][data-field-name="City"] textarea')).toHaveValue('Paris');
     await modal.getByRole('button', { name: 'Add row' }).click();
-    await expect(page.getByRole('cell', { name: 'Ann' })).toBeVisible();
+    await expect(page.getByRole('cell', { name: 'Ann Smith' })).toBeVisible();
     await expect(page.getByRole('cell', { name: 'Paris' })).toBeVisible();
 
-    // Edit a cell inline: click, type, Enter.
+    // Edit a cell inline: Enter adds a line, blur saves.
     await page.getByRole('cell', { name: 'Paris' }).getByTestId('table-cell').click();
-    const editor = page.getByTestId('table-cell-editor').locator('input');
+    const editor = page.getByTestId('table-cell-editor').locator('textarea');
     await editor.fill('Rome');
+    const editorHeight = await editor.evaluate((element) => element.getBoundingClientRect().height);
     await editor.press('Enter');
-    await expect(page.getByRole('cell', { name: 'Rome' })).toBeVisible();
+    await editor.pressSequentially('Italy');
+    await expect(editor).toHaveValue('Rome\nItaly');
+    await expect
+      .poll(() => editor.evaluate((element) => element.getBoundingClientRect().height))
+      .toBeGreaterThan(editorHeight);
+    await editor.press('Tab');
+    await expect(page.getByRole('cell', { name: 'Rome Italy' })).toBeVisible();
     await expect(page.getByRole('cell', { name: 'Paris' })).toHaveCount(0);
 
     // Prod is a separate, empty set of records.
     await page.getByTestId('table-env').getByText('Prod', { exact: true }).click();
-    await expect(page.getByRole('cell', { name: 'Ann' })).toHaveCount(0);
+    await expect(page.getByRole('cell', { name: 'Ann Smith' })).toHaveCount(0);
 
     // Export dev's CSV, then import it into prod.
     await page.getByTestId('table-env').getByText('Dev', { exact: true }).click();
-    await expect(page.getByRole('cell', { name: 'Ann' })).toBeVisible();
+    await expect(page.getByRole('cell', { name: 'Ann Smith' })).toBeVisible();
     const [download] = await Promise.all([
       page.waitForEvent('download'),
       page.getByTestId('table-export-button').click(),
@@ -97,6 +109,7 @@ test.describe('project tables', () => {
     const csv = await readFile(csvPath, 'utf8');
     expect(csv).toContain('Name');
     expect(csv).toContain('Ann');
+    expect(csv).toContain('Smith');
     expect(csv).toContain('Rome');
 
     await page.getByTestId('table-env').getByText('Prod', { exact: true }).click();
@@ -105,8 +118,8 @@ test.describe('project tables', () => {
     await page.getByTestId('table-csv-run').click();
     await expect(page.getByTestId('table-csv-result')).toContainText('Inserted 1');
     await page.getByRole('button', { name: 'Close' }).first().click();
-    await expect(page.getByRole('cell', { name: 'Ann' })).toBeVisible();
-    await expect(page.getByRole('cell', { name: 'Rome' })).toBeVisible();
+    await expect(page.getByRole('cell', { name: 'Ann Smith' })).toBeVisible();
+    await expect(page.getByRole('cell', { name: 'Rome Italy' })).toBeVisible();
 
     // Reload: the table, its fields and both environments' records persisted.
     await page.reload();

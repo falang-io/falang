@@ -206,12 +206,13 @@ export const TableCellInput: React.FC<ITableCellInputProps> = ({
     }
     default: {
       return (
-        <Input
+        <Input.TextArea
           autoFocus={autoFocus}
+          autoSize
+          style={{ width: '100%' }}
           value={typeof value === 'string' ? value : ''}
           onChange={(event) => onChange?.(event.target.value)}
           onBlur={cancel}
-          onPressEnter={cancel}
         />
       );
     }
