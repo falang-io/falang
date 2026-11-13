@@ -61,13 +61,13 @@ const NODE_KIND_NOTES: Record<string, string> = {
     'The run sleeps without holding a server and survives restarts; a negative number waits 0. Use it for',
     'reminders and delays; to wait for a user instead, use a question node with a timeout.',
   ].join(' '),
-  magic: [
-    'A transparent group: `data.spell` is a human, plain-language description of the step (shown as the',
-    'only thing on the canvas), its children are the real nodes and compile inlined, as if they stood in the',
-    'parent directly — variables they create are visible after the group. When editing a document, edit',
-    'inside the group or unwrap it (move its children out) rather than deleting it wholesale. When you',
-    'create a group yourself, set `spell` to describe it. A magic node cannot contain another magic node.',
-  ].join(' '),
+  // magic: [
+  //   'A transparent group: `data.spell` is a human, plain-language description of the step (shown as the',
+  //   'only thing on the canvas), its children are the real nodes and compile inlined, as if they stood in the',
+  //   'parent directly — variables they create are visible after the group. When editing a document, edit',
+  //   'inside the group or unwrap it (move its children out) rather than deleting it wholesale. When you',
+  //   'create a group yourself, set `spell` to describe it. A magic node cannot contain another magic node.',
+  // ].join(' '),
   timer: [
     "A side annotation (a DRAKON timer/pause) attached through a host's `mods` array — never a statement:",
     'it cannot be a child of any body. A host takes at most one; hosts that accept it list it in `mods`.',
