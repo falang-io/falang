@@ -2,7 +2,7 @@ import type React from 'react';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { observer } from 'mobx-react-lite';
 import { isValidFunctionName } from '@falang/dto';
-import { ConfigProvider, Menu, Tree } from 'antd';
+import { ConfigProvider, Menu, Modal, Tree } from 'antd';
 import { NameModal } from '@falang/antd';
 import type { MenuProps, TreeDataNode } from 'antd';
 import { useArduinoProjectStore } from '../arduino-project-store-context.js';
@@ -180,10 +180,21 @@ export const ProjectTree: React.FC = observer(() => {
       setContextMenu(null);
       const parentId = nodeKey.startsWith('folder:') ? idOf(nodeKey) : null;
       if (key === 'delete') {
-        if (nodeKey.startsWith('folder:')) store.deleteFolder(idOf(nodeKey));
-        // Double-checked here (not just by hiding the menu item) so a stale/already-open context
-        // menu can't fire a delete on a document that became pinned between right-click and click.
-        else if (!store.isPinned(idOf(nodeKey))) store.deleteDocument(idOf(nodeKey));
+        if (nodeKey.startsWith('folder:')) {
+          store.deleteFolder(idOf(nodeKey));
+        } else {
+          // Double-checked here (not just by hiding the menu item) so a stale/already-open context
+          // menu can't fire a delete on a document that became pinned between right-click and click.
+          const doc = store.documents.find((item) => item.id === idOf(nodeKey));
+          if (!doc || store.isPinned(doc.id)) return;
+          Modal.confirm({
+            title: `Delete "${doc.name}"?`,
+            okText: 'Delete',
+            cancelText: 'Cancel',
+            okButtonProps: { danger: true },
+            onOk: () => store.deleteDocument(doc.id),
+          });
+        }
       } else if (key === 'new-subfolder') {
         setNewItem({ type: 'folder', parentId: idOf(nodeKey) });
       } else if (key === 'new-function') {

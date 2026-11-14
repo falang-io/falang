@@ -2,7 +2,7 @@ import type React from 'react';
 import { useCallback, useEffect, useState } from 'react';
 import { observer } from 'mobx-react-lite';
 import { getGlobalI18n } from '@falang/scheme';
-import { ConfigProvider, Dropdown, Menu, Tree } from 'antd';
+import { ConfigProvider, Dropdown, Menu, Modal, Tree } from 'antd';
 import type { TreeDataNode } from 'antd';
 import { useWorkflowStore } from '../workflow-store-context.js';
 import type { DocumentType } from '../workflow-types.js';
@@ -117,9 +117,19 @@ export const ProjectTree: React.FC = observer(() => {
         return;
       }
       if (key === 'delete') {
-        if (nodeKey.startsWith('folder:')) store.deleteFolder(idOf(nodeKey));
-        else if (!store.documents.find((item) => item.id === idOf(nodeKey))?.pinned)
-          store.deleteDocument(idOf(nodeKey));
+        if (nodeKey.startsWith('folder:')) {
+          store.deleteFolder(idOf(nodeKey));
+        } else {
+          const doc = store.documents.find((item) => item.id === idOf(nodeKey));
+          if (!doc || doc.pinned) return;
+          Modal.confirm({
+            title: t('client:project-tree.delete-confirm', { name: doc.name }),
+            okText: t('client:project-tree.delete'),
+            cancelText: t('client:project-tree.cancel'),
+            okButtonProps: { danger: true },
+            onOk: () => store.deleteDocument(doc.id),
+          });
+        }
       } else if (key === 'new-subfolder') {
         startCreate('folder', idOf(nodeKey));
       } else if (key === 'new-function') {
@@ -130,7 +140,7 @@ export const ProjectTree: React.FC = observer(() => {
         startCreate('table', parentId);
       }
     },
-    [contextMenu, store, startRename, startCreate],
+    [contextMenu, store, startRename, startCreate, t],
   );
 
   const handleAllowDrop = useCallback(

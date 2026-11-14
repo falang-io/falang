@@ -265,9 +265,10 @@ export const createTriggerFunctionViaUI = async (
   return body.id;
 };
 
-export const deleteTreeItemViaUI = async (page: Page, name: string): Promise<void> => {
+export const deleteTreeItemViaUI = async (page: Page, name: string, confirm = false): Promise<void> => {
   await page.getByRole('treeitem', { name }).click({ button: 'right' });
   await page.getByRole('menuitem', { name: /^Delete/ }).click();
+  if (confirm) await page.getByRole('dialog').getByRole('button', { name: 'Delete', exact: true }).click();
 };
 
 const CONTEXT_MENU_LABEL_BY_KIND = {

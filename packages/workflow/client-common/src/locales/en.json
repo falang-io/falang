@@ -279,6 +279,8 @@
       "new-object-here": "New object here",
       "delete-folder": "Delete folder",
       "delete": "Delete",
+      "delete-confirm": "Delete \"{{name}}\"?",
+      "cancel": "Cancel",
       "root": "root",
       "folder-fallback": "folder",
       "invalid-function-name": "Function name must be English, camelCase (e.g. myFunctionName) — no spaces, punctuation, or a leading digit",

@@ -285,6 +285,8 @@
       "new-object-here": "Новый объект здесь",
       "delete-folder": "Удалить папку",
       "delete": "Удалить",
+      "delete-confirm": "Удалить «{{name}}»?",
+      "cancel": "Отмена",
       "root": "корень",
       "folder-fallback": "папка",
       "invalid-function-name": "Название функции может быть только на английском языке, в формате camelCase (например, myFunctionName) — без пробелов, знаков препинания и без цифры в начале",

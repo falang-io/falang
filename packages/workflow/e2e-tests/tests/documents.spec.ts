@@ -65,7 +65,15 @@ test.describe('documents and folders', () => {
 
     await createTreeItemViaUI(page, 'function', 'standalone');
     await expect(page.getByRole('treeitem', { name: 'standalone' })).toBeVisible();
-    await deleteTreeItemViaUI(page, 'standalone');
+
+    await page.getByRole('treeitem', { name: 'standalone' }).click({ button: 'right' });
+    await page.getByRole('menuitem', { name: 'Delete', exact: true }).click();
+    const deleteDialog = page.getByRole('dialog');
+    await expect(deleteDialog).toBeVisible();
+    await deleteDialog.getByRole('button', { name: 'Cancel', exact: true }).click();
+    await expect(page.getByRole('treeitem', { name: 'standalone' })).toBeVisible();
+
+    await deleteTreeItemViaUI(page, 'standalone', true);
     await expect(page.getByRole('treeitem', { name: 'standalone' })).toHaveCount(0);
 
     await createTreeItemInFolderViaUI(page, 'Functions', 'folder', 'ToDelete');

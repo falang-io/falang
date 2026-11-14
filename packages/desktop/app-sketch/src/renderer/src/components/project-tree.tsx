@@ -1,7 +1,7 @@
 import type React from 'react';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { observer } from 'mobx-react-lite';
-import { ConfigProvider, Menu, Tree } from 'antd';
+import { ConfigProvider, Menu, Modal, Tree } from 'antd';
 import { NameModal } from '@falang/antd';
 import type { MenuProps, TreeDataNode } from 'antd';
 import { useDesktopProjectStore } from '../desktop-project-store-context.js';
@@ -147,8 +147,19 @@ export const ProjectTree: React.FC = observer(() => {
       const parentId = nodeKey.startsWith('folder:') ? idOf(nodeKey) : null;
       const docType = DOC_TYPE_ORDER.find((type) => key === `new-${type}`);
       if (key === 'delete') {
-        if (nodeKey.startsWith('folder:')) store.deleteFolder(idOf(nodeKey));
-        else store.deleteDocument(idOf(nodeKey));
+        if (nodeKey.startsWith('folder:')) {
+          store.deleteFolder(idOf(nodeKey));
+        } else {
+          const doc = store.documents.find((item) => item.id === idOf(nodeKey));
+          if (!doc) return;
+          Modal.confirm({
+            title: `Delete "${doc.name}"?`,
+            okText: 'Delete',
+            cancelText: 'Cancel',
+            okButtonProps: { danger: true },
+            onOk: () => store.deleteDocument(doc.id),
+          });
+        }
       } else if (key === 'new-subfolder') {
         setNewItem({ type: 'folder', parentId: idOf(nodeKey) });
       } else if (docType) {
