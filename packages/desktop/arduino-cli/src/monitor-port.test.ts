@@ -84,7 +84,12 @@ describe.skipIf(process.platform === 'win32')('monitorPort', () => {
   it.runIf(process.platform === 'linux')(
     'sets the given baud rate, 115200 by default — the rate a debug build`s Serial.begin() uses',
     async () => {
-      const speed = (): string => execFileSync('stty', ['-F', ptyPath, 'speed'], { encoding: 'utf8' }).trim();
+      const speed = (): string => {
+        const settings = execFileSync('stty', ['-F', ptyPath, '-a'], { encoding: 'utf8' });
+        const match = /^speed (\d+) baud;/m.exec(settings);
+        expect(match).not.toBeNull();
+        return match?.[1] ?? '';
+      };
       const slow = await monitorPort({ port: ptyPath, baudrate: 9600 });
       expect(speed()).toBe('9600');
       await slow.kill();
