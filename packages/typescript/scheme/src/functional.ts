@@ -176,6 +176,7 @@ const buildOutsMenu = (scheme: Scheme, parent: IconStore, builder: ContextMenuBu
               });
             },
             text: `${t('icon:break')}${currentCycleDepth > 1 ? ` ${currentCycleDepth}` : ''}`,
+            nodeName: 'break',
             type: 'button',
           },
           {
@@ -187,6 +188,7 @@ const buildOutsMenu = (scheme: Scheme, parent: IconStore, builder: ContextMenuBu
               });
             },
             text: `${t('icon:continue')}${currentCycleDepth > 1 ? ` ${currentCycleDepth}` : ''}`,
+            nodeName: 'continue',
             type: 'button',
           },
         ],
@@ -204,6 +206,7 @@ const buildOutsMenu = (scheme: Scheme, parent: IconStore, builder: ContextMenuBu
             });
           },
           text: t('icon:throw'),
+          nodeName: 'throw',
           type: 'button',
         },
       ],
@@ -225,6 +228,7 @@ const buildOutsMenu = (scheme: Scheme, parent: IconStore, builder: ContextMenuBu
               });
             },
             text: `${t('icon:return')}${currentReturnIndex > 1 ? ` ${currentReturnIndex}` : ''}`,
+            nodeName: 'return',
             type: 'button',
           },
         ],

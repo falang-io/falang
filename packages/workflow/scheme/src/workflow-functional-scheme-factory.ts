@@ -41,8 +41,8 @@ export interface IWorkflowFunctionalSchemeFactoryParams extends IFunctionStructu
  * `trigger-function` documents (see `WorkflowStore.buildScheme`) so a trigger-bound function and an
  * ordinary one can both call e.g. `telegram-send-message`. Also always registers the `magic` node kind's
  * single-block icon and `MagicModule` (ADR 0046 (private)) so documents containing magic nodes open; the
- * host seam is the optional `TOKEN_MAGIC_HOST`, and `defaultInsertNodeName` (from `functionalSchemeFactory`)
- * is how a host makes a plain valence-point click insert `'magic'`.
+ * host seam is the optional `TOKEN_MAGIC_HOST`. The workflow client registers the shared insertion-picker
+ * module separately, so a plain valence-point click opens that picker rather than inserting a default node.
  */
 export const workflowFunctionalSchemeFactory = ({
   integrations,

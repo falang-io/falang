@@ -1,3 +1,4 @@
+import { AntItemPickerModalModule } from '@falang/antd';
 import {
   CopyPasteModule,
   createNodeStoreFromNode,
@@ -38,7 +39,7 @@ export interface IBuildWorkflowDocumentSchemeParams {
    * The host passes `(type) => documents of that type`; without it such a field lists nothing.
    */
   readonly getDocumentsOfType?: IWorkflowFunctionalSchemeFactoryParams['getDocumentsOfType'];
-  /** What a plain valence-point click inserts (`'magic'` when the host enables magic insert, else `'action'`). */
+  /** Fallback node kind for the base valence-point click handler when the picker does not handle a point. */
   readonly defaultInsertNodeName?: () => string;
   /** Runs after the scheme exists and the theme is set, before its root node is set — the host's place to register the magic host. */
   readonly onSchemeCreated?: (scheme: Scheme) => void;
@@ -85,6 +86,7 @@ export const buildWorkflowDocumentScheme = (params: IBuildWorkflowDocumentScheme
   // (one agent request = one undo group per document touched) — registered per agent-editable scheme (`objects-structure`
   // too, since 2026-09-27), unlike `AgentModule` itself, which hosts no longer use.
   if (isAgentEditableType(doc.type)) extraModules.push(new HistoryModule());
+  if (isFunctionDoc) extraModules.push(new AntItemPickerModalModule());
   if (isFunctionDoc && params.validationModule) extraModules.push(params.validationModule);
   extraModules.push(
     new CopyPasteModule({

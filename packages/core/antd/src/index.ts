@@ -13,3 +13,7 @@ export * from './modules/ant-resizable-panel/resize-handle.cmp.js';
 export * from './modules/ant-print-export/index.js';
 export * from './modules/ant-generated-code/generated-code-view.cmp.js';
 export * from './modules/ant-name-modal/name-modal.cmp.js';
+export * from './modules/ant-item-picker-modal/item-picker-modal.cmp.js';
+export * from './modules/ant-item-picker-modal/ant-item-picker-modal.module.js';
+export * from './modules/ant-item-picker-modal/ant-item-picker-modal.service.js';
+export * from './modules/ant-item-picker-modal/ant-item-picker-modal.token.js';

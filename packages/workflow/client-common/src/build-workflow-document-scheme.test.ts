@@ -1,10 +1,14 @@
+import { TOKEN_ANT_ITEM_PICKER_MODAL } from '@falang/antd';
 import { container, resolveService } from '@falang/di';
 import {
   CMD_INSERT_NODE,
+  CMD_VALENCE_POINT_CLICKED,
   TOKEN_COPY_PASTE,
   TOKEN_HISTORY,
+  TOKEN_I18N,
   TOKEN_VALIDATION_STORE,
   registerGlobalTokens,
+  type IValencePoint,
 } from '@falang/scheme';
 import { createTypescriptValidationModule } from '@falang/typescript-scheme';
 import { afterEach, describe, expect, it } from 'vitest';
@@ -86,6 +90,54 @@ describe('buildWorkflowDocumentScheme', () => {
     expect(scheme.rootNode?.id).toBe('root-1');
     expect(scheme.nodes.getNodeSafe('a1')?.data).toBe('x = 1');
     expect(rootAtCallback).toBeNull();
+  });
+
+  it('opens a searchable insertion picker on a valence-point click and inserts the selected node', () => {
+    const scheme = build('function');
+    const body = bodyOf(scheme);
+    const vp = { parentId: body.id, index: 0 } as IValencePoint;
+
+    expect(scheme.commands.dispatchCommand(CMD_VALENCE_POINT_CLICKED, { vp, e: {} as never })).toBe(true);
+    expect(bodyOf(scheme).children).toHaveLength(0);
+    const picker = resolveService(TOKEN_ANT_ITEM_PICKER_MODAL, scheme.container);
+    expect(picker.opened).toBe(true);
+    const t = resolveService(TOKEN_I18N, scheme.container).t;
+    expect(picker.items.some((item) => item.label === t('icon:action'))).toBe(true);
+    expect(picker.items.some((item) => item.label === t('icon:log'))).toBe(true);
+    expect(picker.items.some((item) => item.label === t('icon:wait'))).toBe(true);
+
+    const action = picker.items.find((item) => item.label === t('icon:action'));
+    expect(action).toBeDefined();
+    picker.hide();
+    action?.onSelect();
+    expect(bodyOf(scheme).children.map((node) => node.name)).toEqual(['action']);
+  });
+
+  it('includes out actions from the context menu and preserves their set-out behavior', () => {
+    const scheme = build('function');
+    const ifNode = scheme.infra.structure.factory('if');
+    scheme.commands.dispatchCommand(CMD_INSERT_NODE, { parentId: bodyOf(scheme).id, index: 0, node: ifNode });
+    const branch = scheme.nodes.getNode(ifNode.id).children[1];
+    const vp = { parentId: branch.id, index: 0 } as IValencePoint;
+
+    scheme.commands.dispatchCommand(CMD_VALENCE_POINT_CLICKED, { vp, e: {} as never });
+    const picker = resolveService(TOKEN_ANT_ITEM_PICKER_MODAL, scheme.container);
+    const t = resolveService(TOKEN_I18N, scheme.container).t;
+    const returnItem = picker.items.find((item) => item.label === t('icon:return'));
+    expect(returnItem).toBeDefined();
+    picker.hide();
+    returnItem?.onSelect();
+    expect(scheme.nodes.getNode(branch.id).out?.name).toBe('return');
+  });
+
+  it('does not open the insertion picker for a read-only document', () => {
+    const scheme = build('function', { readOnly: true });
+    const body = bodyOf(scheme);
+    const vp = { parentId: body.id, index: 0 } as IValencePoint;
+
+    expect(scheme.commands.dispatchCommand(CMD_VALENCE_POINT_CLICKED, { vp, e: {} as never })).toBe(true);
+    expect(resolveService(TOKEN_ANT_ITEM_PICKER_MODAL, scheme.container).opened).toBe(false);
+    expect(bodyOf(scheme).children).toHaveLength(0);
   });
 
   it('copies icons between function and trigger-function documents with fresh ids, never into a structure', () => {

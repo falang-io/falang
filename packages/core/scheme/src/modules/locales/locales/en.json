@@ -56,6 +56,11 @@
     "no-variables": "No variables in scope",
     "output": "Output"
   },
+  "insert-modal": {
+    "title": "Insert action",
+    "search": "Search actions",
+    "empty": "Nothing found"
+  },
   "validation": {
     "pill-errors_one": "{{count}} error",
     "pill-errors_other": "{{count}} errors",

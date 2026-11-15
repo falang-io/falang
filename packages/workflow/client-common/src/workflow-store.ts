@@ -1223,7 +1223,7 @@ export class WorkflowStore implements IWorkflowAgentStore {
             getActivepiecesFieldOptionsProvider: () => createActivepiecesFieldOptionsProvider(this.projectId),
           }),
       ...(isFunctionDoc ? { validationModule: this.createValidationModule(doc.id) } : {}),
-      // The magic node is hidden until it is thought through (ADR 0046 (private)): a plain click always inserts an action.
+      // The magic node is hidden until it is thought through (ADR 0046 (private)); the shared insertion picker handles clicks.
       // defaultInsertNodeName: () => (this.agentSettings.configured && this.magicInsert.enabled ? MAGIC_NAME : 'action'),
       defaultInsertNodeName: () => 'action',
       onSchemeCreated: (created) => {

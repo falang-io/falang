@@ -50,6 +50,7 @@ export class ContextMenuBuilder {
       items: params.items.map((item) => ({
         type: 'button',
         text: typeof item === 'string' ? `icon:${item}` : item.label || `icon:${item.name}`,
+        nodeName: typeof item === 'string' ? item : item.name,
         ...(typeof item !== 'string' && item.label ? { raw: true } : {}),
         onClick: () => {
           let node: INode | null = null;

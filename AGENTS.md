@@ -44,12 +44,13 @@ npm ci
 npm test
 npx oxlint
 npm run check -w <package>
-npm run test-e2e
+npm run test-e2e:fast
 ```
 
 See [Commands and verification](.kimi-code/memory/commands.md) for focused tests, local e2e, coverage, desktop releases,
 and the full verification requirements. In particular, after every task run lint and type-check every changed package;
-at the end of each implementation phase run the complete unit and e2e suites as documented there.
+at the end of each implementation phase run the complete unit suite and the fast e2e suite. Run the full kind-based
+`npm run test-e2e` only when the user explicitly asks for it.
 
 ## Essential conventions
 
