@@ -62,10 +62,17 @@ test('valence-point click opens a filtered insertion picker without zooming the 
     await expect.poll(() => list.evaluate((element) => element.scrollTop)).toBeGreaterThan(0);
     expect(await readSchemeScale(page)).toBe(scaleBeforeWheel);
 
+    await expect(options.first()).toHaveAttribute('aria-selected', 'true');
+    await search.press('ArrowDown');
+    await expect(options.nth(1)).toHaveAttribute('aria-selected', 'true');
+    await search.press('ArrowUp');
+    await expect(options.first()).toHaveAttribute('aria-selected', 'true');
+
     await search.fill('Log');
     await expect(options).toHaveCount(1);
     await expect(options.first()).toContainText('Log');
-    await options.first().click();
+    await expect(options.first()).toHaveAttribute('aria-selected', 'true');
+    await search.press('Enter');
     await expect(search).not.toBeVisible();
 
     await waitForCondition(async () => {
