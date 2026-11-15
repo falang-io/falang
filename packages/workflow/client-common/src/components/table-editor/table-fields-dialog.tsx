@@ -35,6 +35,31 @@ interface IDialogProps {
 
 const names = (fields: readonly ITableField[]): string => fields.map((field) => field.name).join(', ');
 
+const SelectOptionsInput: React.FC<{
+  disabled: boolean;
+  options: readonly string[] | undefined;
+  placeholder: string;
+  onChange: (options: string[]) => void;
+}> = ({ disabled, options, placeholder, onChange }) => {
+  const [text, setText] = useState(optionsToText(options));
+
+  useEffect(() => {
+    setText(optionsToText(options));
+  }, [options]);
+
+  return (
+    <Input.TextArea
+      data-testid="table-field-options"
+      disabled={disabled}
+      rows={3}
+      value={text}
+      placeholder={placeholder}
+      onChange={(event) => setText(event.target.value)}
+      onBlur={() => onChange(textToOptions(text))}
+    />
+  );
+};
+
 const DefaultValue: React.FC<{
   field: ITableField;
   readOnly: boolean;
@@ -141,14 +166,11 @@ export const TableFieldsDialog: React.FC<IDialogProps> = ({ open, data, files, o
                 onChange={(event) => setDraft(updateField(draft, field.id, { description: event.target.value }))}
               />
               {field.type === 'select' && (
-                <Input.TextArea
+                <SelectOptionsInput
                   disabled={readOnly}
-                  rows={3}
-                  value={optionsToText(field.options)}
+                  options={field.options}
                   placeholder={t('client:table-editor.field-options')}
-                  onChange={(event) =>
-                    setDraft(updateField(draft, field.id, { options: textToOptions(event.target.value) }))
-                  }
+                  onChange={(options) => setDraft(updateField(draft, field.id, { options }))}
                 />
               )}
             </div>

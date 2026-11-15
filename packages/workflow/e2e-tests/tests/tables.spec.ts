@@ -48,6 +48,32 @@ test.describe('project tables', () => {
     await expect(page.getByRole('columnheader', { name: 'Name' })).toBeVisible();
     await expect(page.getByRole('columnheader', { name: 'City *' })).toHaveCount(0);
 
+    await page.getByTestId('table-fields-button').click();
+    const selectFieldsDialog = page.getByTestId('table-fields-dialog');
+    await selectFieldsDialog.getByTestId('table-add-field').click();
+    const selectField = selectFieldsDialog.getByTestId('table-field-row').nth(2);
+    await selectField.getByTestId('table-field-name').fill('Kind');
+    await selectField.getByTestId('table-field-type').click();
+    await page
+      .locator('.ant-select-dropdown:not(.ant-select-dropdown-hidden)')
+      .getByTitle('Select', { exact: true })
+      .click();
+    const optionsInput = selectField.getByTestId('table-field-options');
+    await optionsInput.fill('First');
+    await optionsInput.press('Enter');
+    await optionsInput.pressSequentially('Second');
+    await expect(optionsInput).toHaveValue('First\nSecond');
+    await selectField.getByRole('checkbox').check();
+    const selectDefault = selectField.getByTestId('table-field-default');
+    await selectDefault.getByRole('combobox').click();
+    await page
+      .locator('.ant-select-dropdown:not(.ant-select-dropdown-hidden)')
+      .getByTitle('Second', { exact: true })
+      .click();
+    await expect(selectDefault).toContainText('Second');
+    await page.getByTestId('table-fields-save').click();
+    await expect(selectFieldsDialog).toHaveCount(0);
+
     // A required field with a default is optional in the new-row form.
     await page.getByTestId('table-fields-button').click();
     const fieldsDialog = page.getByTestId('table-fields-dialog');
@@ -75,9 +101,11 @@ test.describe('project tables', () => {
       .poll(() => nameInput.evaluate((element) => element.getBoundingClientRect().height))
       .toBeGreaterThan(nameInputHeight);
     await expect(modal.locator('[data-testid="table-new-cell"][data-field-name="City"] textarea')).toHaveValue('Paris');
+    await expect(modal.locator('[data-testid="table-new-cell"][data-field-name="Kind"]')).toContainText('Second');
     await modal.getByRole('button', { name: 'Add row' }).click();
     await expect(page.getByRole('cell', { name: 'Ann Smith' })).toBeVisible();
     await expect(page.getByRole('cell', { name: 'Paris' })).toBeVisible();
+    await expect(page.getByRole('cell', { name: 'Second' })).toBeVisible();
 
     // Edit a cell inline: Enter adds a line, blur saves.
     await page.getByRole('cell', { name: 'Paris' }).getByTestId('table-cell').click();
