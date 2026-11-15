@@ -60,6 +60,14 @@ test('valence-point click opens a filtered insertion picker without zooming the 
     await page.mouse.wheel(0, 500);
     const list = page.locator('.ant-modal .ant-list');
     await expect.poll(() => list.evaluate((element) => element.scrollTop)).toBeGreaterThan(0);
+    const firstScrollTop = await list.evaluate((element) => element.scrollTop);
+    await page.waitForTimeout(500);
+    expect(await list.evaluate((element) => element.scrollTop)).toBe(firstScrollTop);
+    await page.mouse.wheel(0, 500);
+    await expect.poll(() => list.evaluate((element) => element.scrollTop)).toBeGreaterThan(firstScrollTop);
+    const secondScrollTop = await list.evaluate((element) => element.scrollTop);
+    await page.waitForTimeout(500);
+    expect(await list.evaluate((element) => element.scrollTop)).toBe(secondScrollTop);
     expect(await readSchemeScale(page)).toBe(scaleBeforeWheel);
 
     await expect(options.first()).toHaveAttribute('aria-selected', 'true');
