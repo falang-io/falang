@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
+import { createPortal } from 'react-dom';
 import type * as monaco from 'monaco-editor';
 import { observer } from 'mobx-react-lite';
 import { theme as antdTheme } from 'antd';
@@ -72,6 +73,7 @@ export const CodeModelEditingComponent: React.FC<ICodeModelEditingComponentProps
     const editorRef = useRef<monaco.editor.IStandaloneCodeEditor>(null);
     const [height, setHeight] = useState(minHeight);
     const [focused, setFocused] = useState(false);
+    const [errorContainer, setErrorContainer] = useState<Element | null>(null);
     const theme = useCodeTheme();
     // Outside any scheme (e.g. a modal dialog) there is no pan/zoom to re-layout for.
     const viewPosition = useOptionalScheme()?.viewPosition;
@@ -118,6 +120,7 @@ export const CodeModelEditingComponent: React.FC<ICodeModelEditingComponentProps
         theme: monacoThemeName(theme),
         overflowWidgetsDomNode: getOverflowWidgetsDomNode(monacoThemeName(theme)),
       });
+      setErrorContainer(containerRef.current.closest('.block-container'));
       store.setEditor(editorRef.current);
       if (tabNavigationOn) {
         const monacoApi = getMonaco();
@@ -181,7 +184,7 @@ export const CodeModelEditingComponent: React.FC<ICodeModelEditingComponentProps
     }, [scale, x, y]);
 
     return (
-      <div>
+      <>
         <div
           ref={containerRef}
           style={
@@ -204,22 +207,36 @@ export const CodeModelEditingComponent: React.FC<ICodeModelEditingComponentProps
                 }
           }
         />
-        {!isDefault && focused && store.error && (
-          <div
-            role="alert"
-            data-testid="code-model-error"
-            style={{
-              padding: '2px 3px',
-              color: token.colorError,
-              fontSize: 12,
-              lineHeight: '18px',
-              overflowWrap: 'anywhere',
-            }}
-          >
-            {store.error}
-          </div>
-        )}
-      </div>
+        {!isDefault && focused && store.error && errorContainer
+          ? createPortal(
+              <div
+                role="alert"
+                data-testid="code-model-error"
+                style={{
+                  position: 'absolute',
+                  top: '100%',
+                  left: 0,
+                  width: '100%',
+                  boxSizing: 'border-box',
+                  marginTop: 4,
+                  padding: '4px 6px',
+                  border: `1px solid ${token.colorError}`,
+                  borderRadius: token.borderRadius,
+                  background: token.colorBgContainer,
+                  color: token.colorError,
+                  fontSize: 12,
+                  lineHeight: '18px',
+                  overflowWrap: 'anywhere',
+                  zIndex: 1000,
+                  pointerEvents: 'none',
+                }}
+              >
+                {store.error}
+              </div>,
+              errorContainer,
+            )
+          : null}
+      </>
     );
   },
 );

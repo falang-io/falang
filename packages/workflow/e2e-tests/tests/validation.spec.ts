@@ -78,11 +78,20 @@ test.describe('node validation', () => {
     await expect(flagged).toHaveCount(1);
 
     // Fix the field through the editor; the error disappears once the edit is committed.
-    await bad.locator('.block-container', { hasText: 'missingVariable' }).first().dblclick();
+    const editedBlock = bad.locator('.block-container', { hasText: 'missingVariable' }).first();
+    await editedBlock.dblclick();
     await page.locator('.monaco-editor .view-lines').first().click();
-    await expect(bad.getByTestId('code-model-error')).toContainText("Cannot find name 'missingVariable'", {
+    const inlineError = bad.getByTestId('code-model-error');
+    await expect(inlineError).toContainText("Cannot find name 'missingVariable'", {
       timeout: 15_000,
     });
+    await expect(inlineError).toHaveCSS('position', 'absolute');
+    expect(await inlineError.evaluate((element) => element.parentElement?.classList.contains('block-container'))).toBe(
+      true,
+    );
+    const [blockBounds, errorBounds] = await Promise.all([editedBlock.boundingBox(), inlineError.boundingBox()]);
+    if (!blockBounds || !errorBounds) throw new Error('Inline error geometry is not available');
+    expect(errorBounds.y).toBeGreaterThanOrEqual(blockBounds.y + blockBounds.height);
     await page.keyboard.press('ControlOrMeta+a');
     await page.keyboard.type('Math.abs(1)');
     await expect(bad.getByTestId('code-model-error')).toHaveCount(0);
