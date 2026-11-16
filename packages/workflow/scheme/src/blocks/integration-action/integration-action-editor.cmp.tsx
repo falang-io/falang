@@ -230,6 +230,14 @@ const InlineActionEditorComponent: TBlockEditorView<IntegrationActionEditorStore
   );
 });
 
+const getSidebarFieldError = (editor: IntegrationActionEditorStore, field: IFieldConfig): string | null => {
+  if (field.kind === 'expression') return editor.codeStores.get(field.name)?.error ?? null;
+  if (field.kind === 'template-string') {
+    return editor.templateStringStores.get(field.name)?.codeStore.error ?? null;
+  }
+  return null;
+};
+
 /** The vertical, one-field-per-row layout for actions opened as a full sidebar panel (e.g. `call-ai-text`). */
 const SidebarActionEditorComponent: TBlockEditorView<IntegrationActionEditorStore> = observer(({ editor }) => {
   const t = useService(TOKEN_I18N).t;
@@ -239,15 +247,20 @@ const SidebarActionEditorComponent: TBlockEditorView<IntegrationActionEditorStor
         {t(editor.action.label)}
       </Typography.Title>
       <Form layout="vertical">
-        {editor.action.fields.map((field) => (
-          <Form.Item
-            key={field.name}
-            label={<FieldLabel label={field.label} help={field.help} t={t} />}
-            style={{ marginBottom: 14 }}
-          >
-            <SidebarFieldEditorComponent editor={editor} field={field} />
-          </Form.Item>
-        ))}
+        {editor.action.fields.map((field) => {
+          const error = getSidebarFieldError(editor, field);
+          return (
+            <Form.Item
+              key={field.name}
+              label={<FieldLabel label={field.label} help={field.help} t={t} />}
+              validateStatus={error ? 'error' : ''}
+              help={error ?? ''}
+              style={{ marginBottom: 14 }}
+            >
+              <SidebarFieldEditorComponent editor={editor} field={field} />
+            </Form.Item>
+          );
+        })}
       </Form>
     </div>
   );

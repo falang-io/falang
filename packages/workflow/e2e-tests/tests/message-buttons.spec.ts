@@ -81,7 +81,13 @@ test.describe('message buttons', () => {
     await expect(rows).toHaveCount(3);
     // The new row's caption is its first Monaco field.
     await rows.nth(2).locator('.monaco-editor .view-lines').first().click();
+    await page.keyboard.type('Docs ${missingButton}');
+    await expect(rows.nth(2).locator('.ant-form-item-explain-error')).toContainText(
+      "Cannot find name 'missingButton'.",
+    );
+    await page.keyboard.press('ControlOrMeta+a');
     await page.keyboard.type('Docs');
+    await expect(rows.nth(2).locator('.ant-form-item-explain-error')).toHaveCount(0);
     await rows.nth(2).locator('.monaco-editor .view-lines').nth(1).click();
     await page.keyboard.type('https://docs.example.com');
     // A click on the empty canvas commits the edit.

@@ -1,7 +1,7 @@
 import { TOKEN_I18N, useService } from '@falang/scheme';
 import { ExpressionEditorCellComponent } from '@falang/typescript-scheme';
 import { MAX_MESSAGE_BUTTONS, type TMessageButtonKind } from '@falang/workflow-integrations-common';
-import { Alert, Button, Card, Flex, Select, Typography } from 'antd';
+import { Alert, Button, Card, Flex, Form, Select, Typography } from 'antd';
 import { observer } from 'mobx-react-lite';
 import type { ButtonsFieldStore, IButtonRow } from './buttons-field.store.js';
 
@@ -60,23 +60,35 @@ const ButtonRowComponent: React.FC<{ store: ButtonsFieldStore; row: IButtonRow; 
             </Button>
           </Flex>
           <Typography.Text type="secondary">{t('integration-editor:button-text')}</Typography.Text>
-          <ExpressionEditorCellComponent
-            store={row.text.codeStore}
-            hiddenPrefix={row.text.hiddenPrefix}
-            hiddenSuffix={row.text.hiddenSuffix}
-            autoFocus={false}
-            minHeight={ROW_FIELD_MIN_HEIGHT}
-            variant="default"
-          />
+          <Form.Item
+            validateStatus={row.text.codeStore.error ? 'error' : ''}
+            help={row.text.codeStore.error ?? ''}
+            style={{ marginBottom: 0 }}
+          >
+            <ExpressionEditorCellComponent
+              store={row.text.codeStore}
+              hiddenPrefix={row.text.hiddenPrefix}
+              hiddenSuffix={row.text.hiddenSuffix}
+              autoFocus={false}
+              minHeight={ROW_FIELD_MIN_HEIGHT}
+              variant="default"
+            />
+          </Form.Item>
           <Typography.Text type="secondary">{t(VALUE_LABEL_KEYS[row.kind])}</Typography.Text>
-          <ExpressionEditorCellComponent
-            store={row.value.codeStore}
-            hiddenPrefix={row.value.hiddenPrefix}
-            hiddenSuffix={row.value.hiddenSuffix}
-            autoFocus={false}
-            minHeight={ROW_FIELD_MIN_HEIGHT}
-            variant="default"
-          />
+          <Form.Item
+            validateStatus={row.value.codeStore.error ? 'error' : ''}
+            help={row.value.codeStore.error ?? ''}
+            style={{ marginBottom: 0 }}
+          >
+            <ExpressionEditorCellComponent
+              store={row.value.codeStore}
+              hiddenPrefix={row.value.hiddenPrefix}
+              hiddenSuffix={row.value.hiddenSuffix}
+              autoFocus={false}
+              minHeight={ROW_FIELD_MIN_HEIGHT}
+              variant="default"
+            />
+          </Form.Item>
         </Flex>
       </Card>
     );

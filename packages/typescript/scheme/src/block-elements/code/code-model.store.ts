@@ -41,12 +41,8 @@ export class CodeModelStore {
   @observable hiddenPrefix: string;
   @observable hiddenSuffix: string;
   readonly allowEmpty: boolean;
-  /**
-   * Whether the model currently has an error-severity marker anywhere in it — including on lines
-   * hidden by `hiddenPrefix` (e.g. the forced-type assignment in arr-op), where a squiggle would
-   * otherwise be invisible to the user. Drives the field's red outline (see CodeModelEditingComponent).
-   */
-  @observable private _hasErrors = false;
+  /** The first error-severity marker, including one on a hidden prefix/suffix line. */
+  @observable private _error: string | null = null;
   @observable private _width: TNumberComputed = () => 0;
   editor: editor.IStandaloneCodeEditor | null = null;
   private readonly markersDisposable: monaco.IDisposable;
@@ -65,19 +61,23 @@ export class CodeModelStore {
     makeObservable(this);
     this.markersDisposable = monaco.editor.onDidChangeMarkers((uris) => {
       if (uris.some((uri) => uri.toString() === this.model.uri.toString())) {
-        this.updateHasErrors();
+        this.updateError();
       }
     });
   }
 
-  @action private updateHasErrors(): void {
+  @action private updateError(): void {
     const markers = this.monaco.editor.getModelMarkers({ resource: this.model.uri });
-    this._hasErrors = markers.some((marker) => marker.severity === this.monaco.MarkerSeverity.Error);
+    this._error = markers.find((marker) => marker.severity === this.monaco.MarkerSeverity.Error)?.message ?? null;
+  }
+
+  @computed get error(): string | null {
+    if (this.allowEmpty && this.value.trim() === '') return null;
+    return this._error;
   }
 
   @computed get hasErrors(): boolean {
-    if (this.allowEmpty && this.value.trim() === '') return false;
-    return this._hasErrors;
+    return this.error !== null;
   }
 
   @computed get fullValue(): string {

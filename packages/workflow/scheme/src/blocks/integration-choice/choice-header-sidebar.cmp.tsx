@@ -129,6 +129,14 @@ const ChoiceOptionsEditorComponent: React.FC<{ editor: ChoiceEditorStore }> = ob
   );
 });
 
+const getFieldError = (editor: ChoiceEditorStore, field: IFieldConfig): string | null => {
+  if (field.kind === 'expression') return editor.codeStores.get(field.name)?.error ?? null;
+  if (field.kind === 'template-string') {
+    return editor.templateStringStores.get(field.name)?.codeStore.error ?? null;
+  }
+  return null;
+};
+
 export const ChoiceHeaderSidebarComponent: TBlockEditorView<ChoiceEditorStore> = observer(({ editor }) => {
   const t = useService(TOKEN_I18N).t;
   return (
@@ -137,15 +145,20 @@ export const ChoiceHeaderSidebarComponent: TBlockEditorView<ChoiceEditorStore> =
         {t(editor.descriptor.label)}
       </Typography.Title>
       <Form layout="vertical">
-        {getChoiceHeaderFields(editor.descriptor).map((field) => (
-          <Form.Item
-            key={field.name}
-            label={<FieldLabel label={field.label} help={field.help} t={t} />}
-            style={{ marginBottom: 14 }}
-          >
-            <ChoiceFieldEditorComponent editor={editor} field={field} />
-          </Form.Item>
-        ))}
+        {getChoiceHeaderFields(editor.descriptor).map((field) => {
+          const error = getFieldError(editor, field);
+          return (
+            <Form.Item
+              key={field.name}
+              label={<FieldLabel label={field.label} help={field.help} t={t} />}
+              validateStatus={error ? 'error' : ''}
+              help={error ?? ''}
+              style={{ marginBottom: 14 }}
+            >
+              <ChoiceFieldEditorComponent editor={editor} field={field} />
+            </Form.Item>
+          );
+        })}
         <Form.Item label={t('integration-editor:variable')} style={{ marginBottom: 14 }}>
           <NewVariableEditingComponent store={editor.variableStore} autoFocus={false} variant="default" />
         </Form.Item>

@@ -7,6 +7,7 @@ import {
   openProjectViaUI,
 } from './fixtures.js';
 import { buildFunctionNode, buildLogNode } from './node-builders.js';
+import { buildHttpRequestNode } from './integration-node-builders.js';
 
 /**
  * Browser-tier spec for background node validation (ADR 0068 (private), phases 1-2): the real Monaco type-checks every
@@ -79,8 +80,12 @@ test.describe('node validation', () => {
     // Fix the field through the editor; the error disappears once the edit is committed.
     await bad.locator('.block-container', { hasText: 'missingVariable' }).first().dblclick();
     await page.locator('.monaco-editor .view-lines').first().click();
+    await expect(bad.getByTestId('code-model-error')).toContainText("Cannot find name 'missingVariable'", {
+      timeout: 15_000,
+    });
     await page.keyboard.press('ControlOrMeta+a');
     await page.keyboard.type('Math.abs(1)');
+    await expect(bad.getByTestId('code-model-error')).toHaveCount(0);
     // A click on the empty canvas commits the inline edit.
     await bad.click({ position: { x: 60, y: 300 } });
     await expect(bad.locator('.block-body.has-error')).toHaveCount(0, { timeout: 30_000 });
@@ -90,6 +95,41 @@ test.describe('node validation', () => {
     // The valid document's tab still shows nothing.
     await tabOf('good').click();
     await expect(good.locator('.block-body.has-error')).toHaveCount(0);
+    await api.dispose();
+  });
+
+  test('shows every Monaco field error in the sidebar form', async ({ page }) => {
+    test.setTimeout(120_000);
+    await loginAndReachProjectList(page);
+    const projectName = `Sidebar validation ${Date.now()}`;
+    const projectId = await createProjectViaUI(page, projectName);
+    const documentId = await createTreeItemViaUI(page, 'function', 'request');
+    const api = await createApiContext();
+    await api.patch(`/projects/${projectId}/documents/${documentId}`, {
+      data: {
+        root: buildFunctionNode(documentId, [
+          buildHttpRequestNode(`${documentId}-request`, {
+            method: 'GET',
+            url: 'https://example.com/${missingUrl}',
+            headers: '{ value: missingHeader }',
+            resultVariable: '',
+          }),
+        ]),
+      },
+    });
+    await page.reload();
+    await openProjectViaUI(page, projectName);
+    await page.getByRole('treeitem', { name: 'request' }).click();
+
+    const scheme = page.locator(`#scheme-${documentId}`);
+    await scheme.locator('.block-container', { hasText: 'missingHeader' }).first().dblclick();
+    const sidebar = page.locator('.workflow-integration-editor--sidebar');
+    await expect(sidebar).toBeVisible();
+    await expect(sidebar.locator('.ant-form-item-has-error')).toHaveCount(2, { timeout: 15_000 });
+    await expect(sidebar.locator('.ant-form-item-explain-error')).toContainText([
+      "Cannot find name 'missingUrl'.",
+      "Cannot find name 'missingHeader'.",
+    ]);
     await api.dispose();
   });
 });

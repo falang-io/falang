@@ -99,7 +99,13 @@ const PropsFormComponent: TBlockEditorView<ActivepiecesActionEditorStore> = obse
           const store = editor.codeStores.get(prop.name);
           if (!store) return null;
           return (
-            <Form.Item key={prop.name} label={prop.displayName} style={{ marginBottom: 14 }}>
+            <Form.Item
+              key={prop.name}
+              label={prop.displayName}
+              validateStatus={store.error ? 'error' : ''}
+              help={store.error ?? ''}
+              style={{ marginBottom: 14 }}
+            >
               <ExpressionEditorCellComponent
                 store={store}
                 hiddenPrefix={editor.hiddenScopeCode}

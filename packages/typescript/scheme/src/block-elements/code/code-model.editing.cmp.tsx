@@ -71,6 +71,7 @@ export const CodeModelEditingComponent: React.FC<ICodeModelEditingComponentProps
     const containerRef = useRef<HTMLDivElement>(null);
     const editorRef = useRef<monaco.editor.IStandaloneCodeEditor>(null);
     const [height, setHeight] = useState(minHeight);
+    const [focused, setFocused] = useState(false);
     const theme = useCodeTheme();
     // Outside any scheme (e.g. a modal dialog) there is no pan/zoom to re-layout for.
     const viewPosition = useOptionalScheme()?.viewPosition;
@@ -149,6 +150,8 @@ export const CodeModelEditingComponent: React.FC<ICodeModelEditingComponentProps
       const disposable2 = editorRef.current.onDidChangeModel(() => {
         setTimeout(updateHeight, 0);
       });
+      const disposable3 = editorRef.current.onDidFocusEditorWidget(() => setFocused(true));
+      const disposable4 = editorRef.current.onDidBlurEditorWidget(() => setFocused(false));
       if (autoFocus) {
         setTimeout(() => editorRef.current?.focus(), 0);
       }
@@ -156,6 +159,8 @@ export const CodeModelEditingComponent: React.FC<ICodeModelEditingComponentProps
       return () => {
         disposable1.dispose();
         disposable2.dispose();
+        disposable3.dispose();
+        disposable4.dispose();
         store.setEditor(null);
         editorRef.current?.dispose();
         editorRef.current = null;
@@ -176,28 +181,45 @@ export const CodeModelEditingComponent: React.FC<ICodeModelEditingComponentProps
     }, [scale, x, y]);
 
     return (
-      <div
-        ref={containerRef}
-        style={
-          isDefault
-            ? {
-                position: 'relative',
-                boxSizing: 'border-box',
-                width: '100%',
-                height,
-                padding: '4px 11px',
-                border: `1px solid ${store.hasErrors ? token.colorError : token.colorBorder}`,
-                borderRadius: token.borderRadius,
-                background: token.colorBgContainer,
-              }
-            : {
-                position: 'relative',
-                width: 'calc(100% + 20px)',
-                height,
-                boxShadow: store.hasErrors ? 'inset 0 0 0 1px #ff4d4f' : 'none',
-              }
-        }
-      />
+      <div>
+        <div
+          ref={containerRef}
+          style={
+            isDefault
+              ? {
+                  position: 'relative',
+                  boxSizing: 'border-box',
+                  width: '100%',
+                  height,
+                  padding: '4px 11px',
+                  border: `1px solid ${store.hasErrors ? token.colorError : token.colorBorder}`,
+                  borderRadius: token.borderRadius,
+                  background: token.colorBgContainer,
+                }
+              : {
+                  position: 'relative',
+                  width: 'calc(100% + 20px)',
+                  height,
+                  boxShadow: store.hasErrors ? 'inset 0 0 0 1px #ff4d4f' : 'none',
+                }
+          }
+        />
+        {!isDefault && focused && store.error && (
+          <div
+            role="alert"
+            data-testid="code-model-error"
+            style={{
+              padding: '2px 3px',
+              color: token.colorError,
+              fontSize: 12,
+              lineHeight: '18px',
+              overflowWrap: 'anywhere',
+            }}
+          >
+            {store.error}
+          </div>
+        )}
+      </div>
     );
   },
 );

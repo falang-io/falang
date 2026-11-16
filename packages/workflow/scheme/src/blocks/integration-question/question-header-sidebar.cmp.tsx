@@ -134,6 +134,14 @@ const QuestionOptionsEditorComponent: React.FC<{ editor: QuestionEditorStore }> 
   );
 });
 
+const getFieldError = (editor: QuestionEditorStore, field: IFieldConfig): string | null => {
+  if (field.kind === 'expression') return editor.codeStores.get(field.name)?.error ?? null;
+  if (field.kind === 'template-string') {
+    return editor.templateStringStores.get(field.name)?.codeStore.error ?? null;
+  }
+  return null;
+};
+
 export const QuestionHeaderSidebarComponent: TBlockEditorView<QuestionEditorStore> = observer(({ editor }) => {
   const t = useService(TOKEN_I18N).t;
   return (
@@ -142,15 +150,20 @@ export const QuestionHeaderSidebarComponent: TBlockEditorView<QuestionEditorStor
         {t(editor.descriptor.label)}
       </Typography.Title>
       <Form layout="vertical">
-        {getQuestionHeaderFields(editor.descriptor).map((field) => (
-          <Form.Item
-            key={field.name}
-            label={<FieldLabel label={field.label} help={field.help} t={t} />}
-            style={{ marginBottom: 14 }}
-          >
-            <QuestionFieldEditorComponent editor={editor} field={field} />
-          </Form.Item>
-        ))}
+        {getQuestionHeaderFields(editor.descriptor).map((field) => {
+          const error = getFieldError(editor, field);
+          return (
+            <Form.Item
+              key={field.name}
+              label={<FieldLabel label={field.label} help={field.help} t={t} />}
+              validateStatus={error ? 'error' : ''}
+              help={error ?? ''}
+              style={{ marginBottom: 14 }}
+            >
+              <QuestionFieldEditorComponent editor={editor} field={field} />
+            </Form.Item>
+          );
+        })}
         {!editor.descriptor.replyWait && (
           <Form.Item label={t('integration-editor:options')} style={{ marginBottom: 14 }}>
             <QuestionOptionsEditorComponent editor={editor} />
