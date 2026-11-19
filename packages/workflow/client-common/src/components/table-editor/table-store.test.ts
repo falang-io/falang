@@ -1,6 +1,7 @@
 import { describe, expect, it, vi } from 'vitest';
 import type { ITableRecord } from '@falang/workflow-dto';
-import { TableStore, type ITableApi } from './table-store.js';
+import { TABLE_PAGE_SIZE, TableStore, type ITableApi } from './table-store.js';
+import { TableEnvironmentStore } from './table-environment-store.js';
 
 const record = (id: string, version = 1): ITableRecord => ({
   id,
@@ -25,10 +26,13 @@ const makeApi = (overrides: Partial<ITableApi> = {}) => {
   return Object.assign(api, overrides) as typeof api;
 };
 
+const makeStore = (api: ReturnType<typeof makeApi>, environments = new TableEnvironmentStore(null)) =>
+  new TableStore('p', 't', api as unknown as ITableApi, TABLE_PAGE_SIZE, environments);
+
 describe('TableStore', () => {
   it('loads the first page with env, limit and offset', async () => {
     const api = makeApi();
-    const store = new TableStore('p', 't', api as unknown as ITableApi);
+    const store = makeStore(api);
     await store.load();
     expect(api.listTableRecords).toHaveBeenCalledWith('p', 't', { env: 'prod', limit: 50, offset: 0 });
     expect(store.records).toHaveLength(2);
@@ -37,7 +41,7 @@ describe('TableStore', () => {
 
   it('pages, searches (reset to page 1) and sorts', async () => {
     const api = makeApi();
-    const store = new TableStore('p', 't', api as unknown as ITableApi);
+    const store = makeStore(api);
     await store.setPage(3);
     expect(api.listTableRecords).toHaveBeenLastCalledWith('p', 't', { env: 'prod', limit: 50, offset: 100 });
     await store.setSearch(' bob ');
@@ -67,11 +71,45 @@ describe('TableStore', () => {
 
   it('switches env and resets the page', async () => {
     const api = makeApi();
-    const store = new TableStore('p', 't', api as unknown as ITableApi);
+    const store = makeStore(api);
     await store.setPage(2);
     await store.setEnv('dev');
     expect(api.listTableRecords).toHaveBeenLastCalledWith('p', 't', { env: 'dev', limit: 50, offset: 0 });
     expect(store.page).toBe(1);
+    await store.setPage(2);
+    await store.setEnv('prod');
+    expect(api.listTableRecords).toHaveBeenLastCalledWith('p', 't', { env: 'prod', limit: 50, offset: 0 });
+    expect(store.page).toBe(1);
+  });
+
+  it('shares the selected env with every table and restores it from storage', async () => {
+    const api = makeApi();
+    const values = new Map<string, string>();
+    const storage = {
+      getItem: (key: string) => values.get(key) ?? null,
+      setItem: (key: string, value: string) => values.set(key, value),
+    };
+    const environments = new TableEnvironmentStore(storage);
+    const first = new TableStore('p', 'first', api as unknown as ITableApi, TABLE_PAGE_SIZE, environments);
+
+    await first.setEnv('dev');
+    const second = new TableStore('p', 'second', api as unknown as ITableApi, TABLE_PAGE_SIZE, environments);
+    expect(second.env).toBe('dev');
+    await second.load();
+    expect(api.listTableRecords).toHaveBeenLastCalledWith('p', 'second', { env: 'dev', limit: 50, offset: 0 });
+
+    const restored = new TableStore(
+      'p',
+      'third',
+      api as unknown as ITableApi,
+      TABLE_PAGE_SIZE,
+      new TableEnvironmentStore(storage),
+    );
+    expect(restored.env).toBe('dev');
+
+    await first.setEnv('prod');
+    expect(second.env).toBe('prod');
+    expect(values.get('falang:table-env:p')).toBe('prod');
   });
 
   it('drops a stale load answer', async () => {
@@ -85,7 +123,7 @@ describe('TableStore', () => {
           }),
       )
       .mockResolvedValueOnce({ records: [record('fresh')], total: 1 });
-    const store = new TableStore('p', 't', api as unknown as ITableApi);
+    const store = makeStore(api);
     const first = store.load();
     await store.load();
     resolvers[0]?.({ records: [record('stale')], total: 9 });
@@ -95,7 +133,7 @@ describe('TableStore', () => {
 
   it('saves a cell with expectedVersion and swaps in the saved record', async () => {
     const api = makeApi();
-    const store = new TableStore('p', 't', api as unknown as ITableApi);
+    const store = makeStore(api);
     await store.load();
     const saved = await store.patchRecord(record('a', 1), { f1: 'x' });
     expect(saved).toBe(true);
@@ -106,7 +144,7 @@ describe('TableStore', () => {
   it('flags a version conflict and reloads instead of throwing', async () => {
     const conflict = Object.assign(new Error('conflict'), { code: 'version_conflict' });
     const api = makeApi({ patchTableRecord: vi.fn().mockRejectedValue(conflict) });
-    const store = new TableStore('p', 't', api as unknown as ITableApi);
+    const store = makeStore(api);
     await store.load();
     const loads = api.listTableRecords.mock.calls.length;
     expect(await store.patchRecord(record('a', 1), { f1: 'x' })).toBe(false);
@@ -118,7 +156,7 @@ describe('TableStore', () => {
 
   it('rethrows other save errors', async () => {
     const api = makeApi({ patchTableRecord: vi.fn().mockRejectedValue(new Error('boom')) });
-    const store = new TableStore('p', 't', api as unknown as ITableApi);
+    const store = makeStore(api);
     await expect(store.patchRecord(record('a'), { f1: 'x' })).rejects.toThrow('boom');
     expect(store.conflict).toBe(false);
   });
@@ -126,7 +164,7 @@ describe('TableStore', () => {
   it('steps back a page when its last row is deleted', async () => {
     const api = makeApi();
     api.listTableRecords.mockResolvedValue({ records: [record('only')], total: 51 });
-    const store = new TableStore('p', 't', api as unknown as ITableApi);
+    const store = makeStore(api);
     await store.setPage(2);
     await store.deleteRecord('only');
     expect(store.page).toBe(1);
@@ -134,7 +172,7 @@ describe('TableStore', () => {
 
   it('copy to prod reloads only while viewing prod', async () => {
     const api = makeApi();
-    const store = new TableStore('p', 't', api as unknown as ITableApi);
+    const store = makeStore(api);
     await store.setEnv('dev');
     api.listTableRecords.mockClear();
     expect(await store.copyToProd()).toBe(2);

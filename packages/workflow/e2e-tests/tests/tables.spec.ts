@@ -31,6 +31,27 @@ const addTextFieldsViaUI = async (page: Page, names: readonly string[]): Promise
 };
 
 test.describe('project tables', () => {
+  test('uses the last selected environment in every table and after a reload', async ({ page }) => {
+    await loginAndReachProjectList(page);
+    await createProjectViaUI(page, `Table environments ${Date.now()}`);
+    await createTableViaUI(page, 'Clients');
+    await createTableViaUI(page, 'Orders');
+
+    await page.getByTestId('table-env').getByText('Dev', { exact: true }).click();
+    await page.getByRole('treeitem', { name: 'Clients' }).click();
+    await expect(page.getByTestId('table-env').locator('.ant-segmented-item-selected')).toHaveText('Dev');
+
+    await page.getByTestId('table-env').getByText('Prod', { exact: true }).click();
+    await page.getByRole('treeitem', { name: 'Orders' }).click();
+    await expect(page.getByTestId('table-env').locator('.ant-segmented-item-selected')).toHaveText('Prod');
+
+    await page.getByTestId('table-env').getByText('Dev', { exact: true }).click();
+    await page.reload();
+    await expect(page.getByTestId('table-env').locator('.ant-segmented-item-selected')).toHaveText('Dev');
+    await page.getByRole('treeitem', { name: 'Clients' }).click();
+    await expect(page.getByTestId('table-env').locator('.ant-segmented-item-selected')).toHaveText('Dev');
+  });
+
   test('creates a table, adds fields and a row, edits a cell, keeps dev and prod apart, CSV export and import', async ({
     page,
   }) => {

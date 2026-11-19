@@ -10,6 +10,8 @@ import {
   type TTableSortDir,
 } from '@falang/workflow-dto';
 
+import { tableEnvironmentStore, type TableEnvironmentStore } from './table-environment-store.js';
+
 /** The slice of `workflowApi` the store uses (injected, so the store never imports the localStorage-reading api client). */
 export interface ITableApi {
   listTableRecords(projectId: string, tableId: string, query?: ITableRecordsQuery): Promise<ITableRecordsResponse>;
@@ -58,10 +60,11 @@ const errorText = (error: unknown): string => (error instanceof Error ? error.me
 const isVersionConflict = (error: unknown): boolean =>
   (error as { code?: unknown } | null)?.code === 'version_conflict';
 
-/** MobX state of one table's grid: environment, paging, sorting, search and the optimistic-lock cell saves. */
+/** MobX state of one table's grid: shared environment, paging, sorting, search and the optimistic-lock cell saves. */
 export class TableStore {
-  /** Production records by default: those are the ones people come to look at; dev is one click away. */
-  @observable env: TTableEnv = 'prod';
+  get env(): TTableEnv {
+    return this.environments.get(this.projectId);
+  }
   @observable page = 1;
   @observable search = '';
   @observable sortField: string | null = null;
@@ -78,12 +81,20 @@ export class TableStore {
   readonly tableId: string;
   readonly pageSize: number;
   private readonly api: ITableApi;
+  private readonly environments: TableEnvironmentStore;
 
-  constructor(projectId: string, tableId: string, api: ITableApi, pageSize: number = TABLE_PAGE_SIZE) {
+  constructor(
+    projectId: string,
+    tableId: string,
+    api: ITableApi,
+    pageSize: number = TABLE_PAGE_SIZE,
+    environments: TableEnvironmentStore = tableEnvironmentStore,
+  ) {
     this.projectId = projectId;
     this.tableId = tableId;
     this.api = api;
     this.pageSize = pageSize;
+    this.environments = environments;
     makeObservable(this);
   }
 
@@ -123,7 +134,7 @@ export class TableStore {
   }
 
   @action setEnv(env: TTableEnv): Promise<void> {
-    this.env = env;
+    this.environments.set(this.projectId, env);
     this.page = 1;
     this.conflict = false;
     return this.load();
