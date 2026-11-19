@@ -36,7 +36,10 @@ head:
     for one person in a group. "Send message with buttons" (edited in the side
     panel) adds up to 10 buttons under a message and does not wait for a press: a "Link" button opens an address, a
     "Command" button acts as if the user had sent that command (e.g. <code>/help</code>), so it is handled by the
-    "On command" trigger — handy for a menu whose buttons start other scenarios. A photo, document, voice message, audio or
+    "On command" trigger — handy for a menu whose buttons start other scenarios. Build the buttons as a list in the
+    editor, or switch to "Variable" and enter an expression returning an array of{' '}
+    <code>{"{ kind: 'url' | 'command', text: string, value: string }"}</code> objects to build the list dynamically. A
+    photo, document, voice message, audio or
     video attached to an incoming message is resolved into a <a href="../files/">File</a> automatically, and "Send file"
     delivers one back as an attachment. "Send message", "Send message with buttons" and "Send file" can keep their result
     in a variable ("Result", optional): <code>{'{ success, disabled }'}</code>. <code>disabled</code> is{' '}

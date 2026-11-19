@@ -19,7 +19,9 @@ const SEND_BUTTONS_NOTE = (questionKind: string, onCommandTrigger: string): stri
     `branches (use \`${questionKind}\` to ask and branch on the answer). A "url" button opens a link; a "command"`,
     'button acts as if the user had sent that command, so it is handled by a separate trigger-function document',
     `bound to \`${onCommandTrigger}\` with that command (create one per command) — e.g. a main menu whose buttons`,
-    'start other flows. See the `buttons` field for the JSON format.',
+    'start other flows. For a fixed list use the JSON array documented on the `buttons` field. For a dynamic list,',
+    'create an array of `{ kind: "url" | "command", text: string, value: string }` in an earlier node and set',
+    '`buttons` to the JSON string `{"expression":"dynamicButtons"}` (replace `dynamicButtons` with the variable name).',
   ].join(' ');
 
 /**

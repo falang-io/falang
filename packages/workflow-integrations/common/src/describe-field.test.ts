@@ -50,6 +50,18 @@ describe('describeFieldForAgent', () => {
     expect(description).toContain('Allowed values: "a", "b".');
   });
 
+  it('documents both fixed buttons and a variable expression in the agent-facing schema', () => {
+    const field: IFieldConfig = { name: 'buttons', label: 'Buttons', kind: 'buttons', defaultValue: '[]' };
+    const description = describeFieldForAgent(field);
+    expect(description).toContain('[{"kind":"url"');
+    expect(description).toContain('`{"expression":"buttons"}`');
+    expect(description).toContain('bare identifier, not a quoted variable name');
+    const schema = zod.toJSONSchema(buildActionDataSchema([field])) as {
+      properties: Record<string, { description?: string }>;
+    };
+    expect(schema.properties['buttons']?.description).toBe(description);
+  });
+
   it('flags a files/File struct expected type as a reference, not a URL — never a URL string', () => {
     const description = describeFieldForAgent({
       ...chatIdField,

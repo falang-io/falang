@@ -32,7 +32,8 @@ export { taskOptionDataTypeToVariableInfo } from './question-extensions.js';
  * `@falang/typescript-common`'s `getScopeContribution`). 'document-ref' is the id of another document of this
  * project (see `IFieldConfig.documentType`, e.g. a `table`), stored as a plain string and compiled to a string
  * literal like a 'text' field; ADR 0075 (private). 'buttons' is a JSON-encoded list of messenger buttons (open a URL
- * or run a bot command) — see `message-buttons.ts`; its texts and values are template-literal bodies.
+ * or run a bot command) or a JSON object holding an expression that returns that list — see `message-buttons.ts`;
+ * list texts and values are template-literal bodies.
  */
 export type TIntegrationFieldKind =
   | 'text'

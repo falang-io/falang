@@ -1,9 +1,9 @@
 import { TOKEN_I18N, useService } from '@falang/scheme';
 import { ExpressionEditorCellComponent } from '@falang/typescript-scheme';
 import { MAX_MESSAGE_BUTTONS, type TMessageButtonKind } from '@falang/workflow-integrations-common';
-import { Alert, Button, Card, Flex, Form, Select, Typography } from 'antd';
+import { Alert, Button, Card, Flex, Form, Segmented, Select, Typography } from 'antd';
 import { observer } from 'mobx-react-lite';
-import type { ButtonsFieldStore, IButtonRow } from './buttons-field.store.js';
+import type { ButtonsFieldStore, IButtonRow, TButtonsFieldMode } from './buttons-field.store.js';
 
 /** One line tall, grows with the text — a caption or a URL is short. */
 const ROW_FIELD_MIN_HEIGHT = 32;
@@ -95,23 +95,52 @@ const ButtonRowComponent: React.FC<{ store: ButtonsFieldStore; row: IButtonRow; 
   },
 );
 
-/** The sidebar editor of a `buttons` field: a card per button and an "Add button" at the end. */
+/** The sidebar editor of a `buttons` field: either button cards or a typed expression returning the array. */
 export const ButtonsFieldEditorComponent: React.FC<{ store: ButtonsFieldStore }> = observer(({ store }) => {
   const t = useService(TOKEN_I18N).t;
   return (
     <Flex vertical gap={8} data-testid="message-buttons-editor">
-      {store.parseError && <Alert type="warning" showIcon message={t('integration-editor:buttons-invalid')} />}
-      {store.rows.map((row, index) => (
-        <ButtonRowComponent key={row.key} store={store} row={row} index={index} />
-      ))}
-      <Button
-        onClick={() => store.addRow()}
-        disabled={!store.canAdd}
-        {...(store.canAdd ? {} : { title: t('integration-editor:buttons-limit', { count: MAX_MESSAGE_BUTTONS }) })}
-        data-testid="message-button-add"
-      >
-        {t('integration-editor:add-button')}
-      </Button>
+      <Segmented
+        size="small"
+        value={store.mode}
+        onChange={(mode) => store.setMode(mode as TButtonsFieldMode)}
+        options={(['list', 'expression'] as const).map((mode) => ({
+          value: mode,
+          label: t(`integration-editor:buttons-mode-${mode}`),
+        }))}
+        data-testid="message-buttons-mode"
+      />
+      {store.mode === 'expression' ? (
+        <Form.Item
+          validateStatus={store.expressionStore.error ? 'error' : ''}
+          help={store.expressionStore.error ?? ''}
+          style={{ marginBottom: 0 }}
+          data-testid="message-buttons-expression"
+        >
+          <ExpressionEditorCellComponent
+            store={store.expressionStore}
+            hiddenPrefix={store.expressionStore.hiddenPrefix}
+            autoFocus={false}
+            minHeight={96}
+            variant="default"
+          />
+        </Form.Item>
+      ) : (
+        <>
+          {store.parseError && <Alert type="warning" showIcon message={t('integration-editor:buttons-invalid')} />}
+          {store.rows.map((row, index) => (
+            <ButtonRowComponent key={row.key} store={store} row={row} index={index} />
+          ))}
+          <Button
+            onClick={() => store.addRow()}
+            disabled={!store.canAdd}
+            {...(store.canAdd ? {} : { title: t('integration-editor:buttons-limit', { count: MAX_MESSAGE_BUTTONS }) })}
+            data-testid="message-button-add"
+          >
+            {t('integration-editor:add-button')}
+          </Button>
+        </>
+      )}
     </Flex>
   );
 });

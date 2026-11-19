@@ -22,6 +22,29 @@ describe('ButtonsFieldStore', () => {
     store.dispose();
   });
 
+  it('reads a variable expression and switches between modes without losing the current list', () => {
+    const value = JSON.stringify([
+      { kind: 'command', text: 'Help', value: '/help' },
+      { kind: 'url', text: 'Site', value: 'https://x' },
+    ]);
+    const store = make(value);
+    store.setMode('expression');
+    store.expressionStore.setValue('dynamicButtons');
+    expect(store.mode).toBe('expression');
+    expect(store.value).toBe('{"expression":"dynamicButtons"}');
+    store.setMode('list');
+    expect(store.value).toBe(value);
+    store.setMode('expression');
+    expect(store.expressionStore.value).toBe('dynamicButtons');
+    store.dispose();
+
+    const dynamic = make('{"expression":"otherButtons"}');
+    expect(dynamic.mode).toBe('expression');
+    expect(dynamic.expressionStore.value).toBe('otherButtons');
+    expect(dynamic.value).toBe('{"expression":"otherButtons"}');
+    dynamic.dispose();
+  });
+
   it('adds, re-kinds, moves and removes rows', () => {
     const store = make('[]');
     store.addRow();

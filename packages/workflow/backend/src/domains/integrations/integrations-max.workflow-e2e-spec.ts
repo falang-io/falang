@@ -278,11 +278,16 @@ describe('integrations (workflow tier): MAX', () => {
     );
   }, 150_000);
 
-  it('max-send-buttons: link + callback keyboard, a command press runs the on-command trigger', async () => {
+  it('max-send-buttons: a variable supplies link + callback buttons, and a press runs the on-command trigger', async () => {
     await withRunningProject(
       'Workflow-tier MAX buttons',
       (credentialId) => [
         triggerDocument('on-message', 'onMessage', credentialId, maxIntegration.triggers[0].name, [
+          {
+            id: 'menu-buttons',
+            name: 'action',
+            data: 'const dynamicButtons = [{ kind: "url", text: "Site", value: "https://example.com" }, { kind: "command", text: "Help", value: "/help" }];',
+          },
           {
             id: 'menu',
             name: MAX_SEND_BUTTONS_NAME,
@@ -290,10 +295,7 @@ describe('integrations (workflow tier): MAX', () => {
               credentialId,
               chatId: 'message.chat.id',
               text: 'Menu',
-              buttons: JSON.stringify([
-                { kind: 'url', text: 'Site', value: 'https://example.com' },
-                { kind: 'command', text: 'Help', value: '/help' },
-              ]),
+              buttons: JSON.stringify({ expression: 'dynamicButtons' }),
             },
           },
         ]),

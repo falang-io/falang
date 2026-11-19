@@ -5,9 +5,10 @@
  * (the backend turns the press into a `/command` message, see `decodeButtonCommand`). The message itself never waits
  * for a press — unlike a question node.
  *
- * Stored in node `data` as a JSON string (node data is `Record<string, string>`, same as a `result-type` field):
- * `[{"kind":"url","text":"Site","value":"https://example.com"},{"kind":"command","text":"Help","value":"/help"}]`.
- * `text` and `value` are template-literal bodies (`${expr}` allowed), compiled like a `template-string` field.
+ * Stored in node `data` as a JSON string (node data is `Record<string, string>`, same as a `result-type` field).
+ * The visual editor writes an array: `[{"kind":"url","text":"Site","value":"https://example.com"}]`; its `text` and
+ * `value` are template-literal bodies (`${expr}` allowed), compiled like a `template-string` field. The variable mode
+ * writes `{"expression":"buttons"}` instead, where `expression` is TypeScript evaluating to the button array.
  */
 export type TMessageButtonKind = 'url' | 'command';
 
@@ -36,9 +37,15 @@ export const MESSAGE_BUTTON_COMMAND_PREFIX = 'falang-cmd:';
  */
 export const MESSAGE_BUTTON_TS_TYPE = '{ kind: string; text: string; value: string }';
 
+/** The Monaco prefix that makes a variable-mode value type-check as a button array. */
+export const buildMessageButtonsExpressionPrefix = (scopeCode: string): string =>
+  `${scopeCode}declare var _value: readonly ${MESSAGE_BUTTON_TS_TYPE}[];\n_value = \n`;
+
 export interface IParsedMessageButtons {
   readonly buttons: readonly IMessageButton[];
-  /** Set when the stored value is not a valid button list; `buttons` is then empty. */
+  /** Set for variable mode instead of `buttons`; a TypeScript expression evaluating to the button array. */
+  readonly expression?: string;
+  /** Set when the stored value is not a valid button list or expression; `buttons` is then empty. */
   readonly error?: string;
 }
 
@@ -71,7 +78,12 @@ export const parseMessageButtons = (raw: string): IParsedMessageButtons => {
   const json = parseJson(raw);
   if (!json.ok) return { buttons: [], error: `Buttons are not valid JSON: ${json.error}` };
   const parsed = json.value;
-  if (!Array.isArray(parsed)) return { buttons: [], error: 'Buttons must be a JSON array' };
+  if (parsed !== null && typeof parsed === 'object' && !Array.isArray(parsed) && 'expression' in parsed) {
+    const expression = (parsed as Record<string, unknown>).expression;
+    if (typeof expression !== 'string') return { buttons: [], error: 'Buttons expression must be a string' };
+    return { buttons: [], expression };
+  }
+  if (!Array.isArray(parsed)) return { buttons: [], error: 'Buttons must be a JSON array or an expression object' };
   if (parsed.length > MAX_MESSAGE_BUTTONS) {
     return { buttons: [], error: `At most ${MAX_MESSAGE_BUTTONS} buttons are allowed, got ${parsed.length}` };
   }
@@ -86,6 +98,8 @@ export const parseMessageButtons = (raw: string): IParsedMessageButtons => {
 
 export const serializeMessageButtons = (buttons: readonly IMessageButton[]): string =>
   JSON.stringify(buttons.map(({ kind, text, value }) => ({ kind, text, value })));
+
+export const serializeMessageButtonsExpression = (expression: string): string => JSON.stringify({ expression });
 
 /** `start`, ` /start `, `/buy 42` → `/start`, `/start`, `/buy 42`; empty stays empty. */
 export const normalizeButtonCommand = (value: string): string => {
@@ -102,14 +116,25 @@ export const decodeButtonCommand = (data: unknown): string | undefined => {
 };
 
 /**
- * TypeScript source of a runtime helper `<name>(buttons)` for a vendor's `sharedActivityCode`: trims every button,
- * normalizes a command to a leading `/`, and throws a readable error on an empty caption, URL or command (a
- * `${expr}` that evaluated to nothing). The name is the vendor's own — several vendors' code shares one module.
+ * TypeScript source of a runtime helper `<name>(buttons)` for a vendor's `sharedActivityCode`: validates the array
+ * (including one supplied by a variable), trims every button, normalizes a command to a leading `/`, and throws a
+ * readable error on an empty caption, URL or command (a `${expr}` that evaluated to nothing). The name is the
+ * vendor's own — several vendors' code shares one module.
  */
 export const buildPrepareButtonsActivityCode = (name: string): string =>
   [
-    `const ${name} = (buttons: readonly ${MESSAGE_BUTTON_TS_TYPE}[]): { kind: 'url' | 'command'; text: string; value: string }[] =>`,
-    '  buttons.map((button, index) => {',
+    `const ${name} = (buttons: readonly ${MESSAGE_BUTTON_TS_TYPE}[]): { kind: 'url' | 'command'; text: string; value: string }[] => {`,
+    "  if (!Array.isArray(buttons)) throw new Error('Buttons must be an array');",
+    `  if (buttons.length > ${MAX_MESSAGE_BUTTONS}) throw new Error(\`At most ${MAX_MESSAGE_BUTTONS} buttons are allowed, got \${buttons.length}\`);`,
+    '  return buttons.map((button, index) => {',
+    "    if (button === null || typeof button !== 'object' || Array.isArray(button)) {",
+    '      throw new Error(`Button ${index + 1} is not an object`);',
+    '    }',
+    "    if (button.kind !== 'url' && button.kind !== 'command') {",
+    '      throw new Error(`Button ${index + 1}: kind must be "url" or "command"`);',
+    '    }',
+    "    if (typeof button.text !== 'string') throw new Error(`Button ${index + 1}: text must be a string`);",
+    "    if (typeof button.value !== 'string') throw new Error(`Button ${index + 1}: value must be a string`);",
     '    const text = button.text.trim();',
     '    if (!text) throw new Error(`Button ${index + 1} has an empty text`);',
     "    if (button.kind === 'url') {",
@@ -121,4 +146,5 @@ export const buildPrepareButtonsActivityCode = (name: string): string =>
     '    if (!command) throw new Error(`Button ${index + 1} ("${text}") has an empty command`);',
     "    return { kind: 'command' as const, text, value: command.startsWith('/') ? command : `/${command}` };",
     '  });',
+    '};',
   ].join('\n');

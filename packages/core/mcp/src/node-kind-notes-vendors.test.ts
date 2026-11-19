@@ -62,6 +62,16 @@ describe('node-kind-notes-vendors', () => {
     );
   });
 
+  it('send-buttons notes tell agents and MCP how to pass a dynamic button variable', () => {
+    for (const name of ['telegram-send-buttons', 'max-send-buttons', 'vk-send-buttons']) {
+      const stack = new NodesStack([new NodesGroup([{ name }])]);
+      const notes = describeNodeKind(name, stack).notes;
+      expect(notes).toContain('For a dynamic list');
+      expect(notes).toContain('`{"expression":"dynamicButtons"}`');
+      expect(notes).toContain('replace `dynamicButtons` with the variable name');
+    }
+  });
+
   it('SQL_VENDOR_NODE_KIND_NOTES: has all six action notes for every SQL dialect vendor', () => {
     const expectedKeys = SQL_DIALECT_VENDORS.flatMap((vendor) =>
       SQL_ACTION_SUFFIXES.map((suffix) => `${vendor}-${suffix}`),

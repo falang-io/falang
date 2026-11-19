@@ -56,6 +56,42 @@ describe('compileProjectDocuments — send message with buttons', () => {
     expect(result.activities).toContain('falang-cmd:');
   });
 
+  it('a variable can supply the buttons of Telegram, MAX and VK actions', () => {
+    const result = compileProjectDocuments(
+      ['telegram', 'max', 'vk'].map((vendor) =>
+        triggerDocument(vendor, [
+          {
+            id: `${vendor}-variable`,
+            name: 'action',
+            data: 'const dynamicButtons = [{ kind: "url", text: `Site ${message.chat.id}`, value: "https://example.com" }, { kind: "command", text: "Help", value: "help" }];',
+          },
+          sendButtons(vendor, JSON.stringify({ expression: 'dynamicButtons' })),
+        ]),
+      ),
+      REGISTERED_INTEGRATIONS,
+    );
+    for (const vendor of ['telegram', 'max', 'vk']) {
+      expect(result.workflows).toContain(`await ${vendor}SendButtons(`);
+    }
+    expect(result.workflows).toContain(', `Menu for ${message.chat.id}`, dynamicButtons');
+  });
+
+  it('an empty variable expression is a compile error of the node', () => {
+    let caught: unknown = null;
+    try {
+      compileProjectDocuments(
+        [triggerDocument('telegram', [sendButtons('telegram', JSON.stringify({ expression: ' ' }))])],
+        REGISTERED_INTEGRATIONS,
+      );
+    } catch (error) {
+      caught = error;
+    }
+    expect(caught).toBeInstanceOf(BadRequestException);
+    expect(JSON.stringify((caught as BadRequestException).getResponse())).toMatch(
+      /"nodeId":"telegram-send".*buttons expression is empty/,
+    );
+  });
+
   it('an empty button list compiles to an empty array', () => {
     const result = compileProjectDocuments([triggerDocument('telegram', [sendButtons('telegram', '[]')])], REGISTERED_INTEGRATIONS);
     expect(result.workflows).toContain('`Menu for ${message.chat.id}`, []);');

@@ -253,7 +253,7 @@ describe('integrations (workflow tier): Telegram', () => {
     }
   }, 150_000);
 
-  it('telegram-send-buttons: a link + command keyboard, and a command press runs the on-command trigger', async () => {
+  it('telegram-send-buttons: a variable supplies a link + command keyboard, and a press runs the on-command trigger', async () => {
     const botToken = `e2e-${Date.now()}`;
     const credentialId = `cred-${Date.now()}`;
     const onMessage = telegramIntegration.triggers[0];
@@ -266,10 +266,6 @@ describe('integrations (workflow tier): Telegram', () => {
       scopeType: trigger.scopeType,
       ...(triggerConfig ? { triggerConfig } : {}),
     });
-    const buttons = JSON.stringify([
-      { kind: 'url', text: 'Site', value: 'https://example.com/?chat=${message.chat.id}' },
-      { kind: 'command', text: 'Help', value: 'help' },
-    ]);
     const fixture: IProjectExportPayload = {
       formatVersion: 1,
       project: { id: '', name: `Workflow-tier TG Buttons ${Date.now()}` },
@@ -284,9 +280,19 @@ describe('integrations (workflow tier): Telegram', () => {
           pinned: false,
           root: buildTriggerFunctionRootNode('menu', triggerFields(onMessage), [
             {
+              id: 'menu-buttons',
+              name: 'action',
+              data: 'const dynamicButtons = [{ kind: "url", text: "Site", value: `https://example.com/?chat=${message.chat.id}` }, { kind: "command", text: "Help", value: "help" }];',
+            },
+            {
               id: 'menu-send',
               name: 'telegram-send-buttons',
-              data: { credentialId, chatId: 'message.chat.id', text: 'Menu', buttons },
+              data: {
+                credentialId,
+                chatId: 'message.chat.id',
+                text: 'Menu',
+                buttons: JSON.stringify({ expression: 'dynamicButtons' }),
+              },
             },
           ]),
           data: null,

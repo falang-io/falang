@@ -26,6 +26,8 @@
     "button-url": "Адрес",
     "button-command": "Команда (например, /help)",
     "buttons-invalid": "Сохранённые кнопки не читаются — добавление или изменение кнопки заменит их",
+    "buttons-mode-list": "Список",
+    "buttons-mode-expression": "Переменная",
     "buttons-limit": "Не больше {{count}} кнопок",
     "wait-timeout": "Ждёт сообщение: {{timeout}}"
   },

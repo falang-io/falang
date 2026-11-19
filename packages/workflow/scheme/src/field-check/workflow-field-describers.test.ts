@@ -276,6 +276,24 @@ describe('workflow field describers — the editor and the background check buil
     expect(describeCheckedFields(h.add('nb2', 'acme-buttons', { buttons: '{oops' }), await resolveCtx(h))).toEqual([]);
   });
 
+  it('buttons variable mode checks one typed expression, equal to the editor', async () => {
+    const h = build();
+    scheme = h.scheme;
+    const node = h.add('nb-variable', 'acme-buttons', {
+      buttons: JSON.stringify({ expression: '[{ kind: "command", text: "Help", value: "/help" }]' }),
+    });
+    const fields = describeCheckedFields(node, await resolveCtx(h));
+    const editor = new IntegrationActionEditorStore(paramsFor(node, h.scheme));
+    const expression = editor.buttonsStores.get('buttons')?.expressionStore;
+    expect(expression).toBeDefined();
+    expect(codeTexts(fields)['buttons']).toBe(full(expression as CodeModelStore));
+    expect(codeTexts(fields)['buttons']).toContain(
+      'declare var _value: readonly { kind: string; text: string; value: string }[];',
+    );
+    expect(fields).toHaveLength(1);
+    editor.dispose();
+  });
+
   it('document-ref: an empty required pick is an error, a chosen or optional one is not checked', async () => {
     const h = build();
     scheme = h.scheme;

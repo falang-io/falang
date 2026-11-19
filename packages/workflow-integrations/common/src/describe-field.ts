@@ -102,7 +102,10 @@ const describeFieldKind = (field: IFieldConfig): string => {
         '(e.g. `/help`, `/buy 42`; the leading slash is optional) — pressing it acts exactly as if the user had sent ' +
         'that command, so it is handled by an on-command trigger-function bound to the same bot (create one per ' +
         'command). `text` and `value` are template-literal bodies: insert runtime values with `${expr}`, no ' +
-        'backticks. Use `[]` for no buttons.'
+        'backticks. Use `[]` for no buttons. Alternatively, to take the list from a variable, store ' +
+        '`{"expression":"buttons"}`: `expression` is bare TypeScript evaluated in this node\'s scope and must return ' +
+        'an array of the same `{ kind: "url" | "command", text: string, value: string }` objects (at most 10). ' +
+        'Create the array in an earlier node and use its bare identifier, not a quoted variable name.'
       );
     }
     default: {

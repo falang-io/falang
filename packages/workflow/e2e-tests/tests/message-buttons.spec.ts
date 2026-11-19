@@ -13,11 +13,11 @@ import { buildFunctionNode } from './node-builders.js';
 
 /**
  * Browser-tier spec for "Send message with buttons": the block lists its buttons on the scheme, a double click opens the
- * sidebar editor with one card per button, and a button added there reaches the stored document. Sending and the
- * command press are covered by the workflow-tier `integrations-telegram.workflow-e2e-spec.ts`.
+ * sidebar editor with one card per button, edits reach the stored document, and variable mode stores an expression.
+ * Sending and the command press are covered by the workflow-tier messenger integration specs.
  */
 test.describe('message buttons', () => {
-  test('shows the buttons on the block and adds one in the sidebar editor', async ({ page }) => {
+  test('edits a button list and switches it to a variable', async ({ page }) => {
     test.setTimeout(120_000);
     await loginAndReachProjectList(page);
     const projectName = `Message buttons ${uniqueSuffix()}`;
@@ -44,6 +44,15 @@ test.describe('message buttons', () => {
     await api.patch(`/projects/${projectId}/documents/${menuId}`, {
       data: {
         root: buildFunctionNode(menuId, [
+          {
+            id: `${menuId}-dynamic`,
+            name: 'create-var',
+            data: {
+              name: 'dynamicButtons',
+              variableType: { type: 'array', elementType: { type: 'any' }, dimensions: 1 },
+              value: '[{ kind: "command", text: "Dynamic help", value: "/help" }]',
+            },
+          },
           {
             id: `${menuId}-send`,
             name: 'telegram-send-buttons',
@@ -91,7 +100,7 @@ test.describe('message buttons', () => {
     await rows.nth(2).locator('.monaco-editor .view-lines').nth(1).click();
     await page.keyboard.type('https://docs.example.com');
     // A click on the empty canvas commits the edit.
-    await scheme.click({ position: { x: 60, y: 400 } });
+    await scheme.click({ position: { x: 600, y: 60 } });
 
     await expect(views).toHaveCount(3, { timeout: 15_000 });
     await expect(views.nth(2)).toContainText('[Docs]');
@@ -104,7 +113,7 @@ test.describe('message buttons', () => {
             root?: { children?: { children?: { data?: unknown }[] }[] };
           }[];
           const document = documents.find((candidate) => candidate.id === menuId);
-          const node = document?.root?.children?.[1]?.children?.[0];
+          const node = document?.root?.children?.[1]?.children?.[1];
           return JSON.parse(String((node?.data as { buttons?: string } | undefined)?.buttons ?? '[]'));
         },
         { timeout: 15_000 },
@@ -114,6 +123,30 @@ test.describe('message buttons', () => {
         { kind: 'command', text: 'Help', value: '/help' },
         { kind: 'url', text: 'Docs', value: 'https://docs.example.com' },
       ]);
+
+    await scheme.locator('.block-container', { hasText: '[Help]' }).first().dblclick();
+    await editor.getByText('Variable', { exact: true }).click();
+    const expression = editor.getByTestId('message-buttons-expression');
+    await expression.locator('.monaco-editor .view-lines').click();
+    await page.keyboard.type('dynamicButtons');
+    await expect(expression.locator('.ant-form-item-explain-error')).toHaveCount(0);
+    await scheme.click({ position: { x: 600, y: 60 } });
+    await expect(views).toHaveCount(0, { timeout: 15_000 });
+    await expect
+      .poll(
+        async () => {
+          const response = await api.get(`/projects/${projectId}/documents`);
+          const documents = (await response.json()) as {
+            id: string;
+            root?: { children?: { children?: { data?: unknown }[] }[] };
+          }[];
+          const document = documents.find((candidate) => candidate.id === menuId);
+          const node = document?.root?.children?.[1]?.children?.[1];
+          return JSON.parse(String((node?.data as { buttons?: string } | undefined)?.buttons ?? '{}'));
+        },
+        { timeout: 15_000 },
+      )
+      .toEqual({ expression: 'dynamicButtons' });
     await api.dispose();
   });
 });

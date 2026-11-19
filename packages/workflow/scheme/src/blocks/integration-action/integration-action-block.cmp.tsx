@@ -20,8 +20,9 @@ import { describeResultType } from './describe-result-type.js';
 /** A `buttons` field on the scheme: one line per button — its caption, then the link or the command. */
 const ButtonsValueComponent: React.FC<{ value: string }> = ({ value }) => {
   const t = useService(TOKEN_I18N).t;
-  const { buttons, error } = parseMessageButtons(value);
+  const { buttons, expression, error } = parseMessageButtons(value);
   if (error) return <>{t('integration-editor:buttons-invalid')}</>;
+  if (typeof expression === 'string') return <CodeViewComponent value={expression} />;
   if (buttons.length === 0) return <>—</>;
   return (
     <div className="workflow-message-buttons" style={{ overflowWrap: 'anywhere' }}>

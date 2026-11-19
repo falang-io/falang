@@ -17,15 +17,19 @@ import { asExpression } from './raw-code.js';
  * it's passed through raw so `IActionDescriptor.emit` can `JSON.parse` it itself to decide what to
  * build (see `call-ai-text`'s `emit`). `'new-variable'` is a bare identifier (e.g. `call-ai-text`'s
  * `resultVariable`) that must appear unquoted on the left of a `const` declaration, so it's passed
- * through raw too, same as `'result-type'`. `'buttons'` holds a JSON list of messenger buttons whose texts/values are
- * template-literal bodies — it compiles to an array literal of `{ kind, text, value }` objects (see
- * `@falang/workflow-integrations-common`'s `message-buttons.ts`); a malformed list is a compile error of the node.
+ * through raw too, same as `'result-type'`. `'buttons'` holds either a JSON list of messenger buttons whose
+ * texts/values are template-literal bodies (compiled to an array literal), or a JSON object with a TypeScript
+ * expression evaluating to that array (compiled verbatim). See `message-buttons.ts`; malformed data is a compile error.
  */
 const templateLiteral = (body: string): string => `\`${escapeTemplateLiteralBody(body)}\``;
 
 const compileButtons = (field: IFieldConfig, rawValue: string): string => {
-  const { buttons, error } = parseMessageButtons(rawValue);
+  const { buttons, expression, error } = parseMessageButtons(rawValue);
   if (error) throw new Error(`Field "${field.name}": ${error}`);
+  if (typeof expression === 'string') {
+    if (expression.trim() === '') throw new Error(`Field "${field.name}": buttons expression is empty`);
+    return asExpression(expression);
+  }
   const items = buttons.map(
     (button) =>
       `{ kind: ${JSON.stringify(button.kind)}, text: ${templateLiteral(button.text)}, value: ${templateLiteral(button.value)} }`,

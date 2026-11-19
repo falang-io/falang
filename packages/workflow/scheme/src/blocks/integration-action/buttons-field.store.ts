@@ -1,8 +1,10 @@
-import { TemplateStringStore } from '@falang/typescript-scheme';
+import { CodeModelStore, TemplateStringStore } from '@falang/typescript-scheme';
 import {
+  buildMessageButtonsExpressionPrefix,
   MAX_MESSAGE_BUTTONS,
   parseMessageButtons,
   serializeMessageButtons,
+  serializeMessageButtonsExpression,
   type TMessageButtonKind,
 } from '@falang/workflow-integrations-common';
 import { action, computed, makeObservable, observable } from 'mobx';
@@ -15,6 +17,8 @@ export interface IButtonRow {
   readonly value: TemplateStringStore;
 }
 
+export type TButtonsFieldMode = 'list' | 'expression';
+
 export interface IButtonsFieldStoreParams {
   /** The node id — part of every row's Monaco model name, like any other field of the node. */
   readonly id: string;
@@ -24,13 +28,15 @@ export interface IButtonsFieldStoreParams {
 }
 
 /**
- * Editing state of one `buttons` field (see `@falang/workflow-integrations-common`'s `message-buttons.ts`): one row per
- * button with its kind and two template-string Monaco fields, caption and URL/command. A stored value that doesn't
- * parse is kept verbatim (`parseError`) until the user edits the list, so opening and closing the editor never loses it.
+ * Editing state of one `buttons` field (see `@falang/workflow-integrations-common`'s `message-buttons.ts`): either
+ * one row per button with its kind and two template-string Monaco fields, or a typed expression returning the array.
+ * A stored value that doesn't parse is kept verbatim (`parseError`) until the user edits it.
  */
 export class ButtonsFieldStore {
   @observable.shallow rows: IButtonRow[] = [];
+  @observable mode: TButtonsFieldMode = 'list';
   @observable parseError: string | null = null;
+  readonly expressionStore: CodeModelStore;
   private untouchedRaw: string | null = null;
   private nextKey = 1;
   private readonly params: IButtonsFieldStoreParams;
@@ -39,6 +45,13 @@ export class ButtonsFieldStore {
     this.params = params;
     makeObservable(this);
     const parsed = parseMessageButtons(params.value);
+    this.mode = typeof parsed.expression === 'string' ? 'expression' : 'list';
+    this.expressionStore = new CodeModelStore({
+      id: params.id,
+      name: `${params.name}-expression`,
+      value: parsed.expression ?? '',
+      hiddenPrefix: buildMessageButtonsExpressionPrefix(params.getScopeCode()),
+    });
     if (typeof parsed.error === 'string') {
       this.parseError = parsed.error;
       this.untouchedRaw = params.value;
@@ -66,6 +79,12 @@ export class ButtonsFieldStore {
   private touch(): void {
     this.untouchedRaw = null;
     this.parseError = null;
+  }
+
+  @action setMode(mode: TButtonsFieldMode): void {
+    if (mode === this.mode) return;
+    this.touch();
+    this.mode = mode;
   }
 
   @action addRow(kind: TMessageButtonKind = 'url'): void {
@@ -98,15 +117,17 @@ export class ButtonsFieldStore {
     this.rows = this.rows.map((row) => (row.key === key ? { ...row, kind } : row));
   }
 
-  /** The stored field value: the serialized list, or the unparseable original while it is untouched. */
+  /** The stored field value: the selected mode's JSON representation, or the untouched unparseable original. */
   get value(): string {
     if (this.untouchedRaw !== null) return this.untouchedRaw;
+    if (this.mode === 'expression') return serializeMessageButtonsExpression(this.expressionStore.value);
     return serializeMessageButtons(
       this.rows.map((row) => ({ kind: row.kind, text: row.text.value, value: row.value.value })),
     );
   }
 
   dispose(): void {
+    this.expressionStore.dispose();
     for (const row of this.rows) {
       row.text.dispose();
       row.value.dispose();

@@ -8,6 +8,7 @@ import {
   type IFieldCheckContext,
 } from '@falang/typescript-scheme';
 import {
+  buildMessageButtonsExpressionPrefix,
   parseMessageButtons,
   type IFieldConfig,
   type IIntegrationInstance,
@@ -72,12 +73,24 @@ export const describeIntegrationFields = (
     } else if (field.kind === 'template-string') {
       result.push({ ...templateField(node, ctx, field.name, value), allowEmpty } as ICheckedField);
     } else if (field.kind === 'buttons') {
-      // Every caption and URL/command is a template body, checked like a message text; a malformed list is left to
-      // the compiler, which names the node.
-      parseMessageButtons(value).buttons.forEach((button, index) => {
-        result.push(templateField(node, ctx, `${field.name}[${index}].text`, button.text));
-        result.push(templateField(node, ctx, `${field.name}[${index}].value`, button.value));
-      });
+      const parsed = parseMessageButtons(value);
+      if (typeof parsed.expression === 'string') {
+        result.push({
+          field: field.name,
+          kind: 'code',
+          prefix: buildMessageButtonsExpressionPrefix(buildNodeScopeCode(node, ctx.projectService)),
+          value: parsed.expression,
+          suffix: '',
+          allowEmpty: false,
+        });
+      } else {
+        // List captions and URLs/commands are template bodies; malformed data is left to the compiler, which names
+        // the node.
+        parsed.buttons.forEach((button, index) => {
+          result.push(templateField(node, ctx, `${field.name}[${index}].text`, button.text));
+          result.push(templateField(node, ctx, `${field.name}[${index}].value`, button.value));
+        });
+      }
     } else if (field.kind === 'document-ref') {
       // A pick from a list, never code — but a required one left empty is an error: reuse the code check, whose
       // generated text (`_value = <empty>`) is invalid exactly then. A chosen value adds nothing to check.

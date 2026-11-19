@@ -296,11 +296,16 @@ describe('integrations (workflow tier): VK', () => {
     );
   }, 180_000);
 
-  it('vk-send-buttons: open_link + callback keyboard, a command press runs the on-command trigger', async () => {
+  it('vk-send-buttons: a variable supplies open_link + callback buttons, and a press runs the on-command trigger', async () => {
     await withRunningProject(
       'Workflow-tier VK buttons',
       (credentialId) => [
         triggerDocument('on-message', 'onMessage', credentialId, vkIntegration.triggers[0].name, [
+          {
+            id: 'menu-buttons',
+            name: 'action',
+            data: 'const dynamicButtons = [{ kind: "url", text: "Site", value: "https://example.com" }, { kind: "command", text: "Help", value: "help" }];',
+          },
           {
             id: 'menu',
             name: VK_SEND_BUTTONS_NAME,
@@ -308,10 +313,7 @@ describe('integrations (workflow tier): VK', () => {
               credentialId,
               chatId: 'message.chat.id',
               text: 'Menu',
-              buttons: JSON.stringify([
-                { kind: 'url', text: 'Site', value: 'https://example.com' },
-                { kind: 'command', text: 'Help', value: 'help' },
-              ]),
+              buttons: JSON.stringify({ expression: 'dynamicButtons' }),
             },
           },
         ]),

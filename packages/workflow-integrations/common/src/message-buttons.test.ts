@@ -9,6 +9,7 @@ import {
   normalizeButtonCommand,
   parseMessageButtons,
   serializeMessageButtons,
+  serializeMessageButtonsExpression,
 } from './message-buttons.js';
 
 describe('parseMessageButtons', () => {
@@ -25,6 +26,12 @@ describe('parseMessageButtons', () => {
     expect(parseMessageButtons(serializeMessageButtons(buttons))).toEqual({ buttons });
   });
 
+  it('reads and serializes a variable expression', () => {
+    const raw = serializeMessageButtonsExpression('dynamicButtons');
+    expect(raw).toBe('{"expression":"dynamicButtons"}');
+    expect(parseMessageButtons(raw)).toEqual({ buttons: [], expression: 'dynamicButtons' });
+  });
+
   it('treats a missing value as empty', () => {
     expect(parseMessageButtons('[{"kind":"command","text":"Go"}]').buttons).toEqual([
       { kind: 'command', text: 'Go', value: '' },
@@ -34,6 +41,7 @@ describe('parseMessageButtons', () => {
   it.each([
     ['not json', 'not valid JSON'],
     ['{}', 'must be a JSON array'],
+    ['{"expression":1}', 'expression must be a string'],
     ['[1]', 'button 1 is not an object'],
     ['[{"kind":"reply","text":"x","value":""}]', '"kind" must be'],
     ['[{"kind":"url","text":1,"value":""}]', '"text" must be a string'],
@@ -92,5 +100,15 @@ describe('buildPrepareButtonsActivityCode', () => {
   it('throws on an empty caption or value', () => {
     expect(() => prepare([{ kind: 'url', text: ' ', value: 'x' }])).toThrow('Button 1 has an empty text');
     expect(() => prepare([{ kind: 'command', text: 'Go', value: '' }])).toThrow('empty command');
+  });
+
+  it('validates a dynamically supplied array at runtime', () => {
+    expect(() => prepare({})).toThrow('Buttons must be an array');
+    expect(() => prepare([{ kind: 'other', text: 'Go', value: '/go' }])).toThrow('kind must be "url" or "command"');
+    expect(() => prepare([{ kind: 'url', text: 1, value: 'https://x' }])).toThrow('text must be a string');
+    expect(() => prepare([{ kind: 'url', text: 'Go' }])).toThrow('value must be a string');
+    expect(() =>
+      prepare(Array.from({ length: MAX_MESSAGE_BUTTONS + 1 }, () => ({ kind: 'url', text: 'x', value: 'y' }))),
+    ).toThrow(`At most ${MAX_MESSAGE_BUTTONS}`);
   });
 });
