@@ -7,6 +7,8 @@ export const TELEGRAM_SEND_MESSAGE_NAME = 'telegram-send-message';
 export const TELEGRAM_SEND_FILE_NAME = 'telegram-send-file';
 export const TELEGRAM_SEND_BUTTONS_NAME = 'telegram-send-buttons';
 export const TELEGRAM_QUESTION_NAME = 'telegram-question';
+export const TELEGRAM_ASK_BUTTONS_NAME = 'telegram-ask-buttons';
+export const TELEGRAM_BUTTON_ANSWER_SIGNAL_NAME = 'telegramButtonAnswer';
 /** "Wait for the user's message" (ADR 0079 (private)) — see `buildMessageWaitQuestion`. */
 export const TELEGRAM_WAIT_MESSAGE_NAME = 'telegram-wait-message';
 /** What the ingress signals a run waiting for a message with: `{ waitId, message }`. */
@@ -25,6 +27,7 @@ export const TELEGRAM_MEMBER_EVENT_TYPE_ID = 'telegram/MemberEvent';
 export const TELEGRAM_JOIN_REQUEST_TYPE_ID = 'telegram/JoinRequest';
 export const TELEGRAM_MEMBER_INFO_TYPE_ID = 'telegram/MemberInfo';
 export const TELEGRAM_SEND_RESULT_TYPE_ID = 'telegram/SendResult';
+export const TELEGRAM_BUTTON_ANSWER_TYPE_ID = 'telegram/ButtonAnswer';
 
 /** Member triggers (ADR 0076 (private) §1): always one execution per event, see `buildMemberEventWorkflowId`. */
 export const TELEGRAM_MEMBER_JOINED_TRIGGER_NAME = 'telegram-member-joined';

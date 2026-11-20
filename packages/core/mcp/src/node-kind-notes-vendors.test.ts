@@ -31,6 +31,9 @@ describe('node-kind-notes-vendors', () => {
         'telegram-send-buttons',
         'max-send-buttons',
         'vk-send-buttons',
+        'telegram-ask-buttons',
+        'max-ask-buttons',
+        'vk-ask-buttons',
         'max-question',
         'max-question-option',
         'max-send-file',
@@ -69,6 +72,17 @@ describe('node-kind-notes-vendors', () => {
       expect(notes).toContain('For a dynamic list');
       expect(notes).toContain('`{"expression":"dynamicButtons"}`');
       expect(notes).toContain('replace `dynamicButtons` with the variable name');
+    }
+  });
+
+  it('ask-buttons notes document waiting, the answer variable and the two fixed branches', () => {
+    for (const name of ['telegram-ask-buttons', 'max-ask-buttons', 'vk-ask-buttons']) {
+      const stack = new NodesStack([new NodesGroup([{ name }])]);
+      const notes = describeNodeKind(name, stack).notes;
+      expect(notes).toContain('WAITS for a command-button press');
+      expect(notes).toContain('`pressed` and `timeout`');
+      expect(notes).toContain('`answerVariable`');
+      expect(notes).toContain('default `answer`');
     }
   });
 

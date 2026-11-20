@@ -27,6 +27,7 @@ import { SandboxBotBlock } from '../domains/sandbox-bots/sandbox-bot-block.entit
 import { SandboxBotMessage } from '../domains/sandbox-bots/sandbox-bot-message.entity.js';
 import { TableRecordChange } from '../domains/tables/table-record-change.entity.js';
 import { MessageWait } from '../domains/message-waits/message-wait.entity.js';
+import { ButtonWait } from '../domains/button-waits/button-wait.entity.js';
 import { TableRecord } from '../domains/tables/table-record.entity.js';
 import { User } from '../domains/users/users/user.entity.js';
 
@@ -61,4 +62,5 @@ export const TEST_ENTITIES = [
   TableRecord,
   TableRecordChange,
   MessageWait,
+  ButtonWait,
 ];

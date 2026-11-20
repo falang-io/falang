@@ -337,6 +337,68 @@ describe('integrations (workflow tier): MAX', () => {
     );
   }, 150_000);
 
+  it('max-ask-buttons: a variable supplies buttons and a press resumes the pressed branch', async () => {
+    await withRunningProject(
+      'Workflow-tier MAX ask buttons',
+      (credentialId) => [
+        triggerDocument('on-message', 'onMessage', credentialId, maxIntegration.triggers[0].name, [
+          {
+            id: 'buttons',
+            name: 'action',
+            data: 'const dynamicButtons = [{ kind: "command", text: "Approve", value: "approve" }];',
+          },
+          {
+            id: 'wait',
+            name: 'max-ask-buttons',
+            data: {
+              credentialId,
+              recipient: 'chat',
+              chatId: 'message.chat.id',
+              text: 'Choose',
+              buttons: JSON.stringify({ expression: 'dynamicButtons' }),
+              timeout: '10m',
+              answerVariable: 'choice',
+              options: [],
+            },
+            children: [
+              {
+                id: 'pressed',
+                name: 'max-ask-buttons-option',
+                data: { label: 'pressed', fixed: true, variable: 'choice' },
+                children: [sendMessageNode('picked', credentialId, 'Picked ${choice.value} by ${choice.userId}')],
+              },
+              {
+                id: 'timeout',
+                name: 'max-ask-buttons-option',
+                data: { label: 'timeout', fixed: true },
+                children: [],
+              },
+            ],
+          },
+        ]),
+      ],
+      async (botToken) => {
+        await pushMaxUpdate(WORKFLOW_E2E_MOCKS_URL, botToken, incomingMessage(780, 'in.ask', 'start'));
+        const question = await waitForCall(botToken, isTextMessage('Choose'));
+        const body = question.body as {
+          attachments: { payload: { buttons: { payload?: string }[][] } }[];
+        };
+        const payload = body.attachments[0].payload.buttons[0][0].payload;
+        expect(payload).toMatch(/^falang-wait:/);
+        await pushMaxUpdate(WORKFLOW_E2E_MOCKS_URL, botToken, {
+          update_type: 'message_callback',
+          callback: { callback_id: 'cb-approve', payload, user: sender },
+          message: {
+            recipient: { chat_id: 780, chat_type: 'dialog', user_id: 1 },
+            timestamp: Date.now(),
+            body: { mid: question.mid ?? '', seq: 2, text: 'Choose' },
+          },
+        });
+        await waitForCall(botToken, isTextMessage('Picked approve by 7'));
+      },
+    );
+  }, 150_000);
+
   it('an incoming photo becomes a File and is sent back through the three-step upload', async () => {
     const png = Buffer.from('89504e470d0a1a0a', 'hex');
     await withRunningProject(

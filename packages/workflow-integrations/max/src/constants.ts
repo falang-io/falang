@@ -7,6 +7,8 @@ export const MAX_SEND_MESSAGE_NAME = 'max-send-message';
 export const MAX_SEND_FILE_NAME = 'max-send-file';
 export const MAX_SEND_BUTTONS_NAME = 'max-send-buttons';
 export const MAX_QUESTION_NAME = 'max-question';
+export const MAX_ASK_BUTTONS_NAME = 'max-ask-buttons';
+export const MAX_BUTTON_ANSWER_SIGNAL_NAME = 'maxButtonAnswer';
 /** "Wait for the user's message" (ADR 0079 (private)) — see `buildMessageWaitQuestion`. */
 export const MAX_WAIT_MESSAGE_NAME = 'max-wait-message';
 /** What the ingress signals a run waiting for a message with: `{ waitId, message }`. */
@@ -38,3 +40,4 @@ export const MAX_GET_MESSAGE_NAME = 'max-get-message';
 export const MAX_MEMBER_EVENT_TYPE_ID = 'max/MemberEvent';
 export const MAX_MEMBER_EVENT_CHAT_TYPE_ID = 'max/MemberEventChat';
 export const MAX_SEND_RESULT_TYPE_ID = 'max/SendResult';
+export const MAX_BUTTON_ANSWER_TYPE_ID = 'max/ButtonAnswer';

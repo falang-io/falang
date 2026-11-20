@@ -1,6 +1,7 @@
 import { VK_API_VERSION, VK_DEFAULT_API_BASE_URL } from './constants.js';
 import { VK_READ_SHARED_CODE } from './vk-read-actions.js';
 import { VK_PREPARE_BUTTONS_CODE } from './vk-send-buttons-action.js';
+import { VK_BUTTON_WAIT_REGISTRY_CODE } from './vk-ask-buttons-question.js';
 import { VK_SEND_GUARD_CODE } from './vk-send-result.js';
 
 /**
@@ -114,6 +115,8 @@ export const VK_SHARED_ACTIVITY_CODE = [
   "): Promise<any> => vkApiCall(bot, 'messages.send', { peer_id: peerId, random_id: vkRandomId(), message: text, ...extra });",
   '',
   VK_PREPARE_BUTTONS_CODE,
+  '',
+  VK_BUTTON_WAIT_REGISTRY_CODE,
   '',
   "// Removes a question's buttons, keeping its text: `messages.edit` needs the text repeated, so it is read first.",
   'const vkStripButtons = async (',

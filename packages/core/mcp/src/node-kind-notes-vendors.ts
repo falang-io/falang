@@ -24,6 +24,15 @@ const SEND_BUTTONS_NOTE = (questionKind: string, onCommandTrigger: string): stri
     '`buttons` to the JSON string `{"expression":"dynamicButtons"}` (replace `dynamicButtons` with the variable name).',
   ].join(' ');
 
+const ASK_BUTTONS_NOTE = [
+  'Sends a static or variable-supplied button array and WAITS for a command-button press on that exact message.',
+  'It has exactly two fixed branches: `pressed` and `timeout`; do not add per-button branches. `answerVariable`',
+  '(required, default `answer`) is available only in `pressed` and contains `value`, `text`, `index`, `userId`,',
+  '`messageId`; switch on `<answerVariable>.value` for programmatic branching. A command press resumes this run,',
+  'never an on-command trigger. URL buttons only open a link and do not finish the wait. Timeout is required,',
+  'default `10m`. See `buttons` for the JSON list / `{"expression":"dynamicButtons"}` variable format.',
+].join(' ');
+
 /**
  * `<vendor>-wait-message` (ADR 0079): pauses until the chat's next message. The vendor's question node's own notes
  * forbid reading free text through the trigger; this is the node for that.
@@ -119,6 +128,9 @@ export const VENDOR_NODE_KIND_NOTES: Record<string, string> = {
   'telegram-send-buttons': SEND_BUTTONS_NOTE('telegram-question', 'telegram-on-command-trigger'),
   'max-send-buttons': SEND_BUTTONS_NOTE('max-question', 'max-on-command-trigger'),
   'vk-send-buttons': SEND_BUTTONS_NOTE('vk-question', 'vk-on-command-trigger'),
+  'telegram-ask-buttons': ASK_BUTTONS_NOTE,
+  'max-ask-buttons': ASK_BUTTONS_NOTE,
+  'vk-ask-buttons': ASK_BUTTONS_NOTE,
   'telegram-question-option': [
     "One button of the enclosing `telegram-question`'s inline keyboard, in the order its siblings",
     "appear — `data.label` is both that button's visible text and the value used to confirm the user's",

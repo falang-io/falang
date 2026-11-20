@@ -88,11 +88,11 @@ const describeFieldKind = (field: IFieldConfig): string => {
       return 'A JSON-encoded type descriptor: either `{"type":"string"}` or `{"type":"struct","id":"<struct id>"}`.';
     }
     case 'new-variable': {
-      return (
-        'The name of a NEW variable this node declares and assigns its result to — a bare TypeScript ' +
-        'identifier (e.g. `answer`), unique in scope, no quotes. Later sibling nodes can reference it. ' +
-        'Optional: use "" when the result is not needed — the call still runs, no variable is declared.'
-      );
+      const requirement =
+        field.allowEmpty === false
+          ? 'Required: never leave it empty; the field notes describe its scope.'
+          : 'Later sibling nodes can reference it. Optional: use "" when the result is not needed — the call still runs, no variable is declared.';
+      return `The name of a NEW variable this node declares and assigns its result to — a bare TypeScript identifier (e.g. \`answer\`), unique in scope, no quotes. ${requirement}`;
     }
     case 'buttons': {
       return (

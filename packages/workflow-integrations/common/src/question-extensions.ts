@@ -66,6 +66,15 @@ export interface IQuestionDescriptorExtensions {
     readonly variableName: string;
     readonly messageType: TVariableInfo;
   };
+  /**
+   * Sends a static or variable-supplied button array and waits for a command-button press. Fixed branches are
+   * `pressed` (the answer variable is in scope) and `timeout`; there are no per-button children. The answer name
+   * comes from the header field, unlike `replyWait`'s fixed variable name.
+   */
+  readonly buttonWait?: {
+    readonly answerVariableField: string;
+    readonly answerType: TVariableInfo;
+  };
 }
 
 /** Label (and discriminant) of a reply wait's `message` branch — see `IQuestionDescriptorExtensions.replyWait`. */

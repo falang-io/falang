@@ -1,6 +1,6 @@
 import type { TBlockEditorView } from '@falang/scheme';
 import { TOKEN_I18N, useService } from '@falang/scheme';
-import { ExpressionEditorCellComponent } from '@falang/typescript-scheme';
+import { ExpressionEditorCellComponent, NewVariableEditingComponent } from '@falang/typescript-scheme';
 import {
   getQuestionHeaderFields,
   type IFieldConfig,
@@ -9,6 +9,7 @@ import {
 import { Button, Form, Input, Select, Space, Typography } from 'antd';
 import { observer } from 'mobx-react-lite';
 import { FieldLabel } from '../field-help/field-help.cmp.js';
+import { ButtonsFieldEditorComponent } from '../integration-action/buttons-field-editor.cmp.js';
 import { QUESTION_OPTION_DATA_TYPE_OPTIONS, type QuestionEditorStore } from './question-editor.store.js';
 
 const OPTION_DATA_TYPE_LABEL_KEYS: Record<string, string> = {
@@ -33,7 +34,7 @@ const emptyToUnset = (value: string): string | undefined => {
   if (value) return value;
 };
 
-/** One header field's control — same field-kind split `SidebarFieldEditorComponent` uses for action nodes, minus kinds that don't apply to a question's header (`secret`/`result-type`/`new-variable`). */
+/** One header field's control — the action field kinds a question can use, including buttons and an answer variable. */
 const QuestionFieldEditorComponent: React.FC<{ editor: QuestionEditorStore; field: IFieldConfig }> = observer(
   ({ editor, field }) => {
     const t = useService(TOKEN_I18N).t;
@@ -63,6 +64,14 @@ const QuestionFieldEditorComponent: React.FC<{ editor: QuestionEditorStore; fiel
           variant="default"
         />
       );
+    }
+    if (field.kind === 'buttons') {
+      const store = editor.buttonsStores.get(field.name);
+      return store ? <ButtonsFieldEditorComponent store={store} /> : null;
+    }
+    if (field.kind === 'new-variable') {
+      const store = editor.newVariableStores.get(field.name);
+      return store ? <NewVariableEditingComponent store={store} autoFocus={false} variant="default" /> : null;
     }
     if (field.kind === 'credential-ref' || field.kind === 'select') {
       const options = editor.getFieldOptions(field);
@@ -139,6 +148,7 @@ const getFieldError = (editor: QuestionEditorStore, field: IFieldConfig): string
   if (field.kind === 'template-string') {
     return editor.templateStringStores.get(field.name)?.codeStore.error ?? null;
   }
+  if (field.kind === 'new-variable') return editor.newVariableStores.get(field.name)?.error ?? null;
   return null;
 };
 
@@ -155,6 +165,7 @@ export const QuestionHeaderSidebarComponent: TBlockEditorView<QuestionEditorStor
           return (
             <Form.Item
               key={field.name}
+              data-testid={`question-field-${field.name}`}
               label={<FieldLabel label={field.label} help={field.help} t={t} />}
               validateStatus={error ? 'error' : ''}
               help={error ?? ''}
@@ -164,7 +175,7 @@ export const QuestionHeaderSidebarComponent: TBlockEditorView<QuestionEditorStor
             </Form.Item>
           );
         })}
-        {!editor.descriptor.replyWait && (
+        {!editor.descriptor.replyWait && !editor.descriptor.buttonWait && (
           <Form.Item label={t('integration-editor:options')} style={{ marginBottom: 14 }}>
             <QuestionOptionsEditorComponent editor={editor} />
           </Form.Item>

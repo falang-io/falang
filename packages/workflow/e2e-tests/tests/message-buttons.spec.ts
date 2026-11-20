@@ -17,7 +17,7 @@ import { buildFunctionNode } from './node-builders.js';
  * Sending and the command press are covered by the workflow-tier messenger integration specs.
  */
 test.describe('message buttons', () => {
-  test('edits a button list and switches it to a variable', async ({ page }) => {
+  test('edits send buttons and configures an ask-buttons answer variable', async ({ page }) => {
     test.setTimeout(120_000);
     await loginAndReachProjectList(page);
     const projectName = `Message buttons ${uniqueSuffix()}`;
@@ -65,6 +65,33 @@ test.describe('message buttons', () => {
                 { kind: 'command', text: 'Help', value: '/help' },
               ]),
             },
+          },
+          {
+            id: `${menuId}-ask`,
+            name: 'telegram-ask-buttons',
+            data: {
+              credentialId,
+              chatId: '42',
+              text: 'Choose',
+              buttons: JSON.stringify({ expression: 'dynamicButtons' }),
+              timeout: '10m',
+              answerVariable: 'choice',
+              options: [],
+            },
+            children: [
+              {
+                id: `${menuId}-pressed`,
+                name: 'telegram-ask-buttons-option',
+                data: { label: 'pressed', fixed: true, variable: 'choice' },
+                children: [],
+              },
+              {
+                id: `${menuId}-timeout`,
+                name: 'telegram-ask-buttons-option',
+                data: { label: 'timeout', fixed: true },
+                children: [],
+              },
+            ],
           },
         ]),
       },
@@ -147,6 +174,38 @@ test.describe('message buttons', () => {
         { timeout: 15_000 },
       )
       .toEqual({ expression: 'dynamicButtons' });
+
+    await scheme.locator('.block-container', { hasText: 'Choose' }).first().dblclick();
+    await expect(editor).toBeVisible();
+    await expect(editor.getByTestId('message-buttons-expression')).toContainText('dynamicButtons');
+    const answerVariable = page.getByTestId('question-field-answerVariable').locator('input');
+    await expect(answerVariable).toHaveValue('choice');
+    await answerVariable.fill('selected');
+    await scheme.click({ position: { x: 600, y: 60 } });
+    await expect
+      .poll(
+        async () => {
+          const response = await api.get(`/projects/${projectId}/documents`);
+          const documents = (await response.json()) as {
+            id: string;
+            root?: {
+              children?: {
+                children?: {
+                  data?: Record<string, string>;
+                  children?: { data?: Record<string, string> }[];
+                }[];
+              }[];
+            };
+          }[];
+          const node = documents.find((candidate) => candidate.id === menuId)?.root?.children?.[1]?.children?.[2];
+          return {
+            answerVariable: node?.data?.answerVariable,
+            pressedVariable: node?.children?.[0]?.data?.variable,
+          };
+        },
+        { timeout: 15_000 },
+      )
+      .toEqual({ answerVariable: 'selected', pressedVariable: 'selected' });
     await api.dispose();
   });
 });

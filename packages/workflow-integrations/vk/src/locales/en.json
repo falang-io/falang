@@ -29,6 +29,7 @@
       "conversation": "Conversation",
       "buttons": "Buttons",
       "fromUser": "From user",
+      "answerVariable": "Answer variable",
       "resultVariable": "Result",
       "count": "Count"
     },
@@ -43,6 +44,7 @@
     },
     "question": {
       "askQuestion": "Ask question",
+      "askButtons": "Ask with programmable buttons",
       "waitMessage": "Wait for a message"
     },
     "sendFileAs": {
@@ -65,6 +67,9 @@
       "chatId": "The recipient's peer_id — e.g. `message.chat.id` from the trigger.",
       "conversationMessageId": "The message's conversationMessageId in the conversation — e.g. `message.conversationMessageId` from the trigger.",
       "buttons": "Buttons under the message. **Link** opens the address. **Command** acts as if the user sent that command (e.g. `/help`) — it is handled by an “On command” trigger of the same community.\nThe message doesn't wait for a press. VK shows at most 40 characters of a caption.\nTexts and values may contain `${…}`.\nIn “Variable” mode, enter a variable or expression returning an array of `{ kind: 'url' | 'command', text, value }` objects.",
+      "askButtons": "Send the buttons and wait for a press. **Command** resumes this run with its original value; it does not start an “On command” trigger. **Link** only opens the address and keeps the wait active. Use **List** or **Variable** to provide the buttons.",
+      "askButtonsTimeout": "Required, default `10m`. A command press runs the `pressed` branch; otherwise the `timeout` branch runs. The buttons are removed in either case.",
+      "answerVariable": "Required, default `answer`. Available in `pressed` with `value`, `text`, `index`, `userId` and `messageId`. Use `<name>.value` for programmatic branching.",
       "fromUser": "Id of the user to wait for, e.g. `message.from.id`. Empty — anyone in the chat.",
       "waitTimeout": "How long to wait for the message: `10m`, `2h`, `1d`. Required.\nIf a message arrives, the “message” branch runs with the reply as `reply`; otherwise the “timeout” branch.\nA command that has an “On command” trigger goes to that trigger and does not end the wait.",
       "sendResult": "Optional. Gets `{ success, disabled }`: `disabled` is `true` when the bot can no longer write to this chat (the user forbade messages from the community or blacklisted it, the community was removed from the chat) — then `success` is `false` and the workflow goes on instead of failing. Other errors still stop the node.",

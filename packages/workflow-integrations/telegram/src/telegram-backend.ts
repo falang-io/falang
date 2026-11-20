@@ -6,6 +6,7 @@ import {
   chatTypeAdmits,
   constantTimeEqual,
   decodeButtonCommand,
+  decodeButtonWaitCallback,
   resolveChatTypeFilter,
   resolveConversationMode,
   type IIntegrationBackendContext,
@@ -16,6 +17,7 @@ import {
 } from '@falang/workflow-integrations-common';
 import {
   TELEGRAM_ALLOWED_UPDATES,
+  TELEGRAM_BUTTON_ANSWER_SIGNAL_NAME,
   TELEGRAM_COMMAND_FIELD_NAME,
   TELEGRAM_ON_COMMAND_TRIGGER_NAME,
   TELEGRAM_QUESTION_ANSWER_SIGNAL_NAME,
@@ -387,6 +389,26 @@ const handleCallbackQuery = async (
   const chatId = callbackQuery.message?.chat.id;
   // Telegram callback_data is always a non-empty string (1-64 bytes) when a button carries one — a falsy value here means there's nothing to correlate to a pending question.
   if (!chatId || !callbackQuery.data) return;
+
+  const buttonWait = decodeButtonWaitCallback(callbackQuery.data);
+  if (buttonWait) {
+    const delivered = await ctx.deliverToButtonWait?.({
+      ...buttonWait,
+      chatId,
+      messageId: String(callbackQuery.message?.message_id),
+      userId: callbackQuery.from?.id ?? 0,
+      signalName: TELEGRAM_BUTTON_ANSWER_SIGNAL_NAME,
+    });
+    if (!delivered) {
+      await ctx.reportJournalProblem?.({
+        workflowId: unboundWorkflowId(chatId),
+        level: 'info',
+        message: 'Ignored a stale or already handled button press',
+        data: { signal: TELEGRAM_BUTTON_ANSWER_SIGNAL_NAME, payload: buttonWait },
+      });
+    }
+    return;
+  }
 
   const command = decodeButtonCommand(callbackQuery.data);
   if (command) {

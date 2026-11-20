@@ -8,6 +8,7 @@ import {
 import { JOURNAL_FN } from './journal-runtime.js';
 import { indentLines } from './indent.js';
 import { buildReplyWaitEmitter } from './reply-wait-emitters.js';
+import { buildButtonWaitEmitter } from './button-wait-emitters.js';
 import { resolveFieldExpression } from './integration-emitters.js';
 import type { TQuestionEmitters } from './node-emitters.js';
 import { buildSwitchCases, type TCompileChildren } from './switch-cases.js';
@@ -48,6 +49,7 @@ const buildQuestionEmitter = (
   descriptor: IQuestionDescriptor,
 ): ((node: INode, compile: TCompileChildren) => string) => {
   if (descriptor.replyWait) return buildReplyWaitEmitter(descriptor);
+  if (descriptor.buttonWait) return buildButtonWaitEmitter(descriptor);
   const resolveSignature = descriptor.resolveActivitySignature;
   if (!resolveSignature) throw new Error(`Question "${descriptor.name}" has no resolveActivitySignature`);
   const askFnName = parseActivityName(descriptor.askActivitySignature);

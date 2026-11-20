@@ -6,6 +6,7 @@ import { RunnerStartRefusedError } from './runner-start-refused-error.js';
 import { runWithEgressVendor } from '@falang/workflow-egress';
 import { Logger, type OnModuleDestroy, type OnModuleInit } from '@nestjs/common';
 import type {
+  IButtonWaitDelivery,
   IMessageWaitDelivery,
   IIntegrationBackendHandle,
   IWorkflowIntegration,
@@ -19,6 +20,7 @@ import type { IScheduleGuard } from './schedule-guard.js';
 import type { IRunJournalProblemPort } from './run-journal-problem-port.js';
 import type { IScheduleClientPort } from './schedule-client.js';
 import type { IMessageWaitPort } from './message-wait-port.js';
+import type { IButtonWaitPort } from './button-wait-port.js';
 import type { TSignalWorkflowRun, TSignalWorkflowWithStart } from './signal-workflow.js';
 
 /** How often the discovery loop re-lists credential instances to pick up newly configured/removed ones. */
@@ -168,6 +170,7 @@ export class IntegrationsRuntimeService implements OnModuleInit, OnModuleDestroy
   private readonly webhookSecretKey: string | undefined;
   private readonly signalWorkflowRun: TSignalWorkflowRun | undefined;
   private messageWaits: IMessageWaitPort | undefined;
+  private buttonWaits: IButtonWaitPort | undefined;
 
   private readonly webhookHandlers = new Map<string, TWebhookHandler>();
   private readonly activeTargets = new Map<string, IActiveTarget>();
@@ -305,6 +308,11 @@ export class IntegrationsRuntimeService implements OnModuleInit, OnModuleDestroy
    */
   setMessageWaits(port: IMessageWaitPort): void {
     this.messageWaits = port;
+  }
+
+  /** Installs the registry of outgoing messages whose buttons resume a known run. */
+  setButtonWaits(port: IButtonWaitPort): void {
+    this.buttonWaits = port;
   }
 
   /**
@@ -587,6 +595,8 @@ export class IntegrationsRuntimeService implements OnModuleInit, OnModuleDestroy
           ? {
               deliverToMessageWait: (delivery: IMessageWaitDelivery) =>
                 this.deliverToMessageWait(target, taskQueue, delivery),
+              deliverToButtonWait: (delivery: IButtonWaitDelivery) =>
+                this.deliverToButtonWait(target, taskQueue, delivery),
             }
           : {}),
         reportJournalProblem: (report) =>
@@ -734,6 +744,54 @@ export class IntegrationsRuntimeService implements OnModuleInit, OnModuleDestroy
       signalName: delivery.signalName,
       signalArgs: [{ waitId: claim.waitId, message }],
     };
+    if (this.ensureRunnerRunning) {
+      try {
+        await this.ensureRunnerRunning({ projectId: target.projectId, env: target.env, taskQueue });
+      } catch (error) {
+        wake.error = error;
+        if (error instanceof RunnerStartRefusedError) {
+          await this.reportUndeliverable(target, signal, error, wake);
+          throw error;
+        }
+        this.logger.error(
+          `ensureRunnerRunning failed for ${target.vendor}/${target.credentialId}/${target.env}`,
+          error instanceof Error ? error.stack : error,
+        );
+      }
+    }
+    try {
+      const outcome = await signalRun({ ...signal, projectId: target.projectId, runId: claim.runId });
+      return outcome === 'delivered';
+    } catch (error) {
+      await this.reportUndeliverable(target, signal, error, wake);
+      return false;
+    }
+  }
+
+  private async deliverToButtonWait(
+    target: IKnownTarget,
+    taskQueue: string,
+    delivery: IButtonWaitDelivery,
+  ): Promise<boolean> {
+    const port = this.buttonWaits;
+    const signalRun = this.signalWorkflowRun;
+    if (!port || !signalRun) return false;
+    const claim = await port.claim({
+      projectId: target.projectId,
+      env: target.env,
+      vendor: target.vendor,
+      credentialId: target.credentialId,
+      waitId: delivery.waitId,
+      chatId: String(delivery.chatId),
+      messageId: String(delivery.messageId),
+    });
+    if (!claim) return false;
+    const signal = {
+      workflowId: claim.workflowId,
+      signalName: delivery.signalName,
+      signalArgs: [{ waitId: claim.waitId, buttonIndex: delivery.buttonIndex, userId: Number(delivery.userId) }],
+    };
+    const wake: { error?: unknown } = {};
     if (this.ensureRunnerRunning) {
       try {
         await this.ensureRunnerRunning({ projectId: target.projectId, env: target.env, taskQueue });

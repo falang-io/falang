@@ -5,6 +5,7 @@ import {
   chatTypeAdmits,
   constantTimeEqual,
   decodeButtonCommand,
+  decodeButtonWaitCallback,
   resolveChatTypeFilter,
   resolveConversationMode,
   type IIntegrationBackendContext,
@@ -13,6 +14,7 @@ import {
   type TRegisterIntegrationBackend,
 } from '@falang/workflow-integrations-common';
 import {
+  MAX_BUTTON_ANSWER_SIGNAL_NAME,
   MAX_COMMAND_FIELD_NAME,
   MAX_DEFAULT_API_BASE_URL,
   MAX_ON_COMMAND_TRIGGER_NAME,
@@ -327,24 +329,38 @@ const handleCommandButton = async (
   await signalIncomingMessage(ctx, message, null, chatTriggerFunctions);
 };
 
-/**
- * Normalizes a button press into the fixed `{ messageId, value }` answer contract every question vendor uses; a
- * command button is a message instead, see `handleCommandButton`.
- */
-const handleCallback = async (
+const handleButtonWait = async (
+  ctx: IIntegrationBackendContext,
+  update: IMaxMessageCallbackUpdate,
+  buttonWait: NonNullable<ReturnType<typeof decodeButtonWaitCallback>>,
+): Promise<void> => {
+  const chatId = update.message ? maxChatIdOf(update.message) : 0;
+  const messageId = update.message?.body?.mid;
+  if (!chatId || !messageId) return;
+  const delivered = await ctx.deliverToButtonWait?.({
+    ...buttonWait,
+    chatId,
+    messageId,
+    userId: update.callback.user.user_id,
+    signalName: MAX_BUTTON_ANSWER_SIGNAL_NAME,
+  });
+  if (!delivered) {
+    await ctx.reportJournalProblem?.({
+      workflowId: unboundWorkflowId(chatId),
+      level: 'info',
+      message: 'Ignored a stale or already handled button press',
+      data: { signal: MAX_BUTTON_ANSWER_SIGNAL_NAME, payload: buttonWait },
+    });
+  }
+};
+
+/** Ordinary fixed-option question callback; command and programmable-wait buttons are dispatched earlier. */
+const handleQuestionCallback = async (
   ctx: IIntegrationBackendContext,
   update: IMaxMessageCallbackUpdate,
   chatTriggerFunctions: TChatTriggerMap,
+  value: string | undefined,
 ): Promise<void> => {
-  const value = update.callback.payload;
-  const command = decodeButtonCommand(value);
-  const botToken = ctx.fields.botToken;
-  if (botToken) await answerCallback(botToken, update.callback.callback_id, command ? '✓' : value || '✓');
-  if (command) {
-    await handleCommandButton(ctx, update, command, chatTriggerFunctions);
-    return;
-  }
-
   const chatId = update.message ? maxChatIdOf(update.message) : 0;
   const messageId = update.message?.body?.mid;
   if (!chatId || !messageId || !value) return;
@@ -352,8 +368,6 @@ const handleCallback = async (
   const documents = await findBoundTriggerFunctions(ctx);
   const remembered = chatTriggerFunctions.get(chatId);
   const rememberedDoc = remembered && documents.find((doc) => doc.id === remembered.documentId);
-  // After a restart the map is empty: the primary on-message document, its id built by that document's own mode. A
-  // chat id is a private chat's only participant, so `per-user` collapses to one run; in a group it cannot be rebuilt.
   const triggerFunction = rememberedDoc || selectPrimaryTriggerFunction(documents);
   if (!triggerFunction) {
     await ctx.reportJournalProblem?.({
@@ -367,7 +381,6 @@ const handleCallback = async (
 
   const mode = modeOf(triggerFunction);
   if (await rejectUnroutableGroupAnswer(ctx, update, mode, remembered?.workflowId)) return;
-
   const workflowId =
     remembered && rememberedDoc
       ? remembered.workflowId
@@ -385,6 +398,27 @@ const handleCallback = async (
     signalName: MAX_QUESTION_ANSWER_SIGNAL_NAME,
     signalArgs: [{ messageId, value }],
   });
+};
+
+const handleCallback = async (
+  ctx: IIntegrationBackendContext,
+  update: IMaxMessageCallbackUpdate,
+  chatTriggerFunctions: TChatTriggerMap,
+): Promise<void> => {
+  const value = update.callback.payload;
+  const buttonWait = decodeButtonWaitCallback(value);
+  const command = decodeButtonCommand(value);
+  const botToken = ctx.fields.botToken;
+  if (botToken) await answerCallback(botToken, update.callback.callback_id, command || buttonWait ? '✓' : value || '✓');
+  if (buttonWait) {
+    await handleButtonWait(ctx, update, buttonWait);
+    return;
+  }
+  if (command) {
+    await handleCommandButton(ctx, update, command, chatTriggerFunctions);
+    return;
+  }
+  await handleQuestionCallback(ctx, update, chatTriggerFunctions, value);
 };
 
 const handleMaxUpdate = async (

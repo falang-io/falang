@@ -355,6 +355,70 @@ describe('integrations (workflow tier): VK', () => {
     );
   }, 180_000);
 
+  it('vk-ask-buttons: a variable supplies buttons and a press resumes the pressed branch', async () => {
+    await withRunningProject(
+      'Workflow-tier VK ask buttons',
+      (credentialId) => [
+        triggerDocument('on-message', 'onMessage', credentialId, vkIntegration.triggers[0].name, [
+          {
+            id: 'buttons',
+            name: 'action',
+            data: 'const dynamicButtons = [{ kind: "command", text: "Approve", value: "approve" }];',
+          },
+          {
+            id: 'wait',
+            name: 'vk-ask-buttons',
+            data: {
+              credentialId,
+              chatId: 'message.chat.id',
+              text: 'Choose',
+              buttons: JSON.stringify({ expression: 'dynamicButtons' }),
+              timeout: '10m',
+              answerVariable: 'choice',
+              options: [],
+            },
+            children: [
+              {
+                id: 'pressed',
+                name: 'vk-ask-buttons-option',
+                data: { label: 'pressed', fixed: true, variable: 'choice' },
+                children: [sendMessageNode('picked', credentialId, 'Picked ${choice.value} by ${choice.userId}')],
+              },
+              {
+                id: 'timeout',
+                name: 'vk-ask-buttons-option',
+                data: { label: 'timeout', fixed: true },
+                children: [],
+              },
+            ],
+          },
+        ]),
+      ],
+      async (botToken) => {
+        await pushVkUpdate(WORKFLOW_E2E_MOCKS_URL, botToken, [incoming(780, 'start')]);
+        const question = await waitForCall(botToken, isText('Choose'));
+        const keyboard = JSON.parse(question.params.keyboard) as {
+          buttons: { action: { payload?: string } }[][];
+        };
+        const payload = JSON.parse(keyboard.buttons[0][0].action.payload ?? '{}') as { falangButtonWait?: string };
+        expect(payload.falangButtonWait).toMatch(/^falang-wait:/);
+        await pushVkUpdate(WORKFLOW_E2E_MOCKS_URL, botToken, [
+          {
+            type: 'message_event',
+            object: {
+              user_id: 780,
+              peer_id: 780,
+              event_id: 'ev-approve',
+              payload,
+              conversation_message_id: question.conversationMessageId,
+            },
+          },
+        ]);
+        await waitForCall(botToken, isText('Picked approve by 780'));
+      },
+    );
+  }, 180_000);
+
   it('an incoming photo becomes a File and is sent back through the upload flow', async () => {
     const png = Buffer.from('89504e470d0a1a0a', 'hex');
     await withRunningProject(

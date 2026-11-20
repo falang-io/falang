@@ -4,6 +4,11 @@ import {
   taskOptionDataTypeToVariableInfo,
   type IQuestionOptionDataWithType,
 } from './question-extensions.js';
+import {
+  BUTTON_WAIT_DEFAULT_ANSWER_VARIABLE,
+  BUTTON_WAIT_PRESSED_LABEL,
+  buttonWaitAnswerVariable,
+} from './button-wait.js';
 import type { IWorkflowIntegration } from './types.js';
 
 /**
@@ -14,7 +19,10 @@ import type { IWorkflowIntegration } from './types.js';
  * here, not imported, for the same "neither package should depend on the other" reason
  * `action-scope-contributor.ts`'s `TActionScopeContributor` gives.
  */
-export type TQuestionScopeContributor = (data: unknown) => { readonly name: string; readonly type: TVariableInfo }[];
+export type TQuestionScopeContributor = (
+  data: unknown,
+  node?: { readonly data?: unknown; readonly parent?: { readonly data?: unknown } | null },
+) => { readonly name: string; readonly type: TVariableInfo }[];
 
 /**
  * Registers one container-scope contributor per question with an `answerScope`
@@ -27,7 +35,8 @@ export type TQuestionScopeContributor = (data: unknown) => { readonly name: stri
  * contributes no `data` variable at all — there's no value to type). Called from the same two sites
  * `registerIntegrationScopeContributors` is (`@falang/workflow-scheme`'s `IntegrationsModule.register()`
  * and `@falang/workflow-compiler`'s `compileProject`), passing each host's own
- * `registerContainerScopeContributor` import in.
+ * `registerContainerScopeContributor` import in. A button wait instead reads its configurable answer name from the
+ * live parent header, falling back to the pressed option's `variable` on a plain compiled tree.
  */
 export const registerQuestionScopeContributors = (
   integrations: readonly IWorkflowIntegration[],
@@ -35,7 +44,18 @@ export const registerQuestionScopeContributors = (
 ): void => {
   for (const integration of integrations) {
     for (const question of integration.questions ?? []) {
-      const { answerScope, replyWait } = question;
+      const { answerScope, replyWait, buttonWait } = question;
+      if (buttonWait) {
+        register(`${question.name}-option`, (data, node) => {
+          if ((data as { label?: string } | undefined)?.label !== BUTTON_WAIT_PRESSED_LABEL) return [];
+          const optionName = (data as { variable?: string } | undefined)?.variable?.trim();
+          const name = node?.parent?.data
+            ? buttonWaitAnswerVariable(node.parent.data)
+            : optionName || BUTTON_WAIT_DEFAULT_ANSWER_VARIABLE;
+          return [{ name, type: { ...buttonWait.answerType, constant: true } as TVariableInfo }];
+        });
+        continue;
+      }
       if (replyWait) {
         // The reply exists in the `message` branch only — the `timeout` branch has none.
         register(`${question.name}-option`, (data) =>

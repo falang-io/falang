@@ -22,6 +22,8 @@ interface IScopeContributionSource {
   readonly name: string;
   readonly data?: unknown;
   readonly children?: readonly IScopeContributionSource[];
+  /** Present on live `NodeStore`s, absent on compiled plain `INode` trees. */
+  readonly parent?: IScopeContributionSource | null;
 }
 
 /** A transparent group node kind (ADR 0046 (private)): its children's contributions are its own, in order. */
@@ -141,7 +143,10 @@ export const getScopeContributions = (node: IScopeContributionSource): IScopeVar
  */
 const RETURN_VALUE_NAME = 'returnValue';
 
-const CONTAINER_SCOPE_CONTRIBUTORS: Record<string, (data: unknown) => IScopeVariable[]> = {
+const CONTAINER_SCOPE_CONTRIBUTORS: Record<
+  string,
+  (data: unknown, node: IScopeContributionSource) => IScopeVariable[]
+> = {
   'function-body': (data) => {
     const { parameters, returnValue } = data as TFunctionBodyData;
     const variables = parameters.map((param) => ({ name: param.name, type: { ...param.type, constant: true } }));
@@ -180,7 +185,7 @@ const CONTAINER_SCOPE_CONTRIBUTORS: Record<string, (data: unknown) => IScopeVari
 };
 
 /** A `CONTAINER_SCOPE_CONTRIBUTORS`-shaped function, registerable at runtime for node kinds this package knows nothing about — see `registerContainerScopeContributor`. */
-export type TContainerScopeContributor = (data: unknown) => IScopeVariable[];
+export type TContainerScopeContributor = (data: unknown, node: IScopeContributionSource) => IScopeVariable[];
 
 /**
  * Registry of container-scope contributors populated at runtime rather than known statically by
@@ -209,5 +214,5 @@ export const registerContainerScopeContributor = (nodeName: string, contributor:
 export const getContainerScopeContribution = (node: IScopeContributionSource): IScopeVariable[] => {
   if (!node.data) return [];
   const contributor = CONTAINER_SCOPE_CONTRIBUTORS[node.name] ?? dynamicContainerScopeContributors.get(node.name);
-  return contributor?.(node.data) ?? [];
+  return contributor?.(node.data, node) ?? [];
 };

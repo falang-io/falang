@@ -4,6 +4,7 @@ import {
   buildConversationWorkflowId,
   chatTypeAdmits,
   constantTimeEqual,
+  decodeButtonWaitCallback,
   normalizeButtonCommand,
   resolveChatTypeFilter,
   resolveConversationMode,
@@ -15,6 +16,8 @@ import {
 } from '@falang/workflow-integrations-common';
 import {
   VK_API_VERSION,
+  VK_BUTTON_ANSWER_SIGNAL_NAME,
+  VK_BUTTON_WAIT_PAYLOAD_KEY,
   VK_COMMAND_FIELD_NAME,
   VK_DEFAULT_API_BASE_URL,
   VK_ON_COMMAND_TRIGGER_NAME,
@@ -366,50 +369,39 @@ const resolveCallbackTarget = (
   };
 };
 
-/**
- * Normalizes a button press into the fixed `{ messageId, value }` answer contract every question vendor uses. A
- * command button of `vk-send-buttons` (payload `{"falangCommand":"/help"}`) is delivered instead exactly like the
- * presser typing that command — same routing as any message, so it also works in conversations.
- */
-const handleMessageEvent = async (
+const handleButtonWaitEvent = async (
   ctx: IIntegrationBackendContext,
   event: IVkMessageEventObject,
-  update: IVkUpdate,
-  state: IVkTargetState,
+  buttonWait: NonNullable<ReturnType<typeof decodeButtonWaitCallback>>,
 ): Promise<void> => {
-  const accessToken = ctx.fields.accessToken;
-  // Must be answered within a minute, else the button keeps spinning. Best effort — a failed ack never drops the answer.
-  try {
-    await vkApiJson(accessToken, 'messages.sendMessageEventAnswer', {
-      event_id: event.event_id,
-      user_id: event.user_id,
-      peer_id: event.peer_id,
+  if (!event.peer_id || !event.conversation_message_id) return;
+  const delivered = await ctx.deliverToButtonWait?.({
+    ...buttonWait,
+    chatId: event.peer_id,
+    messageId: event.conversation_message_id,
+    userId: event.user_id,
+    signalName: VK_BUTTON_ANSWER_SIGNAL_NAME,
+  });
+  if (!delivered) {
+    await ctx.reportJournalProblem?.({
+      workflowId: unboundWorkflowId(event.peer_id),
+      level: 'info',
+      message: 'Ignored a stale or already handled button press',
+      data: { signal: VK_BUTTON_ANSWER_SIGNAL_NAME, payload: buttonWait },
     });
-  } catch {
-    // Best effort, see above.
   }
+};
 
-  const payload =
-    typeof event.payload === 'string'
-      ? parseVkPayload(event.payload)
-      : ((event.payload as Record<string, unknown> | null | undefined) ?? null);
-  const command = payload?.[VK_BUTTON_COMMAND_PAYLOAD_KEY];
-  if (typeof command === 'string' && normalizeButtonCommand(command) && event.peer_id) {
-    const raw: IVkRawMessage = {
-      peer_id: event.peer_id,
-      from_id: event.user_id,
-      text: normalizeButtonCommand(command),
-      date: Math.floor(Date.now() / 1000),
-      ...(event.conversation_message_id ? { conversation_message_id: event.conversation_message_id } : {}),
-    };
-    await signalIncomingMessage(ctx, raw, update, state);
-    return;
-  }
-  const value = payload?.falang;
+/** Ordinary fixed-option question callback; programmable-wait and command buttons are dispatched earlier. */
+const handleQuestionEvent = async (
+  ctx: IIntegrationBackendContext,
+  event: IVkMessageEventObject,
+  state: IVkTargetState,
+  value: unknown,
+): Promise<void> => {
   const chatId = event.peer_id;
   const messageId = event.conversation_message_id;
   if (typeof value !== 'string' || !chatId || !messageId) return;
-
   const target = resolveCallbackTarget(await findBoundTriggerFunctions(ctx), event, state);
   if (!target) {
     await ctx.reportJournalProblem?.({
@@ -424,8 +416,6 @@ const handleMessageEvent = async (
     });
     return;
   }
-  // A conversation's per-user / per-event runs cannot be told apart by chat alone until pending-question routing
-  // (ADR 0076 (private) phase 2); guessing would silently start a new run with signalWithStart.
   if (vkChatKindOf(chatId) === 'group' && target.mode !== 'per-chat') {
     await ctx.reportJournalProblem?.({
       workflowId: unboundWorkflowId(chatId),
@@ -453,13 +443,53 @@ const handleMessageEvent = async (
     });
     return;
   }
-
   await ctx.signalWorkflow({
     workflowId: target.workflowId,
     workflowType: target.workflowType,
     signalName: VK_QUESTION_ANSWER_SIGNAL_NAME,
     signalArgs: [{ messageId: String(messageId), value }],
   });
+};
+
+const handleMessageEvent = async (
+  ctx: IIntegrationBackendContext,
+  event: IVkMessageEventObject,
+  update: IVkUpdate,
+  state: IVkTargetState,
+): Promise<void> => {
+  const accessToken = ctx.fields.accessToken;
+  // Must be answered within a minute, else the button keeps spinning. Best effort — a failed ack never drops the answer.
+  try {
+    await vkApiJson(accessToken, 'messages.sendMessageEventAnswer', {
+      event_id: event.event_id,
+      user_id: event.user_id,
+      peer_id: event.peer_id,
+    });
+  } catch {
+    // Best effort, see above.
+  }
+  const payload =
+    typeof event.payload === 'string'
+      ? parseVkPayload(event.payload)
+      : ((event.payload as Record<string, unknown> | null | undefined) ?? null);
+  const buttonWait = decodeButtonWaitCallback(payload?.[VK_BUTTON_WAIT_PAYLOAD_KEY]);
+  if (buttonWait) {
+    await handleButtonWaitEvent(ctx, event, buttonWait);
+    return;
+  }
+  const command = payload?.[VK_BUTTON_COMMAND_PAYLOAD_KEY];
+  if (typeof command === 'string' && normalizeButtonCommand(command) && event.peer_id) {
+    const raw: IVkRawMessage = {
+      peer_id: event.peer_id,
+      from_id: event.user_id,
+      text: normalizeButtonCommand(command),
+      date: Math.floor(Date.now() / 1000),
+      ...(event.conversation_message_id ? { conversation_message_id: event.conversation_message_id } : {}),
+    };
+    await signalIncomingMessage(ctx, raw, update, state);
+    return;
+  }
+  await handleQuestionEvent(ctx, event, state, payload?.falang);
 };
 
 /** Handles one VK event for a target; exported for the sandbox test-bot host, which feeds bound-chat updates here. */

@@ -1,7 +1,15 @@
+// oxlint-disable max-lines -- one store for every question field kind, including the fixed reply/button wait variants.
 import { resolveService } from '@falang/di';
 import { TOKEN_SCHEME, type IBlockEditorFactoryParams } from '@falang/scheme';
-import { CodeModelStore, ExpressionBlockEditorStore, TemplateStringStore } from '@falang/typescript-scheme';
 import {
+  CodeModelStore,
+  collectScopeVariables,
+  ExpressionBlockEditorStore,
+  NewVariableStore,
+  TemplateStringStore,
+} from '@falang/typescript-scheme';
+import {
+  BUTTON_WAIT_BRANCHES,
   getQuestionHeaderFields,
   REPLY_WAIT_BRANCHES,
   TIMEOUT_OPTION_LABEL,
@@ -18,6 +26,7 @@ import { TOKEN_CREDENTIALS_PROVIDER, TOKEN_INTEGRATIONS_REGISTRY } from '../../r
 import { expressionFieldPrefix } from '../../field-check/expression-field-prefix.js';
 import { isOptionalField, storedFieldValues } from '../../field-check/describe-integration-fields.js';
 import { initialFieldValue } from '../../registry/initial-field-value.js';
+import { ButtonsFieldStore } from '../integration-action/buttons-field.store.js';
 import { syncIndexedChildren } from '../sync-indexed-children.js';
 
 export interface ISelectOption {
@@ -66,6 +75,8 @@ export class QuestionEditorStore extends ExpressionBlockEditorStore<TQuestionHea
   readonly values = observable.map<string, string>();
   readonly codeStores = new Map<string, CodeModelStore>();
   readonly templateStringStores = new Map<string, TemplateStringStore>();
+  readonly buttonsStores = new Map<string, ButtonsFieldStore>();
+  readonly newVariableStores = new Map<string, NewVariableStore>();
   @observable.shallow options: string[] = [];
   @observable.shallow optionMeta: IOptionMeta[] = [];
   private readonly credentialInstances: readonly IIntegrationInstance[];
@@ -126,6 +137,25 @@ export class QuestionEditorStore extends ExpressionBlockEditorStore<TQuestionHea
             getScopeCode: () => this.hiddenScopeCode,
           }),
         );
+      } else if (field.kind === 'buttons') {
+        this.buttonsStores.set(
+          field.name,
+          new ButtonsFieldStore({
+            id: params.icon.id,
+            name: field.name,
+            value,
+            getScopeCode: () => this.hiddenScopeCode,
+          }),
+        );
+      } else if (field.kind === 'new-variable') {
+        this.newVariableStores.set(
+          field.name,
+          new NewVariableStore({
+            value,
+            getScopeNames: () => collectScopeVariables(this.dataNode).map((variable) => variable.name),
+            allowEmpty: isOptionalField(field),
+          }),
+        );
       } else {
         this.values.set(field.name, value);
       }
@@ -152,6 +182,12 @@ export class QuestionEditorStore extends ExpressionBlockEditorStore<TQuestionHea
       snapshot[name] = store.value;
     });
     this.templateStringStores.forEach((store, name) => {
+      snapshot[name] = store.value;
+    });
+    this.buttonsStores.forEach((store, name) => {
+      snapshot[name] = store.value;
+    });
+    this.newVariableStores.forEach((store, name) => {
       snapshot[name] = store.value;
     });
     return snapshot;
@@ -226,10 +262,25 @@ export class QuestionEditorStore extends ExpressionBlockEditorStore<TQuestionHea
     this.templateStringStores.forEach((store, name) => {
       data[name] = store.value;
     });
+    this.buttonsStores.forEach((store, name) => {
+      data[name] = store.value;
+    });
+    this.newVariableStores.forEach((store, name) => {
+      data[name] = store.value;
+    });
     const scheme = resolveService(TOKEN_SCHEME, this.container);
-    // A reply wait (ADR 0079 (private)) has no buttons: its two branches are fixed, only re-established here.
-    if (this.descriptor.replyWait) {
-      syncIndexedChildren(scheme, this.iconId, `${this.descriptor.name}-option`, REPLY_WAIT_BRANCHES, (item) => item);
+    // Reply/button waits have no per-button options: their two branches are fixed, only re-established here.
+    if (this.descriptor.replyWait || this.descriptor.buttonWait) {
+      const branches = this.descriptor.replyWait ? REPLY_WAIT_BRANCHES : BUTTON_WAIT_BRANCHES;
+      const items = [...branches];
+      if (this.descriptor.buttonWait) {
+        const pressed = items.findIndex((item) => item.label === 'pressed');
+        items[pressed] = {
+          ...items[pressed],
+          variable: String(data[this.descriptor.buttonWait.answerVariableField] ?? ''),
+        };
+      }
+      syncIndexedChildren(scheme, this.iconId, `${this.descriptor.name}-option`, items, (item) => item);
       return { ...data, options: [] } as TQuestionHeaderData;
     }
     const options = [...this.options];
@@ -254,5 +305,6 @@ export class QuestionEditorStore extends ExpressionBlockEditorStore<TQuestionHea
   override dispose(): void {
     this.codeStores.forEach((store) => store.dispose());
     this.templateStringStores.forEach((store) => store.dispose());
+    this.buttonsStores.forEach((store) => store.dispose());
   }
 }

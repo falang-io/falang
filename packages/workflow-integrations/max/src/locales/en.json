@@ -27,6 +27,7 @@
       "messageId": "Message ID",
       "buttons": "Buttons",
       "fromUser": "From user",
+      "answerVariable": "Answer variable",
       "recipient": "Send to",
       "recipientId": "ID",
       "resultVariable": "Result",
@@ -43,6 +44,7 @@
     },
     "question": {
       "askQuestion": "Ask question",
+      "askButtons": "Ask with programmable buttons",
       "waitMessage": "Wait for a message"
     },
     "sendFileAs": {
@@ -66,6 +68,9 @@
       "timeout": "How long to wait for an answer: `10m`, `2h`, `48h`, `7d`. Empty — no limit.\nWhen it runs out, the “timeout” branch runs.",
       "block": "Yes — remove and block: they can't come back through the invite link. No — just remove.",
       "buttons": "Buttons under the message, one per row. **Link** opens the address. **Command** acts as if the user sent that command (e.g. `/help`) — it is handled by an “On command” trigger of the same bot.\nThe message doesn't wait for a press.\nTexts and values may contain `${…}`.\nIn “Variable” mode, enter a variable or expression returning an array of `{ kind: 'url' | 'command', text, value }` objects.",
+      "askButtons": "Send the buttons and wait for a press. **Command** resumes this run with its original value; it does not start an “On command” trigger. **Link** only opens the address and keeps the wait active. Use **List** or **Variable** to provide the buttons.",
+      "askButtonsTimeout": "Required, default `10m`. A command press runs the `pressed` branch; otherwise the `timeout` branch runs. The buttons are removed in either case.",
+      "answerVariable": "Required, default `answer`. Available in `pressed` with `value`, `text`, `index`, `userId` and `messageId`. Use `<name>.value` for programmatic branching.",
       "fromUser": "Id of the user to wait for, e.g. `message.from.id`. Empty — anyone in the chat.",
       "waitTimeout": "How long to wait for the message: `10m`, `2h`, `1d`. Required.\nIf a message arrives, the “message” branch runs with the reply as `reply`; otherwise the “timeout” branch.\nA command that has an “On command” trigger goes to that trigger and does not end the wait.",
       "recipient": "**Chat** — the field below is a chat ID (`message.chat.id`).\n**User** — a user ID (`message.from.id`); MAX finds the user's dialog with the bot.\nIn MAX a private dialog has its own ID, different from the user's ID.",

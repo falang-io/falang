@@ -40,6 +40,8 @@ import { RunJournalEntry } from '../domains/run-journal/run-journal-entry.entity
 import { RunJournalModule } from '../domains/run-journal/run-journal.module.js';
 import { MessageWait } from '../domains/message-waits/message-wait.entity.js';
 import { MessageWaitsModule } from '../domains/message-waits/message-waits.module.js';
+import { ButtonWait } from '../domains/button-waits/button-wait.entity.js';
+import { ButtonWaitsModule } from '../domains/button-waits/button-waits.module.js';
 import { AgentUsage } from '../domains/agent-chat/agent-usage.entity.js';
 import { AiProviderUsage } from '../domains/ai-provider/ai-provider-usage.entity.js';
 import { AiProviderModule } from '../domains/ai-provider/ai-provider.module.js';
@@ -115,6 +117,7 @@ export const buildTestAppImports = (extraModules: TAppImport[] = []) => [
       TableRecord,
       TableRecordChange,
       MessageWait,
+      ButtonWait,
     ],
   }),
   UsersModule,
@@ -135,6 +138,7 @@ export const buildTestAppImports = (extraModules: TAppImport[] = []) => [
   FilesModule,
   RunJournalModule,
   MessageWaitsModule,
+  ButtonWaitsModule,
   RunnerSessionsModule,
   ProjectRuntimeSettingsModule,
   TemporalModule,

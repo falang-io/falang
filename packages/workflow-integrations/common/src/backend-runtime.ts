@@ -1,3 +1,4 @@
+// oxlint-disable max-lines -- the integration host contract also covers schedules, files, journals and pending waits.
 import type { INode } from '@falang/dto';
 import type { ISharedIngress } from './sandbox-bot.js';
 
@@ -223,6 +224,12 @@ export interface IIntegrationBackendContext {
    */
   deliverToMessageWait?(params: IMessageWaitDelivery): Promise<boolean>;
   /**
+   * Hands a command-button press to the run waiting on that exact outgoing message. The callback carries an opaque
+   * wait id and button index; the host claims the row, wakes the runner and sends a plain signal, never starts a run.
+   * `false` means stale, foreign, already claimed or a vanished run.
+   */
+  deliverToButtonWait?(params: IButtonWaitDelivery): Promise<boolean>;
+  /**
    * Present only on a dev target of an instance in sandbox mode (`IIntegrationInstance.devSandbox`) while the host has a
    * test bot configured for this vendor — subscribe instead of polling or registering a webhook. See `ISharedIngress`.
    */
@@ -238,6 +245,15 @@ export interface IMessageWaitDelivery {
   readonly signalName: string;
   /** The message as the workflow sees it (the trigger payload shape, media resolved). */
   buildMessage(): Promise<unknown>;
+}
+
+export interface IButtonWaitDelivery {
+  readonly waitId: string;
+  readonly chatId: string | number;
+  readonly messageId: string | number;
+  readonly buttonIndex: number;
+  readonly userId: string | number;
+  readonly signalName: string;
 }
 
 /** Params of `IIntegrationBackendContext.reportJournalProblem`. */

@@ -29,6 +29,7 @@ import {
   TELEGRAM_ROUTING_NOTES,
 } from './telegram-community-triggers.js';
 import { telegramSandboxAdapter } from './telegram-sandbox.js';
+import { TELEGRAM_BUTTON_WAIT_REGISTRY_CODE, telegramAskButtonsQuestion } from './telegram-ask-buttons-question.js';
 import { TELEGRAM_PREPARE_BUTTONS_CODE, telegramSendButtonsAction } from './telegram-send-buttons-action.js';
 import { telegramSendFileAction } from './telegram-send-file-action.js';
 import {
@@ -60,7 +61,7 @@ export const telegramIntegration: IWorkflowIntegration = {
   vendor: TELEGRAM_VENDOR,
   label: 'telegram:label',
   notes:
-    'Telegram messenger bots (chat bot): receive incoming messages and /commands, send text messages (optionally with link or command buttons that do not wait for a press), and ask questions with inline-keyboard buttons (yes/no, multiple choice) that pause the workflow until the user taps one. Also community management for groups and channels (moderation): triggers for a member joining or leaving and for a join request, and actions to ban (kick) or unban a member, delete a message, approve or decline a join request and look up a member (admin or not).',
+    'Telegram messenger bots (chat bot): receive incoming messages and /commands, send text messages (optionally with link or command buttons that do not wait for a press), and ask questions with inline-keyboard buttons (yes/no, multiple choice) that pause the workflow until the user taps one. Ask with programmable buttons from a static list or variable, waiting in pressed/timeout branches with a configurable answer variable. Also community management for groups and channels (moderation): triggers for a member joining or leaving and for a join request, and actions to ban (kick) or unban a member, delete a message, approve or decline a join request and look up a member (admin or not).',
   locales: {
     en: () => import('./locales/en.json'),
     ru: () => import('./locales/ru.json'),
@@ -303,6 +304,7 @@ export const telegramIntegration: IWorkflowIntegration = {
         '};',
       ].join('\n'),
     },
+    telegramAskButtonsQuestion,
     buildMessageWaitQuestion({
       vendor: TELEGRAM_VENDOR,
       name: TELEGRAM_WAIT_MESSAGE_NAME,
@@ -368,6 +370,8 @@ export const telegramIntegration: IWorkflowIntegration = {
     '};',
     '',
     TELEGRAM_PREPARE_BUTTONS_CODE,
+    '',
+    TELEGRAM_BUTTON_WAIT_REGISTRY_CODE,
     '',
     TELEGRAM_SEND_GUARD_CODE,
     '',

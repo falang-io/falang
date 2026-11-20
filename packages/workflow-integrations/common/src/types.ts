@@ -98,6 +98,8 @@ export interface IFieldConfig {
   readonly documentType?: string;
   /** Initial value of this field on a freshly inserted node (and what the editor shows for a stored-empty one), e.g. `'[]'` for an optional array expression. Defaults to `''`. */
   readonly defaultValue?: string;
+  /** Overrides whether an empty value is allowed. Primarily for a required `new-variable` with a non-empty default. */
+  readonly allowEmpty?: boolean;
   /**
    * The value a freshly inserted node starts with, when it must differ from `defaultValue` — which stays what a node
    * saved before the field existed means (it parses to `defaultValue`). E.g. MAX's "Send to": old nodes keep sending
@@ -245,9 +247,9 @@ export interface IIntegrationStructType {
 }
 
 /**
- * Describes a "chat-vendor interactive question" node: ask a question with a fixed set of button
- * choices, block until the user picks one, then branch — modeled on the `switch` node (header +
- * one `<name>-option` child per choice, each an ordinary branch). Doesn't fit `IActionDescriptor`
+ * Describes a "chat-vendor interactive question" node: ask a question, block for the answer, then branch — usually
+ * a fixed set of button choices modeled on `switch`; a reply/button wait instead has two fixed outcome branches and
+ * no per-button options. Doesn't fit `IActionDescriptor`
  * (a leaf node, single `emit()` call, no children) so it's its own descriptor category. See
  * `@falang/workflow-compiler`'s `question-emitters.ts` for the codegen this drives and
  * `@falang/workflow-scheme`'s `blocks/integration-question/` for the sidebar editor.

@@ -365,4 +365,156 @@ describe('integrations (workflow tier): Telegram', () => {
       await workflowE2eApi().delete(`/projects/${projectId}`).set(workflowE2eAuth(token));
     }
   }, 150_000);
+
+  it('telegram-ask-buttons: a press resumes pressed and a second wait takes its timeout branch', async () => {
+    const botToken = `e2e-${Date.now()}`;
+    const credentialId = `cred-${Date.now()}`;
+    const onMessage = telegramIntegration.triggers[0];
+    const fixture: IProjectExportPayload = {
+      formatVersion: 1,
+      project: { id: '', name: `Workflow-tier TG Ask Buttons ${Date.now()}` },
+      folders: [],
+      documents: [
+        buildIntegrationsDocument(credentialId, botToken),
+        {
+          id: 'ask',
+          type: 'trigger-function',
+          name: 'onMessage',
+          folderId: null,
+          pinned: false,
+          root: buildTriggerFunctionRootNode(
+            'ask',
+            {
+              vendor: telegramIntegration.vendor,
+              triggerName: onMessage.name,
+              credentialId,
+              scopeVariableName: onMessage.scopeVariableName,
+              scopeType: onMessage.scopeType,
+            },
+            [
+              {
+                id: 'buttons',
+                name: 'action',
+                data: 'const dynamicButtons = [{ kind: "command", text: "Approve", value: "approve" }];',
+              },
+              {
+                id: 'wait',
+                name: 'telegram-ask-buttons',
+                data: {
+                  credentialId,
+                  chatId: 'message.chat.id',
+                  text: 'Choose',
+                  buttons: JSON.stringify({ expression: 'dynamicButtons' }),
+                  timeout: '10m',
+                  answerVariable: 'choice',
+                  options: [],
+                },
+                children: [
+                  {
+                    id: 'pressed',
+                    name: 'telegram-ask-buttons-option',
+                    data: { label: 'pressed', fixed: true, variable: 'choice' },
+                    children: [
+                      buildTelegramSendMessageNode('picked', {
+                        credentialId,
+                        chatId: 'message.chat.id',
+                        text: 'Picked ${choice.value} by ${choice.userId}',
+                      }),
+                    ],
+                  },
+                  {
+                    id: 'timeout',
+                    name: 'telegram-ask-buttons-option',
+                    data: { label: 'timeout', fixed: true },
+                    children: [],
+                  },
+                ],
+              },
+              {
+                id: 'wait-timeout',
+                name: 'telegram-ask-buttons',
+                data: {
+                  credentialId,
+                  chatId: 'message.chat.id',
+                  text: 'Wait expired',
+                  buttons: JSON.stringify([{ kind: 'command', text: 'Never pressed', value: 'never' }]),
+                  timeout: '1s',
+                  answerVariable: 'answer',
+                  options: [],
+                },
+                children: [
+                  {
+                    id: 'timeout-pressed',
+                    name: 'telegram-ask-buttons-option',
+                    data: { label: 'pressed', fixed: true, variable: 'answer' },
+                    children: [],
+                  },
+                  {
+                    id: 'timeout-expired',
+                    name: 'telegram-ask-buttons-option',
+                    data: { label: 'timeout', fixed: true },
+                    children: [
+                      buildTelegramSendMessageNode('timeout-message', {
+                        credentialId,
+                        chatId: 'message.chat.id',
+                        text: 'Timeout reached',
+                      }),
+                    ],
+                  },
+                ],
+              },
+            ],
+          ),
+          data: null,
+        },
+      ],
+    };
+    const projectId = await importFixture(fixture);
+    try {
+      await workflowE2eApi().post(`/projects/${projectId}/build`).set(workflowE2eAuth(token)).expect(202);
+      await waitForDevRunnerStatus(projectId, true, 60_000);
+      await pushTelegramUpdate(WORKFLOW_E2E_MOCKS_URL, botToken, {
+        message: {
+          message_id: 100,
+          date: Math.floor(Date.now() / 1000),
+          chat: { id: 889, type: 'private' },
+          from: { id: 5, is_bot: false, first_name: 'Ann' },
+          text: 'start',
+        },
+      });
+      const question = await workflowE2eWaitForValue(async () => {
+        const calls = await getTelegramCalls(WORKFLOW_E2E_MOCKS_URL, botToken);
+        return calls.find(
+          (call) => call.method === 'sendMessage' && (call.body as { text?: string }).text === 'Choose',
+        );
+      }, 60_000);
+      const body = question.body as {
+        reply_markup: { inline_keyboard: { callback_data?: string }[][] };
+      };
+      const callbackData = body.reply_markup.inline_keyboard[0][0].callback_data;
+      expect(callbackData).toMatch(/^falang-wait:/);
+      await pushTelegramUpdate(WORKFLOW_E2E_MOCKS_URL, botToken, {
+        callback_query: {
+          id: 'cbq-approve',
+          data: callbackData,
+          from: { id: 5, is_bot: false, first_name: 'Ann' },
+          message: { message_id: 1, date: Math.floor(Date.now() / 1000), chat: { id: 889, type: 'private' } },
+        },
+      });
+      await workflowE2eWaitForValue(async () => {
+        const calls = await getTelegramCalls(WORKFLOW_E2E_MOCKS_URL, botToken);
+        return calls.find(
+          (call) => call.method === 'sendMessage' && (call.body as { text?: string }).text === 'Picked approve by 5',
+        );
+      }, 60_000);
+      await workflowE2eWaitForValue(async () => {
+        const calls = await getTelegramCalls(WORKFLOW_E2E_MOCKS_URL, botToken);
+        return calls.find(
+          (call) => call.method === 'sendMessage' && (call.body as { text?: string }).text === 'Timeout reached',
+        );
+      }, 60_000);
+    } finally {
+      await workflowE2eApi().delete(`/projects/${projectId}`).set(workflowE2eAuth(token));
+    }
+  }, 150_000);
 });

@@ -24,6 +24,7 @@ import {
 } from './constants.js';
 import { VK_SEND_RESULT_FIELD, VK_SEND_RESULT_TYPE } from './vk-send-result.js';
 import { registerVkBackend } from './vk-backend.js';
+import { vkAskButtonsQuestion } from './vk-ask-buttons-question.js';
 import { vkMemberTriggers } from './vk-member-triggers.js';
 import { vkDeleteMessageAction, vkKickFromChatAction } from './vk-moderation-actions.js';
 import { vkGetMessageAction, vkGetMessagesAction } from './vk-read-actions.js';
@@ -84,7 +85,7 @@ export const vkIntegration: IWorkflowIntegration = {
   vendor: VK_VENDOR,
   label: 'vk:label',
   notes:
-    'VKontakte (VK / ВКонтакте) community bots: receive incoming messages and /commands sent to a community, send text messages and files (optionally with link or command buttons that do not wait for a press), and ask questions with inline callback buttons (yes/no, multiple choice) that pause the workflow until the user taps one. Works like the Telegram integration; reply to `message.chat.id` (VK peer_id). Pressing "Начать" arrives as the text "/start". Community moderation, group and conversation management: member triggers (a subscriber joined or left the community, a join request, a member joined or left a conversation/chat) and the actions vk-kick-from-chat (remove a member from a conversation) and vk-delete-message; the community must be an administrator of the conversation (right to delete messages and remove members). Reading messages: vk-get-messages returns the latest messages of a dialog or conversation (history, chat log, conversation context for AI), vk-get-message one message by its conversation_message_id. There is no community-level ban and no approving of join requests with a community key. vk-question buttons pressed in a conversation are not routed to the run that asked when the trigger uses conversation "per-user" or "per-event".',
+    'VKontakte (VK / ВКонтакте) community bots: receive incoming messages and /commands sent to a community, send text messages and files (optionally with link or command buttons that do not wait for a press), and ask questions with inline callback buttons (yes/no, multiple choice) that pause the workflow until the user taps one. Ask with programmable buttons from a static list or variable, waiting in pressed/timeout branches with a configurable answer variable. Works like the Telegram integration; reply to `message.chat.id` (VK peer_id). Pressing "Начать" arrives as the text "/start". Community moderation, group and conversation management: member triggers (a subscriber joined or left the community, a join request, a member joined or left a conversation/chat) and the actions vk-kick-from-chat (remove a member from a conversation) and vk-delete-message; the community must be an administrator of the conversation (right to delete messages and remove members). Reading messages: vk-get-messages returns the latest messages of a dialog or conversation (history, chat log, conversation context for AI), vk-get-message one message by its conversation_message_id. There is no community-level ban and no approving of join requests with a community key. vk-question buttons pressed in a conversation are not routed to the run that asked when the trigger uses conversation "per-user" or "per-event".',
   locales: {
     en: () => import('./locales/en.json'),
     ru: () => import('./locales/ru.json'),
@@ -275,6 +276,7 @@ export const vkIntegration: IWorkflowIntegration = {
         '};',
       ].join('\n'),
     },
+    vkAskButtonsQuestion,
     buildMessageWaitQuestion({
       vendor: VK_VENDOR,
       name: VK_WAIT_MESSAGE_NAME,

@@ -40,7 +40,7 @@ export const storedFieldValues = (
  * result is simply not kept (no variable is declared). Any other field is checked as it stands.
  */
 export const isOptionalField = (field: IFieldConfig): boolean =>
-  field.kind === 'new-variable' || typeof field.defaultValue === 'string';
+  field.allowEmpty ?? (field.kind === 'new-variable' || typeof field.defaultValue === 'string');
 
 /**
  * The checked fields of a descriptor-driven node (an integration action, or a question/choice header): `expression`

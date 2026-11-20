@@ -33,6 +33,21 @@ describe('describeFieldForAgent', () => {
     expect(describeFieldForAgent(chatIdField)).not.toContain('Example');
   });
 
+  it('describes a required new variable without the optional-result wording', () => {
+    const description = describeFieldForAgent({
+      name: 'answerVariable',
+      label: 'Answer',
+      kind: 'new-variable',
+      defaultValue: 'answer',
+      allowEmpty: false,
+      agentNotes: 'Available only in the pressed branch.',
+    });
+    expect(description).toContain('Required: never leave it empty');
+    expect(description).not.toContain('Optional:');
+    expect(description).not.toContain('Later sibling nodes');
+    expect(description).toContain('Available only in the pressed branch.');
+  });
+
   it('tells a template-string field its backticks are added automatically', () => {
     expect(describeFieldForAgent(textField)).toContain('do NOT wrap the value in backticks or quotes');
   });

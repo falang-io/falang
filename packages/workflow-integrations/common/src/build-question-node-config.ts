@@ -6,6 +6,7 @@ import {
   type IQuestionOptionDataWithType,
   type TTaskOptionDataType,
 } from './question-extensions.js';
+import { BUTTON_WAIT_BRANCHES } from './button-wait.js';
 import type { IQuestionDescriptor } from './types.js';
 
 /**
@@ -25,6 +26,8 @@ export interface IQuestionOptionData {
   readonly label: string;
   /** Set only on the automatic `timeout` option a `timeoutField` descriptor adds — see `TIMEOUT_OPTION_LABEL`/`buildQuestionNodeConfig`. Never user-set, never deletable/renamable/reorderable (enforced by the sidebar editor, not this schema). */
   readonly fixed?: boolean;
+  /** Compiled-tree fallback for a button wait's answer name; live editor scope reads the parent header instead. */
+  readonly variable?: string;
 }
 
 const DEFAULT_OPTION_LABELS: readonly string[] = ['Вариант 1', 'Вариант 2'];
@@ -60,7 +63,11 @@ export const buildQuestionHeaderDataSchema = (descriptor: IQuestionDescriptor): 
 
 const TASK_OPTION_DATA_TYPES: readonly TTaskOptionDataType[] = ['void', 'string', 'number', 'boolean'];
 
-const questionOptionDataSchema = zod.object({ label: zod.string(), fixed: zod.boolean().optional() });
+const questionOptionDataSchema = zod.object({
+  label: zod.string(),
+  fixed: zod.boolean().optional(),
+  variable: zod.string().optional(),
+});
 const questionOptionWithTypeDataSchema = zod.object({
   label: zod.string(),
   dataType: zod.enum(TASK_OPTION_DATA_TYPES),
@@ -78,7 +85,8 @@ const questionOptionWithTypeDataSchema = zod.object({
  * instead of a bare `{ label }`; with `timeoutField`, the sidebar editor appends one extra, fixed
  * (`data.fixed: true`) option beyond the regular ones — only while the timeout field is non-empty
  * (a fresh node has none: no timeout, no `timeout` branch) — never counted in `options` and never
- * editable/deletable by hand (see `@falang/workflow-scheme`'s `QuestionEditorStore`).
+ * editable/deletable by hand (see `@falang/workflow-scheme`'s `QuestionEditorStore`). `replyWait`/`buttonWait`
+ * are the exception: they always seed two fixed outcome branches and keep `options` empty.
  */
 export const buildQuestionNodeConfig = (descriptor: IQuestionDescriptor): readonly INodeConfig[] => {
   const optionNodeName = `${descriptor.name}-option`;
@@ -88,17 +96,22 @@ export const buildQuestionNodeConfig = (descriptor: IQuestionDescriptor): readon
     descriptor.optionDataTypes ? { label, dataType: 'void' } : { label };
   const defaultData = (): TQuestionHeaderData => ({
     ...Object.fromEntries(getQuestionHeaderFields(descriptor).map((field) => [field.name, defaultFieldValue(field)])),
-    options: descriptor.replyWait ? [] : DEFAULT_OPTION_LABELS,
+    options: descriptor.replyWait || descriptor.buttonWait ? [] : DEFAULT_OPTION_LABELS,
   });
-  const buildDefaultChildren = () =>
-    descriptor.replyWait
-      ? REPLY_WAIT_BRANCHES.map((data) => ({ id: nanoid(), name: optionNodeName, data, children: [] }))
-      : DEFAULT_OPTION_LABELS.map((label) => ({
-          id: nanoid(),
-          name: optionNodeName,
-          data: buildOptionData(label),
-          children: [],
-        }));
+  const buildDefaultChildren = () => {
+    if (descriptor.replyWait) {
+      return REPLY_WAIT_BRANCHES.map((data) => ({ id: nanoid(), name: optionNodeName, data, children: [] }));
+    }
+    if (descriptor.buttonWait) {
+      return BUTTON_WAIT_BRANCHES.map((data) => ({ id: nanoid(), name: optionNodeName, data, children: [] }));
+    }
+    return DEFAULT_OPTION_LABELS.map((label) => ({
+      id: nanoid(),
+      name: optionNodeName,
+      data: buildOptionData(label),
+      children: [],
+    }));
+  };
 
   return [
     {
